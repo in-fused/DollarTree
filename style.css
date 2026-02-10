@@ -76,7 +76,7 @@ aside {
   top: 0;
   left: 0;
   height: 100%;
-  width: 280px;
+  width: 200px;
   background: rgba(17, 20, 26, 0.96);
   padding: 16px;
   border-right: 1px solid rgba(255,255,255,0.06);
@@ -229,7 +229,7 @@ input {
 }
 
 /* ===== MOBILE ===== */
-@media (max-width: 468px) {
+@media (max-width: 768px) {
   aside {
     width: 85%;
     max-width: 320px;
