@@ -119,4 +119,9 @@ function enableSearch() {
     });
 }
 
-load();
+load().then(() => {
+  // Force Leaflet to recalc container size
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 300);
+});
