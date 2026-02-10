@@ -210,3 +210,81 @@ input {
     font-size: 22px;
   }
 }
+
+/* ===== PREMIUM POLISH LAYER ===== */
+
+/* Smooth global transitions */
+button,
+input,
+aside,
+.panel {
+  transition: all 0.25s ease;
+}
+
+/* Glassy sidebar panels */
+.panel {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+/* Hover lift for interactive elements */
+button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+/* Progress bar refinement */
+.progressBar {
+  height: 10px;
+  background: rgba(255,255,255,0.08);
+}
+
+#progressFill {
+  background: linear-gradient(
+    90deg,
+    #c8102e,
+    #ff3b3b,
+    #ff6a6a
+  );
+}
+
+/* Sidebar slide feels heavier / premium */
+aside {
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Modal animation */
+.modal {
+  animation: fadeIn 0.2s ease;
+}
+
+.modalContent {
+  animation: scaleIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Map feels integrated */
+#map {
+  filter: saturate(1.05) contrast(1.05);
+}
+
+/* Locate button premium feel */
+#locateBtn {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#locateBtn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
