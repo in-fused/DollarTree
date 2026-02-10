@@ -48,11 +48,10 @@ async function loadData() {
   // Render stores ONE BY ONE
   for (const store of stores) {
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          store.full_address
-        )}`
-      );
+      const query = encodeURIComponent(store.full_address);
+const url = "https://nominatim.openstreetmap.org/search?format=json&q=" + query;
+const res = await fetch(url);
+
       const results = await res.json();
       if (!results[0]) continue;
 
