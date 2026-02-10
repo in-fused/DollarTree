@@ -1,4 +1,4 @@
-// ===== SUPABASE CONFIG =====
+/***** SUPABASE CONFIG *****/
 const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
 const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";
 
@@ -7,55 +7,131 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
-// ===== MAP SETUP =====
+/***** MAP SETUP *****/
 const map = L.map("map").setView([27.8, -81.7], 7);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18
 }).addTo(map);
 
-// ===== IN-MEMORY STATE =====
+/***** IN-MEMORY STATE *****/
 const markerByStoreId = {};
 const storeDataById = {};
-let statusMap = {};
+const statusMap = {};
 
-// ===== HELPERS =====
-function popupHTML(store, completed) {
-  return `
-    <b>Store #${store.store_id}</b><br/>
-    ${store.full_address}<br/><br/>
-    <button onclick="toggleStatus(${store.store_id})">
-      ${completed ? "Mark Incomplete" : "Mark Completed"}
-    </button>
-  `;
+/***** POPUP HTML (NO TEMPLATE LITERAL NESTING) *****/
+function buildPopup(storeId, address, completed) {
+  let buttonText = completed ? "Mark Incomplete" : "Mark Completed";
+
+  return (
+    "<b>Store #" + storeId + "</b><br/>" +
+    address + "<br/><br/>" +
+    "<button onclick=\"toggleStatus(" + storeId + ")\">" +
+    buttonText +
+    "</button>"
+  );
 }
 
-// ===== LOAD EVERYTHING =====
+/***** LOAD DATA *****/
 async function loadData() {
-  // Load static store list
-  const stores = await fetch("stores.json").then(r => r.json());
-  stores.forEach(s => (storeDataById[s.store_id] = s));
+  // Load stores
+  const storesResponse = await fetch("stores.json");
+  const stores = await storesResponse.json();
+
+  for (let i = 0; i < stores.length; i++) {
+    storeDataById[stores[i].store_id] = stores[i];
+  }
 
   // Load completion status
-  const { data } = await supabaseClient
+  const statusResult = await supabaseClient
     .from("store_status")
     .select("*");
 
-  data?.forEach(r => {
-    statusMap[r.store_id] = r.completed;
-  });
+  if (statusResult.data) {
+    for (let i = 0; i < statusResult.data.length; i++) {
+      statusMap[statusResult.data[i].store_id] =
+        statusResult.data[i].completed === true;
+    }
+  }
 
-  // Render stores ONE BY ONE
-  for (const store of stores) {
+  // Render stores one by one
+  for (let i = 0; i < stores.length; i++) {
+    const store = stores[i];
+
     try {
       const query = encodeURIComponent(store.full_address);
-const url = "https://nominatim.openstreetmap.org/search?format=json&q=" + query;
-const res = await fetch(url);
+      const url =
+        "https://nominatim.openstreetmap.org/search?format=json&q=" + query;
 
-      const results = await res.json();
-      if (!results[0]) continue;
+      const geoRes = await fetch(url);
+      const geoData = await geoRes.json();
 
+      if (!geoData || !geoData[0]) {
+        continue;
+      }
+
+      const lat = parseFloat(geoData[0].lat);
+      const lon = parseFloat(geoData[0].lon);
       const completed = statusMap[store.store_id] === true;
 
-      const marker = L.circleMarker(
-        [r]()
+      const marker = L.circleMarker([lat, lon], {
+        radius: 7,
+        color: completed ? "green" : "red"
+      }).addTo(map);
+
+      marker.bindPopup(
+        buildPopup(
+          store.store_id,
+          store.full_address,
+          completed
+        )
+      );
+
+      markerByStoreId[store.store_id] = marker;
+    } catch (err) {
+      console.error("Failed to load store", store.store_id, err);
+    }
+  }
+}
+
+/***** TOGGLE COMPLETION (NO RELOAD) *****/
+async function toggleStatus(storeId) {
+  const current = statusMap[storeId] === true;
+  const next = !current;
+
+  const result = await supabaseClient
+    .from("store_status")
+    .upsert({
+      store_id: storeId,
+      completed: next,
+      updated_at: new Date()
+    });
+
+  if (result.error) {
+    alert("Failed to update status");
+    console.error(result.error);
+    return;
+  }
+
+  statusMap[storeId] = next;
+
+  const marker = markerByStoreId[storeId];
+  const store = storeDataById[storeId];
+
+  if (marker && store) {
+    marker.setStyle({
+      color: next ? "green" : "red"
+    });
+
+    marker.setPopupContent(
+      buildPopup(
+        store.store_id,
+        store.full_address,
+        next
+      )
+    );
+  }
+}
+
+/***** START *****/
+loadData();
