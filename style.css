@@ -1,4 +1,4 @@
-/* ===== BASE RESET ===== */
+/* ===== RESET ===== */
 * {
   box-sizing: border-box;
   font-family: Inter, system-ui, -apple-system, sans-serif;
@@ -16,11 +16,25 @@ header {
   height: 64px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   padding: 0 16px;
   background: linear-gradient(90deg, #001f3f, #003366);
   border-bottom: 3px solid #c8102e;
   z-index: 1000;
+}
+
+#sidebarToggle {
+  font-size: 22px;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+.brandLockup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .logo {
@@ -29,24 +43,31 @@ header {
   font-size: 18px;
 }
 
+.divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255,255,255,0.25);
+}
+
+.brandMeta {
+  display: flex;
+  flex-direction: column;
+}
+
 .subtitle {
   font-size: 12px;
   opacity: 0.85;
 }
 
-#sidebarToggle {
-  font-size: 20px;
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
+.subsubtitle {
+  font-size: 11px;
+  opacity: 0.6;
 }
 
 /* ===== LAYOUT ===== */
 main {
   position: relative;
   height: calc(100vh - 64px);
-  width: 100%;
 }
 
 /* ===== SIDEBAR ===== */
@@ -56,21 +77,25 @@ aside {
   left: 0;
   height: 100%;
   width: 280px;
-
-  background: #11141a;
+  background: rgba(17, 20, 26, 0.96);
   padding: 16px;
-  border-right: 1px solid #1f2430;
-
+  border-right: 1px solid rgba(255,255,255,0.06);
   z-index: 500;
-  transition: transform 0.3s ease;
+  transform: translateX(0);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 aside.collapsed {
   transform: translateX(-100%);
 }
 
+/* Glass panels */
 .panel {
+  background: rgba(255,255,255,0.035);
+  border-radius: 12px;
+  padding: 14px;
   margin-bottom: 18px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
 }
 
 .panel h3 {
@@ -83,7 +108,7 @@ aside.collapsed {
 input {
   width: 100%;
   padding: 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   border: none;
   outline: none;
 }
@@ -91,17 +116,22 @@ input {
 /* ===== PROGRESS ===== */
 .progressBar {
   margin-top: 6px;
-  background: #222;
-  height: 8px;
-  border-radius: 4px;
+  background: rgba(255,255,255,0.12);
+  height: 10px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
 #progressFill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #c8102e, #ff3b3b);
-  transition: width 0.4s ease;
+  background: linear-gradient(90deg, #c8102e, #ff3b3b, #ff6a6a);
+  transition: width 0.5s ease;
+}
+
+#momentumRing {
+  margin-top: 14px;
+  display: block;
 }
 
 /* ===== LEGEND ===== */
@@ -118,13 +148,8 @@ input {
   margin-right: 6px;
 }
 
-.red {
-  background: #e10600;
-}
-
-.green {
-  background: #2ecc71;
-}
+.red { background: #e10600; }
+.green { background: #2ecc71; }
 
 /* ===== MAP ===== */
 #map {
@@ -132,14 +157,14 @@ input {
   inset: 0;
   width: 100%;
   height: 100%;
+  filter: saturate(1.05) contrast(1.05);
 }
 
-/* ===== LOCATE ME BUTTON ===== */
+/* ===== LOCATE ME ===== */
 #locateBtn {
   position: absolute;
   bottom: 20px;
   right: 20px;
-
   background: #c8102e;
   border: none;
   color: white;
@@ -147,12 +172,16 @@ input {
   padding: 12px;
   border-radius: 50%;
   cursor: pointer;
-
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   z-index: 600;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* ===== CONFIRMATION MODAL ===== */
+#locateBtn:hover {
+  transform: scale(1.05);
+}
+
+/* ===== MODAL ===== */
 .modal {
   position: fixed;
   inset: 0;
@@ -170,9 +199,10 @@ input {
 .modalContent {
   background: #11141a;
   padding: 20px;
-  border-radius: 8px;
+  border-radius: 10px;
   width: 280px;
   text-align: center;
+  animation: scaleIn 0.25s ease;
 }
 
 .modalActions {
@@ -182,7 +212,7 @@ input {
 }
 
 .modalActions button {
-  padding: 8px 12px;
+  padding: 8px 14px;
   border: none;
   cursor: pointer;
 }
@@ -192,99 +222,16 @@ input {
   color: white;
 }
 
-/* ===== PULSE ANIMATION ===== */
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(46,204,113,0.7); }
-  70% { box-shadow: 0 0 0 12px rgba(46,204,113,0); }
-  100% { box-shadow: 0 0 0 0 rgba(46,204,113,0); }
-}
-
-/* ===== MOBILE TWEAKS ===== */
-@media (max-width: 768px) {
-  aside {
-    width: 85%;
-    max-width: 320px;
-  }
-
-  #sidebarToggle {
-    font-size: 22px;
-  }
-}
-
-/* ===== PREMIUM POLISH LAYER ===== */
-
-/* Smooth global transitions */
-button,
-input,
-aside,
-.panel {
-  transition: all 0.25s ease;
-}
-
-/* Glassy sidebar panels */
-.panel {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
-  padding: 14px;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
-}
-
-/* Hover lift for interactive elements */
-button:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.05);
-}
-
-/* Progress bar refinement */
-.progressBar {
-  height: 10px;
-  background: rgba(255,255,255,0.08);
-}
-
-#progressFill {
-  background: linear-gradient(
-    90deg,
-    #c8102e,
-    #ff3b3b,
-    #ff6a6a
-  );
-}
-
-/* Sidebar slide feels heavier / premium */
-aside {
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Modal animation */
-.modal {
-  animation: fadeIn 0.2s ease;
-}
-
-.modalContent {
-  animation: scaleIn 0.25s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
+/* ===== ANIMATIONS ===== */
 @keyframes scaleIn {
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
 
-/* Map feels integrated */
-#map {
-  filter: saturate(1.05) contrast(1.05);
-}
-
-/* Locate button premium feel */
-#locateBtn {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-#locateBtn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  aside {
+    width: 85%;
+    max-width: 320px;
+  }
 }
