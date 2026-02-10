@@ -7,131 +7,116 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
-/***** MAP SETUP *****/
+/***** MAP *****/
 const map = L.map("map").setView([27.8, -81.7], 7);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18
 }).addTo(map);
 
-/***** IN-MEMORY STATE *****/
+const cluster = L.markerClusterGroup();
+map.addLayer(cluster);
+
+/***** STATE *****/
 const markerByStoreId = {};
-const storeDataById = {};
 const statusMap = {};
 
-/***** POPUP HTML (NO TEMPLATE LITERAL NESTING) *****/
-function buildPopup(storeId, address, completed) {
-  let buttonText = completed ? "Mark Incomplete" : "Mark Completed";
-
-  return (
-    "<b>Store #" + storeId + "</b><br/>" +
-    address + "<br/><br/>" +
-    "<button onclick=\"toggleStatus(" + storeId + ")\">" +
-    buttonText +
-    "</button>"
-  );
+/***** POPUP *****/
+function popup(store, completed) {
+  return `
+    <b>Store #${store.store_id}</b><br/>
+    ${store.full_address}<br/><br/>
+    <button onclick="toggleStatus(${store.store_id})">
+      ${completed ? "Mark Incomplete" : "Mark Completed"}
+    </button>
+  `;
 }
 
-/***** LOAD DATA *****/
-async function loadData() {
-  // Load stores
-  const storesResponse = await fetch("stores.json");
-  const stores = await storesResponse.json();
+/***** LOAD *****/
+async function load() {
+  const stores = await fetch("stores.json").then(r => r.json());
 
-  for (let i = 0; i < stores.length; i++) {
-    storeDataById[stores[i].store_id] = stores[i];
-  }
-
-  // Load completion status
-  const statusResult = await supabaseClient
+  const { data: rows } = await supabaseClient
     .from("store_status")
     .select("*");
 
-  if (statusResult.data) {
-    for (let i = 0; i < statusResult.data.length; i++) {
-      statusMap[statusResult.data[i].store_id] =
-        statusResult.data[i].completed === true;
-    }
-  }
+  rows?.forEach(r => {
+    statusMap[r.store_id] = r;
+  });
 
-  // Render stores one by one
-  for (let i = 0; i < stores.length; i++) {
-    const store = stores[i];
+  let completedCount = 0;
 
-    try {
-      const query = encodeURIComponent(store.full_address);
-      const url =
-        "https://nominatim.openstreetmap.org/search?format=json&q=" + query;
+  for (const store of stores) {
+    let status = statusMap[store.store_id];
 
-      const geoRes = await fetch(url);
-      const geoData = await geoRes.json();
-
-      if (!geoData || !geoData[0]) {
-        continue;
-      }
-
-      const lat = parseFloat(geoData[0].lat);
-      const lon = parseFloat(geoData[0].lon);
-      const completed = statusMap[store.store_id] === true;
-
-      const marker = L.circleMarker([lat, lon], {
-        radius: 7,
-        color: completed ? "green" : "red"
-      }).addTo(map);
-
-      marker.bindPopup(
-        buildPopup(
-          store.store_id,
-          store.full_address,
-          completed
-        )
+    // Use cached coordinates if present
+    if (!status || status.lat == null || status.lng == null) {
+      const q = encodeURIComponent(store.full_address);
+      const res = await fetch(
+        "https://nominatim.openstreetmap.org/search?format=json&q=" + q
       );
+      const geo = await res.json();
+      if (!geo[0]) continue;
 
-      markerByStoreId[store.store_id] = marker;
-    } catch (err) {
-      console.error("Failed to load store", store.store_id, err);
+      status = status || { store_id: store.store_id, completed: false };
+      status.lat = parseFloat(geo[0].lat);
+      status.lng = parseFloat(geo[0].lon);
+
+      await supabaseClient.from("store_status").upsert(status);
     }
+
+    if (status.completed) completedCount++;
+
+    const marker = L.circleMarker(
+      [status.lat, status.lng],
+      { radius: 7, color: status.completed ? "green" : "red" }
+    );
+
+    marker.bindPopup(popup(store, status.completed));
+    cluster.addLayer(marker);
+
+    markerByStoreId[store.store_id] = marker;
   }
+
+  document.getElementById("progressText").innerText =
+    `${completedCount} / ${stores.length} completed`;
+
+  enableSearch();
 }
 
-/***** TOGGLE COMPLETION (NO RELOAD) *****/
+/***** TOGGLE *****/
 async function toggleStatus(storeId) {
-  const current = statusMap[storeId] === true;
+  const current = statusMap[storeId]?.completed === true;
   const next = !current;
 
-  const result = await supabaseClient
-    .from("store_status")
-    .upsert({
-      store_id: storeId,
-      completed: next,
-      updated_at: new Date()
-    });
+  statusMap[storeId].completed = next;
 
-  if (result.error) {
-    alert("Failed to update status");
-    console.error(result.error);
-    return;
-  }
-
-  statusMap[storeId] = next;
+  await supabaseClient.from("store_status").upsert({
+    ...statusMap[storeId],
+    completed: next,
+    updated_at: new Date()
+  });
 
   const marker = markerByStoreId[storeId];
-  const store = storeDataById[storeId];
+  marker.setStyle({ color: next ? "green" : "red" });
 
-  if (marker && store) {
-    marker.setStyle({
-      color: next ? "green" : "red"
-    });
-
-    marker.setPopupContent(
-      buildPopup(
-        store.store_id,
-        store.full_address,
-        next
-      )
-    );
-  }
+  document.getElementById("progressText").innerText =
+    Object.values(statusMap).filter(s => s.completed).length +
+    " completed";
 }
 
-/***** START *****/
-loadData();
+/***** SEARCH *****/
+function enableSearch() {
+  document
+    .getElementById("storeSearch")
+    .addEventListener("keydown", e => {
+      if (e.key !== "Enter") return;
+      const id = parseInt(e.target.value, 10);
+      const marker = markerByStoreId[id];
+      if (!marker) return alert("Store not found");
+      map.setView(marker.getLatLng(), 15);
+      marker.openPopup();
+    });
+}
+
+load();
