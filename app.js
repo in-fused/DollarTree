@@ -1,10 +1,12 @@
-const SUPABASE_URL = window.ENV.SUPABASE_URL;
-const SUPABASE_KEY = window.ENV.SUPABASE_KEY;
+// 🔒 Supabase config (anon key is safe to expose)
+const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
+const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
 
 const supabaseClient = supabase.createClient(
   SUPABASE_URL,
   SUPABASE_KEY
 );
+
 
 // Initialize map (Florida-wide)
 const map = L.map("map").setView([27.8, -81.7], 7);
