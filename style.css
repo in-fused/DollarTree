@@ -192,3 +192,9 @@ input {
     width: 100%;
   }
 }
+
+@media (max-width: 768px) {
+  #sidebarToggle {
+    font-size: 22px;
+  }
+}
