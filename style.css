@@ -168,3 +168,27 @@ input {
   70% { box-shadow: 0 0 0 12px rgba(46,204,113,0); }
   100% { box-shadow: 0 0 0 0 rgba(46,204,113,0); }
 }
+
+/* ===== MOBILE FIX ===== */
+@media (max-width: 768px) {
+  aside {
+    position: absolute;
+    top: 64px;
+    left: 0;
+    height: calc(100vh - 64px);
+    z-index: 500;
+    transform: translateX(0);
+  }
+
+  aside.collapsed {
+    transform: translateX(-100%);
+  }
+
+  main {
+    position: relative;
+  }
+
+  #map {
+    width: 100%;
+  }
+}
