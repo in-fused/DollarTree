@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Red Bull Field Ops – Dollar Tree FL</title>
+  <title>Red Bull Field Ops — Dollar Tree FL Resets</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Favicon -->
@@ -20,9 +20,14 @@
 
 <header>
   <button id="sidebarToggle">☰</button>
-  <div>
+
+  <div class="brandLockup">
     <div class="logo">RED BULL</div>
-    <div class="subtitle">Florida Dollar Tree Reset Tracker</div>
+    <div class="divider"></div>
+    <div class="brandMeta">
+      <div class="subtitle">Field Operations</div>
+      <div class="subsubtitle">Florida Dollar Tree Reset Tracker</div>
+    </div>
   </div>
 </header>
 
@@ -36,9 +41,34 @@
     <div class="panel">
       <h3>Progress</h3>
       <div id="progressText">Loading…</div>
+
       <div class="progressBar">
         <div id="progressFill"></div>
       </div>
+
+      <!-- Momentum Ring -->
+      <svg id="momentumRing" width="120" height="120" viewBox="0 0 120 120">
+        <circle
+          cx="60"
+          cy="60"
+          r="52"
+          stroke="rgba(255,255,255,0.12)"
+          stroke-width="10"
+          fill="none"
+        />
+        <circle
+          id="momentumProgress"
+          cx="60"
+          cy="60"
+          r="52"
+          stroke="#c8102e"
+          stroke-width="10"
+          fill="none"
+          stroke-linecap="round"
+          stroke-dasharray="326"
+          stroke-dashoffset="326"
+        />
+      </svg>
     </div>
 
     <div class="panel legend">
@@ -50,7 +80,7 @@
   <section id="map"></section>
 
   <!-- Locate Me -->
-  <button id="locateBtn">📍</button>
+  <button id="locateBtn" title="Center on my location">📍</button>
 </main>
 
 <!-- Confirmation Modal -->
