@@ -134,7 +134,15 @@ function renderMap() {
 
 /***** TOGGLE *****/
 async function toggle(storeId) {
-  const next = !(statusMap[storeId] === true);
+  const currentlyCompleted = statusMap[storeId] === true;
+  const next = !currentlyCompleted;
+
+  // 🔒 Confirmation ONLY when marking completed
+  if (!currentlyCompleted) {
+    const ok = confirm(`Mark Store #${storeId} as completed?`);
+    if (!ok) return;
+  }
+
   statusMap[storeId] = next;
 
   await supabaseClient.from("store_status").upsert({
@@ -143,7 +151,7 @@ async function toggle(storeId) {
     updated_at: new Date()
   });
 
-  // Update source in-place (fast, no reload)
+  // Update map source in-place
   const source = map.getSource("stores");
   const data = source._data;
 
