@@ -15,24 +15,6 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18
 }).addTo(map);
 
-document
-  .getElementById("storeSearch")
-  .addEventListener("keydown", e => {
-    if (e.key !== "Enter") return;
-
-    const storeId = parseInt(e.target.value, 10);
-    const marker = markerByStoreId[storeId];
-
-    if (!marker) {
-      alert("Store not found");
-      return;
-    }
-
-    map.setView(marker.getLatLng(), 15);
-    marker.openPopup();
-  });
-
-
 async function loadData() {
   const stores = await fetch("stores.json").then(r => r.json());
 
@@ -62,10 +44,12 @@ async function loadData() {
     const completed = statusMap[store.store_id] === true;
 
     const marker = L.circleMarker(
-  [results[0].lat, results[0].lon],
-  { radius: 7, color: completed ? "green" : "red" }
-).addTo(map);
-
+      [results[0].lat, results[0].lon],
+      {
+        radius: 7,
+        color: completed ? "green" : "red"
+      }
+    ).addTo(map);
 
     marker.bindPopup(`
       <b>Store #${store.store_id}</b><br/>
@@ -78,13 +62,11 @@ async function loadData() {
 }
 
 async function toggleStatus(storeId, current) {
-  const { error } = await supabaseClient
-    .from("store_status")
-    .upsert({
-      store_id: storeId,
-      completed: !current,
-      updated_at: new Date()
-    });
+  const { error } = await supabaseClient.from("store_status").upsert({
+    store_id: storeId,
+    completed: !current,
+    updated_at: new Date()
+  });
 
   if (error) {
     alert("Failed to update status");
@@ -92,17 +74,7 @@ async function toggleStatus(storeId, current) {
     return;
   }
 
-  const marker = markerByStoreId[storeId];
-  if (marker) {
-    marker.setStyle({
-      color: !current ? "green" : "red"
-    });
-
-    marker.setPopupContent(
-      marker.getPopup().getContent().replace(
-        current ? "Mark Incomplete" : "Mark Completed",
-        current ? "Mark Completed" : "Mark Incomplete"
-      )
-    );
-  }
+  location.reload();
 }
+
+loadData();
