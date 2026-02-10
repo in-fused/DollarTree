@@ -17,6 +17,24 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18
 }).addTo(map);
 
+document
+  .getElementById("storeSearch")
+  .addEventListener("keydown", e => {
+    if (e.key !== "Enter") return;
+
+    const storeId = parseInt(e.target.value, 10);
+    const marker = markerByStoreId[storeId];
+
+    if (!marker) {
+      alert("Store not found");
+      return;
+    }
+
+    map.setView(marker.getLatLng(), 15);
+    marker.openPopup();
+  });
+
+
 async function loadData() {
   const stores = await fetch("stores.json").then(r => r.json());
 
