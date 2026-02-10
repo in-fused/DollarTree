@@ -1,3 +1,5 @@
+const markerByStoreId = {};
+
 // 🔒 Supabase config (anon key is safe to expose)
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
@@ -44,12 +46,12 @@ async function loadData() {
     const completed = statusMap[store.store_id] === true;
 
     const marker = L.circleMarker(
-      [results[0].lat, results[0].lon],
-      {
-        radius: 7,
-        color: completed ? "green" : "red"
-      }
-    ).addTo(map);
+  [results[0].lat, results[0].lon],
+  { radius: 7, color: completed ? "green" : "red" }
+).addTo(map);
+
+markerByStoreId[store.store_id] = marker;
+
 
     marker.bindPopup(`
       <b>Store #${store.store_id}</b><br/>
@@ -62,11 +64,13 @@ async function loadData() {
 }
 
 async function toggleStatus(storeId, current) {
-  const { error } = await supabaseClient.from("store_status").upsert({
-    store_id: storeId,
-    completed: !current,
-    updated_at: new Date()
-  });
+  const { error } = await supabaseClient
+    .from("store_status")
+    .upsert({
+      store_id: storeId,
+      completed: !current,
+      updated_at: new Date()
+    });
 
   if (error) {
     alert("Failed to update status");
@@ -74,7 +78,17 @@ async function toggleStatus(storeId, current) {
     return;
   }
 
-  location.reload();
-}
+  const marker = markerByStoreId[storeId];
+  if (marker) {
+    marker.setStyle({
+      color: !current ? "green" : "red"
+    });
 
-loadData();
+    marker.setPopupContent(
+      marker.getPopup().getContent().replace(
+        current ? "Mark Incomplete" : "Mark Completed",
+        current ? "Mark Completed" : "Mark Incomplete"
+      )
+    );
+  }
+}
