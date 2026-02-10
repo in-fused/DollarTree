@@ -229,9 +229,9 @@ input {
 }
 
 /* ===== MOBILE ===== */
-@media (max-width: 768px) {
+@media (max-width: 368px) {
   aside {
     width: 85%;
-    max-width: 320px;
+    max-width: 120px;
   }
 }
