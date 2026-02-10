@@ -2,8 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Red Bull | Dollar Tree FL Resets</title>
+  <title>Red Bull Field Ops – Dollar Tree FL</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/favicon.png" />
 
   <!-- Mapbox -->
   <link
@@ -16,33 +19,50 @@
 <body>
 
 <header>
-  <div class="logo">RED BULL</div>
-  <div class="subtitle">Florida Dollar Tree Reset Tracker</div>
+  <button id="sidebarToggle">☰</button>
+  <div>
+    <div class="logo">RED BULL</div>
+    <div class="subtitle">Florida Dollar Tree Reset Tracker</div>
+  </div>
 </header>
 
 <main>
-  <aside>
+  <aside id="sidebar">
     <div class="panel">
       <h3>Search Store</h3>
       <input id="storeSearch" placeholder="Enter Store #" />
     </div>
 
     <div class="panel">
-      <h3>Status</h3>
-      <div class="legend">
-        <span class="dot red"></span> Not Completed<br/>
-        <span class="dot green"></span> Completed
+      <h3>Progress</h3>
+      <div id="progressText">Loading…</div>
+      <div class="progressBar">
+        <div id="progressFill"></div>
       </div>
     </div>
 
-    <div class="panel">
-      <h3>Progress</h3>
-      <div id="progressText">Loading…</div>
+    <div class="panel legend">
+      <span class="dot red"></span> Not Completed<br/>
+      <span class="dot green"></span> Completed
     </div>
   </aside>
 
   <section id="map"></section>
+
+  <!-- Locate Me -->
+  <button id="locateBtn">📍</button>
 </main>
+
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="modal hidden">
+  <div class="modalContent">
+    <h3 id="confirmTitle"></h3>
+    <div class="modalActions">
+      <button id="confirmCancel">Cancel</button>
+      <button id="confirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
