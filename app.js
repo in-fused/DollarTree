@@ -22,7 +22,7 @@ let statusMap = {};
 let storeCount = 0;
 let pendingStoreId = null;
 
-/* UI Elements */
+/* UI */
 const progressText = document.getElementById("progressText");
 const progressFill = document.getElementById("progressFill");
 const modal = document.getElementById("confirmModal");
@@ -143,8 +143,14 @@ async function toggle(storeId) {
 /* Progress */
 function updateProgress() {
   const completed = Object.values(statusMap).filter(v => v).length;
+  const percent = completed / storeCount;
+
   progressText.innerText = `${completed} / ${storeCount} completed`;
-  progressFill.style.width = `${(completed / storeCount) * 100}%`;
+  progressFill.style.width = `${percent * 100}%`;
+
+  const circumference = 2 * Math.PI * 52;
+  const offset = circumference * (1 - percent);
+  document.getElementById("momentumProgress").style.strokeDashoffset = offset;
 }
 
 /* Sidebar Toggle */
