@@ -5,13 +5,11 @@
 
 html, body {
   margin: 0;
-  padding: 0;
   height: 100%;
   background: #0b0d12;
   color: #fff;
 }
 
-/* HEADER */
 header {
   height: 64px;
   padding: 12px 20px;
@@ -30,18 +28,15 @@ header {
   opacity: 0.8;
 }
 
-/* LAYOUT */
 main {
   display: flex;
-  height: calc(100vh - 64px); /* CRITICAL */
+  height: calc(100vh - 64px);
 }
 
-/* SIDEBAR */
 aside {
   width: 280px;
   background: #11141a;
   padding: 16px;
-  overflow-y: auto;
   border-right: 1px solid #1f2430;
 }
 
@@ -50,7 +45,7 @@ aside {
 }
 
 .panel h3 {
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
   font-size: 13px;
   text-transform: uppercase;
   color: #c8102e;
@@ -61,10 +56,8 @@ input {
   padding: 8px;
   border-radius: 4px;
   border: none;
-  outline: none;
 }
 
-/* LEGEND */
 .legend {
   font-size: 13px;
   line-height: 1.6;
@@ -81,9 +74,6 @@ input {
 .red { background: #e10600; }
 .green { background: #2ecc71; }
 
-/* MAP */
 #map {
   flex: 1;
-  height: 100%;          /* CRITICAL */
-  background: #000;
 }
