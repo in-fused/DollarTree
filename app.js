@@ -1,5 +1,3 @@
-const markerByStoreId = {};
-
 // 🔒 Supabase config (anon key is safe to expose)
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
@@ -67,8 +65,6 @@ async function loadData() {
   [results[0].lat, results[0].lon],
   { radius: 7, color: completed ? "green" : "red" }
 ).addTo(map);
-
-markerByStoreId[store.store_id] = marker;
 
 
     marker.bindPopup(`
