@@ -10,10 +10,10 @@ html, body {
   color: white;
 }
 
-/* ===== FULL WIDTH BRAND BANNER ===== */
+/* ===== REFINED BRAND HEADER ===== */
 
 header {
-  height: 130px;
+  height: 150px;
   background: linear-gradient(90deg, #001f3f, #003366);
   border-bottom: 4px solid #c8102e;
 
@@ -35,30 +35,66 @@ header {
   cursor: pointer;
 }
 
-.brandBanner {
+.headerInner {
   width: 100%;
+  max-width: 1400px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brandBlock {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  justify-content: center;
 }
 
 .brandLogoWide {
-  width: 75%;
-  max-width: 1200px;
+  width: 900px;
+  max-width: 60vw;
   height: auto;
-  object-fit: contain;
 }
 
 .brandSubline {
-  margin-top: 8px;
+  margin-top: 6px;
   font-size: 15px;
   opacity: 0.75;
   letter-spacing: 0.6px;
 }
 
-main {
-  height: calc(100vh - 130px);
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 40px;
 }
+
+.headerStat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.headerStat span {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.headerStat small {
+  font-size: 12px;
+  opacity: 0.6;
+  letter-spacing: 0.5px;
+}
+
+.headerStatus {
+  font-size: 14px;
+  color: #2ecc71;
+  font-weight: 600;
+}
+
+main {
+  height: calc(100vh - 150px);
+}
+
 
 
 /* ===== LAYOUT ===== */
