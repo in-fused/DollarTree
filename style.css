@@ -13,44 +13,47 @@ html, body {
 
 /* HEADER */
 header {
-  height: 150px;
-  background: linear-gradient(90deg, #001f3f, #003366);
-  border-bottom: 4px solid #c8102e;
+  height: 160px;
+  background: linear-gradient(90deg, #001a33, #002b55);
+  border-bottom: 5px solid #c8102e;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
 }
 
-/* Larger logo */
+/* FORCE LARGE LOGO */
 .brandLogoWide {
-  height: 130px;
+  height: 140px !important;
+  max-height: none !important;
   width: auto;
   object-fit: contain;
 }
 
-/* Right side project text */
+/* Right text block */
 .headerRight {
   position: absolute;
-  right: 50px;
+  right: 60px;
   text-align: right;
 }
 
 .projectTitle {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
 }
 
 .projectSub {
-  font-size: 14px;
-  opacity: 0.7;
-  margin-top: 4px;
+  font-size: 15px;
+  opacity: 0.75;
+  margin-top: 6px;
 }
+
 
 
 /* APP LAYOUT */
 .app {
-  height: calc(100vh - 150px);
+  height: calc(100vh - 160px);
   display: flex;
 }
 
