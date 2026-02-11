@@ -2,13 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Red Bull Rebels — Central FL Dollar Tree Resets</title>
+  <title>Red Bull Rebels — Orlando Field Ops</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="/favicon.png" />
 
-  <!-- Mapbox -->
   <link
     href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
     rel="stylesheet"
@@ -21,16 +19,17 @@
 <header>
   <button id="sidebarToggle">☰</button>
 
-  <div class="brandCenter">
+  <div class="brandBanner">
     <img
       src="/red-bull-rebels-logo.png"
       alt="Red Bull Rebels"
       class="brandLogoWide"
     />
+    <div class="brandSubline">
+      Orlando, Florida · Field Operations
+    </div>
   </div>
 </header>
-
-
 
 <main>
   <aside id="sidebar">
@@ -47,18 +46,13 @@
         <div id="progressFill"></div>
       </div>
 
-      <!-- Momentum Ring -->
       <svg id="momentumRing" width="120" height="120" viewBox="0 0 120 120">
-        <circle
-          cx="60"
-          cy="60"
-          r="52"
+        <circle cx="60" cy="60" r="52"
           stroke="rgba(255,255,255,0.12)"
           stroke-width="10"
           fill="none"
         />
-        <circle
-          id="momentumProgress"
+        <circle id="momentumProgress"
           cx="60"
           cy="60"
           r="52"
@@ -80,11 +74,9 @@
 
   <section id="map"></section>
 
-  <!-- Locate Me -->
-  <button id="locateBtn" title="Center on my location">📍</button>
+  <button id="locateBtn">📍</button>
 </main>
 
-<!-- Confirmation Modal -->
 <div id="confirmModal" class="modal hidden">
   <div class="modalContent">
     <h3 id="confirmTitle"></h3>
