@@ -42,7 +42,7 @@ async function hydrate() {
   storeData = await res.json();
 
   storeData.forEach(store => {
-    statusMap[String(store.store_number)] = false;
+    statusMap[String(store.store_id)] = false;
   });
 
   try {
@@ -52,7 +52,7 @@ async function hydrate() {
 
     if (Array.isArray(data)) {
       data.forEach(row => {
-        const key = String(row.store_number);
+        const key = String(row.store_id);
         if (statusMap.hasOwnProperty(key)) {
           statusMap[key] = row.completed === true;
         }
@@ -72,8 +72,8 @@ function buildMap() {
     features: storeData.map(store => ({
       type: "Feature",
       properties: {
-        store_number: String(store.store_number),
-        completed: statusMap[String(store.store_number)] === true
+        store_id: String(store.store_id),
+        completed: statusMap[String(store.store_id)] === true
       },
       geometry: {
         type: "Point",
@@ -158,7 +158,7 @@ function expandCluster(e) {
 function handleClick(e) {
 
   const feature = e.features[0];
-  const key = feature.properties.store_number;
+  const key = feature.properties.store_id;
   const current = statusMap[key];
 
   const modal = getEl("confirmModal");
@@ -184,7 +184,7 @@ function handleClick(e) {
       await supabaseClient
         .from("store_status")
         .upsert({
-          store_number: key,
+          store_id: key,
           completed: statusMap[key]
         });
     } catch {}
@@ -200,7 +200,7 @@ function handleClick(e) {
 function rebuild() {
 
   geojsonData.features.forEach(feature => {
-    const key = feature.properties.store_number;
+    const key = feature.properties.store_id;
     feature.properties.completed = statusMap[key] === true;
   });
 
@@ -220,7 +220,7 @@ function attachSearch() {
     if (!val) return;
 
     const match = storeData.find(
-      s => String(s.store_number) === val
+      s => String(s.store_id) === val
     );
 
     if (match) {
