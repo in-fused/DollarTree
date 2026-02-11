@@ -148,10 +148,17 @@ function updateProgress() {
   progressText.innerText = `${completed} / ${storeCount} completed`;
   progressFill.style.width = `${percent * 100}%`;
 
+  document.getElementById("headerCompleted").innerText =
+    `${completed} / ${storeCount}`;
+
+  document.getElementById("headerPercent").innerText =
+    `${Math.round(percent * 100)}%`;
+
   const circumference = 2 * Math.PI * 52;
   const offset = circumference * (1 - percent);
   document.getElementById("momentumProgress").style.strokeDashoffset = offset;
 }
+
 
 /* Sidebar Toggle */
 document.getElementById("sidebarToggle").onclick = () => {
