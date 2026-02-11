@@ -153,52 +153,23 @@ input {
 /* MOBILE */
 @media (max-width: 768px) {
 
-  header {
-    height: 110px;
-    padding: 0 16px;
-  }
-
-  .headerContent {
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .brandLogoWide {
-    max-height: 65px;
-  }
-
-  .headerRight {
-    text-align: center;
-    margin-top: 4px;
-  }
-
-  .projectTitle {
-    font-size: 18px;
-  }
-
-  .projectSub {
-    font-size: 12px;
-  }
-
   .app {
-    height: calc(100vh - 110px);
-    position: relative;
+    flex-direction: column;
+    height: calc(100vh - 160px);
   }
 
   aside {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 85%;
-    max-width: 320px;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-    box-shadow: 4px 0 20px rgba(0,0,0,0.6);
+    position: relative;
+    width: 100%;
+    max-width: none;
+    transform: none !important;
+    box-shadow: none;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
   }
 
-  aside.sidebar-open {
-    transform: translateX(0);
+  .mapWrapper {
+    flex: 1;
   }
+
 }
