@@ -100,6 +100,22 @@ function renderMap() {
 }
 
 /* Confirmation Modal */
+const searchInput = document.getElementById("storeSearch");
+
+searchInput.addEventListener("input", (e) => {
+  const val = e.target.value.trim();
+  if (!val) return;
+
+  const match = storeData.find(s => s.store_number == val);
+  if (match) {
+    map.flyTo({
+      center: [match.lng, match.lat],
+      zoom: 14
+    });
+  }
+});
+
+
 function openConfirm(storeId) {
   pendingStoreId = storeId;
   confirmTitle.innerText = `Mark Store #${storeId} completed?`;
