@@ -17,30 +17,38 @@ const supabaseClient = supabase.createClient(
 
 let storeData = [];
 let statusMap = {};
+let geojsonSourceData = null;
 
 const getEl = id => document.getElementById(id);
 
+/* ================= INIT ================= */
+
 map.on("load", async () => {
   await loadData();
-  initializeMapSource();
+  buildGeoJSON();
+  initializeMapLayers();
   updateProgress();
 });
+
+/* ================= LOAD DATA ================= */
 
 async function loadData() {
 
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
+  // Default everything to false
   storeData.forEach(store => {
     const key = String(store.store_number);
     statusMap[key] = false;
   });
 
+  // Hydrate from Supabase
   const { data } = await supabaseClient
     .from("store_status")
     .select("*");
 
-  if (data) {
+  if (data && Array.isArray(data)) {
     data.forEach(row => {
       const key = String(row.store_number);
       if (statusMap.hasOwnProperty(key)) {
@@ -50,15 +58,19 @@ async function loadData() {
   }
 }
 
-function initializeMapSource() {
+/* ================= BUILD GEOJSON ================= */
 
-  const geojson = {
+function buildGeoJSON() {
+
+  geojsonSourceData = {
     type: "FeatureCollection",
     features: storeData.map(store => ({
       type: "Feature",
       properties: {
         store_number: String(store.store_number),
-        completed: statusMap[String(store.store_number)]
+        completed: Boolean(
+          statusMap[String(store.store_number)]
+        )
       },
       geometry: {
         type: "Point",
@@ -69,23 +81,46 @@ function initializeMapSource() {
 
   map.addSource("stores", {
     type: "geojson",
-    data: geojson,
+    data: geojsonSourceData,
     cluster: true,
     clusterMaxZoom: 14,
     clusterRadius: 50
   });
+}
 
+/* ================= MAP LAYERS ================= */
+
+function initializeMapLayers() {
+
+  // Cluster circles
   map.addLayer({
     id: "clusters",
     type: "circle",
     source: "stores",
     filter: ["has", "point_count"],
     paint: {
-      "circle-color": "#444",
-      "circle-radius": 20
+      "circle-color": [
+        "step",
+        ["get", "point_count"],
+        "#444",
+        10,
+        "#c8102e",
+        25,
+        "#ff3b3b"
+      ],
+      "circle-radius": [
+        "step",
+        ["get", "point_count"],
+        18,
+        10,
+        24,
+        25,
+        30
+      ]
     }
   });
 
+  // Cluster count text
   map.addLayer({
     id: "cluster-count",
     type: "symbol",
@@ -93,10 +128,11 @@ function initializeMapSource() {
     filter: ["has", "point_count"],
     layout: {
       "text-field": "{point_count_abbreviated}",
-      "text-size": 12
+      "text-size": 13
     }
   });
 
+  // Individual stores
   map.addLayer({
     id: "unclustered-point",
     type: "circle",
@@ -105,7 +141,7 @@ function initializeMapSource() {
     paint: {
       "circle-color": [
         "case",
-        ["get", "completed"],
+        ["==", ["get", "completed"], true],
         "#2ecc71",
         "#e10600"
       ],
@@ -113,16 +149,14 @@ function initializeMapSource() {
     }
   });
 
-  map.on("click", "unclustered-point", (e) => {
-    const feature = e.features[0];
-    openConfirmModal(feature);
-  });
-
+  // Cluster zoom
   map.on("click", "clusters", (e) => {
     const features = map.queryRenderedFeatures(e.point, {
       layers: ["clusters"]
     });
+
     const clusterId = features[0].properties.cluster_id;
+
     map.getSource("stores").getClusterExpansionZoom(
       clusterId,
       (err, zoom) => {
@@ -134,7 +168,15 @@ function initializeMapSource() {
       }
     );
   });
+
+  // Store click
+  map.on("click", "unclustered-point", (e) => {
+    const feature = e.features[0];
+    openConfirmModal(feature);
+  });
 }
+
+/* ================= MODAL ================= */
 
 function openConfirmModal(feature) {
 
@@ -152,7 +194,9 @@ function openConfirmModal(feature) {
 
   modal.classList.remove("hidden");
 
-  cancelBtn.onclick = () => modal.classList.add("hidden");
+  cancelBtn.onclick = () => {
+    modal.classList.add("hidden");
+  };
 
   okBtn.onclick = async () => {
 
@@ -172,18 +216,19 @@ function openConfirmModal(feature) {
   };
 }
 
+/* ================= REFRESH MAP ================= */
+
 function refreshMapColors() {
 
-  const source = map.getSource("stores");
-  const data = source._data;
-
-  data.features.forEach(feature => {
+  geojsonSourceData.features.forEach(feature => {
     const key = feature.properties.store_number;
-    feature.properties.completed = statusMap[key];
+    feature.properties.completed = Boolean(statusMap[key]);
   });
 
-  source.setData(data);
+  map.getSource("stores").setData(geojsonSourceData);
 }
+
+/* ================= PROGRESS ================= */
 
 function updateProgress() {
 
@@ -197,6 +242,8 @@ function updateProgress() {
     `${(completed / total) * 100}%`;
 }
 
+/* ================= SIDEBAR TOGGLE ================= */
+
 const sidebarToggle = getEl("sidebarToggle");
 const sidebar = getEl("sidebar");
 
@@ -204,4 +251,4 @@ if (sidebarToggle && sidebar) {
   sidebarToggle.onclick = () => {
     sidebar.classList.toggle("sidebar-open");
   };
-}
+}}
