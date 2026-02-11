@@ -17,14 +17,12 @@
 <header>
   <button id="sidebarToggle">☰</button>
 
-  <div class="headerInner">
-    <div class="brandBlock">
-      <img
-        src="/red-bull-rebels-logo.png"
-        alt="Red Bull Rebels"
-        class="brandLogoWide"
-      />
-    </div>
+  <div class="headerContent">
+    <img
+      src="/red-bull-rebels-logo.png"
+      alt="Red Bull Rebels"
+      class="brandLogoWide"
+    />
 
     <div class="headerRight">
       <div class="projectTitle">
@@ -47,15 +45,9 @@
     <div class="panel">
       <h3>Progress</h3>
       <div id="progressText">Loading…</div>
-
       <div class="progressBar">
         <div id="progressFill"></div>
       </div>
-    </div>
-
-    <div class="panel legend">
-      <span class="dot red"></span> Not Completed<br/>
-      <span class="dot green"></span> Completed
     </div>
   </aside>
 
@@ -65,6 +57,7 @@
 </main>
 
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <script src="app.js"></script>
 
 </body>
