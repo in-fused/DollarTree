@@ -1,3 +1,5 @@
+/* ================= GLOBAL ================= */
+
 * {
   box-sizing: border-box;
   font-family: Inter, system-ui, -apple-system, sans-serif;
@@ -8,44 +10,53 @@ html, body {
   height: 100%;
   background: #0b0d12;
   color: white;
+  overflow: hidden;
 }
 
 /* ================= HEADER ================= */
 
 header {
-  height: 150px;
+  position: relative;
+  height: 140px;
+  width: 100%;
   background: linear-gradient(90deg, #001f3f, #003366);
   border-bottom: 4px solid #c8102e;
-  position: relative;
-  padding: 0 60px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 40px;
+  z-index: 100;
 }
 
 #sidebarToggle {
-  const sidebarToggle = getEl("sidebarToggle");
-const sidebar = getEl("sidebar");
-
-if (sidebarToggle && sidebar) {
-  sidebarToggle.onclick = () => {
-    sidebar.classList.toggle("active");
-  };
+  position: absolute;
+  left: 20px;
+  font-size: 26px;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  z-index: 101;
 }
 
+/* Header inner wrapper */
 .headerContent {
-  height: 100%;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-/* LOGO */
+/* Logo */
 .brandLogoWide {
-  width: 900px;
-  max-width: 60vw;
+  max-height: 100px;
+  width: auto;
   height: auto;
-  transform: translateY(25px); /* Safe visual drop */
 }
 
-/* RIGHT SIDE TEXT */
+/* Right text */
 .headerRight {
   text-align: right;
 }
@@ -53,7 +64,7 @@ if (sidebarToggle && sidebar) {
 .projectTitle {
   font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
 }
 
 .projectSub {
@@ -62,11 +73,11 @@ if (sidebarToggle && sidebar) {
   margin-top: 4px;
 }
 
-/* ================= LAYOUT ================= */
+/* ================= MAIN LAYOUT ================= */
 
 main {
   position: absolute;
-  top: 150px;
+  top: 140px;
   left: 0;
   right: 0;
   bottom: 0;
@@ -80,13 +91,18 @@ aside {
   left: 0;
   bottom: 0;
   width: 280px;
-  background: rgba(17, 20, 26, 0.96);
+  background: rgba(17, 20, 26, 0.97);
   padding: 20px;
   border-right: 1px solid rgba(255,255,255,0.06);
-  transition: transform 0.3s ease;
-  z-index: 10;
+  z-index: 50;
 }
 
+.panel {
+  background: rgba(255,255,255,0.035);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
 
 .panel h3 {
   margin: 0 0 8px;
@@ -121,26 +137,13 @@ input {
 
 #map {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 280px;
+  right: 0;
+  bottom: 0;
 }
 
-/* ================= LOCATE ================= */
-
-#locateBtn {
-  position: absolute;
-  bottom: 25px;
-  right: 25px;
-  background: #c8102e;
-  border: none;
-  color: white;
-  font-size: 20px;
-  padding: 14px;
-  border-radius: 50%;
-  cursor: pointer;
-  z-index: 20;
-}
-
-/* ================= MOBILE PRO MODE ================= */
+/* ================= MOBILE ================= */
 
 @media (max-width: 768px) {
 
@@ -156,9 +159,7 @@ input {
   }
 
   .brandLogoWide {
-    width: 90%;
-    max-width: none;
-    transform: translateY(10px);
+    max-height: 60px;
   }
 
   .headerRight {
@@ -178,17 +179,21 @@ input {
     top: 110px;
   }
 
-  /* Sidebar overlay style */
+  /* Sidebar overlay */
   aside {
     width: 85%;
     max-width: 320px;
-    background: rgba(17, 20, 26, 0.98);
-    box-shadow: 4px 0 20px rgba(0,0,0,0.6);
     transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.6);
   }
 
-  aside.active {
+  aside.sidebar-open {
     transform: translateX(0);
   }
 
+  /* Map full width on mobile */
+  #map {
+    left: 0;
+  }
 }
