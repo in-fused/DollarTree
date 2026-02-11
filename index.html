@@ -11,9 +11,12 @@
 <body>
 
 <header>
-  <button id="sidebarToggle">☰</button>
 
-  <div class="headerContent">
+  <div class="headerTopBar">
+    <button id="sidebarToggle" class="sidebarButton">☰</button>
+  </div>
+
+  <div class="headerMain">
     <img src="red-bull-rebels-logo.png" class="brandLogoWide" />
 
     <div class="headerRight">
@@ -21,6 +24,7 @@
       <div class="projectSub">Orlando · Field Operations</div>
     </div>
   </div>
+
 </header>
 
 <main class="app">
@@ -28,7 +32,7 @@
   <aside id="sidebar">
     <div class="panel">
       <h3>Search Store</h3>
-      <input id="storeSearch" placeholder="Enter Store #" />
+      <input id="storeSearch" placeholder="Enter Store ID #" />
     </div>
 
     <div class="panel">
@@ -46,7 +50,6 @@
 
 </main>
 
-<!-- Confirmation Modal -->
 <div id="confirmModal" class="modal hidden">
   <div class="modalContent">
     <h3 id="confirmTitle"></h3>
