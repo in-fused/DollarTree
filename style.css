@@ -248,3 +248,56 @@ main {
 .brandSubtitle {
   font-size: 14px !important;
 }
+
+/* ===== COMMAND HEADER EXPANSION ===== */
+
+header {
+  height: 110px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 40px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+}
+
+.brandLogo {
+  height: 72px;
+}
+
+.headerStat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.headerStat span {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.headerStat small {
+  font-size: 12px;
+  opacity: 0.6;
+  letter-spacing: 0.4px;
+}
+
+.headerStatus {
+  font-size: 14px;
+  color: #2ecc71;
+  font-weight: 600;
+}
+
+main {
+  height: calc(100vh - 110px);
+}
