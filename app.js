@@ -1,4 +1,4 @@
-console.log("APP VERSION 4 - CLEAN FLOW");
+console.log("APP VERSION 5 - HARD LOCKED FLOW");
 
 mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
 
@@ -23,24 +23,21 @@ let geojsonData = null;
 
 const getEl = id => document.getElementById(id);
 
-map.on("load", initializeApp);
-
-async function initializeApp() {
-
-  await hydrateData();
-  buildMap();
-  attachSearch();
+map.on("load", async () => {
+  await hydrate();
+  build();
   updateProgress();
-}
+  attachSearch();
+});
 
-/* ================= HYDRATION ================= */
+/* ================= HYDRATE FIRST ================= */
 
-async function hydrateData() {
+async function hydrate() {
 
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
-  // Default everything false
+  // Default false
   storeData.forEach(store => {
     statusMap[String(store.store_number)] = false;
   });
@@ -58,28 +55,35 @@ async function hydrateData() {
         }
       });
     }
-  } catch (err) {
-    console.warn("Supabase read failed — continuing.");
+  } catch (e) {
+    console.warn("Supabase read failed.");
   }
+
+  console.log("Hydration complete. True count:",
+    Object.values(statusMap).filter(v => v === true).length
+  );
 }
 
-/* ================= BUILD MAP ================= */
+/* ================= BUILD AFTER HYDRATION ================= */
 
-function buildMap() {
+function build() {
 
   geojsonData = {
     type: "FeatureCollection",
-    features: storeData.map(store => ({
-      type: "Feature",
-      properties: {
-        store_number: String(store.store_number),
-        completed: statusMap[String(store.store_number)] === true
-      },
-      geometry: {
-        type: "Point",
-        coordinates: [store.lng, store.lat]
-      }
-    }))
+    features: storeData.map(store => {
+      const key = String(store.store_number);
+      return {
+        type: "Feature",
+        properties: {
+          store_number: key,
+          completed: statusMap[key] === true
+        },
+        geometry: {
+          type: "Point",
+          coordinates: [store.lng, store.lat]
+        }
+      };
+    })
   };
 
   map.addSource("stores", {
@@ -96,24 +100,8 @@ function buildMap() {
     source: "stores",
     filter: ["has", "point_count"],
     paint: {
-      "circle-color": [
-        "step",
-        ["get", "point_count"],
-        "#333",
-        10,
-        "#c8102e",
-        25,
-        "#ff3b3b"
-      ],
-      "circle-radius": [
-        "step",
-        ["get", "point_count"],
-        18,
-        10,
-        24,
-        25,
-        30
-      ]
+      "circle-color": "#333",
+      "circle-radius": 20
     }
   });
 
@@ -129,14 +117,14 @@ function buildMap() {
   });
 
   map.addLayer({
-    id: "unclustered-point",
+    id: "points",
     type: "circle",
     source: "stores",
     filter: ["!", ["has", "point_count"]],
     paint: {
       "circle-color": [
         "case",
-        ["==", ["get", "completed"], true],
+        ["get", "completed"],
         "#2ecc71",
         "#e10600"
       ],
@@ -144,26 +132,75 @@ function buildMap() {
     }
   });
 
-  map.on("click", "clusters", expandCluster);
-  map.on("click", "unclustered-point", openConfirmModal);
+  map.on("click", "points", handleClick);
+}
+
+/* ================= CLICK ================= */
+
+function handleClick(e) {
+
+  const feature = e.features[0];
+  const key = feature.properties.store_number;
+  const current = statusMap[key];
+
+  const modal = getEl("confirmModal");
+  const title = getEl("confirmTitle");
+  const cancel = getEl("confirmCancel");
+  const ok = getEl("confirmOk");
+
+  title.innerText = current
+    ? `Mark Store ${key} as NOT completed?`
+    : `Mark Store ${key} as completed?`;
+
+  modal.classList.remove("hidden");
+
+  cancel.onclick = () => modal.classList.add("hidden");
+
+  ok.onclick = async () => {
+
+    statusMap[key] = !current;
+
+    try {
+      await supabaseClient
+        .from("store_status")
+        .upsert({
+          store_number: key,
+          completed: statusMap[key]
+        });
+    } catch {}
+
+    rebuildSource();
+    updateProgress();
+    modal.classList.add("hidden");
+  };
+}
+
+/* ================= REBUILD ================= */
+
+function rebuildSource() {
+
+  geojsonData.features.forEach(f => {
+    const key = f.properties.store_number;
+    f.properties.completed = statusMap[key] === true;
+  });
+
+  map.getSource("stores").setData(geojsonData);
 }
 
 /* ================= SEARCH ================= */
 
 function attachSearch() {
 
-  const searchInput = getEl("storeSearch");
+  const input = getEl("storeSearch");
+  if (!input) return;
 
-  if (!searchInput) return;
+  input.addEventListener("input", e => {
 
-  searchInput.addEventListener("input", (e) => {
-
-    const value = e.target.value.trim();
-
-    if (!value) return;
+    const val = e.target.value.trim();
+    if (!val) return;
 
     const match = storeData.find(
-      s => String(s.store_number) === value
+      s => String(s.store_number) === val
     );
 
     if (match) {
@@ -173,83 +210,6 @@ function attachSearch() {
       });
     }
   });
-}
-
-/* ================= CLUSTER EXPANSION ================= */
-
-function expandCluster(e) {
-
-  const features = map.queryRenderedFeatures(e.point, {
-    layers: ["clusters"]
-  });
-
-  const clusterId = features[0].properties.cluster_id;
-
-  map.getSource("stores").getClusterExpansionZoom(
-    clusterId,
-    (err, zoom) => {
-      if (err) return;
-      map.easeTo({
-        center: features[0].geometry.coordinates,
-        zoom: zoom
-      });
-    }
-  );
-}
-
-/* ================= MODAL ================= */
-
-function openConfirmModal(e) {
-
-  const feature = e.features[0];
-  const storeNumber = feature.properties.store_number;
-  const currentState = statusMap[storeNumber];
-
-  const modal = getEl("confirmModal");
-  const title = getEl("confirmTitle");
-  const cancelBtn = getEl("confirmCancel");
-  const okBtn = getEl("confirmOk");
-
-  title.innerText = currentState
-    ? `Mark Store ${storeNumber} as NOT completed?`
-    : `Mark Store ${storeNumber} as completed?`;
-
-  modal.classList.remove("hidden");
-
-  cancelBtn.onclick = () => modal.classList.add("hidden");
-
-  okBtn.onclick = async () => {
-
-    const newState = !currentState;
-    statusMap[storeNumber] = newState;
-
-    try {
-      await supabaseClient
-        .from("store_status")
-        .upsert({
-          store_number: storeNumber,
-          completed: newState
-        });
-    } catch (err) {
-      console.warn("Supabase write failed.");
-    }
-
-    rebuildSource();
-    updateProgress();
-    modal.classList.add("hidden");
-  };
-}
-
-/* ================= REBUILD SOURCE ================= */
-
-function rebuildSource() {
-
-  geojsonData.features.forEach(feature => {
-    const key = feature.properties.store_number;
-    feature.properties.completed = statusMap[key] === true;
-  });
-
-  map.getSource("stores").setData(geojsonData);
 }
 
 /* ================= PROGRESS ================= */
@@ -270,11 +230,11 @@ function updateProgress() {
 
 /* ================= SIDEBAR ================= */
 
-const sidebarToggle = getEl("sidebarToggle");
+const toggle = getEl("sidebarToggle");
 const sidebar = getEl("sidebar");
 
-if (sidebarToggle && sidebar) {
-  sidebarToggle.onclick = () => {
+if (toggle && sidebar) {
+  toggle.onclick = () => {
     sidebar.classList.toggle("sidebar-open");
   };
 }
