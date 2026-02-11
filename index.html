@@ -2,10 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Red Bull Rebels — Orlando Field Ops</title>
+  <title>Red Bull Rebels — Central FL Dollar Tree Project</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <link rel="icon" type="image/png" href="/favicon.png" />
 
   <link
     href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
@@ -29,10 +27,10 @@
     </div>
 
     <div class="headerRight">
-      <div class="branchInfo">
-        Central Florida Branch
+      <div class="projectTitle">
+        Central FL Dollar Tree Project
       </div>
-      <div class="branchSub">
+      <div class="projectSub">
         Orlando · Field Operations
       </div>
     </div>
@@ -53,25 +51,6 @@
       <div class="progressBar">
         <div id="progressFill"></div>
       </div>
-
-      <svg id="momentumRing" width="120" height="120" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r="52"
-          stroke="rgba(255,255,255,0.12)"
-          stroke-width="10"
-          fill="none"
-        />
-        <circle id="momentumProgress"
-          cx="60"
-          cy="60"
-          r="52"
-          stroke="#c8102e"
-          stroke-width="10"
-          fill="none"
-          stroke-linecap="round"
-          stroke-dasharray="326"
-          stroke-dashoffset="326"
-        />
-      </svg>
     </div>
 
     <div class="panel legend">
@@ -85,18 +64,7 @@
   <button id="locateBtn">📍</button>
 </main>
 
-<div id="confirmModal" class="modal hidden">
-  <div class="modalContent">
-    <h3 id="confirmTitle"></h3>
-    <div class="modalActions">
-      <button id="confirmCancel">Cancel</button>
-      <button id="confirmOk">Confirm</button>
-    </div>
-  </div>
-</div>
-
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <script src="app.js"></script>
 
 </body>
