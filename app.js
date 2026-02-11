@@ -17,60 +17,66 @@ const supabaseClient = supabase.createClient(
 
 let storeData = [];
 let statusMap = {};
-let geojsonSourceData = null;
+let geojsonData = null;
 
 const getEl = id => document.getElementById(id);
 
-/* ================= INIT ================= */
-
 map.on("load", async () => {
-  await loadData();
-  buildGeoJSON();
-  initializeMapLayers();
-  updateProgress();
+  try {
+    await loadData();
+    buildSource();
+    buildLayers();
+    updateProgress();
+  } catch (err) {
+    console.error("Initialization failed:", err);
+  }
 });
 
 /* ================= LOAD DATA ================= */
 
 async function loadData() {
 
+  // Load store file
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
-  // Default everything to false
   storeData.forEach(store => {
-    const key = String(store.store_number);
-    statusMap[key] = false;
+    statusMap[String(store.store_number)] = false;
   });
 
-  // Hydrate from Supabase
-  const { data } = await supabaseClient
-    .from("store_status")
-    .select("*");
+  // Try Supabase — but NEVER crash if it fails
+  try {
+    const { data, error } = await supabaseClient
+      .from("store_status")
+      .select("*");
 
-  if (data && Array.isArray(data)) {
-    data.forEach(row => {
-      const key = String(row.store_number);
-      if (statusMap.hasOwnProperty(key)) {
-        statusMap[key] = row.completed === true;
-      }
-    });
+    if (!error && Array.isArray(data)) {
+      data.forEach(row => {
+        const key = String(row.store_number);
+        if (statusMap.hasOwnProperty(key)) {
+          statusMap[key] = row.completed === true;
+        }
+      });
+    } else {
+      console.warn("Supabase load failed, continuing with defaults.");
+    }
+
+  } catch (err) {
+    console.warn("Supabase unreachable, continuing.");
   }
 }
 
-/* ================= BUILD GEOJSON ================= */
+/* ================= BUILD SOURCE ================= */
 
-function buildGeoJSON() {
+function buildSource() {
 
-  geojsonSourceData = {
+  geojsonData = {
     type: "FeatureCollection",
     features: storeData.map(store => ({
       type: "Feature",
       properties: {
         store_number: String(store.store_number),
-        completed: Boolean(
-          statusMap[String(store.store_number)]
-        )
+        completed: Boolean(statusMap[String(store.store_number)])
       },
       geometry: {
         type: "Point",
@@ -81,18 +87,17 @@ function buildGeoJSON() {
 
   map.addSource("stores", {
     type: "geojson",
-    data: geojsonSourceData,
+    data: geojsonData,
     cluster: true,
     clusterMaxZoom: 14,
     clusterRadius: 50
   });
 }
 
-/* ================= MAP LAYERS ================= */
+/* ================= BUILD LAYERS ================= */
 
-function initializeMapLayers() {
+function buildLayers() {
 
-  // Cluster circles
   map.addLayer({
     id: "clusters",
     type: "circle",
@@ -120,7 +125,6 @@ function initializeMapLayers() {
     }
   });
 
-  // Cluster count text
   map.addLayer({
     id: "cluster-count",
     type: "symbol",
@@ -132,7 +136,6 @@ function initializeMapLayers() {
     }
   });
 
-  // Individual stores
   map.addLayer({
     id: "unclustered-point",
     type: "circle",
@@ -149,7 +152,6 @@ function initializeMapLayers() {
     }
   });
 
-  // Cluster zoom
   map.on("click", "clusters", (e) => {
     const features = map.queryRenderedFeatures(e.point, {
       layers: ["clusters"]
@@ -169,7 +171,6 @@ function initializeMapLayers() {
     );
   });
 
-  // Store click
   map.on("click", "unclustered-point", (e) => {
     const feature = e.features[0];
     openConfirmModal(feature);
@@ -194,38 +195,40 @@ function openConfirmModal(feature) {
 
   modal.classList.remove("hidden");
 
-  cancelBtn.onclick = () => {
-    modal.classList.add("hidden");
-  };
+  cancelBtn.onclick = () => modal.classList.add("hidden");
 
   okBtn.onclick = async () => {
 
     const newState = !currentState;
     statusMap[storeNumber] = newState;
 
-    await supabaseClient
-      .from("store_status")
-      .upsert({
-        store_number: storeNumber,
-        completed: newState
-      });
+    try {
+      await supabaseClient
+        .from("store_status")
+        .upsert({
+          store_number: storeNumber,
+          completed: newState
+        });
+    } catch (err) {
+      console.warn("Supabase write failed");
+    }
 
-    refreshMapColors();
+    refreshMap();
     updateProgress();
     modal.classList.add("hidden");
   };
 }
 
-/* ================= REFRESH MAP ================= */
+/* ================= REFRESH ================= */
 
-function refreshMapColors() {
+function refreshMap() {
 
-  geojsonSourceData.features.forEach(feature => {
+  geojsonData.features.forEach(feature => {
     const key = feature.properties.store_number;
     feature.properties.completed = Boolean(statusMap[key]);
   });
 
-  map.getSource("stores").setData(geojsonSourceData);
+  map.getSource("stores").setData(geojsonData);
 }
 
 /* ================= PROGRESS ================= */
@@ -235,14 +238,19 @@ function updateProgress() {
   const completed = Object.values(statusMap).filter(v => v).length;
   const total = storeData.length;
 
-  getEl("progressText").innerText =
-    `${completed} / ${total} completed`;
+  const textEl = getEl("progressText");
+  const fillEl = getEl("progressFill");
 
-  getEl("progressFill").style.width =
-    `${(completed / total) * 100}%`;
+  if (textEl) {
+    textEl.innerText = `${completed} / ${total} completed`;
+  }
+
+  if (fillEl && total > 0) {
+    fillEl.style.width = `${(completed / total) * 100}%`;
+  }
 }
 
-/* ================= SIDEBAR TOGGLE ================= */
+/* ================= SIDEBAR ================= */
 
 const sidebarToggle = getEl("sidebarToggle");
 const sidebar = getEl("sidebar");
@@ -251,4 +259,4 @@ if (sidebarToggle && sidebar) {
   sidebarToggle.onclick = () => {
     sidebar.classList.toggle("sidebar-open");
   };
-}}
+}
