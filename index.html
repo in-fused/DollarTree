@@ -48,11 +48,22 @@
 
 <div id="confirmModal" class="modal hidden">
   <div class="modalContent">
-    <h3 id="confirmTitle"></h3>
-    <div class="modalButtons">
-      <button id="confirmCancel">Cancel</button>
-      <button id="confirmOk">Confirm</button>
+
+    <div class="modalHeader">
+      <h3 id="confirmTitle"></h3>
+      <div id="confirmStoreId" class="modalStoreId"></div>
     </div>
+
+    <div class="modalAddress">
+      <div id="confirmAddressLine"></div>
+      <div id="confirmCityLine"></div>
+    </div>
+
+    <div class="modalButtons">
+      <button id="confirmCancel" class="btnSecondary">Cancel</button>
+      <button id="confirmOk" class="btnPrimary">Confirm</button>
+    </div>
+
   </div>
 </div>
 
