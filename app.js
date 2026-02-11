@@ -156,4 +156,21 @@ function updateProgress() {
 const searchInput = getEl("storeSearch");
 
 if (searchInput) {
-  searchInput.addEventListener("
+  searchInput.addEventListener("input", (e) => {
+
+    const val = e.target.value.trim();
+    if (!val) return;
+
+    const match = storeData.find(
+      s => String(s.store_number) === val
+    );
+
+    if (match) {
+      map.flyTo({
+        center: [match.lng, match.lat],
+        zoom: 14
+      });
+    }
+
+  });
+}
