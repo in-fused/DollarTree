@@ -10,22 +10,14 @@ html, body {
   color: white;
 }
 
-/* =========================
-   HEADER
-========================= */
+/* ================= HEADER ================= */
 
 header {
   height: 150px;
   background: linear-gradient(90deg, #001f3f, #003366);
   border-bottom: 4px solid #c8102e;
-
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-
-  padding: 0 60px 25px 60px;
   position: relative;
-  z-index: 5;
+  padding: 0 60px;
 }
 
 #sidebarToggle {
@@ -40,23 +32,22 @@ header {
   cursor: pointer;
 }
 
-/* LEFT LOGO */
-
-.brandBlock {
+.headerContent {
+  height: 100%;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: space-between;
 }
 
+/* LOGO */
 .brandLogoWide {
-  width: 950px;
-  max-width: 65vw;
+  width: 900px;
+  max-width: 60vw;
   height: auto;
-  transform: translateY(18px); /* moves logo down visually */
+  transform: translateY(25px); /* Safe visual drop */
 }
 
-
-/* RIGHT HEADER TEXT */
-
+/* RIGHT SIDE TEXT */
 .headerRight {
   text-align: right;
 }
@@ -73,21 +64,17 @@ header {
   margin-top: 4px;
 }
 
-/* =========================
-   MAIN LAYOUT (CRITICAL FIX)
-========================= */
+/* ================= LAYOUT ================= */
 
 main {
   position: absolute;
-  top: 150px;   /* matches header height */
+  top: 150px;
   left: 0;
   right: 0;
   bottom: 0;
 }
 
-/* =========================
-   SIDEBAR
-========================= */
+/* ================= SIDEBAR ================= */
 
 aside {
   position: absolute;
@@ -127,10 +114,6 @@ input {
   border: none;
 }
 
-/* =========================
-   PROGRESS
-========================= */
-
 .progressBar {
   margin-top: 8px;
   background: rgba(255,255,255,0.12);
@@ -146,21 +129,14 @@ input {
   transition: width 0.4s ease;
 }
 
-/* =========================
-   MAP (CRITICAL FIX)
-========================= */
+/* ================= MAP ================= */
 
 #map {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
 }
 
-/* =========================
-   LOCATE BUTTON
-========================= */
+/* ================= LOCATE ================= */
 
 #locateBtn {
   position: absolute;
