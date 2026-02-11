@@ -10,17 +10,22 @@ html, body {
   color: white;
 }
 
-/* HEADER */
+/* =========================
+   HEADER
+========================= */
 
 header {
   height: 150px;
   background: linear-gradient(90deg, #001f3f, #003366);
   border-bottom: 4px solid #c8102e;
+
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  padding: 0 60px 25px 60px;
   position: relative;
-  padding: 0 60px;
+  z-index: 5;
 }
 
 #sidebarToggle {
@@ -35,27 +40,23 @@ header {
   cursor: pointer;
 }
 
-.headerInner {
-  width: 100%;
-  max-width: 1600px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-}
+/* LEFT LOGO */
 
 .brandBlock {
-  padding-top: 35px;
+  display: flex;
+  align-items: flex-end;
 }
 
 .brandLogoWide {
-  width: 950px;
-  max-width: 65vw;
+  width: 900px;
+  max-width: 60vw;
   height: auto;
 }
 
+/* RIGHT HEADER TEXT */
+
 .headerRight {
   text-align: right;
-  padding-bottom: 20px;
 }
 
 .projectTitle {
@@ -70,20 +71,27 @@ header {
   margin-top: 4px;
 }
 
-/* LAYOUT */
+/* =========================
+   MAIN LAYOUT (CRITICAL FIX)
+========================= */
 
 main {
-  position: relative;
-  height: calc(100vh - 150px);
+  position: absolute;
+  top: 150px;   /* matches header height */
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
-/* SIDEBAR */
+/* =========================
+   SIDEBAR
+========================= */
 
 aside {
   position: absolute;
   top: 0;
   left: 0;
-  height: 100%;
+  bottom: 0;
   width: 280px;
   background: rgba(17, 20, 26, 0.96);
   padding: 20px;
@@ -117,6 +125,10 @@ input {
   border: none;
 }
 
+/* =========================
+   PROGRESS
+========================= */
+
 .progressBar {
   margin-top: 8px;
   background: rgba(255,255,255,0.12);
@@ -132,29 +144,21 @@ input {
   transition: width 0.4s ease;
 }
 
-.legend {
-  font-size: 13px;
-}
-
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 6px;
-}
-
-.red { background: #e10600; }
-.green { background: #2ecc71; }
-
-/* MAP */
+/* =========================
+   MAP (CRITICAL FIX)
+========================= */
 
 #map {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
-/* LOCATE */
+/* =========================
+   LOCATE BUTTON
+========================= */
 
 #locateBtn {
   position: absolute;
@@ -167,4 +171,5 @@ input {
   padding: 14px;
   border-radius: 50%;
   cursor: pointer;
+  z-index: 20;
 }
