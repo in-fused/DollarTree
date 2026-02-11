@@ -159,18 +159,20 @@ async function toggle(storeId) {
 /* Progress */
 function updateProgress() {
   const completed = Object.values(statusMap).filter(v => v).length;
-  const percent = completed / storeCount;
+  const total = storeData.length;
 
-  progressText.innerText = `${completed} / ${storeCount} completed`;
-  progressFill.style.width = `${percent * 100}%`;
+  const progressTextEl = document.getElementById("progressText");
+  const progressFillEl = document.getElementById("progressFill");
 
-  document.getElementById("headerPercent").innerText =
-    `${Math.round(percent * 100)}%`;
+  if (progressTextEl) {
+    progressTextEl.innerText = `${completed} / ${total} completed`;
+  }
 
-  const circumference = 2 * Math.PI * 52;
-  const offset = circumference * (1 - percent);
-  document.getElementById("momentumProgress").style.strokeDashoffset = offset;
+  if (progressFillEl && total > 0) {
+    progressFillEl.style.width = `${(completed / total) * 100}%`;
+  }
 }
+
 
 /* Sidebar Toggle */
 document.getElementById("sidebarToggle").onclick = () => {
