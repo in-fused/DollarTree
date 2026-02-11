@@ -22,21 +22,16 @@ let geojsonData = null;
 const getEl = id => document.getElementById(id);
 
 map.on("load", async () => {
-  try {
-    await loadData();
-    buildSource();
-    buildLayers();
-    updateProgress();
-  } catch (err) {
-    console.error("Initialization failed:", err);
-  }
+  await loadData();
+  setupGeoJSON();
+  setupLayers();
+  updateProgress();
 });
 
-/* ================= LOAD DATA ================= */
+/* LOAD DATA */
 
 async function loadData() {
 
-  // Load store file
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
@@ -44,31 +39,25 @@ async function loadData() {
     statusMap[String(store.store_number)] = false;
   });
 
-  // Try Supabase — but NEVER crash if it fails
   try {
     const { data, error } = await supabaseClient
       .from("store_status")
       .select("*");
 
-    if (!error && Array.isArray(data)) {
+    if (data && !error) {
       data.forEach(row => {
         const key = String(row.store_number);
         if (statusMap.hasOwnProperty(key)) {
           statusMap[key] = row.completed === true;
         }
       });
-    } else {
-      console.warn("Supabase load failed, continuing with defaults.");
     }
-
   } catch (err) {
-    console.warn("Supabase unreachable, continuing.");
+    console.warn("Supabase failed:", err);
   }
 }
 
-/* ================= BUILD SOURCE ================= */
-
-function buildSource() {
+function setupGeoJSON() {
 
   geojsonData = {
     type: "FeatureCollection",
@@ -94,9 +83,9 @@ function buildSource() {
   });
 }
 
-/* ================= BUILD LAYERS ================= */
+/* MAP LAYERS */
 
-function buildLayers() {
+function setupLayers() {
 
   map.addLayer({
     id: "clusters",
@@ -152,7 +141,7 @@ function buildLayers() {
     }
   });
 
-  map.on("click", "clusters", (e) => {
+  map.on("click", "clusters", e => {
     const features = map.queryRenderedFeatures(e.point, {
       layers: ["clusters"]
     });
@@ -171,13 +160,12 @@ function buildLayers() {
     );
   });
 
-  map.on("click", "unclustered-point", (e) => {
-    const feature = e.features[0];
-    openConfirmModal(feature);
+  map.on("click", "unclustered-point", e => {
+    openConfirmModal(e.features[0]);
   });
 }
 
-/* ================= MODAL ================= */
+/* CONFIRM MODAL */
 
 function openConfirmModal(feature) {
 
@@ -210,18 +198,18 @@ function openConfirmModal(feature) {
           completed: newState
         });
     } catch (err) {
-      console.warn("Supabase write failed");
+      console.warn("Supabase write failed:", err);
     }
 
-    refreshMap();
+    refreshGeoJSON();
     updateProgress();
     modal.classList.add("hidden");
   };
 }
 
-/* ================= REFRESH ================= */
+/* REFRESH GEOJSON */
 
-function refreshMap() {
+function refreshGeoJSON() {
 
   geojsonData.features.forEach(feature => {
     const key = feature.properties.store_number;
@@ -231,7 +219,7 @@ function refreshMap() {
   map.getSource("stores").setData(geojsonData);
 }
 
-/* ================= PROGRESS ================= */
+/* PROGRESS */
 
 function updateProgress() {
 
@@ -245,12 +233,12 @@ function updateProgress() {
     textEl.innerText = `${completed} / ${total} completed`;
   }
 
-  if (fillEl && total > 0) {
+  if (fillEl) {
     fillEl.style.width = `${(completed / total) * 100}%`;
   }
 }
 
-/* ================= SIDEBAR ================= */
+/* SIDEBAR TOGGLE */
 
 const sidebarToggle = getEl("sidebarToggle");
 const sidebar = getEl("sidebar");
