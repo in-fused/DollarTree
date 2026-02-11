@@ -12,17 +12,45 @@ html, body {
 }
 
 /* HEADER */
-<header>
-  <img src="red-bull-rebels-logo.png" class="brandLogoWide" />
-  <div class="headerRight">
-    <div class="projectTitle">Central FL Dollar Tree Project</div>
-    <div class="projectSub">Orlando · Field Operations</div>
-  </div>
-</header>
+header {
+  height: 150px;
+  background: linear-gradient(90deg, #001f3f, #003366);
+  border-bottom: 4px solid #c8102e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Larger logo */
+.brandLogoWide {
+  height: 130px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Right side project text */
+.headerRight {
+  position: absolute;
+  right: 50px;
+  text-align: right;
+}
+
+.projectTitle {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.projectSub {
+  font-size: 14px;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
 
 /* APP LAYOUT */
 .app {
-  height: calc(100vh - 130px);
+  height: calc(100vh - 150px);
   display: flex;
 }
 
