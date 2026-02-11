@@ -45,7 +45,6 @@ header {
 .brandBlock {
   display: flex;
   align-items: flex-end;
-  padding-top: 35px;
 }
 
 .brandLogoWide {
