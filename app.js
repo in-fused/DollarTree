@@ -117,23 +117,21 @@ function build() {
   });
 
   map.addLayer({
-    id: "points",
-    type: "circle",
-    source: "stores",
-    filter: ["!", ["has", "point_count"]],
-    paint: {
-      "circle-color": [
-        "case",
-        ["get", "completed"],
-        "#2ecc71",
-        "#e10600"
-      ],
-      "circle-radius": 6
-    }
-  });
+  id: "points",
+  type: "circle",
+  source: "stores",
+  filter: ["!", ["has", "point_count"]],
+  paint: {
+    "circle-color": [
+      "case",
+      ["==", ["get", "completed"], true],
+      "#2ecc71",
+      "#e10600"
+    ],
+    "circle-radius": 6
+  }
+});
 
-  map.on("click", "points", handleClick);
-}
 
 /* ================= CLICK ================= */
 
