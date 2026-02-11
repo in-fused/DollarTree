@@ -1,3 +1,5 @@
+console.log("APP VERSION TEST 1");
+
 mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
 
 const map = new mapboxgl.Map({
