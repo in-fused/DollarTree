@@ -9,17 +9,16 @@ html, body {
   background: #0b0d12;
   color: white;
 }
-/* ===== FINAL HEADER STRUCTURE ===== */
+
+/* HEADER */
 
 header {
   height: 150px;
   background: linear-gradient(90deg, #001f3f, #003366);
   border-bottom: 4px solid #c8102e;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   position: relative;
   padding: 0 60px;
 }
@@ -40,15 +39,12 @@ header {
   width: 100%;
   max-width: 1600px;
   display: flex;
-  align-items: flex-end; /* key change */
+  align-items: flex-end;
   justify-content: space-between;
 }
 
-/* LOGO LOWERED */
 .brandBlock {
-  display: flex;
-  align-items: flex-end;
-  padding-top: 35px; /* pushes logo down inside banner */
+  padding-top: 35px;
 }
 
 .brandLogoWide {
@@ -57,36 +53,31 @@ header {
   height: auto;
 }
 
-/* RIGHT SIDE INFO */
 .headerRight {
   text-align: right;
   padding-bottom: 20px;
 }
 
-.branchInfo {
+.projectTitle {
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.6px;
 }
 
-.branchSub {
+.projectSub {
   font-size: 14px;
   opacity: 0.7;
   margin-top: 4px;
 }
 
-main {
-  height: calc(100vh - 150px);
-}
-
-/* ===== LAYOUT ===== */
+/* LAYOUT */
 
 main {
   position: relative;
-  height: calc(100vh - 140px);
+  height: calc(100vh - 150px);
 }
 
-/* ===== SIDEBAR ===== */
+/* SIDEBAR */
 
 aside {
   position: absolute;
@@ -97,8 +88,7 @@ aside {
   background: rgba(17, 20, 26, 0.96);
   padding: 20px;
   border-right: 1px solid rgba(255,255,255,0.06);
-  transform: translateX(0);
-  transition: transform 0.35s ease;
+  transition: transform 0.3s ease;
   z-index: 10;
 }
 
@@ -127,8 +117,6 @@ input {
   border: none;
 }
 
-/* ===== PROGRESS ===== */
-
 .progressBar {
   margin-top: 8px;
   background: rgba(255,255,255,0.12);
@@ -143,12 +131,6 @@ input {
   background: linear-gradient(90deg, #c8102e, #ff3b3b);
   transition: width 0.4s ease;
 }
-
-#momentumRing {
-  margin-top: 16px;
-}
-
-/* ===== LEGEND ===== */
 
 .legend {
   font-size: 13px;
@@ -165,14 +147,14 @@ input {
 .red { background: #e10600; }
 .green { background: #2ecc71; }
 
-/* ===== MAP ===== */
+/* MAP */
 
 #map {
   position: absolute;
   inset: 0;
 }
 
-/* ===== LOCATE BUTTON ===== */
+/* LOCATE */
 
 #locateBtn {
   position: absolute;
@@ -185,48 +167,4 @@ input {
   padding: 14px;
   border-radius: 50%;
   cursor: pointer;
-}
-
-/* ===== MODAL ===== */
-
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.65);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.hidden {
-  display: none;
-}
-
-.modalContent {
-  background: #11141a;
-  padding: 24px;
-  border-radius: 12px;
-  width: 300px;
-  text-align: center;
-}
-
-/* ===== MOBILE ===== */
-
-@media (max-width: 768px) {
-  header {
-    height: 110px;
-  }
-
-  main {
-    height: calc(100vh - 110px);
-  }
-
-  .brandLogoWide {
-    height: 70px;
-  }
-
-  aside {
-    width: 80%;
-    max-width: 300px;
-  }
 }
