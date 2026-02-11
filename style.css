@@ -6,7 +6,7 @@
 html, body {
   margin: 0;
   height: 100%;
-  background: #0b0d12;
+  background: #0a0f18;
   color: white;
   overflow: hidden;
 }
@@ -67,11 +67,11 @@ aside {
 }
 
 .panel {
-  background: rgba(255,255,255,0.035);
-  border-radius: 14px;
-  padding: 16px;
-  margin-bottom: 20px;
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.06);
 }
+
 
 .panel h3 {
   margin: 0 0 8px;
