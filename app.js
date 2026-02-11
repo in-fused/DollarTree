@@ -200,9 +200,20 @@ function handleClick(e) {
 
   idLine.innerText = `Store ID: ${key}`;
 
-  if (store) {
-    addrLine.innerText = store.address || "";
-    cityLine.innerText = `${store.city || ""}, FL ${store.zip || ""}`;
+  if (store && store.full_address) {
+
+    // Clean up spacing
+    const cleaned = store.full_address.replace(/\s+/g, " ").trim();
+
+    // Split by comma
+    const parts = cleaned.split(",");
+
+    const address = parts[0]?.trim() || "";
+    const city = parts[1]?.trim() || "";
+    const stateZip = parts[2]?.trim() || "";
+
+    addrLine.innerText = address;
+    cityLine.innerText = `${city}, ${stateZip}`;
   }
 
   modal.classList.remove("hidden");
