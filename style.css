@@ -38,7 +38,8 @@ header {
 }
 
 .brandLogoWide {
-  max-height: 85px;
+  max-height: 90px;
+  width: auto;
   height: auto;
 }
 
@@ -47,7 +48,7 @@ header {
 }
 
 .projectTitle {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
 }
 
@@ -171,7 +172,7 @@ input {
   }
 
   .brandLogoWide {
-    max-height: 55px;
+    max-height: 65px;
   }
 
   .headerRight {
@@ -180,7 +181,7 @@ input {
   }
 
   .projectTitle {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .projectSub {
@@ -207,5 +208,4 @@ input {
   aside.sidebar-open {
     transform: translateX(0);
   }
-
 }
