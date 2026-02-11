@@ -16,8 +16,7 @@ html, body {
 /* ================= HEADER ================= */
 
 header {
-  position: relative;
-  height: 140px;
+  height: 130px;
   width: 100%;
   background: linear-gradient(90deg, #001f3f, #003366);
   border-bottom: 4px solid #c8102e;
@@ -27,21 +26,21 @@ header {
   justify-content: space-between;
 
   padding: 0 40px;
+  position: relative;
   z-index: 100;
 }
 
-const sidebarToggle = getEl("sidebarToggle");
-const sidebar = getEl("sidebar");
-
-if (sidebarToggle && sidebar) {
-  sidebarToggle.onclick = () => {
-    sidebar.classList.toggle("sidebar-open");
-  };
+#sidebarToggle {
+  font-size: 26px;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  z-index: 101;
 }
 
-/* Header inner wrapper */
 .headerContent {
-  width: 100%;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -49,12 +48,12 @@ if (sidebarToggle && sidebar) {
 
 /* Logo */
 .brandLogoWide {
-  max-height: 100px;
+  max-height: 85px;
   width: auto;
   height: auto;
 }
 
-/* Right text */
+/* Header Right Text */
 .headerRight {
   text-align: right;
 }
@@ -62,7 +61,6 @@ if (sidebarToggle && sidebar) {
 .projectTitle {
   font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0.5px;
 }
 
 .projectSub {
@@ -71,27 +69,21 @@ if (sidebarToggle && sidebar) {
   margin-top: 4px;
 }
 
-/* ================= MAIN LAYOUT ================= */
+/* ================= APP LAYOUT ================= */
 
-main {
-  position: absolute;
-  top: 140px;
-  left: 0;
-  right: 0;
-  bottom: 0;
+.app {
+  height: calc(100vh - 130px);
+  display: flex;
 }
 
 /* ================= SIDEBAR ================= */
 
 aside {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
   width: 280px;
   background: rgba(17, 20, 26, 0.97);
   padding: 20px;
   border-right: 1px solid rgba(255,255,255,0.06);
+  overflow-y: auto;
   z-index: 50;
 }
 
@@ -133,12 +125,14 @@ input {
 
 /* ================= MAP ================= */
 
+.mapWrapper {
+  flex: 1;
+  position: relative;
+}
+
 #map {
   position: absolute;
-  top: 0;
-  left: 280px;
-  right: 0;
-  bottom: 0;
+  inset: 0;
 }
 
 /* ================= MOBILE ================= */
@@ -157,7 +151,7 @@ input {
   }
 
   .brandLogoWide {
-    max-height: 60px;
+    max-height: 55px;
   }
 
   .headerRight {
@@ -166,19 +160,24 @@ input {
   }
 
   .projectTitle {
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .projectSub {
-    font-size: 11px;
+    font-size: 12px;
   }
 
-  main {
-    top: 110px;
+  .app {
+    height: calc(100vh - 110px);
+    position: relative;
   }
 
-  /* Sidebar overlay */
+  /* Sidebar overlay mode */
   aside {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
     width: 85%;
     max-width: 320px;
     transform: translateX(-100%);
@@ -190,8 +189,8 @@ input {
     transform: translateX(0);
   }
 
-  /* Map full width on mobile */
-  #map {
-    left: 0;
+  .mapWrapper {
+    flex: 1;
   }
+
 }
