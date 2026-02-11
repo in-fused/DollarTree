@@ -37,31 +37,28 @@ header {
   gap: 14px;
 }
 
-.logo {
-  font-weight: 900;
-  letter-spacing: 2px;
-  font-size: 18px;
-}
-
-.divider {
-  width: 1px;
-  height: 28px;
-  background: rgba(255,255,255,0.25);
+.brandLogo {
+  height: 30px;
+  width: auto;
+  display: block;
 }
 
 .brandMeta {
   display: flex;
   flex-direction: column;
+  line-height: 1.1;
 }
 
-.subtitle {
-  font-size: 12px;
-  opacity: 0.85;
+.brandTitle {
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  font-size: 14px;
 }
 
-.subsubtitle {
+.brandSubtitle {
   font-size: 11px;
-  opacity: 0.6;
+  opacity: 0.65;
+  letter-spacing: 0.3px;
 }
 
 /* ===== LAYOUT ===== */
@@ -76,7 +73,7 @@ aside {
   top: 0;
   left: 0;
   height: 100%;
-  width: 200px;
+  width: 280px;
   background: rgba(17, 20, 26, 0.96);
   padding: 16px;
   border-right: 1px solid rgba(255,255,255,0.06);
@@ -89,7 +86,7 @@ aside.collapsed {
   transform: translateX(-100%);
 }
 
-/* Glass panels */
+/* Panels */
 .panel {
   background: rgba(255,255,255,0.035);
   border-radius: 12px;
@@ -202,36 +199,12 @@ input {
   border-radius: 10px;
   width: 280px;
   text-align: center;
-  animation: scaleIn 0.25s ease;
-}
-
-.modalActions {
-  margin-top: 16px;
-  display: flex;
-  justify-content: space-between;
-}
-
-.modalActions button {
-  padding: 8px 14px;
-  border: none;
-  cursor: pointer;
-}
-
-#confirmOk {
-  background: #c8102e;
-  color: white;
-}
-
-/* ===== ANIMATIONS ===== */
-@keyframes scaleIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
 }
 
 /* ===== MOBILE ===== */
-@media (max-width: 368px) {
+@media (max-width: 768px) {
   aside {
-    width: 85%;
-    max-width: 120px;
+    width: 80%;
+    max-width: 300px;
   }
 }
