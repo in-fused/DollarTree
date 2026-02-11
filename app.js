@@ -91,15 +91,34 @@ function buildMap() {
   });
 
   map.addLayer({
-    id: "clusters",
-    type: "circle",
-    source: "stores",
-    filter: ["has", "point_count"],
-    paint: {
-      "circle-color": "#444",
-      "circle-radius": 20
-    }
-  });
+  id: "clusters",
+  type: "circle",
+  source: "stores",
+  filter: ["has", "point_count"],
+  paint: {
+    "circle-color": [
+      "step",
+      ["get", "point_count"],
+      "#c8102e",
+      10,
+      "#ff2d2d",
+      25,
+      "#ff5c5c"
+    ],
+    "circle-radius": [
+      "step",
+      ["get", "point_count"],
+      20,
+      10,
+      26,
+      25,
+      34
+    ],
+    "circle-stroke-width": 2,
+    "circle-stroke-color": "#ffffff"
+  }
+});
+
 
   map.addLayer({
     id: "cluster-count",
@@ -118,14 +137,16 @@ function buildMap() {
     source: "stores",
     filter: ["!", ["has", "point_count"]],
     paint: {
-      "circle-color": [
-        "case",
-        ["==", ["get", "completed"], true],
-        "#2ecc71",
-        "#e10600"
-      ],
-      "circle-radius": 6
-    }
+  "circle-color": [
+    "case",
+    ["==", ["get", "completed"], true],
+    "#2ecc71",
+    "#ff2d2d"
+  ],
+  "circle-radius": 7,
+  "circle-stroke-width": 1.5,
+  "circle-stroke-color": "#ffffff"
+}
   });
 
   map.on("click", "clusters", expandCluster);
