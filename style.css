@@ -152,36 +152,55 @@ input {
   z-index: 20;
 }
 
-/* ================= MOBILE FIX ================= */
+/* ================= MOBILE PRO MODE ================= */
 
 @media (max-width: 768px) {
 
   header {
-    height: 120px;
-    padding: 0 20px;
+    height: 110px;
+    padding: 0 16px;
+  }
+
+  .headerContent {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
   }
 
   .brandLogoWide {
-    width: 95%;
+    width: 90%;
     max-width: none;
-    transform: translateY(15px);
+    transform: translateY(10px);
+  }
+
+  .headerRight {
+    text-align: center;
+    margin-top: 4px;
   }
 
   .projectTitle {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .projectSub {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   main {
-    top: 120px; /* match new mobile header height */
+    top: 110px;
   }
 
+  /* Sidebar overlay style */
   aside {
     width: 85%;
     max-width: 320px;
+    background: rgba(17, 20, 26, 0.98);
+    box-shadow: 4px 0 20px rgba(0,0,0,0.6);
+    transform: translateX(-100%);
+  }
+
+  aside.active {
+    transform: translateX(0);
   }
 
 }
