@@ -9,35 +9,6 @@ const map = new mapboxgl.Map({
   zoom: 6.5
 });
 
-// ================= DOM SAFETY =================
-
-function safeOnClick(id, handler) {
-  const el = document.getElementById(id);
-  if (el) el.onclick = handler;
-}
-
-function safeGet(id) {
-  return document.getElementById(id);
-}
-
-// ================= SIDEBAR TOGGLE =================
-
-safeOnClick("sidebarToggle", () => {
-  const sidebar = safeGet("sidebar");
-  if (sidebar) sidebar.classList.toggle("collapsed");
-});
-
-// ================= GEOLOCATE =================
-
-safeOnClick("locateBtn", () => {
-  navigator.geolocation.getCurrentPosition((pos) => {
-    map.flyTo({
-      center: [pos.coords.longitude, pos.coords.latitude],
-      zoom: 13
-    });
-  });
-});
-
 // ================= SUPABASE =================
 
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
@@ -48,27 +19,61 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
-// ================= DATA =================
+// ================= STATE =================
 
 let storeData = [];
 let statusMap = {};
 let markers = [];
 
+// ================= SAFE DOM =================
+
+const getEl = (id) => document.getElementById(id);
+
+// ================= SIDEBAR TOGGLE =================
+
+const sidebarToggle = getEl("sidebarToggle");
+if (sidebarToggle) {
+  sidebarToggle.onclick = () => {
+    const sidebar = getEl("sidebar");
+    if (sidebar) sidebar.classList.toggle("collapsed");
+  };
+}
+
+// ================= GEOLOCATE =================
+
+const locateBtn = getEl("locateBtn");
+if (locateBtn) {
+  locateBtn.onclick = () => {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      map.flyTo({
+        center: [pos.coords.longitude, pos.coords.latitude],
+        zoom: 13
+      });
+    });
+  };
+}
+
 // ================= LOAD DATA =================
 
 async function loadData() {
-  // Load stores
+
+  // Load store list
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
-  // Load saved completion state
+  // Default all to false
+  storeData.forEach(store => {
+    statusMap[store.store_number] = false;
+  });
+
+  // Load completion states from Supabase
   const { data } = await supabaseClient
     .from("store_status")
     .select("*");
 
   if (data) {
     data.forEach(row => {
-      statusMap[row.store_number] = row.completed;
+      statusMap[row.store_number] = row.completed === true;
     });
   }
 
@@ -76,7 +81,10 @@ async function loadData() {
   updateProgress();
 }
 
+// ================= RENDER STORES =================
+
 function renderStores() {
+
   storeData.forEach(store => {
 
     const el = document.createElement("div");
@@ -85,29 +93,13 @@ function renderStores() {
     el.style.borderRadius = "50%";
     el.style.cursor = "pointer";
 
-    const completed = statusMap[store.store_number] || false;
+    const isCompleted = statusMap[store.store_number];
 
-    el.style.background = completed
+    el.style.background = isCompleted
       ? "#2ecc71"
       : "#e10600";
 
-    el.onclick = async () => {
-      const newState = !statusMap[store.store_number];
-      statusMap[store.store_number] = newState;
-
-      el.style.background = newState
-        ? "#2ecc71"
-        : "#e10600";
-
-      await supabaseClient
-        .from("store_status")
-        .upsert({
-          store_number: store.store_number,
-          completed: newState
-        });
-
-      updateProgress();
-    };
+    el.onclick = () => openConfirmModal(store, el);
 
     const marker = new mapboxgl.Marker(el)
       .setLngLat([store.lng, store.lat])
@@ -117,14 +109,58 @@ function renderStores() {
   });
 }
 
+// ================= CONFIRM MODAL =================
+
+function openConfirmModal(store, markerEl) {
+
+  const modal = getEl("confirmModal");
+  const title = getEl("confirmTitle");
+  const cancelBtn = getEl("confirmCancel");
+  const okBtn = getEl("confirmOk");
+
+  if (!modal) return;
+
+  const currentlyCompleted = statusMap[store.store_number];
+
+  title.innerText = currentlyCompleted
+    ? `Mark Store ${store.store_number} as NOT completed?`
+    : `Mark Store ${store.store_number} as completed?`;
+
+  modal.classList.remove("hidden");
+
+  cancelBtn.onclick = () => {
+    modal.classList.add("hidden");
+  };
+
+  okBtn.onclick = async () => {
+
+    const newState = !currentlyCompleted;
+    statusMap[store.store_number] = newState;
+
+    markerEl.style.background = newState
+      ? "#2ecc71"
+      : "#e10600";
+
+    await supabaseClient
+      .from("store_status")
+      .upsert({
+        store_number: store.store_number,
+        completed: newState
+      });
+
+    updateProgress();
+    modal.classList.add("hidden");
+  };
+}
+
 // ================= PROGRESS =================
 
 function updateProgress() {
   const completed = Object.values(statusMap).filter(v => v).length;
   const total = storeData.length;
 
-  const textEl = safeGet("progressText");
-  const fillEl = safeGet("progressFill");
+  const textEl = getEl("progressText");
+  const fillEl = getEl("progressFill");
 
   if (textEl) {
     textEl.innerText = `${completed} / ${total} completed`;
@@ -137,7 +173,7 @@ function updateProgress() {
 
 // ================= SEARCH =================
 
-const searchInput = safeGet("storeSearch");
+const searchInput = getEl("storeSearch");
 
 if (searchInput) {
   searchInput.addEventListener("input", (e) => {
