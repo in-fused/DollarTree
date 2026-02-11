@@ -1,4 +1,4 @@
-mapboxgl.accessToken = "eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9";
+mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -7,7 +7,7 @@ const map = new mapboxgl.Map({
   zoom: 6.5
 });
 
-const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
+const SUPABASE_URL = "dapjhrbfqtsgdlasuuam";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
 
 const supabaseClient = supabase.createClient(
@@ -19,29 +19,22 @@ let storeData = [];
 let statusMap = {};
 let markers = [];
 
-const getEl = (id) => document.getElementById(id);
-
-// ================= INIT =================
+const getEl = id => document.getElementById(id);
 
 map.on("load", async () => {
   await loadData();
 });
 
-// ================= LOAD DATA =================
-
 async function loadData() {
 
-  // 1️⃣ Load store list
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
-  // Normalize all store numbers to STRING
   storeData.forEach(store => {
-    store.store_number = String(store.store_number);
-    statusMap[store.store_number] = false;
+    const key = String(store.store_number);
+    statusMap[key] = false;
   });
 
-  // 2️⃣ Load completion state from Supabase
   const { data } = await supabaseClient
     .from("store_status")
     .select("*");
@@ -55,16 +48,15 @@ async function loadData() {
     });
   }
 
-  // 3️⃣ Now render markers AFTER hydration
   renderStores();
   updateProgress();
 }
 
-// ================= RENDER STORES =================
-
 function renderStores() {
 
   storeData.forEach(store => {
+
+    const key = String(store.store_number);
 
     const el = document.createElement("div");
     el.style.width = "14px";
@@ -72,9 +64,7 @@ function renderStores() {
     el.style.borderRadius = "50%";
     el.style.cursor = "pointer";
 
-    const isCompleted = statusMap[store.store_number];
-
-    el.style.background = isCompleted
+    el.style.background = statusMap[key]
       ? "#2ecc71"
       : "#e10600";
 
@@ -88,8 +78,6 @@ function renderStores() {
   });
 }
 
-// ================= MODAL =================
-
 function openConfirmModal(store, markerEl) {
 
   const modal = getEl("confirmModal");
@@ -97,24 +85,21 @@ function openConfirmModal(store, markerEl) {
   const cancelBtn = getEl("confirmCancel");
   const okBtn = getEl("confirmOk");
 
-  if (!modal) return;
-
-  const currentState = statusMap[store.store_number];
+  const key = String(store.store_number);
+  const currentState = statusMap[key];
 
   title.innerText = currentState
-    ? `Mark Store ${store.store_number} as NOT completed?`
-    : `Mark Store ${store.store_number} as completed?`;
+    ? `Mark Store ${key} as NOT completed?`
+    : `Mark Store ${key} as completed?`;
 
   modal.classList.remove("hidden");
 
-  cancelBtn.onclick = () => {
-    modal.classList.add("hidden");
-  };
+  cancelBtn.onclick = () => modal.classList.add("hidden");
 
   okBtn.onclick = async () => {
 
     const newState = !currentState;
-    statusMap[store.store_number] = newState;
+    statusMap[key] = newState;
 
     markerEl.style.background = newState
       ? "#2ecc71"
@@ -123,7 +108,7 @@ function openConfirmModal(store, markerEl) {
     await supabaseClient
       .from("store_status")
       .upsert({
-        store_number: store.store_number,
+        store_number: key,
         completed: newState
       });
 
@@ -132,45 +117,23 @@ function openConfirmModal(store, markerEl) {
   };
 }
 
-// ================= PROGRESS =================
-
 function updateProgress() {
 
   const completed = Object.values(statusMap).filter(v => v).length;
   const total = storeData.length;
 
-  const textEl = getEl("progressText");
-  const fillEl = getEl("progressFill");
+  getEl("progressText").innerText =
+    `${completed} / ${total} completed`;
 
-  if (textEl) {
-    textEl.innerText = `${completed} / ${total} completed`;
-  }
-
-  if (fillEl && total > 0) {
-    fillEl.style.width = `${(completed / total) * 100}%`;
-  }
+  getEl("progressFill").style.width =
+    `${(completed / total) * 100}%`;
 }
 
-// ================= SEARCH =================
+const sidebarToggle = getEl("sidebarToggle");
+const sidebar = getEl("sidebar");
 
-const searchInput = getEl("storeSearch");
-
-if (searchInput) {
-  searchInput.addEventListener("input", (e) => {
-
-    const val = e.target.value.trim();
-    if (!val) return;
-
-    const match = storeData.find(
-      s => String(s.store_number) === val
-    );
-
-    if (match) {
-      map.flyTo({
-        center: [match.lng, match.lat],
-        zoom: 14
-      });
-    }
-
-  });
+if (sidebarToggle && sidebar) {
+  sidebarToggle.onclick = () => {
+    sidebar.classList.toggle("sidebar-open");
+  };
 }
