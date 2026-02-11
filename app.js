@@ -17,12 +17,13 @@ const supabaseClient = supabase.createClient(
 
 let storeData = [];
 let statusMap = {};
-let markers = [];
 
 const getEl = id => document.getElementById(id);
 
 map.on("load", async () => {
   await loadData();
+  initializeMapSource();
+  updateProgress();
 });
 
 async function loadData() {
@@ -47,50 +48,107 @@ async function loadData() {
       }
     });
   }
-
-  renderStores();
-  updateProgress();
 }
 
-function renderStores() {
+function initializeMapSource() {
 
-  storeData.forEach(store => {
+  const geojson = {
+    type: "FeatureCollection",
+    features: storeData.map(store => ({
+      type: "Feature",
+      properties: {
+        store_number: String(store.store_number),
+        completed: statusMap[String(store.store_number)]
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [store.lng, store.lat]
+      }
+    }))
+  };
 
-    const key = String(store.store_number);
+  map.addSource("stores", {
+    type: "geojson",
+    data: geojson,
+    cluster: true,
+    clusterMaxZoom: 14,
+    clusterRadius: 50
+  });
 
-    const el = document.createElement("div");
-    el.style.width = "14px";
-    el.style.height = "14px";
-    el.style.borderRadius = "50%";
-    el.style.cursor = "pointer";
+  map.addLayer({
+    id: "clusters",
+    type: "circle",
+    source: "stores",
+    filter: ["has", "point_count"],
+    paint: {
+      "circle-color": "#444",
+      "circle-radius": 20
+    }
+  });
 
-    el.style.background = statusMap[key]
-      ? "#2ecc71"
-      : "#e10600";
+  map.addLayer({
+    id: "cluster-count",
+    type: "symbol",
+    source: "stores",
+    filter: ["has", "point_count"],
+    layout: {
+      "text-field": "{point_count_abbreviated}",
+      "text-size": 12
+    }
+  });
 
-    el.onclick = () => openConfirmModal(store, el);
+  map.addLayer({
+    id: "unclustered-point",
+    type: "circle",
+    source: "stores",
+    filter: ["!", ["has", "point_count"]],
+    paint: {
+      "circle-color": [
+        "case",
+        ["get", "completed"],
+        "#2ecc71",
+        "#e10600"
+      ],
+      "circle-radius": 6
+    }
+  });
 
-    const marker = new mapboxgl.Marker(el)
-      .setLngLat([store.lng, store.lat])
-      .addTo(map);
+  map.on("click", "unclustered-point", (e) => {
+    const feature = e.features[0];
+    openConfirmModal(feature);
+  });
 
-    markers.push(marker);
+  map.on("click", "clusters", (e) => {
+    const features = map.queryRenderedFeatures(e.point, {
+      layers: ["clusters"]
+    });
+    const clusterId = features[0].properties.cluster_id;
+    map.getSource("stores").getClusterExpansionZoom(
+      clusterId,
+      (err, zoom) => {
+        if (err) return;
+        map.easeTo({
+          center: features[0].geometry.coordinates,
+          zoom: zoom
+        });
+      }
+    );
   });
 }
 
-function openConfirmModal(store, markerEl) {
+function openConfirmModal(feature) {
+
+  const storeNumber = feature.properties.store_number;
+  const currentState = statusMap[storeNumber];
 
   const modal = getEl("confirmModal");
   const title = getEl("confirmTitle");
   const cancelBtn = getEl("confirmCancel");
   const okBtn = getEl("confirmOk");
 
-  const key = String(store.store_number);
-  const currentState = statusMap[key];
-
   title.innerText = currentState
-    ? `Mark Store ${key} as NOT completed?`
-    : `Mark Store ${key} as completed?`;
+    ? `Mark Store ${storeNumber} as NOT completed?`
+    : `Mark Store ${storeNumber} as completed?`;
 
   modal.classList.remove("hidden");
 
@@ -99,22 +157,32 @@ function openConfirmModal(store, markerEl) {
   okBtn.onclick = async () => {
 
     const newState = !currentState;
-    statusMap[key] = newState;
-
-    markerEl.style.background = newState
-      ? "#2ecc71"
-      : "#e10600";
+    statusMap[storeNumber] = newState;
 
     await supabaseClient
       .from("store_status")
       .upsert({
-        store_number: key,
+        store_number: storeNumber,
         completed: newState
       });
 
+    refreshMapColors();
     updateProgress();
     modal.classList.add("hidden");
   };
+}
+
+function refreshMapColors() {
+
+  const source = map.getSource("stores");
+  const data = source._data;
+
+  data.features.forEach(feature => {
+    const key = feature.properties.store_number;
+    feature.properties.completed = statusMap[key];
+  });
+
+  source.setData(data);
 }
 
 function updateProgress() {
