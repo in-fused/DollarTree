@@ -1,6 +1,4 @@
-// ================= MAPBOX =================
-
-mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
+mapboxgl.accessToken = "eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9";
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -8,8 +6,6 @@ const map = new mapboxgl.Map({
   center: [-81.7, 27.8],
   zoom: 6.5
 });
-
-// ================= SUPABASE =================
 
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
@@ -19,64 +15,47 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
-// ================= STATE =================
-
 let storeData = [];
 let statusMap = {};
 let markers = [];
 
-// ================= SAFE DOM =================
-
 const getEl = (id) => document.getElementById(id);
 
-// ================= SIDEBAR TOGGLE =================
+// ================= INIT =================
 
-const sidebarToggle = getEl("sidebarToggle");
-if (sidebarToggle) {
-  sidebarToggle.onclick = () => {
-    const sidebar = getEl("sidebar");
-    if (sidebar) sidebar.classList.toggle("collapsed");
-  };
-}
-
-// ================= GEOLOCATE =================
-
-const locateBtn = getEl("locateBtn");
-if (locateBtn) {
-  locateBtn.onclick = () => {
-    navigator.geolocation.getCurrentPosition((pos) => {
-      map.flyTo({
-        center: [pos.coords.longitude, pos.coords.latitude],
-        zoom: 13
-      });
-    });
-  };
-}
+map.on("load", async () => {
+  await loadData();
+});
 
 // ================= LOAD DATA =================
 
 async function loadData() {
 
-  // Load store list
+  // 1️⃣ Load store list
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
-  // Default all to false
+  // Normalize all store numbers to STRING
   storeData.forEach(store => {
+    store.store_number = String(store.store_number);
     statusMap[store.store_number] = false;
   });
 
-  // Load completion states from Supabase
+  // 2️⃣ Load completion state from Supabase
   const { data } = await supabaseClient
     .from("store_status")
     .select("*");
 
   if (data) {
     data.forEach(row => {
-      statusMap[row.store_number] = row.completed === true;
+      const key = String(row.store_number);
+      if (statusMap.hasOwnProperty(key)) {
+        statusMap[key] = row.completed === true;
+      }
     });
   }
 
+  // 3️⃣ Now render markers AFTER hydration
   renderStores();
   updateProgress();
 }
@@ -109,7 +88,7 @@ function renderStores() {
   });
 }
 
-// ================= CONFIRM MODAL =================
+// ================= MODAL =================
 
 function openConfirmModal(store, markerEl) {
 
@@ -120,9 +99,9 @@ function openConfirmModal(store, markerEl) {
 
   if (!modal) return;
 
-  const currentlyCompleted = statusMap[store.store_number];
+  const currentState = statusMap[store.store_number];
 
-  title.innerText = currentlyCompleted
+  title.innerText = currentState
     ? `Mark Store ${store.store_number} as NOT completed?`
     : `Mark Store ${store.store_number} as completed?`;
 
@@ -134,7 +113,7 @@ function openConfirmModal(store, markerEl) {
 
   okBtn.onclick = async () => {
 
-    const newState = !currentlyCompleted;
+    const newState = !currentState;
     statusMap[store.store_number] = newState;
 
     markerEl.style.background = newState
@@ -156,6 +135,7 @@ function openConfirmModal(store, markerEl) {
 // ================= PROGRESS =================
 
 function updateProgress() {
+
   const completed = Object.values(statusMap).filter(v => v).length;
   const total = storeData.length;
 
@@ -176,23 +156,4 @@ function updateProgress() {
 const searchInput = getEl("storeSearch");
 
 if (searchInput) {
-  searchInput.addEventListener("input", (e) => {
-    const val = e.target.value.trim();
-    if (!val) return;
-
-    const match = storeData.find(
-      s => s.store_number == val
-    );
-
-    if (match) {
-      map.flyTo({
-        center: [match.lng, match.lat],
-        zoom: 14
-      });
-    }
-  });
-}
-
-// ================= INIT =================
-
-map.on("load", loadData);
+  searchInput.addEventListener("
