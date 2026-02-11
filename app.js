@@ -182,14 +182,28 @@ function handleClick(e) {
   const key = feature.properties.store_id;
   const current = statusMap[key];
 
+  const store = storeData.find(
+    s => String(s.store_id) === String(key)
+  );
+
   const modal = getEl("confirmModal");
   const title = getEl("confirmTitle");
+  const idLine = getEl("confirmStoreId");
+  const addrLine = getEl("confirmAddressLine");
+  const cityLine = getEl("confirmCityLine");
   const cancel = getEl("confirmCancel");
   const ok = getEl("confirmOk");
 
   title.innerText = current
-    ? `Mark Store ${key} as NOT completed?`
-    : `Mark Store ${key} as completed?`;
+    ? "Mark as NOT completed?"
+    : "Mark as completed?";
+
+  idLine.innerText = `Store ID: ${key}`;
+
+  if (store) {
+    addrLine.innerText = store.address || "";
+    cityLine.innerText = `${store.city || ""}, FL ${store.zip || ""}`;
+  }
 
   modal.classList.remove("hidden");
 
