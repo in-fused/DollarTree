@@ -252,14 +252,3 @@ function updateProgress() {
     fill.style.width = `${(completed / total) * 100}%`;
   }
 }
-
-/* ================= SIDEBAR ================= */
-
-const toggle = getEl("sidebarToggle");
-const sidebar = getEl("sidebar");
-
-if (toggle && sidebar) {
-  toggle.onclick = () => {
-    sidebar.classList.toggle("sidebar-open");
-  };
-}
