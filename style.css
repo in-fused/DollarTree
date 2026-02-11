@@ -30,15 +30,13 @@ header {
   z-index: 100;
 }
 
-#sidebarToggle {
-  position: absolute;
-  left: 20px;
-  font-size: 26px;
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-  z-index: 101;
+const sidebarToggle = getEl("sidebarToggle");
+const sidebar = getEl("sidebar");
+
+if (sidebarToggle && sidebar) {
+  sidebarToggle.onclick = () => {
+    sidebar.classList.toggle("sidebar-open");
+  };
 }
 
 /* Header inner wrapper */
