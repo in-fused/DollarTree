@@ -21,15 +21,13 @@ header {
 }
 
 #sidebarToggle {
-  position: absolute;
-  left: 40px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 28px;
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
+  const sidebarToggle = getEl("sidebarToggle");
+const sidebar = getEl("sidebar");
+
+if (sidebarToggle && sidebar) {
+  sidebarToggle.onclick = () => {
+    sidebar.classList.toggle("active");
+  };
 }
 
 .headerContent {
@@ -89,16 +87,6 @@ aside {
   z-index: 10;
 }
 
-aside.collapsed {
-  transform: translateX(-100%);
-}
-
-.panel {
-  background: rgba(255,255,255,0.035);
-  border-radius: 14px;
-  padding: 16px;
-  margin-bottom: 20px;
-}
 
 .panel h3 {
   margin: 0 0 8px;
