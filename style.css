@@ -9,8 +9,7 @@ html, body {
   background: #0b0d12;
   color: white;
 }
-
-/* ===== REFINED BRAND HEADER ===== */
+/* ===== FINAL HEADER STRUCTURE ===== */
 
 header {
   height: 150px;
@@ -28,6 +27,8 @@ header {
 #sidebarToggle {
   position: absolute;
   left: 40px;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 28px;
   background: none;
   border: none;
@@ -37,65 +38,46 @@ header {
 
 .headerInner {
   width: 100%;
-  max-width: 1400px;
+  max-width: 1600px;
   display: flex;
-  align-items: center;
+  align-items: flex-end; /* key change */
   justify-content: space-between;
 }
 
+/* LOGO LOWERED */
 .brandBlock {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  align-items: flex-end;
+  padding-top: 35px; /* pushes logo down inside banner */
 }
 
 .brandLogoWide {
-  width: 900px;
-  max-width: 60vw;
+  width: 950px;
+  max-width: 65vw;
   height: auto;
 }
 
-.brandSubline {
-  margin-top: 6px;
-  font-size: 15px;
-  opacity: 0.75;
+/* RIGHT SIDE INFO */
+.headerRight {
+  text-align: right;
+  padding-bottom: 20px;
+}
+
+.branchInfo {
+  font-size: 20px;
+  font-weight: 700;
   letter-spacing: 0.6px;
 }
 
-.headerRight {
-  display: flex;
-  align-items: center;
-  gap: 40px;
-}
-
-.headerStat {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.headerStat span {
-  font-size: 26px;
-  font-weight: 700;
-}
-
-.headerStat small {
-  font-size: 12px;
-  opacity: 0.6;
-  letter-spacing: 0.5px;
-}
-
-.headerStatus {
+.branchSub {
   font-size: 14px;
-  color: #2ecc71;
-  font-weight: 600;
+  opacity: 0.7;
+  margin-top: 4px;
 }
 
 main {
   height: calc(100vh - 150px);
 }
-
-
 
 /* ===== LAYOUT ===== */
 
