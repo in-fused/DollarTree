@@ -225,3 +225,26 @@ input {
     max-width: 300px;
   }
 }
+
+/* ===== BRAND HERO MODE ===== */
+
+header {
+  height: 110px !important;
+  padding: 0 40px !important;
+}
+
+main {
+  height: calc(100vh - 110px) !important;
+}
+
+.brandLogo {
+  height: 70px !important;
+}
+
+.brandTitle {
+  font-size: 20px !important;
+}
+
+.brandSubtitle {
+  font-size: 14px !important;
+}
