@@ -5,11 +5,7 @@
   <title>Red Bull Rebels — Central FL Dollar Tree Project</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <link
-    href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
-    rel="stylesheet"
-  />
-
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -18,24 +14,17 @@
   <button id="sidebarToggle">☰</button>
 
   <div class="headerContent">
-    <img
-      src="/red-bull-rebels-logo.png"
-      alt="Red Bull Rebels"
-      class="brandLogoWide"
-    />
+    <img src="red-bull-rebels-logo.png" class="brandLogoWide" />
 
     <div class="headerRight">
-      <div class="projectTitle">
-        Central FL Dollar Tree Project
-      </div>
-      <div class="projectSub">
-        Orlando · Field Operations
-      </div>
+      <div class="projectTitle">Central FL Dollar Tree Project</div>
+      <div class="projectSub">Orlando · Field Operations</div>
     </div>
   </div>
 </header>
 
-<main>
+<main class="app">
+
   <aside id="sidebar">
     <div class="panel">
       <h3>Search Store</h3>
@@ -44,17 +33,29 @@
 
     <div class="panel">
       <h3>Progress</h3>
-      <div id="progressText">Loading…</div>
+      <div id="progressText">Loading...</div>
       <div class="progressBar">
         <div id="progressFill"></div>
       </div>
     </div>
   </aside>
 
-  <section id="map"></section>
+  <div class="mapWrapper">
+    <div id="map"></div>
+  </div>
 
-  <button id="locateBtn">📍</button>
 </main>
+
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="modal hidden">
+  <div class="modalContent">
+    <h3 id="confirmTitle"></h3>
+    <div class="modalButtons">
+      <button id="confirmCancel">Cancel</button>
+      <button id="confirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
