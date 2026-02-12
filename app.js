@@ -173,6 +173,7 @@ const store = storeData.find(
 
 document.getElementById("confirmStoreId").innerText =
   `Store ID: ${key}`;
+  loadNotes(key);
 
 if (store && store.full_address) {
 
@@ -188,6 +189,22 @@ if (store && store.full_address) {
   document.getElementById("confirmCityLine").innerText =
     parts.slice(1).join(",").trim();
 }
+
+document.getElementById("addNoteBtn").onclick = async () => {
+
+  const note = document.getElementById("noteBox").value.trim();
+  if (!note) return;
+
+  await supabaseClient
+    .from("store_notes")
+    .insert({
+      store_id: key,
+      note
+    });
+
+  document.getElementById("noteBox").value = "";
+  loadNotes(key);
+};
 
   const modal = document.getElementById("confirmModal");
   const pinGate = document.getElementById("pinGate");
@@ -359,4 +376,35 @@ function updateActivityList() {
 
     container.appendChild(div);
   });
+  
+  /* ================= NOTES ================= */
+
+async function loadNotes(storeId) {
+
+  const { data } = await supabaseClient
+    .from("store_notes")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: false });
+
+  const notesContainer = document.getElementById("notesList");
+  if (!notesContainer) return;
+
+  notesContainer.innerHTML = "";
+
+  if (!Array.isArray(data) || data.length === 0) {
+    notesContainer.innerHTML =
+      "<div style='opacity:.6;font-size:13px;'>No notes yet.</div>";
+    return;
+  }
+
+  data.forEach(row => {
+    const div = document.createElement("div");
+    div.style.marginBottom = "6px";
+    div.style.fontSize = "13px";
+    div.style.opacity = "0.85";
+    div.innerText = row.note;
+    notesContainer.appendChild(div);
+  });
+}
 }
