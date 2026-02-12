@@ -14,7 +14,16 @@
 </header>
 
 <main class="app">
+
   <aside>
+
+    <!-- SEARCH PANEL -->
+    <div class="panel">
+      <h3>Search Store</h3>
+      <input id="storeSearch" placeholder="Enter Store ID #" />
+    </div>
+
+    <!-- STATUS PANEL -->
     <div class="panel">
       <h3>Project Status</h3>
 
@@ -39,17 +48,27 @@
 
       <div id="progressText" class="progressLabel"></div>
     </div>
+
+    <!-- ACTIVITY PANEL -->
+    <div class="panel">
+      <h3>Updated Stores</h3>
+      <div id="activityList" class="activityList"></div>
+    </div>
+
   </aside>
 
   <div class="mapWrapper">
     <div id="map"></div>
   </div>
+
 </main>
 
+<!-- MODAL -->
 <div id="confirmModal" class="modal hidden">
   <div class="modalContent">
 
     <h3>Update Store Status</h3>
+
     <div id="confirmStoreId"></div>
     <div id="confirmAddress"></div>
 
@@ -62,9 +81,12 @@
     <textarea id="noteBox" placeholder="Leave note (optional)..."></textarea>
     <button id="addNoteBtn">Add Note</button>
 
+    <hr style="margin:12px 0;opacity:.2;">
+
     <div id="notesList"></div>
 
     <button id="confirmCancel">Close</button>
+
   </div>
 </div>
 
