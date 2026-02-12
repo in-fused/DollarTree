@@ -165,6 +165,29 @@ function handleClick(e) {
   const feature = e.features[0];
   const key = feature.properties.store_id;
   const state = statusMap[key];
+// ===== Populate Preview Info (Visible Before PIN) =====
+
+const store = storeData.find(
+  s => String(s.store_id) === String(key)
+);
+
+document.getElementById("confirmStoreId").innerText =
+  `Store ID: ${key}`;
+
+if (store && store.full_address) {
+
+  const cleaned = store.full_address
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const parts = cleaned.split(",");
+
+  document.getElementById("confirmAddressLine").innerText =
+    parts[0] ? parts[0].trim() : "";
+
+  document.getElementById("confirmCityLine").innerText =
+    parts.slice(1).join(",").trim();
+}
 
   const modal = document.getElementById("confirmModal");
   const pinGate = document.getElementById("pinGate");
