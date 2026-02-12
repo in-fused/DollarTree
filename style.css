@@ -237,8 +237,6 @@ textarea {
   cursor: pointer;
 }
 
-/* ================= MOBILE ================= */
-
 @media (max-width: 900px) {
 
   header {
@@ -248,11 +246,11 @@ textarea {
     justify-content: center;
   }
 
-    .brandLogoWide {
-    height: 110px;        /* actual rendered size */
+  .brandLogoWide {
+    height: 110px;
     width: auto;
     object-fit: contain;
-    transform: scale(1.75); /* slightly boosted */
+    transform: scale(1.75);
     transform-origin: center;
   }
 
@@ -284,23 +282,23 @@ textarea {
   .activityList {
     max-height: 140px;
   }
+
+  /* 🔥 MOVE THIS HERE */
   .modalContent {
-  width: 94%;
-  max-width: none;
-  max-height: 88vh;
-  padding: 18px;
-}
+    width: 94%;
+    max-width: none;
+    max-height: 88vh;
+    padding: 18px;
+  }
 
-.modalAddress {
-  font-size: 14px;
-  margin-top: 6px;
-  line-height: 1.3;
-}
+  .modalAddress {
+    font-size: 14px;
+    margin-top: 6px;
+    line-height: 1.3;
+  }
 
-.modalStoreId {
-  font-weight: 700;
-  margin-bottom: 6px;
+  .modalStoreId {
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
 }
-  
-}
-
