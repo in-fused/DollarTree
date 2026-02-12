@@ -25,12 +25,32 @@
     </div>
 
     <div class="panel">
-      <h3>Progress</h3>
-      <div id="progressText">Loading...</div>
-      <div class="progressBar">
-        <div id="progressFill"></div>
-      </div>
+  <h3>Project Status</h3>
+
+  <div class="statsRow">
+    <div class="stat completedStat">
+      <div id="completedCount">0</div>
+      <span>Completed</span>
     </div>
+
+    <div class="stat activeStat">
+      <div id="activeCount">0</div>
+      <span>Remaining</span>
+    </div>
+
+    <div class="stat closedStat">
+      <div id="closedCount">0</div>
+      <span>Closed</span>
+    </div>
+  </div>
+
+  <div class="progressBar">
+    <div id="progressFill"></div>
+  </div>
+
+  <div id="progressText" class="progressLabel"></div>
+</div>
+
   </aside>
 
   <div class="mapWrapper">
