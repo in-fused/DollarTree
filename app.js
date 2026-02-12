@@ -19,8 +19,6 @@ let storeData = [];
 let statusMap = {};
 let geojsonData;
 
-const getEl = id => document.getElementById(id);
-
 map.on("load", async () => {
   await hydrate();
   buildMap();
@@ -28,7 +26,7 @@ map.on("load", async () => {
   updateProgress();
 });
 
-/* ================= HYDRATE ================= */
+/* HYDRATE */
 
 async function hydrate() {
 
@@ -50,7 +48,7 @@ async function hydrate() {
   if (Array.isArray(data)) {
     data.forEach(row => {
       const key = String(row.store_id);
-      if (statusMap.hasOwnProperty(key)) {
+      if (statusMap[key]) {
         statusMap[key] = {
           completed: row.completed === true,
           closed: row.closed === true,
@@ -61,7 +59,7 @@ async function hydrate() {
   }
 }
 
-/* ================= BUILD MAP ================= */
+/* MAP */
 
 function buildMap() {
 
@@ -88,7 +86,6 @@ function buildMap() {
     clusterRadius: 50
   });
 
-  /* CLUSTERS */
   map.addLayer({
     id: "clusters",
     type: "circle",
@@ -107,13 +104,9 @@ function buildMap() {
     type: "symbol",
     source: "stores",
     filter: ["has", "point_count"],
-    layout: {
-      "text-field": "{point_count_abbreviated}",
-      "text-size": 14
-    }
+    layout: { "text-field": "{point_count_abbreviated}" }
   });
 
-  /* STORE POINTS */
   map.addLayer({
     id: "points",
     type: "circle",
@@ -134,12 +127,14 @@ function buildMap() {
     }
   });
 
-  /* X SYMBOL FOR CLOSED */
   map.addLayer({
     id: "closed-x",
     type: "symbol",
     source: "stores",
-    filter: ["==", ["get", "closed"], true],
+    filter: ["all",
+      ["==", ["get", "closed"], true],
+      ["!", ["has", "point_count"]]
+    ],
     layout: {
       "text-field": "✕",
       "text-size": 16
@@ -152,7 +147,7 @@ function buildMap() {
   map.on("click", "points", handleClick);
 }
 
-/* ================= MODAL ================= */
+/* MODAL */
 
 function handleClick(e) {
 
@@ -160,55 +155,30 @@ function handleClick(e) {
   const key = feature.properties.store_id;
   const state = statusMap[key];
 
-  const store = storeData.find(
-    s => String(s.store_id) === String(key)
-  );
-
-  const modal = getEl("confirmModal");
-  const idLine = getEl("confirmStoreId");
-  const addrLine = getEl("confirmAddressLine");
-  const cityLine = getEl("confirmCityLine");
-  const noteBox = getEl("noteBox");
-
-  idLine.innerText = `Store ID: ${key}`;
-
-  if (store && store.full_address) {
-    const cleaned = store.full_address.replace(/\s+/g, " ").trim();
-    const parts = cleaned.split(",");
-    addrLine.innerText = parts[0]?.trim() || "";
-    cityLine.innerText = `${parts[1]?.trim() || ""}, ${parts[2]?.trim() || ""}`;
-  }
+  const modal = document.getElementById("confirmModal");
+  const noteBox = document.getElementById("noteBox");
 
   noteBox.value = state.note || "";
-
   modal.classList.remove("hidden");
 
-  getEl("confirmCancel").onclick = () => {
-    modal.classList.add("hidden");
-  };
+  document.getElementById("markActive").onclick =
+    () => updateStore(key, false, false);
 
-  getEl("markActive").onclick = async () => {
-    await updateStore(key, false, false);
-  };
+  document.getElementById("markCompleted").onclick =
+    () => updateStore(key, true, false);
 
-  getEl("markCompleted").onclick = async () => {
-    await updateStore(key, true, false);
-  };
+  document.getElementById("markClosed").onclick =
+    () => updateStore(key, false, true);
 
-  getEl("markClosed").onclick = async () => {
-    await updateStore(key, false, true);
-  };
+  document.getElementById("confirmCancel").onclick =
+    () => modal.classList.add("hidden");
 }
 
 async function updateStore(key, completed, closed) {
 
-  const note = getEl("noteBox").value;
+  const note = document.getElementById("noteBox").value;
 
-  statusMap[key] = {
-    completed,
-    closed,
-    note
-  };
+  statusMap[key] = { completed, closed, note };
 
   await supabaseClient
     .from("store_status")
@@ -221,55 +191,8 @@ async function updateStore(key, completed, closed) {
 
   rebuild();
   updateProgress();
-  getEl("confirmModal").classList.add("hidden");
+  document.getElementById("confirmModal").classList.add("hidden");
 }
-
-  /* Add textarea dynamically */
-  let noteBox = document.getElementById("noteBox");
-  if (!noteBox) {
-    noteBox = document.createElement("textarea");
-    noteBox.id = "noteBox";
-    noteBox.placeholder = "Leave note (optional)...";
-    noteBox.style.marginTop = "12px";
-    noteBox.style.width = "100%";
-    noteBox.style.borderRadius = "8px";
-    noteBox.style.padding = "8px";
-    modal.querySelector(".modalContent").appendChild(noteBox);
-  }
-
-  noteBox.value = state.note || "";
-
-  modal.classList.remove("hidden");
-
-  cancel.onclick = () => modal.classList.add("hidden");
-
-  ok.onclick = async () => {
-
-    const newCompleted = !state.completed;
-    const newClosed = noteBox.value.toLowerCase().includes("closed");
-
-    statusMap[key] = {
-      completed: newCompleted,
-      closed: newClosed,
-      note: noteBox.value
-    };
-
-    await supabaseClient
-      .from("store_status")
-      .upsert({
-        store_id: key,
-        completed: newCompleted,
-        closed: newClosed,
-        note: noteBox.value
-      });
-
-    rebuild();
-    updateProgress();
-    modal.classList.add("hidden");
-  };
-}
-
-/* ================= REBUILD ================= */
 
 function rebuild() {
   geojsonData.features.forEach(f => {
@@ -280,15 +203,11 @@ function rebuild() {
   map.getSource("stores").setData(geojsonData);
 }
 
-/* ================= SEARCH ================= */
-
 function bindSearch() {
-  const input = getEl("storeSearch");
+  const input = document.getElementById("storeSearch");
   input.addEventListener("input", e => {
     const val = e.target.value.trim();
-    const match = storeData.find(
-      s => String(s.store_id) === val
-    );
+    const match = storeData.find(s => String(s.store_id) === val);
     if (match) {
       map.flyTo({
         center: [match.lng, match.lat],
@@ -298,16 +217,15 @@ function bindSearch() {
   });
 }
 
-/* ================= PROGRESS ================= */
-
 function updateProgress() {
   const completed = Object.values(statusMap)
     .filter(v => v.completed).length;
+
   const total = storeData.length;
 
-  getEl("progressText").innerText =
+  document.getElementById("progressText").innerText =
     `${completed} / ${total} completed`;
 
-  getEl("progressFill").style.width =
+  document.getElementById("progressFill").style.width =
     `${(completed / total) * 100}%`;
 }
