@@ -14,20 +14,19 @@ html, body {
 /* HEADER */
 
 header {
-  height: 170px;
+  height: 180px;
   background: linear-gradient(90deg, #001a33, #002b55);
   border-bottom: 5px solid #c8102e;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  overflow: hidden;
 }
 
 /* Scale logo visually */
 .brandLogoWide {
-  height: 220px;          /* intentionally larger than header */
-  transform: scale(2); /* zoom effect */
+  height: 220px;   /* true scaling, no transform */
+transform: scale(2); /* zoom effect */
   object-fit: contain;
 }
 
@@ -45,21 +44,20 @@ header {
 
 .projectSub {
   font-size: 14px;
-  opacity: 0.75;
-  margin-top: 4px;
+  opacity: 0.7;
 }
 
 /* LAYOUT */
 
 .app {
-  height: calc(100vh - 170px);
+  height: calc(100vh - 180px);
   display: flex;
 }
 
 /* SIDEBAR */
 
 aside {
-  width: 280px;
+  width: 300px;
   background: rgba(17,20,26,0.97);
   padding: 20px;
   border-right: 1px solid rgba(255,255,255,0.06);
@@ -67,17 +65,10 @@ aside {
 }
 
 .panel {
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.05);
   border-radius: 14px;
   padding: 16px;
   margin-bottom: 20px;
-}
-
-.panel h3 {
-  margin: 0 0 8px;
-  font-size: 13px;
-  text-transform: uppercase;
-  color: #c8102e;
 }
 
 input {
@@ -126,9 +117,7 @@ input {
   z-index: 200;
 }
 
-.hidden {
-  display: none;
-}
+.hidden { display: none; }
 
 .modalContent {
   background: #111827;
@@ -136,45 +125,6 @@ input {
   border-radius: 16px;
   width: 92%;
   max-width: 360px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-}
-
-.modalStoreId {
-  font-size: 14px;
-  opacity: 0.6;
-  margin-top: 4px;
-}
-
-.modalAddress {
-  margin-top: 18px;
-  font-size: 14px;
-  line-height: 1.5;
-  opacity: 0.85;
-}
-
-.modalButtons {
-  margin-top: 26px;
-  display: flex;
-  justify-content: space-between;
-}
-
-.btnPrimary {
-  background: #c8102e;
-  color: white;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btnSecondary {
-  background: rgba(255,255,255,0.08);
-  color: white;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 8px;
-  cursor: pointer;
 }
 
 .statusButtons {
@@ -184,38 +134,44 @@ input {
   flex-wrap: wrap;
 }
 
-.btnDanger {
-  background: #000;
-  color: #fff;
-  border: 1px solid #ff2d2d;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
 textarea {
   margin-top: 12px;
   width: 100%;
   border-radius: 8px;
   padding: 8px;
   border: none;
-  resize: vertical;
+}
+
+.btnPrimary {
+  background: #2ecc71;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btnDanger {
+  background: #000;
+  border: 1px solid #ff2d2d;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btnSecondary {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 /* MOBILE */
 
 @media (max-width: 768px) {
-
-  .headerRight {
-    position: static;
-    text-align: center;
-    margin-top: 4px;
-  }
-
   .app {
     flex-direction: column;
   }
-
   aside {
     width: 100%;
     border-right: none;
