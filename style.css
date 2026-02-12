@@ -1,6 +1,6 @@
 * {
   box-sizing: border-box;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: Inter, system-ui, sans-serif;
 }
 
 html, body {
@@ -10,126 +10,67 @@ html, body {
   color: white;
 }
 
-/* ================= HEADER ================= */
-
 header {
-  height: 160px;
+  height: 140px;
   background: linear-gradient(90deg, #001a33, #002b55);
   border-bottom: 5px solid #c8102e;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
 }
 
 .brandLogoWide {
-  height: 120px;
-  transform: scale(2);
-  transform-origin: center;
+  height: 90px;
+  transform: scale(1.6);
 }
-
-.headerRight {
-  position: absolute;
-  right: 40px;
-  text-align: right;
-}
-
-.projectTitle {
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.projectSub {
-  font-size: 14px;
-  opacity: 0.7;
-}
-
-/* ================= LAYOUT ================= */
 
 .app {
   display: flex;
-  height: calc(100vh - 160px);
+  height: calc(100vh - 140px);
 }
-
-/* ================= SIDEBAR ================= */
 
 aside {
   width: 320px;
   background: rgba(17,20,26,0.97);
-  padding: 16px;
+  padding: 18px;
   overflow-y: auto;
-  border-right: 1px solid rgba(255,255,255,0.08);
 }
 
 .panel {
   background: rgba(255,255,255,0.05);
   border-radius: 14px;
   padding: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
-
-input {
-  width: 100%;
-  padding: 8px;
-  border-radius: 8px;
-  border: none;
-}
-
-/* ================= STATS ================= */
 
 .statRow {
   display: flex;
   justify-content: space-between;
-  padding: 6px 0;
+  margin-bottom: 6px;
 }
 
-.completedStat div { color: #2ecc71; }
-.activeStat div { color: #ff2d2d; }
-.closedStat div { color: #ff9900; }
-
 .progressBar {
-  margin-top: 10px;
-  background: rgba(255,255,255,0.1);
-  height: 8px;
+  background: rgba(255,255,255,0.12);
+  height: 10px;
   border-radius: 6px;
-  overflow: hidden;
+  margin-top: 8px;
 }
 
 #progressFill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg,#ff2d2d,#c8102e,#2ecc71);
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, #ff2d2d, #2ecc71);
 }
-
-.progressLabel {
-  margin-top: 6px;
-  font-size: 12px;
-  opacity: 0.7;
-  text-align: center;
-}
-
-/* ================= ACTIVITY ================= */
 
 .activityList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .activityItem {
-  background: rgba(255,255,255,0.05);
-  padding: 6px 8px;
-  border-radius: 8px;
+  padding: 6px;
   cursor: pointer;
-  font-size: 13px;
 }
-
-.activityItem:hover {
-  background: rgba(255,255,255,0.1);
-}
-
-/* ================= MAP ================= */
 
 .mapWrapper {
   flex: 1;
@@ -141,8 +82,6 @@ input {
   inset: 0;
 }
 
-/* ================= MODAL ================= */
-
 .modal {
   position: fixed;
   inset: 0;
@@ -151,130 +90,49 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
 }
 
-.hidden {
-  display: none;
-}
+.hidden { display: none; }
 
 .modalContent {
   background: #111827;
-  width: 92%;
-  max-width: 420px;
-  max-height: 85vh;
-  overflow-y: auto;
   padding: 20px;
   border-radius: 16px;
-}
-
-.modalStoreId {
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-
-.modalAddress {
-  font-size: 14px;
-  margin-bottom: 14px;
-  line-height: 1.4;
-}
-
-.statusButtons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
+  width: 92%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 textarea {
   width: 100%;
+  margin-top: 10px;
   border-radius: 8px;
   padding: 8px;
-  border: none;
-  margin-bottom: 10px;
 }
 
-.btnPrimary {
-  background: #2ecc71;
-  border: none;
-  padding: 8px 12px;
+button {
+  margin-top: 8px;
+  padding: 6px 10px;
   border-radius: 8px;
+  border: none;
   cursor: pointer;
 }
 
-.btnDanger {
-  background: black;
-  border: 1px solid #ff2d2d;
-  padding: 8px 12px;
+.photoGallery {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.photoGallery img {
+  width: 100%;
   border-radius: 8px;
-  cursor: pointer;
 }
 
-.btnSecondary {
-  background: rgba(255,255,255,0.1);
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-/* ================= NOTES ================= */
-
-.notesList {
-  margin-top: 12px;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  padding-top: 10px;
-}
-
-.noteItem {
-  background: rgba(255,255,255,0.06);
-  padding: 8px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
-
-.noteTime {
-  font-size: 11px;
-  opacity: 0.6;
-  margin-top: 4px;
-}
-
-/* ================= MOBILE ================= */
-
-@media (max-width: 900px) {
-
-  header {
-    height: 130px;
-  }
-
-  .brandLogoWide {
-    height: 100px;
-    transform: scale(1.6);
-  }
-
-  .headerRight {
-    display: none;
-  }
-
-  .app {
-    flex-direction: column;
-    height: calc(100vh - 130px);
-  }
-
-  aside {
-    width: 100%;
-    max-height: 45vh;
-    border-right: none;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-  }
-
-  .mapWrapper {
-    height: 55vh;
-  }
-
-  #map {
-    position: relative;
-    height: 100%;
-  }
+.deletePhotoBtn {
+  background: red;
+  color: white;
+  font-size: 12px;
 }
