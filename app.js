@@ -25,6 +25,7 @@ map.on("load", async () => {
   await hydrate();
   buildMap();
   updateProgress();
+  updateActivityList();
 });
 
 /* ================= HYDRATE ================= */
@@ -132,7 +133,7 @@ function handleClick(e) {
 
   const store = storeData.find(s => String(s.store_id) === key);
 
-  if (store) {
+  if (store && store.full_address) {
     document.getElementById("confirmAddress").innerText =
       store.full_address;
   }
@@ -171,6 +172,7 @@ async function updateStore(key, completed, closed) {
 
   rebuild();
   updateProgress();
+  updateActivityList();
 }
 
 /* ================= NOTES ================= */
@@ -200,13 +202,25 @@ async function loadNotes(storeId) {
   container.innerHTML = "";
 
   if (!data || data.length === 0) {
-    container.innerHTML = "No notes yet.";
+    container.innerHTML = "<div style='opacity:.6;'>No notes yet.</div>";
     return;
   }
 
   data.forEach(row => {
     const div = document.createElement("div");
-    div.innerText = row.note;
+    div.style.marginBottom = "6px";
+    div.style.fontSize = "13px";
+    div.style.padding = "6px 8px";
+    div.style.background = "rgba(255,255,255,0.06)";
+    div.style.borderRadius = "6px";
+
+    div.innerHTML = `
+      <div>${row.note}</div>
+      <div style="opacity:.5;font-size:11px;margin-top:4px;">
+        ${new Date(row.created_at).toLocaleString()}
+      </div>
+    `;
+
     container.appendChild(div);
   });
 }
@@ -246,4 +260,60 @@ function updateProgress() {
 
   document.getElementById("progressText").innerText =
     `${percent.toFixed(1)}% complete`;
+}
+
+/* ================= SIDEBAR ACTIVITY ================= */
+
+function updateActivityList() {
+
+  const container = document.getElementById("activityList");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  const entries = Object.entries(statusMap)
+    .filter(([_, val]) => val.completed || val.closed);
+
+  if (entries.length === 0) {
+    container.innerHTML =
+      "<div style='opacity:.6;font-size:13px;'>No updates yet.</div>";
+    return;
+  }
+
+  entries
+    .sort((a, b) => Number(b[0]) - Number(a[0]))
+    .forEach(([storeId, state]) => {
+
+      const div = document.createElement("div");
+      div.className = "activityItem";
+
+      const icon = document.createElement("span");
+      icon.className = "activityIcon";
+
+      if (state.completed) {
+        icon.innerText = "✔";
+        icon.style.color = "#2ecc71";
+      } else if (state.closed) {
+        icon.innerText = "⚠";
+        icon.style.color = "#ff9900";
+      }
+
+      div.appendChild(icon);
+      div.append(` Store ${storeId}`);
+
+      div.onclick = () => {
+        const match = storeData.find(
+          s => String(s.store_id) === storeId
+        );
+
+        if (match) {
+          map.flyTo({
+            center: [match.lng, match.lat],
+            zoom: 14
+          });
+        }
+      };
+
+      container.appendChild(div);
+    });
 }
