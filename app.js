@@ -26,6 +26,7 @@ map.on("load", async () => {
   buildMap();
   bindSearch();
   updateProgress();
+  updateActivityList();
 });
 
 /* HYDRATE */
@@ -232,6 +233,7 @@ async function updateStore(key, completed, closed) {
   updateProgress();
   document.getElementById("confirmModal").classList.add("hidden");
 }
+updateActivityList();
 
 function rebuild() {
   geojsonData.features.forEach(f => {
