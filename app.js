@@ -28,7 +28,7 @@ map.on("load", async () => {
   updateProgress();
 });
 
-/* HYDRATE */
+/* ================= HYDRATE ================= */
 
 async function hydrate() {
 
@@ -36,7 +36,11 @@ async function hydrate() {
   storeData = await res.json();
 
   storeData.forEach(store => {
-    statusMap[String(store.store_id)] = false;
+    statusMap[String(store.store_id)] = {
+      completed: false,
+      closed: false,
+      note: ""
+    };
   });
 
   const { data } = await supabaseClient
@@ -47,13 +51,17 @@ async function hydrate() {
     data.forEach(row => {
       const key = String(row.store_id);
       if (statusMap.hasOwnProperty(key)) {
-        statusMap[key] = row.completed === true;
+        statusMap[key] = {
+          completed: row.completed === true,
+          closed: row.closed === true,
+          note: row.note || ""
+        };
       }
     });
   }
 }
 
-/* MAP BUILD */
+/* ================= BUILD MAP ================= */
 
 function buildMap() {
 
@@ -63,7 +71,8 @@ function buildMap() {
       type: "Feature",
       properties: {
         store_id: String(store.store_id),
-        completed: statusMap[String(store.store_id)] === true
+        completed: statusMap[String(store.store_id)].completed,
+        closed: statusMap[String(store.store_id)].closed
       },
       geometry: {
         type: "Point",
@@ -76,36 +85,20 @@ function buildMap() {
     type: "geojson",
     data: geojsonData,
     cluster: true,
-    clusterMaxZoom: 14,
     clusterRadius: 50
   });
 
+  /* CLUSTERS */
   map.addLayer({
     id: "clusters",
     type: "circle",
     source: "stores",
     filter: ["has", "point_count"],
     paint: {
-      "circle-color": [
-        "step",
-        ["get", "point_count"],
-        "#c8102e",
-        10,
-        "#ff2d2d",
-        25,
-        "#ff5c5c"
-      ],
-      "circle-radius": [
-        "step",
-        ["get", "point_count"],
-        20,
-        10,
-        26,
-        25,
-        34
-      ],
+      "circle-color": "#c8102e",
+      "circle-radius": 24,
       "circle-stroke-width": 2,
-      "circle-stroke-color": "#ffffff"
+      "circle-stroke-color": "#fff"
     }
   });
 
@@ -116,10 +109,11 @@ function buildMap() {
     filter: ["has", "point_count"],
     layout: {
       "text-field": "{point_count_abbreviated}",
-      "text-size": 13
+      "text-size": 14
     }
   });
 
+  /* STORE POINTS */
   map.addLayer({
     id: "points",
     type: "circle",
@@ -128,26 +122,43 @@ function buildMap() {
     paint: {
       "circle-color": [
         "case",
+        ["==", ["get", "closed"], true],
+        "#000000",
         ["==", ["get", "completed"], true],
         "#2ecc71",
         "#ff2d2d"
       ],
-      "circle-radius": 7,
-      "circle-stroke-width": 1.5,
+      "circle-radius": 8,
+      "circle-stroke-width": 2,
       "circle-stroke-color": "#ffffff"
+    }
+  });
+
+  /* X SYMBOL FOR CLOSED */
+  map.addLayer({
+    id: "closed-x",
+    type: "symbol",
+    source: "stores",
+    filter: ["==", ["get", "closed"], true],
+    layout: {
+      "text-field": "✕",
+      "text-size": 16
+    },
+    paint: {
+      "text-color": "#ffffff"
     }
   });
 
   map.on("click", "points", handleClick);
 }
 
-/* MODAL */
+/* ================= MODAL ================= */
 
 function handleClick(e) {
 
   const feature = e.features[0];
   const key = feature.properties.store_id;
-  const current = statusMap[key];
+  const state = statusMap[key];
 
   const store = storeData.find(
     s => String(s.store_id) === String(key)
@@ -161,10 +172,7 @@ function handleClick(e) {
   const cancel = getEl("confirmCancel");
   const ok = getEl("confirmOk");
 
-  title.innerText = current
-    ? "Mark as NOT completed?"
-    : "Mark as completed?";
-
+  title.innerText = "Update Store Status";
   idLine.innerText = `Store ID: ${key}`;
 
   if (store && store.full_address) {
@@ -174,19 +182,43 @@ function handleClick(e) {
     cityLine.innerText = `${parts[1]?.trim() || ""}, ${parts[2]?.trim() || ""}`;
   }
 
+  /* Add textarea dynamically */
+  let noteBox = document.getElementById("noteBox");
+  if (!noteBox) {
+    noteBox = document.createElement("textarea");
+    noteBox.id = "noteBox";
+    noteBox.placeholder = "Leave note (optional)...";
+    noteBox.style.marginTop = "12px";
+    noteBox.style.width = "100%";
+    noteBox.style.borderRadius = "8px";
+    noteBox.style.padding = "8px";
+    modal.querySelector(".modalContent").appendChild(noteBox);
+  }
+
+  noteBox.value = state.note || "";
+
   modal.classList.remove("hidden");
 
   cancel.onclick = () => modal.classList.add("hidden");
 
   ok.onclick = async () => {
 
-    statusMap[key] = !current;
+    const newCompleted = !state.completed;
+    const newClosed = noteBox.value.toLowerCase().includes("closed");
+
+    statusMap[key] = {
+      completed: newCompleted,
+      closed: newClosed,
+      note: noteBox.value
+    };
 
     await supabaseClient
       .from("store_status")
       .upsert({
         store_id: key,
-        completed: statusMap[key]
+        completed: newCompleted,
+        closed: newClosed,
+        note: noteBox.value
       });
 
     rebuild();
@@ -195,23 +227,23 @@ function handleClick(e) {
   };
 }
 
-/* REBUILD */
+/* ================= REBUILD ================= */
 
 function rebuild() {
   geojsonData.features.forEach(f => {
     const key = f.properties.store_id;
-    f.properties.completed = statusMap[key] === true;
+    f.properties.completed = statusMap[key].completed;
+    f.properties.closed = statusMap[key].closed;
   });
   map.getSource("stores").setData(geojsonData);
 }
 
-/* SEARCH */
+/* ================= SEARCH ================= */
 
 function bindSearch() {
   const input = getEl("storeSearch");
   input.addEventListener("input", e => {
     const val = e.target.value.trim();
-    if (!val) return;
     const match = storeData.find(
       s => String(s.store_id) === val
     );
@@ -224,10 +256,11 @@ function bindSearch() {
   });
 }
 
-/* PROGRESS */
+/* ================= PROGRESS ================= */
 
 function updateProgress() {
-  const completed = Object.values(statusMap).filter(v => v).length;
+  const completed = Object.values(statusMap)
+    .filter(v => v.completed).length;
   const total = storeData.length;
 
   getEl("progressText").innerText =
