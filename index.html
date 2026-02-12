@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <title>Red Bull Rebels — Central FL Dollar Tree Project</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -19,7 +18,6 @@
 </header>
 
 <main class="app">
-
   <aside>
     <div class="panel">
       <h3>Search Store</h3>
@@ -38,14 +36,13 @@
   <div class="mapWrapper">
     <div id="map"></div>
   </div>
-
 </main>
 
 <div id="confirmModal" class="modal hidden">
   <div class="modalContent">
 
-    <h3 id="confirmTitle">Update Store Status</h3>
-    <div class="modalStoreId" id="confirmStoreId"></div>
+    <h3>Update Store Status</h3>
+    <div id="confirmStoreId" class="modalStoreId"></div>
 
     <div class="modalAddress">
       <div id="confirmAddressLine"></div>
@@ -61,12 +58,11 @@
     <textarea id="noteBox" placeholder="Leave note (optional)..."></textarea>
 
     <div class="modalButtons">
-      <button id="confirmCancel" class="btnSecondary">Cancel</button>
+      <button id="confirmCancel" class="btnSecondary">Close</button>
     </div>
 
   </div>
 </div>
-
 
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
