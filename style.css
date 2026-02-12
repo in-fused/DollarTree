@@ -201,6 +201,30 @@ textarea {
   cursor: pointer;
 }
 
+.pinGate {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.pinGate input {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+}
+
+.pinError {
+  color: #ff2d2d;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.editSection {
+  margin-top: 16px;
+}
+
+
 /* MOBILE */
 
 @media (max-width: 768px) {
