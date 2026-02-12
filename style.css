@@ -27,7 +27,7 @@ header {
 /* Scale logo visually */
 .brandLogoWide {
   height: 220px;          /* intentionally larger than header */
-  transform: scale(1.25); /* zoom effect */
+  transform: scale(1.5); /* zoom effect */
   object-fit: contain;
 }
 
