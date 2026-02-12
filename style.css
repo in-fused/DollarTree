@@ -284,9 +284,7 @@ textarea {
   .activityList {
     max-height: 140px;
   }
-}
-
-.modalContent {
+  .modalContent {
   width: 94%;
   max-width: none;
   max-height: 88vh;
@@ -303,3 +301,6 @@ textarea {
   font-weight: 700;
   margin-bottom: 6px;
 }
+  
+}
+
