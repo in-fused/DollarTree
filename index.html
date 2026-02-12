@@ -1,69 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8"/>
   <title>Red Bull Rebels — Central FL Dollar Tree Project</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
 
 <header>
-  <img src="red-bull-rebels-logo.png" class="brandLogoWide" />
+  <img src="red-bull-rebels-logo.png" class="brandLogo"/>
 </header>
 
-<main class="app">
+<div class="sidebar">
 
-  <aside>
-
-    <div class="panel">
-      <h3>Search Store</h3>
-      <input id="storeSearch" placeholder="Enter Store ID #" />
-    </div>
-
-    <div class="panel">
-      <h3>Project Status</h3>
-
-      <div class="statRow">
-        <span>Completed</span>
-        <div id="completedCount">0</div>
-      </div>
-
-      <div class="statRow">
-        <span>Remaining</span>
-        <div id="activeCount">0</div>
-      </div>
-
-      <div class="statRow">
-        <span>Closed</span>
-        <div id="closedCount">0</div>
-      </div>
-
-      <div class="progressBar">
-        <div id="progressFill"></div>
-      </div>
-
-      <div id="progressText" class="progressLabel"></div>
-    </div>
-
-    <div class="panel">
-      <h3>Updated Stores</h3>
-      <div id="activityList" class="activityList"></div>
-    </div>
-
-  </aside>
-
-  <div class="mapWrapper">
-    <div id="map"></div>
+  <div class="panel">
+    <h3>Search Store</h3>
+    <input id="storeSearch" placeholder="Enter Store ID #"/>
   </div>
 
-</main>
+  <div class="panel">
+    <h3>Project Status</h3>
 
+    <div class="statRow">
+      <span>Completed</span>
+      <div id="completedCount">0</div>
+    </div>
+
+    <div class="statRow">
+      <span>Remaining</span>
+      <div id="activeCount">0</div>
+    </div>
+
+    <div class="statRow">
+      <span>Closed</span>
+      <div id="closedCount">0</div>
+    </div>
+
+    <div class="progressBar">
+      <div id="progressFill"></div>
+    </div>
+
+    <div id="progressText" class="progressLabel"></div>
+  </div>
+
+  <div class="panel">
+    <h3>Updated Stores</h3>
+    <div id="activityList"></div>
+  </div>
+
+</div>
+
+<div id="map"></div>
+
+<!-- Modal -->
 <div id="confirmModal" class="modal hidden">
   <div class="modalContent">
 
     <h3>Update Store Status</h3>
+
     <div id="confirmStoreId"></div>
     <div id="confirmAddress"></div>
 
@@ -78,13 +75,12 @@
 
     <div id="notesList"></div>
 
-    <hr style="margin:16px 0; opacity:.2;" />
+    <hr/>
 
-    <h4>Store Photos</h4>
-    <input type="file" id="photoInput" accept="image/*" />
+    <input type="file" id="photoInput" accept="image/*"/>
     <button id="uploadPhotoBtn">Upload Photo</button>
 
-    <div id="photoGallery" class="photoGallery"></div>
+    <div id="photoGallery"></div>
 
     <button id="confirmCancel">Close</button>
   </div>
