@@ -26,6 +26,7 @@ map.on("load", async () => {
   buildMap();
   updateProgress();
   updateActivityList();
+  bindSearch();   // ← ADD THIS
 });
 
 /* ================= HYDRATE ================= */
