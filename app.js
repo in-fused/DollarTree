@@ -273,19 +273,32 @@ async function loadNotes(storeId) {
     .order("created_at", { ascending: false });
 
   const container = document.getElementById("notesList");
+
   if (!container) return;
 
   container.innerHTML = "";
 
-  if (!Array.isArray(data) || data.length === 0) {
-    container.innerHTML =
-      "<div style='opacity:.6;'>No notes yet.</div>";
+  if (!data || data.length === 0) {
+    container.innerHTML = "<div style='opacity:.6;'>No notes yet.</div>";
     return;
   }
 
   data.forEach(row => {
+
     const div = document.createElement("div");
-    div.innerText = row.note;
+    div.style.marginBottom = "8px";
+    div.style.padding = "6px 8px";
+    div.style.background = "rgba(255,255,255,0.06)";
+    div.style.borderRadius = "6px";
+    div.style.fontSize = "13px";
+
+    div.innerHTML = `
+      <div>${row.note}</div>
+      <div style="opacity:.5;font-size:11px;margin-top:4px;">
+        ${new Date(row.created_at).toLocaleString()}
+      </div>
+    `;
+
     container.appendChild(div);
   });
 }
