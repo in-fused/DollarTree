@@ -71,25 +71,32 @@ aside {
   margin-bottom: 20px;
 }
 
-.statsRow {
+.statsColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.statRow {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 12px;
+  align-items: center;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+  font-size: 14px;
 }
 
-.stat {
-  text-align: center;
-  flex: 1;
-}
-
-.stat div {
-  font-size: 20px;
+.statRow div {
+  font-size: 18px;
   font-weight: 700;
 }
 
 .completedStat div { color: #2ecc71; }
 .activeStat div { color: #ff2d2d; }
 .closedStat div { color: #aaaaaa; }
+
 
 .progressLabel {
   margin-top: 6px;
