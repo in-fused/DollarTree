@@ -1,112 +1,177 @@
-body {
-  margin:0;
-  font-family:Arial, sans-serif;
-  background:#0e1117;
-  color:white;
+* {
+  box-sizing: border-box;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
 }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #0a0f18;
+  color: white;
+}
+
+/* HEADER */
 
 header {
-  background:#0b2a44;
-  padding:10px;
-  text-align:center;
-  border-bottom:4px solid #d0021b;
+  height: 180px;
+  background: linear-gradient(90deg, #001a33, #002b55);
+  border-bottom: 5px solid #c8102e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.brandLogo {
-  height:130px;
-  transform:scale(2);
+.brandLogoWide {
+  height: 130px;
+  transform: scale(2);
+  transform-origin: center;
 }
 
-@media(max-width:768px){
-  .brandLogo {
-    transform:scale(1.75);
+@media (max-width: 900px) {
+  .brandLogoWide {
+    transform: scale(1.75);
   }
 }
 
-.sidebar {
-  position:absolute;
-  top:180px;
-  left:0;
-  right:0;
-  max-height:40vh;
-  overflow-y:auto;
-  padding:15px;
-  z-index:2;
+/* LAYOUT */
+
+.app {
+  display: flex;
+  height: calc(100vh - 180px);
+}
+
+/* SIDEBAR */
+
+aside {
+  width: 340px;
+  background: rgba(17,20,26,0.97);
+  padding: 18px;
+  overflow-y: auto;
+  border-right: 1px solid rgba(255,255,255,0.08);
 }
 
 .panel {
-  background:#1b2230;
-  padding:15px;
-  border-radius:12px;
-  margin-bottom:15px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+  margin-top: 8px;
 }
 
 .statRow {
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:8px;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
 .progressBar {
-  background:#333;
-  height:8px;
-  border-radius:4px;
-  margin-top:10px;
+  background: rgba(255,255,255,0.12);
+  height: 8px;
+  border-radius: 6px;
+  margin-top: 10px;
 }
 
 #progressFill {
-  background:linear-gradient(to right,#d0021b,#2ecc71);
-  height:100%;
-  width:0%;
-  border-radius:4px;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ff2d2d, #2ecc71);
+  transition: width 0.3s ease;
+}
+
+.activityList div {
+  padding: 6px 8px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.activity-complete {
+  background: rgba(46,204,113,0.25);
+}
+
+.activity-closed {
+  background: rgba(255,153,0,0.25);
+}
+
+/* MAP */
+
+.mapWrapper {
+  flex: 1;
+  position: relative;
 }
 
 #map {
-  position:absolute;
-  top:0;
-  bottom:0;
-  width:100%;
+  position: absolute;
+  inset: 0;
 }
+
+/* MODAL */
 
 .modal {
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.7);
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.hidden { display:none; }
+.hidden { display: none; }
 
 .modalContent {
-  background:#1b2230;
-  padding:20px;
-  border-radius:12px;
-  width:90%;
-  max-width:500px;
-  max-height:90vh;
-  overflow-y:auto;
+  background: #111827;
+  padding: 20px;
+  border-radius: 16px;
+  width: 92%;
+  max-width: 500px;
+  max-height: 85vh;
+  overflow-y: auto;
 }
 
-.statusButtons button {
-  margin:5px;
+.btnPrimary {
+  background: #2ecc71;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin-top: 8px;
+  cursor: pointer;
 }
 
-#activityList div {
-  padding:6px;
-  margin-bottom:4px;
-  border-radius:6px;
-  cursor:pointer;
+.btnSecondary {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin-top: 8px;
+  cursor: pointer;
 }
 
-.activity-complete { background:#2ecc71; }
-.activity-closed { background:#ff9900; }
-.activity-active { background:#d0021b; }
+.btnDanger {
+  background: #ff2d2d;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin-top: 8px;
+  cursor: pointer;
+}
 
-#photoGallery img {
-  width:100%;
-  margin-top:10px;
-  border-radius:8px;
-  cursor:pointer;
+.photoGallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.photoGallery img {
+  width: 100%;
+  border-radius: 8px;
+  cursor: pointer;
 }
