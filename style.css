@@ -11,7 +11,7 @@ html, body {
   overflow: hidden;
 }
 
-/* ================= HEADER ================= */
+/* HEADER */
 
 header {
   height: 180px;
@@ -24,13 +24,12 @@ header {
 }
 
 .brandLogoWide {
-  height: 130px;           /* base size before scaling */
+  height: 130px;
   width: auto;
   object-fit: contain;
   transform: scale(2);
   transform-origin: center;
 }
-
 
 .headerRight {
   position: absolute;
@@ -48,14 +47,12 @@ header {
   opacity: 0.7;
 }
 
-/* ================= LAYOUT ================= */
+/* LAYOUT */
 
 .app {
-  height: calc(100vh - 160px);
+  height: calc(100vh - 180px);
   display: flex;
 }
-
-/* ================= SIDEBAR ================= */
 
 aside {
   width: 320px;
@@ -63,7 +60,6 @@ aside {
   padding: 18px;
   border-right: 1px solid rgba(255,255,255,0.06);
   overflow-y: auto;
-  transition: transform 0.3s ease;
 }
 
 .panel {
@@ -128,8 +124,6 @@ input {
   text-align: center;
 }
 
-/* ================= ACTIVITY ================= */
-
 .activityList {
   max-height: 260px;
   overflow-y: auto;
@@ -146,7 +140,6 @@ input {
   border-radius: 8px;
   font-size: 13px;
   cursor: pointer;
-  transition: background 0.2s ease;
 }
 
 .activityItem:hover {
@@ -161,8 +154,6 @@ input {
 .iconComplete { color: #2ecc71; }
 .iconClosed { color: #ff9900; }
 
-/* ================= MAP ================= */
-
 .mapWrapper {
   flex: 1;
   position: relative;
@@ -173,7 +164,7 @@ input {
   inset: 0;
 }
 
-/* ================= MODAL ================= */
+/* MODAL */
 
 .modal {
   backdrop-filter: blur(4px);
@@ -198,7 +189,7 @@ input {
   overflow-y: auto;
 }
 
-.statusButtons {
+statusButtons {
   margin-top: 16px;
   display: flex;
   gap: 8px;
@@ -213,29 +204,16 @@ textarea {
   border: none;
 }
 
-.btnPrimary {
-  background: #2ecc71;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
+.notesList {
+  margin-top: 12px;
+  max-height: 160px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 8px;
+  font-size: 13px;
 }
 
-.btnDanger {
-  background: #000;
-  border: 1px solid #ff2d2d;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.btnSecondary {
-  background: rgba(255,255,255,0.1);
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-}
+/* MOBILE */
 
 @media (max-width: 900px) {
 
@@ -248,15 +226,10 @@ textarea {
 
   .brandLogoWide {
     height: 110px;
-    width: auto;
-    object-fit: contain;
     transform: scale(1.75);
-    transform-origin: center;
   }
 
-  .headerRight {
-    display: none;
-  }
+  .headerRight { display: none; }
 
   .app {
     flex-direction: column;
@@ -266,7 +239,6 @@ textarea {
   aside {
     width: 100%;
     max-height: 45vh;
-    border-right: none;
     border-bottom: 1px solid rgba(255,255,255,0.08);
   }
 
@@ -279,42 +251,5 @@ textarea {
     height: 100%;
   }
 
-  .activityList {
-    max-height: 140px;
-  }
-
-  /* 🔥 MOVE THIS HERE */
-  .modalContent {
-    width: 94%;
-    max-width: none;
-    max-height: 88vh;
-    padding: 18px;
-  }
-
-  .modalAddress {
-    font-size: 14px;
-    margin-top: 6px;
-    line-height: 1.3;
-  }
-
-  .modalStoreId {
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
-  
-  .notesList {
-  margin-top: 12px;
-  max-height: 160px;
-  overflow-y: auto;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  padding-top: 8px;
-  font-size: 13px;
-}
-
-.notesList div {
-  margin-bottom: 6px;
-  padding: 6px;
-  background: rgba(255,255,255,0.05);
-  border-radius: 6px;
-}
+  .activityList { max-height: 140px; }
 }
