@@ -1,7 +1,7 @@
-mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
+mapboxgl.accessToken = "YOUR_MAPBOX_TOKEN";
 
-const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
-const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_KEY = "YOUR_SUPABASE_KEY";
 
 const supabaseClient = supabase.createClient(
   SUPABASE_URL,
@@ -9,6 +9,10 @@ const supabaseClient = supabase.createClient(
 );
 
 let pinVerified = false;
+
+if (sessionStorage.getItem("pinVerified") === "true") {
+  pinVerified = true;
+}
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -21,6 +25,8 @@ let storeData = [];
 let statusMap = {};
 let geojsonData;
 
+/* ================= INIT ================= */
+
 map.on("load", async () => {
   await hydrate();
   buildMap();
@@ -29,7 +35,7 @@ map.on("load", async () => {
   updateActivityList();
 });
 
-/* HYDRATE */
+/* ================= HYDRATE ================= */
 
 async function hydrate() {
 
@@ -62,7 +68,7 @@ async function hydrate() {
   }
 }
 
-/* MAP */
+/* ================= MAP ================= */
 
 function buildMap() {
 
@@ -98,7 +104,7 @@ function buildMap() {
       "circle-color": "#c8102e",
       "circle-radius": 24,
       "circle-stroke-width": 2,
-      "circle-stroke-color": "#fff"
+      "circle-stroke-color": "#ffffff"
     }
   });
 
@@ -107,7 +113,9 @@ function buildMap() {
     type: "symbol",
     source: "stores",
     filter: ["has", "point_count"],
-    layout: { "text-field": "{point_count_abbreviated}" }
+    layout: {
+      "text-field": "{point_count_abbreviated}"
+    }
   });
 
   map.addLayer({
@@ -150,7 +158,7 @@ function buildMap() {
   map.on("click", "points", handleClick);
 }
 
-/* MODAL */
+/* ================= MODAL ================= */
 
 function handleClick(e) {
 
@@ -159,47 +167,42 @@ function handleClick(e) {
   const state = statusMap[key];
 
   const modal = document.getElementById("confirmModal");
+  const pinGate = document.getElementById("pinGate");
+  const editSection = document.getElementById("editSection");
+  const pinInput = document.getElementById("pinInput");
+  const pinSubmit = document.getElementById("pinSubmit");
+  const pinError = document.getElementById("pinError");
   const noteBox = document.getElementById("noteBox");
 
-  const pinGate = document.getElementById("pinGate");
-const editSection = document.getElementById("editSection");
-const pinInput = document.getElementById("pinInput");
-const pinSubmit = document.getElementById("pinSubmit");
-const pinError = document.getElementById("pinError");
+  noteBox.value = state.note || "";
 
-if (sessionStorage.getItem("pinVerified") === "true") {
-  pinVerified = true;
-}
-  
-if (pinVerified) {
-  pinGate.classList.add("hidden");
-  editSection.classList.remove("hidden");
-} else {
-  pinGate.classList.remove("hidden");
-  editSection.classList.add("hidden");
-}
+  modal.classList.remove("hidden");
 
-pinSubmit.onclick = async () => {
-
-  const input = pinInput.value;
-
-  const { data, error } = await supabaseClient
-    .rpc("verify_pin", { input_pin: input });
-
-  if (data === true) {
-    pinVerified = true;
-    sessionStorage.setItem("pinVerified", "true");
+  if (pinVerified) {
     pinGate.classList.add("hidden");
     editSection.classList.remove("hidden");
-    pinError.innerText = "";
   } else {
-    pinError.innerText = "Incorrect PIN";
+    pinGate.classList.remove("hidden");
+    editSection.classList.add("hidden");
   }
-};
 
+  pinSubmit.onclick = async () => {
 
-  noteBox.value = state.note || "";
-  modal.classList.remove("hidden");
+    const input = pinInput.value;
+
+    const { data } = await supabaseClient
+      .rpc("verify_pin", { input_pin: input });
+
+    if (data === true) {
+      pinVerified = true;
+      sessionStorage.setItem("pinVerified", "true");
+      pinGate.classList.add("hidden");
+      editSection.classList.remove("hidden");
+      pinError.innerText = "";
+    } else {
+      pinError.innerText = "Incorrect PIN";
+    }
+  };
 
   document.getElementById("markActive").onclick =
     () => updateStore(key, false, false);
@@ -213,6 +216,8 @@ pinSubmit.onclick = async () => {
   document.getElementById("confirmCancel").onclick =
     () => modal.classList.add("hidden");
 }
+
+/* ================= UPDATE ================= */
 
 async function updateStore(key, completed, closed) {
 
@@ -231,9 +236,9 @@ async function updateStore(key, completed, closed) {
 
   rebuild();
   updateProgress();
+  updateActivityList();
   document.getElementById("confirmModal").classList.add("hidden");
 }
-updateActivityList();
 
 function rebuild() {
   geojsonData.features.forEach(f => {
@@ -244,8 +249,12 @@ function rebuild() {
   map.getSource("stores").setData(geojsonData);
 }
 
+/* ================= SEARCH ================= */
+
 function bindSearch() {
   const input = document.getElementById("storeSearch");
+  if (!input) return;
+
   input.addEventListener("input", e => {
     const val = e.target.value.trim();
     const match = storeData.find(s => String(s.store_id) === val);
@@ -258,6 +267,8 @@ function bindSearch() {
   });
 }
 
+/* ================= PROGRESS ================= */
+
 function updateProgress() {
 
   const values = Object.values(statusMap);
@@ -265,57 +276,6 @@ function updateProgress() {
   const completed = values.filter(v => v.completed).length;
   const closed = values.filter(v => v.closed).length;
   const active = storeData.length - completed - closed;
-
-function updateActivityList() {
-
-  const container = document.getElementById("activityList");
-  container.innerHTML = "";
-
-  const entries = Object.entries(statusMap)
-    .filter(([_, val]) => val.completed || val.closed);
-
-  entries
-    .sort((a, b) => {
-      // optional: most recent first (if you add timestamps later)
-      return 0;
-    });
-
-  entries.forEach(([storeId, state]) => {
-
-    const div = document.createElement("div");
-    div.className = "activityItem";
-
-    const left = document.createElement("div");
-
-    const icon = document.createElement("span");
-    icon.className = "activityIcon";
-
-    if (state.completed) {
-      icon.classList.add("iconComplete");
-      icon.innerText = "✔";
-    } else if (state.closed) {
-      icon.classList.add("iconClosed");
-      icon.innerText = "⚠";
-    }
-
-    left.appendChild(icon);
-    left.append(` Store ${storeId}`);
-
-    div.appendChild(left);
-
-    div.onclick = () => {
-      const match = storeData.find(s => String(s.store_id) === storeId);
-      if (match) {
-        map.flyTo({
-          center: [match.lng, match.lat],
-          zoom: 14
-        });
-      }
-    };
-
-    container.appendChild(div);
-  });
-}
 
   const actionableTotal = storeData.length - closed;
   const percent = actionableTotal > 0
@@ -331,4 +291,49 @@ function updateActivityList() {
 
   document.getElementById("progressText").innerText =
     `${percent.toFixed(1)}% of active stores completed`;
+}
+
+/* ================= ACTIVITY ================= */
+
+function updateActivityList() {
+
+  const container = document.getElementById("activityList");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  const entries = Object.entries(statusMap)
+    .filter(([_, val]) => val.completed || val.closed);
+
+  entries.forEach(([storeId, state]) => {
+
+    const div = document.createElement("div");
+    div.className = "activityItem";
+
+    const icon = document.createElement("span");
+    icon.className = "activityIcon";
+
+    if (state.completed) {
+      icon.classList.add("iconComplete");
+      icon.innerText = "✔";
+    } else if (state.closed) {
+      icon.classList.add("iconClosed");
+      icon.innerText = "⚠";
+    }
+
+    div.appendChild(icon);
+    div.append(` Store ${storeId}`);
+
+    div.onclick = () => {
+      const match = storeData.find(s => String(s.store_id) === storeId);
+      if (match) {
+        map.flyTo({
+          center: [match.lng, match.lat],
+          zoom: 14
+        });
+      }
+    };
+
+    container.appendChild(div);
+  });
 }
