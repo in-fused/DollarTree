@@ -25,6 +25,7 @@ map.on("load", async () => {
   await hydrate();
   buildMap();
   bindSearch();
+  bindSidebarToggle();
   updateProgress();
   updateActivityList();
 });
@@ -32,7 +33,6 @@ map.on("load", async () => {
 /* ================= HYDRATE ================= */
 
 async function hydrate() {
-
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
@@ -106,6 +106,9 @@ function buildMap() {
     layout: {
       "text-field": "{point_count_abbreviated}",
       "text-size": 14
+    },
+    paint: {
+      "text-color": "#ffffff"
     }
   });
 
@@ -130,24 +133,6 @@ function buildMap() {
   map.on("click", "points", handleClick);
 }
 
-/* ================= SEARCH ================= */
-
-function bindSearch() {
-  const input = document.getElementById("storeSearch");
-  if (!input) return;
-
-  input.addEventListener("input", e => {
-    const val = e.target.value.trim();
-    const match = storeData.find(s => String(s.store_id) === val);
-    if (match) {
-      map.flyTo({
-        center: [match.lng, match.lat],
-        zoom: 14
-      });
-    }
-  });
-}
-
 /* ================= MODAL ================= */
 
 function handleClick(e) {
@@ -162,7 +147,6 @@ function handleClick(e) {
     `Store ID: ${key}`;
 
   const store = storeData.find(s => String(s.store_id) === key);
-
   if (store) {
     document.getElementById("confirmAddress").innerText =
       store.full_address;
@@ -183,8 +167,8 @@ function handleClick(e) {
   document.getElementById("addNoteBtn").onclick =
     () => addNote(key);
 
-  document.getElementById("uploadPhotoBtn").onclick =
-    () => uploadPhoto(key);
+  document.getElementById("photoUpload").onchange =
+    (e) => uploadPhoto(key, e.target.files[0]);
 
   document.getElementById("confirmCancel").onclick =
     () => modal.classList.add("hidden");
@@ -209,122 +193,36 @@ async function updateStore(key, completed, closed) {
   updateActivityList();
 }
 
-/* ================= NOTES ================= */
+/* ================= SEARCH ================= */
 
-async function addNote(storeId) {
+function bindSearch() {
+  const input = document.getElementById("storeSearch");
 
-  const note = document.getElementById("noteBox").value.trim();
-  if (!note) return;
-
-  await supabaseClient
-    .from("store_notes")
-    .insert({ store_id: storeId, note });
-
-  document.getElementById("noteBox").value = "";
-  loadNotes(storeId);
-}
-
-async function loadNotes(storeId) {
-
-  const { data } = await supabaseClient
-    .from("store_notes")
-    .select("*")
-    .eq("store_id", storeId)
-    .order("created_at", { ascending: false });
-
-  const container = document.getElementById("notesList");
-  container.innerHTML = "";
-
-  if (!data || data.length === 0) {
-    container.innerHTML = "No notes yet.";
-    return;
-  }
-
-  data.forEach(row => {
-    const div = document.createElement("div");
-    div.innerText = row.note;
-    container.appendChild(div);
+  input.addEventListener("input", e => {
+    const val = e.target.value.trim();
+    const match = storeData.find(s => String(s.store_id) === val);
+    if (match) {
+      map.flyTo({
+        center: [match.lng, match.lat],
+        zoom: 14
+      });
+    }
   });
 }
 
-/* ================= PHOTOS ================= */
+/* ================= SIDEBAR TOGGLE ================= */
 
-async function uploadPhoto(storeId) {
+function bindSidebarToggle() {
+  const toggleBtn = document.getElementById("sidebarToggle");
+  const sidebar = document.querySelector("aside");
 
-  const fileInput = document.getElementById("photoInput");
-  if (!fileInput.files.length) return;
-
-  const file = fileInput.files[0];
-  const filePath = `${storeId}/${Date.now()}_${file.name}`;
-
-  await supabaseClient.storage
-    .from("redbull-photos")
-    .upload(filePath, file);
-
-  await supabaseClient
-    .from("store_photos")
-    .insert({
-      store_id: storeId,
-      file_path: filePath
-    });
-
-  fileInput.value = "";
-  loadPhotos(storeId);
-}
-
-async function loadPhotos(storeId) {
-
-  const { data } = await supabaseClient
-    .from("store_photos")
-    .select("*")
-    .eq("store_id", storeId);
-
-  const container = document.getElementById("photoGallery");
-  container.innerHTML = "";
-
-  if (!data) return;
-
-  data.forEach(row => {
-
-    const { data: publicUrl } = supabaseClient.storage
-      .from("redbull-photos")
-      .getPublicUrl(row.file_path);
-
-    const img = document.createElement("img");
-    img.src = publicUrl.publicUrl;
-
-    img.onclick = () => {
-      const full = document.createElement("div");
-      full.style.position = "fixed";
-      full.style.inset = "0";
-      full.style.background = "rgba(0,0,0,0.8)";
-      full.style.display = "flex";
-      full.style.alignItems = "center";
-      full.style.justifyContent = "center";
-
-      const big = document.createElement("img");
-      big.src = img.src;
-      big.style.maxWidth = "90%";
-      big.style.maxHeight = "90%";
-
-      full.appendChild(big);
-      full.onclick = () => full.remove();
-      document.body.appendChild(full);
-    };
-
-    container.appendChild(img);
-  });
-}
-
-/* ================= REBUILD ================= */
-
-function rebuild() {
-  geojsonData.features.forEach(f => {
-    const key = f.properties.store_id;
-    f.properties.completed = statusMap[key].completed;
-    f.properties.closed = statusMap[key].closed;
-  });
-  map.getSource("stores").setData(geojsonData);
+  toggleBtn.onclick = () => {
+    sidebar.classList.toggle("collapsed");
+    toggleBtn.innerText =
+      sidebar.classList.contains("collapsed")
+        ? "Expand"
+        : "Collapse";
+  };
 }
 
 /* ================= PROGRESS ================= */
@@ -383,4 +281,86 @@ function updateActivityList() {
 
       container.appendChild(div);
     });
+}
+
+/* ================= NOTES ================= */
+
+async function addNote(storeId) {
+
+  const note = document.getElementById("noteBox").value.trim();
+  if (!note) return;
+
+  await supabaseClient
+    .from("store_notes")
+    .insert({ store_id: storeId, note });
+
+  document.getElementById("noteBox").value = "";
+  loadNotes(storeId);
+}
+
+async function loadNotes(storeId) {
+
+  const { data } = await supabaseClient
+    .from("store_notes")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: false });
+
+  const container = document.getElementById("notesList");
+  container.innerHTML = "";
+
+  if (!data || data.length === 0) {
+    container.innerHTML = "No notes yet.";
+    return;
+  }
+
+  data.forEach(row => {
+    const div = document.createElement("div");
+    div.innerText = row.note;
+    container.appendChild(div);
+  });
+}
+
+/* ================= PHOTOS ================= */
+
+async function uploadPhoto(storeId, file) {
+  if (!file) return;
+
+  const filePath = `${storeId}/${Date.now()}_${file.name}`;
+
+  await supabaseClient.storage
+    .from("store-photos")
+    .upload(filePath, file);
+
+  await supabaseClient
+    .from("store_photos")
+    .insert({
+      store_id: storeId,
+      file_path: filePath
+    });
+
+  loadPhotos(storeId);
+}
+
+async function loadPhotos(storeId) {
+
+  const { data } = await supabaseClient
+    .from("store_photos")
+    .select("*")
+    .eq("store_id", storeId);
+
+  const container = document.getElementById("photoGallery");
+  container.innerHTML = "";
+
+  data?.forEach(row => {
+    const { data: urlData } = supabaseClient.storage
+      .from("store-photos")
+      .getPublicUrl(row.file_path);
+
+    const img = document.createElement("img");
+    img.src = urlData.publicUrl;
+    img.onclick = () => window.open(urlData.publicUrl, "_blank");
+
+    container.appendChild(img);
+  });
 }
