@@ -8,7 +8,6 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
-const EDIT_PIN = "1984";  // change this
 let pinVerified = false;
 
 const map = new mapboxgl.Map({
@@ -167,6 +166,10 @@ const pinInput = document.getElementById("pinInput");
 const pinSubmit = document.getElementById("pinSubmit");
 const pinError = document.getElementById("pinError");
 
+if (sessionStorage.getItem("pinVerified") === "true") {
+  pinVerified = true;
+}
+  
 if (pinVerified) {
   pinGate.classList.add("hidden");
   editSection.classList.remove("hidden");
@@ -175,9 +178,16 @@ if (pinVerified) {
   editSection.classList.add("hidden");
 }
 
-pinSubmit.onclick = () => {
-  if (pinInput.value === EDIT_PIN) {
+pinSubmit.onclick = async () => {
+
+  const input = pinInput.value;
+
+  const { data, error } = await supabaseClient
+    .rpc("verify_pin", { input_pin: input });
+
+  if (data === true) {
     pinVerified = true;
+    sessionStorage.setItem("pinVerified", "true");
     pinGate.classList.add("hidden");
     editSection.classList.remove("hidden");
     pinError.innerText = "";
