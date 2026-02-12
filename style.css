@@ -128,6 +128,44 @@ input {
   transition: width 0.5s ease;
 }
 
+.activityList {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.activityItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.activityItem:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.activityIcon {
+  font-weight: bold;
+  margin-right: 6px;
+}
+
+.iconComplete {
+  color: #2ecc71;
+}
+
+.iconClosed {
+  color: #ff9900;
+}
+
 /* MAP */
 
 .mapWrapper {
