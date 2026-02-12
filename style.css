@@ -177,6 +177,31 @@ input {
   cursor: pointer;
 }
 
+.statusButtons {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btnDanger {
+  background: #000;
+  color: #fff;
+  border: 1px solid #ff2d2d;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+textarea {
+  margin-top: 12px;
+  width: 100%;
+  border-radius: 8px;
+  padding: 8px;
+  border: none;
+  resize: vertical;
+}
+
 /* MOBILE */
 
 @media (max-width: 768px) {
