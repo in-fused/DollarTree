@@ -190,7 +190,9 @@ if (store && store.full_address) {
     parts.slice(1).join(",").trim();
 }
 
-document.getElementById("addNoteBtn").onclick = async () => {
+const addBtn = document.getElementById("addNoteBtn");
+if (addBtn) {
+  addBtn.onclick = async () => {
 
   const note = document.getElementById("noteBox").value.trim();
   if (!note) return;
