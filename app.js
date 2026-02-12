@@ -218,14 +218,25 @@ function bindSearch() {
 }
 
 function updateProgress() {
-  const completed = Object.values(statusMap)
-    .filter(v => v.completed).length;
 
-  const total = storeData.length;
+  const values = Object.values(statusMap);
 
-  document.getElementById("progressText").innerText =
-    `${completed} / ${total} completed`;
+  const completed = values.filter(v => v.completed).length;
+  const closed = values.filter(v => v.closed).length;
+  const active = storeData.length - completed - closed;
+
+  const actionableTotal = storeData.length - closed;
+  const percent = actionableTotal > 0
+    ? (completed / actionableTotal) * 100
+    : 0;
+
+  document.getElementById("completedCount").innerText = completed;
+  document.getElementById("activeCount").innerText = active;
+  document.getElementById("closedCount").innerText = closed;
 
   document.getElementById("progressFill").style.width =
-    `${(completed / total) * 100}%`;
+    `${percent}%`;
+
+  document.getElementById("progressText").innerText =
+    `${percent.toFixed(1)}% of active stores completed`;
 }
