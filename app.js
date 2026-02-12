@@ -161,6 +161,32 @@ function handleClick(e) {
   const modal = document.getElementById("confirmModal");
   const noteBox = document.getElementById("noteBox");
 
+  const pinGate = document.getElementById("pinGate");
+const editSection = document.getElementById("editSection");
+const pinInput = document.getElementById("pinInput");
+const pinSubmit = document.getElementById("pinSubmit");
+const pinError = document.getElementById("pinError");
+
+if (pinVerified) {
+  pinGate.classList.add("hidden");
+  editSection.classList.remove("hidden");
+} else {
+  pinGate.classList.remove("hidden");
+  editSection.classList.add("hidden");
+}
+
+pinSubmit.onclick = () => {
+  if (pinInput.value === EDIT_PIN) {
+    pinVerified = true;
+    pinGate.classList.add("hidden");
+    editSection.classList.remove("hidden");
+    pinError.innerText = "";
+  } else {
+    pinError.innerText = "Incorrect PIN";
+  }
+};
+
+
   noteBox.value = state.note || "";
   modal.classList.remove("hidden");
 
