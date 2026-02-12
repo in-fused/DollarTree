@@ -316,4 +316,27 @@ function updateActivityList() {
 
       container.appendChild(div);
     });
+    
+    function bindSearch() {
+
+  const input = document.getElementById("storeSearch");
+  if (!input) return;
+
+  input.addEventListener("input", e => {
+
+    const val = e.target.value.trim();
+
+    const match = storeData.find(
+      s => String(s.store_id) === val
+    );
+
+    if (match) {
+      map.flyTo({
+        center: [match.lng, match.lat],
+        zoom: 14
+      });
+    }
+  });
+}
+    
 }
