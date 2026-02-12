@@ -11,7 +11,7 @@ html, body {
   overflow: hidden;
 }
 
-/* HEADER */
+/* ================= HEADER ================= */
 
 header {
   height: 180px;
@@ -47,12 +47,14 @@ header {
   opacity: 0.7;
 }
 
-/* LAYOUT */
+/* ================= LAYOUT ================= */
 
 .app {
-  height: calc(100vh - 180px);
+  height: calc(100vh - 160px);
   display: flex;
 }
+
+/* ================= SIDEBAR ================= */
 
 aside {
   width: 320px;
@@ -76,26 +78,13 @@ input {
   border: none;
 }
 
-.statsColumn {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
 .statRow {
   display: flex;
   justify-content: space-between;
-  align-items: center;
   padding: 6px 8px;
+  margin-bottom: 6px;
   background: rgba(255,255,255,0.05);
   border-radius: 8px;
-  font-size: 14px;
-}
-
-.statRow div {
-  font-size: 18px;
-  font-weight: 700;
 }
 
 .completedStat div { color: #2ecc71; }
@@ -124,6 +113,8 @@ input {
   text-align: center;
 }
 
+/* ================= ACTIVITY ================= */
+
 .activityList {
   max-height: 260px;
   overflow-y: auto;
@@ -133,26 +124,18 @@ input {
 }
 
 .activityItem {
-  display: flex;
-  align-items: center;
   padding: 6px 8px;
   background: rgba(255,255,255,0.05);
   border-radius: 8px;
-  font-size: 13px;
   cursor: pointer;
+  font-size: 13px;
 }
 
 .activityItem:hover {
   background: rgba(255,255,255,0.12);
 }
 
-.activityIcon {
-  margin-right: 6px;
-  font-weight: bold;
-}
-
-.iconComplete { color: #2ecc71; }
-.iconClosed { color: #ff9900; }
+/* ================= MAP ================= */
 
 .mapWrapper {
   flex: 1;
@@ -164,64 +147,112 @@ input {
   inset: 0;
 }
 
-/* MODAL */
+/* ================= MODAL ================= */
 
 .modal {
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.65);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
 }
 
-.hidden { display: none; }
+.hidden {
+  display: none;
+}
 
 .modalContent {
   background: #111827;
-  padding: 20px;
-  border-radius: 16px;
+  padding: 22px;
+  border-radius: 18px;
   width: 92%;
-  max-width: 420px;
-  max-height: 85vh;
+  max-width: 460px;
+  max-height: 90vh;
   overflow-y: auto;
 }
 
-statusButtons {
-  margin-top: 16px;
+.modalStoreId {
+  font-weight: 700;
+  margin-bottom: 6px;
+  font-size: 18px;
+}
+
+.modalAddress {
+  margin-bottom: 14px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.statusButtons {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 textarea {
-  margin-top: 12px;
   width: 100%;
-  border-radius: 8px;
-  padding: 8px;
+  padding: 10px;
+  border-radius: 10px;
   border: none;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  resize: none;
+}
+
+button {
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 8px 14px;
+  border: none;
+}
+
+.btnPrimary {
+  background: #2ecc71;
+  color: black;
+  font-weight: 600;
+}
+
+.btnSecondary {
+  background: rgba(255,255,255,0.15);
+  color: white;
+}
+
+.btnDanger {
+  background: black;
+  border: 1px solid #ff2d2d;
+  color: white;
 }
 
 .notesList {
   margin-top: 12px;
-  max-height: 160px;
-  overflow-y: auto;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 10px;
+}
+
+.noteItem {
+  background: rgba(255,255,255,0.06);
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 8px;
   font-size: 13px;
 }
 
-/* MOBILE */
+.noteTime {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-top: 4px;
+}
+
+/* ================= MOBILE ================= */
 
 @media (max-width: 900px) {
 
   header {
     height: 130px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .brandLogoWide {
@@ -229,7 +260,9 @@ textarea {
     transform: scale(1.75);
   }
 
-  .headerRight { display: none; }
+  .headerRight {
+    display: none;
+  }
 
   .app {
     flex-direction: column;
@@ -239,6 +272,7 @@ textarea {
   aside {
     width: 100%;
     max-height: 45vh;
+    border-right: none;
     border-bottom: 1px solid rgba(255,255,255,0.08);
   }
 
@@ -250,6 +284,4 @@ textarea {
     position: relative;
     height: 100%;
   }
-
-  .activityList { max-height: 140px; }
 }
