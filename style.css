@@ -1,6 +1,6 @@
 * {
   box-sizing: border-box;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
 }
 
 html, body {
@@ -10,8 +10,10 @@ html, body {
   color: white;
 }
 
+/* ================= HEADER ================= */
+
 header {
-  height: 140px;
+  height: 130px;
   background: linear-gradient(90deg, #001a33, #002b55);
   border-bottom: 5px solid #c8102e;
   display: flex;
@@ -22,55 +24,82 @@ header {
 .brandLogoWide {
   height: 90px;
   transform: scale(1.6);
+  transform-origin: center;
 }
+
+/* ================= LAYOUT ================= */
 
 .app {
   display: flex;
-  height: calc(100vh - 140px);
+  flex-direction: column;
+  height: calc(100vh - 130px);
 }
 
+/* ================= SIDEBAR ================= */
+
 aside {
-  width: 320px;
-  background: rgba(17,20,26,0.97);
-  padding: 18px;
+  width: 100%;
+  max-height: 45vh;
   overflow-y: auto;
+  padding: 16px;
+  background: rgba(17,20,26,0.95);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
 .panel {
   background: rgba(255,255,255,0.05);
   border-radius: 14px;
   padding: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .statRow {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .progressBar {
-  background: rgba(255,255,255,0.12);
-  height: 10px;
+  background: rgba(255,255,255,0.1);
+  height: 8px;
   border-radius: 6px;
-  margin-top: 8px;
+  overflow: hidden;
 }
 
 #progressFill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #ff2d2d, #2ecc71);
+  background: linear-gradient(90deg, #ff2d2d, #c8102e, #2ecc71);
+  transition: width .4s ease;
 }
 
+.progressLabel {
+  font-size: 12px;
+  opacity: .7;
+  margin-top: 6px;
+  text-align: center;
+}
+
+/* ================= ACTIVITY LIST ================= */
+
 .activityList {
-  max-height: 200px;
+  max-height: 160px;
   overflow-y: auto;
 }
 
 .activityItem {
-  padding: 6px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 6px;
   cursor: pointer;
 }
+
+.activityItem:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+/* ================= MAP ================= */
 
 .mapWrapper {
   flex: 1;
@@ -82,57 +111,50 @@ aside {
   inset: 0;
 }
 
+/* ================= MODAL ================= */
+
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.hidden { display: none; }
+.hidden {
+  display: none;
+}
 
 .modalContent {
+  width: 92%;
+  max-width: 420px;
+  max-height: 85vh;
+  overflow-y: auto;
   background: #111827;
   padding: 20px;
   border-radius: 16px;
-  width: 92%;
-  max-width: 420px;
-  max-height: 90vh;
-  overflow-y: auto;
+}
+
+.statusButtons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0;
 }
 
 textarea {
   width: 100%;
-  margin-top: 10px;
   border-radius: 8px;
   padding: 8px;
+  border: none;
+  margin-top: 10px;
 }
 
 button {
-  margin-top: 8px;
-  padding: 6px 10px;
-  border-radius: 8px;
   border: none;
-  cursor: pointer;
-}
-
-.photoGallery {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.photoGallery img {
-  width: 100%;
   border-radius: 8px;
-}
-
-.deletePhotoBtn {
-  background: red;
-  color: white;
-  font-size: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
 }
