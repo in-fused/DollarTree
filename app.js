@@ -33,6 +33,7 @@ map.on("load", async () => {
 /* ================= HYDRATE ================= */
 
 async function hydrate() {
+
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
@@ -84,7 +85,17 @@ function buildMap() {
     type: "geojson",
     data: geojsonData,
     cluster: true,
-    clusterRadius: 50
+    clusterRadius: 50,
+    clusterProperties: {
+      completedCount: [
+        "+",
+        ["case", ["==", ["get", "completed"], true], 1, 0]
+      ],
+      closedCount: [
+        "+",
+        ["case", ["==", ["get", "closed"], true], 1, 0]
+      ]
+    }
   });
 
   map.addLayer({
@@ -93,8 +104,21 @@ function buildMap() {
     source: "stores",
     filter: ["has", "point_count"],
     paint: {
-      "circle-color": "#c8102e",
-      "circle-radius": 24
+      "circle-color": [
+        "case",
+        ["==",
+          ["get", "completedCount"],
+          ["get", "point_count"]
+        ],
+        "#2ecc71",  // 100% complete
+        [">",
+          ["get", "closedCount"],
+          0
+        ],
+        "#ff9900",  // contains closed
+        "#c8102e"   // incomplete
+      ],
+      "circle-radius": 26
     }
   });
 
@@ -104,7 +128,7 @@ function buildMap() {
     source: "stores",
     filter: ["has", "point_count"],
     layout: {
-      "text-field": "{point_count_abbreviated}",
+      "text-field": "{point_count}",
       "text-size": 14
     },
     paint: {
@@ -133,47 +157,6 @@ function buildMap() {
   map.on("click", "points", handleClick);
 }
 
-/* ================= MODAL ================= */
-
-function handleClick(e) {
-
-  const feature = e.features[0];
-  const key = feature.properties.store_id;
-
-  const modal = document.getElementById("confirmModal");
-  modal.classList.remove("hidden");
-
-  document.getElementById("confirmStoreId").innerText =
-    `Store ID: ${key}`;
-
-  const store = storeData.find(s => String(s.store_id) === key);
-  if (store) {
-    document.getElementById("confirmAddress").innerText =
-      store.full_address;
-  }
-
-  loadNotes(key);
-  loadPhotos(key);
-
-  document.getElementById("markActive").onclick =
-    () => updateStore(key, false, false);
-
-  document.getElementById("markCompleted").onclick =
-    () => updateStore(key, true, false);
-
-  document.getElementById("markClosed").onclick =
-    () => updateStore(key, false, true);
-
-  document.getElementById("addNoteBtn").onclick =
-    () => addNote(key);
-
-  document.getElementById("photoUpload").onchange =
-    (e) => uploadPhoto(key, e.target.files[0]);
-
-  document.getElementById("confirmCancel").onclick =
-    () => modal.classList.add("hidden");
-}
-
 /* ================= UPDATE STORE ================= */
 
 async function updateStore(key, completed, closed) {
@@ -193,6 +176,17 @@ async function updateStore(key, completed, closed) {
   updateActivityList();
 }
 
+function rebuild() {
+
+  geojsonData.features.forEach(f => {
+    const key = f.properties.store_id;
+    f.properties.completed = statusMap[key].completed;
+    f.properties.closed = statusMap[key].closed;
+  });
+
+  map.getSource("stores").setData(geojsonData);
+}
+
 /* ================= SEARCH ================= */
 
 function bindSearch() {
@@ -210,7 +204,7 @@ function bindSearch() {
   });
 }
 
-/* ================= SIDEBAR TOGGLE ================= */
+/* ================= SIDEBAR ================= */
 
 function bindSidebarToggle() {
   const toggleBtn = document.getElementById("sidebarToggle");
@@ -281,86 +275,4 @@ function updateActivityList() {
 
       container.appendChild(div);
     });
-}
-
-/* ================= NOTES ================= */
-
-async function addNote(storeId) {
-
-  const note = document.getElementById("noteBox").value.trim();
-  if (!note) return;
-
-  await supabaseClient
-    .from("store_notes")
-    .insert({ store_id: storeId, note });
-
-  document.getElementById("noteBox").value = "";
-  loadNotes(storeId);
-}
-
-async function loadNotes(storeId) {
-
-  const { data } = await supabaseClient
-    .from("store_notes")
-    .select("*")
-    .eq("store_id", storeId)
-    .order("created_at", { ascending: false });
-
-  const container = document.getElementById("notesList");
-  container.innerHTML = "";
-
-  if (!data || data.length === 0) {
-    container.innerHTML = "No notes yet.";
-    return;
-  }
-
-  data.forEach(row => {
-    const div = document.createElement("div");
-    div.innerText = row.note;
-    container.appendChild(div);
-  });
-}
-
-/* ================= PHOTOS ================= */
-
-async function uploadPhoto(storeId, file) {
-  if (!file) return;
-
-  const filePath = `${storeId}/${Date.now()}_${file.name}`;
-
-  await supabaseClient.storage
-    .from("store-photos")
-    .upload(filePath, file);
-
-  await supabaseClient
-    .from("store_photos")
-    .insert({
-      store_id: storeId,
-      file_path: filePath
-    });
-
-  loadPhotos(storeId);
-}
-
-async function loadPhotos(storeId) {
-
-  const { data } = await supabaseClient
-    .from("store_photos")
-    .select("*")
-    .eq("store_id", storeId);
-
-  const container = document.getElementById("photoGallery");
-  container.innerHTML = "";
-
-  data?.forEach(row => {
-    const { data: urlData } = supabaseClient.storage
-      .from("store-photos")
-      .getPublicUrl(row.file_path);
-
-    const img = document.createElement("img");
-    img.src = urlData.publicUrl;
-    img.onclick = () => window.open(urlData.publicUrl, "_blank");
-
-    container.appendChild(img);
-  });
 }
