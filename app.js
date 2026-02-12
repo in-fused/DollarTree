@@ -26,7 +26,7 @@ map.on("load", async () => {
   buildMap();
   updateProgress();
   updateActivityList();
-  bindSearch();   // ← ADD THIS
+  bindSearch();
 });
 
 /* ================= HYDRATE ================= */
@@ -84,8 +84,17 @@ function buildMap() {
     type: "geojson",
     data: geojsonData,
     cluster: true,
-    clusterRadius: 50
+    clusterRadius: 50,
+    clusterProperties: {
+      completedCount: [
+        "+",
+        ["case", ["==", ["get", "completed"], true], 1, 0]
+      ],
+      totalCount: ["+", 1]
+    }
   });
+
+  /* CLUSTERS */
 
   map.addLayer({
     id: "clusters",
@@ -93,10 +102,33 @@ function buildMap() {
     source: "stores",
     filter: ["has", "point_count"],
     paint: {
-      "circle-color": "#c8102e",
+      "circle-color": [
+        "case",
+        [">=", ["/", ["get", "completedCount"], ["get", "totalCount"]], 0.75],
+        "#2ecc71",
+        [">=", ["/", ["get", "completedCount"], ["get", "totalCount"]], 0.25],
+        "#ff9900",
+        "#ff2d2d"
+      ],
       "circle-radius": 24
     }
   });
+
+  map.addLayer({
+    id: "cluster-count",
+    type: "symbol",
+    source: "stores",
+    filter: ["has", "point_count"],
+    layout: {
+      "text-field": "{point_count_abbreviated}",
+      "text-size": 14
+    },
+    paint: {
+      "text-color": "#ffffff"
+    }
+  });
+
+  /* INDIVIDUAL POINTS */
 
   map.addLayer({
     id: "points",
@@ -117,6 +149,26 @@ function buildMap() {
   });
 
   map.on("click", "points", handleClick);
+
+  map.on("click", "clusters", (e) => {
+    const features = map.queryRenderedFeatures(e.point, {
+      layers: ["clusters"]
+    });
+
+    const clusterId = features[0].properties.cluster_id;
+
+    map.getSource("stores").getClusterExpansionZoom(
+      clusterId,
+      (err, zoom) => {
+        if (err) return;
+
+        map.easeTo({
+          center: features[0].geometry.coordinates,
+          zoom: zoom
+        });
+      }
+    );
+  });
 }
 
 /* ================= MODAL ================= */
@@ -134,7 +186,7 @@ function handleClick(e) {
 
   const store = storeData.find(s => String(s.store_id) === key);
 
-  if (store && store.full_address) {
+  if (store) {
     document.getElementById("confirmAddress").innerText =
       store.full_address;
   }
@@ -203,24 +255,89 @@ async function loadNotes(storeId) {
   container.innerHTML = "";
 
   if (!data || data.length === 0) {
-    container.innerHTML = "<div style='opacity:.6;'>No notes yet.</div>";
+    container.innerHTML = "No notes yet.";
     return;
   }
 
   data.forEach(row => {
     const div = document.createElement("div");
-    div.style.marginBottom = "6px";
-    div.style.fontSize = "13px";
-    div.style.padding = "6px 8px";
-    div.style.background = "rgba(255,255,255,0.06)";
-    div.style.borderRadius = "6px";
-
     div.innerHTML = `
       <div>${row.note}</div>
-      <div style="opacity:.5;font-size:11px;margin-top:4px;">
+      <div style="opacity:.5;font-size:11px;">
         ${new Date(row.created_at).toLocaleString()}
       </div>
     `;
+    container.appendChild(div);
+  });
+}
+
+/* ================= SEARCH ================= */
+
+function bindSearch() {
+
+  const input = document.getElementById("storeSearch");
+  if (!input) return;
+
+  input.addEventListener("input", e => {
+
+    const val = e.target.value.trim();
+
+    const match = storeData.find(
+      s => String(s.store_id) === val
+    );
+
+    if (match) {
+      map.flyTo({
+        center: [match.lng, match.lat],
+        zoom: 14,
+        essential: true
+      });
+    }
+  });
+}
+
+/* ================= ACTIVITY FEED ================= */
+
+function updateActivityList() {
+
+  const container = document.getElementById("activityList");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  const entries = Object.entries(statusMap)
+    .filter(([_, val]) => val.completed || val.closed);
+
+  entries.forEach(([storeId, state]) => {
+
+    const div = document.createElement("div");
+    div.className = "activityItem";
+
+    const icon = document.createElement("span");
+    icon.style.marginRight = "6px";
+
+    if (state.completed) {
+      icon.innerText = "✔";
+      icon.style.color = "#2ecc71";
+    } else {
+      icon.innerText = "⚠";
+      icon.style.color = "#ff9900";
+    }
+
+    div.appendChild(icon);
+    div.append(` Store ${storeId}`);
+
+    div.onclick = () => {
+      const match = storeData.find(
+        s => String(s.store_id) === storeId
+      );
+      if (match) {
+        map.flyTo({
+          center: [match.lng, match.lat],
+          zoom: 14
+        });
+      }
+    };
 
     container.appendChild(div);
   });
@@ -229,11 +346,13 @@ async function loadNotes(storeId) {
 /* ================= REBUILD ================= */
 
 function rebuild() {
+
   geojsonData.features.forEach(f => {
     const key = f.properties.store_id;
     f.properties.completed = statusMap[key].completed;
     f.properties.closed = statusMap[key].closed;
   });
+
   map.getSource("stores").setData(geojsonData);
 }
 
@@ -261,83 +380,4 @@ function updateProgress() {
 
   document.getElementById("progressText").innerText =
     `${percent.toFixed(1)}% complete`;
-}
-
-/* ================= SIDEBAR ACTIVITY ================= */
-
-function updateActivityList() {
-
-  const container = document.getElementById("activityList");
-  if (!container) return;
-
-  container.innerHTML = "";
-
-  const entries = Object.entries(statusMap)
-    .filter(([_, val]) => val.completed || val.closed);
-
-  if (entries.length === 0) {
-    container.innerHTML =
-      "<div style='opacity:.6;font-size:13px;'>No updates yet.</div>";
-    return;
-  }
-
-  entries
-    .sort((a, b) => Number(b[0]) - Number(a[0]))
-    .forEach(([storeId, state]) => {
-
-      const div = document.createElement("div");
-      div.className = "activityItem";
-
-      const icon = document.createElement("span");
-      icon.className = "activityIcon";
-
-      if (state.completed) {
-        icon.innerText = "✔";
-        icon.style.color = "#2ecc71";
-      } else if (state.closed) {
-        icon.innerText = "⚠";
-        icon.style.color = "#ff9900";
-      }
-
-      div.appendChild(icon);
-      div.append(` Store ${storeId}`);
-
-      div.onclick = () => {
-        const match = storeData.find(
-          s => String(s.store_id) === storeId
-        );
-
-        if (match) {
-          map.flyTo({
-            center: [match.lng, match.lat],
-            zoom: 14
-          });
-        }
-      };
-
-      container.appendChild(div);
-    });
-    
-    function bindSearch() {
-
-  const input = document.getElementById("storeSearch");
-  if (!input) return;
-
-  input.addEventListener("input", e => {
-
-    const val = e.target.value.trim();
-
-    const match = storeData.find(
-      s => String(s.store_id) === val
-    );
-
-    if (match) {
-      map.flyTo({
-        center: [match.lng, match.lat],
-        zoom: 14
-      });
-    }
-  });
-}
-    
 }
