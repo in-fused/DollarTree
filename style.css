@@ -71,6 +71,34 @@ aside {
   margin-bottom: 20px;
 }
 
+.statsRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.stat {
+  text-align: center;
+  flex: 1;
+}
+
+.stat div {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.completedStat div { color: #2ecc71; }
+.activeStat div { color: #ff2d2d; }
+.closedStat div { color: #aaaaaa; }
+
+.progressLabel {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.7;
+  text-align: center;
+}
+
+
 input {
   width: 100%;
   padding: 10px;
