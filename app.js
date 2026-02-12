@@ -194,19 +194,20 @@ const addBtn = document.getElementById("addNoteBtn");
 if (addBtn) {
   addBtn.onclick = async () => {
 
-  const note = document.getElementById("noteBox").value.trim();
-  if (!note) return;
+    const note = document.getElementById("noteBox").value.trim();
+    if (!note) return;
 
-  await supabaseClient
-    .from("store_notes")
-    .insert({
-      store_id: key,
-      note
-    });
+    await supabaseClient
+      .from("store_notes")
+      .insert({
+        store_id: key,
+        note
+      });
 
-  document.getElementById("noteBox").value = "";
-  loadNotes(key);
-};
+    document.getElementById("noteBox").value = "";
+    loadNotes(key);
+  };
+}
 
   const modal = document.getElementById("confirmModal");
   const pinGate = document.getElementById("pinGate");
