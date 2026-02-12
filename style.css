@@ -21,14 +21,17 @@ header {
   align-items: center;
   justify-content: center;
   position: relative;
+  overflow: hidden;
 }
 
+/* Scale logo visually */
 .brandLogoWide {
-  height: 150px;
-  width: auto;
+  height: 220px;          /* intentionally larger than header */
+  transform: scale(1.25); /* zoom effect */
   object-fit: contain;
 }
 
+/* Right text */
 .headerRight {
   position: absolute;
   right: 60px;
