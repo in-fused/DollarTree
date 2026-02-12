@@ -18,7 +18,6 @@
 </header>
 
 <main class="app">
-
   <aside>
     <div class="panel">
       <h3>Search Store</h3>
@@ -28,23 +27,19 @@
     <div class="panel">
       <h3>Project Status</h3>
 
-      <div class="statsColumn">
+      <div class="statRow completedStat">
+        <span>Completed</span>
+        <div id="completedCount">0</div>
+      </div>
 
-        <div class="statRow completedStat">
-          <span>Completed</span>
-          <div id="completedCount">0</div>
-        </div>
+      <div class="statRow activeStat">
+        <span>Remaining</span>
+        <div id="activeCount">0</div>
+      </div>
 
-        <div class="statRow activeStat">
-          <span>Remaining</span>
-          <div id="activeCount">0</div>
-        </div>
-
-        <div class="statRow closedStat">
-          <span>Closed</span>
-          <div id="closedCount">0</div>
-        </div>
-
+      <div class="statRow closedStat">
+        <span>Closed</span>
+        <div id="closedCount">0</div>
       </div>
 
       <div class="progressBar">
@@ -58,14 +53,15 @@
       <h3>Updated Stores</h3>
       <div id="activityList" class="activityList"></div>
     </div>
+
   </aside>
 
   <div class="mapWrapper">
     <div id="map"></div>
   </div>
-
 </main>
 
+<!-- MODAL -->
 <div id="confirmModal" class="modal hidden">
   <div class="modalContent">
 
@@ -78,14 +74,14 @@
       <div id="confirmCityLine"></div>
     </div>
 
-    <div id="pinGate" class="pinGate">
+    <div id="pinGate">
       <p>Enter PIN to edit</p>
       <input type="password" id="pinInput" placeholder="Enter PIN" />
       <button id="pinSubmit" class="btnPrimary">Unlock</button>
       <div id="pinError" class="pinError"></div>
     </div>
 
-    <div id="editSection" class="editSection hidden">
+    <div id="editSection" class="hidden">
 
       <div class="statusButtons">
         <button id="markActive" class="btnSecondary">Mark Active</button>
@@ -93,17 +89,13 @@
         <button id="markClosed" class="btnDanger">Mark Closed</button>
       </div>
 
-      <textarea id="noteBox" placeholder="Leave note (optional)..."></textarea>
-
-      <button id="addNoteBtn" class="btnPrimary" style="margin-top:10px;">Add Note</button>
+      <textarea id="noteBox" placeholder="Leave note..."></textarea>
+      <button id="addNoteBtn" class="btnPrimary">Add Note</button>
 
       <div id="notesList" class="notesList"></div>
-
     </div>
 
-    <div class="modalButtons">
-      <button id="confirmCancel" class="btnSecondary">Close</button>
-    </div>
+    <button id="confirmCancel" class="btnSecondary">Close</button>
 
   </div>
 </div>
