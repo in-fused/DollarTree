@@ -1,13 +1,4 @@
-console.log("APP VERSION STABLE CLEAN");
-
 mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
-
-const map = new mapboxgl.Map({
-  container: "map",
-  style: "mapbox://styles/mapbox/dark-v11",
-  center: [-81.7, 27.8],
-  zoom: 6.5
-});
 
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
@@ -17,24 +8,27 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
+const map = new mapboxgl.Map({
+  container: "map",
+  style: "mapbox://styles/mapbox/dark-v11",
+  center: [-81.7, 27.8],
+  zoom: 6.5
+});
+
 let storeData = [];
 let statusMap = {};
-let geojsonData = null;
+let geojsonData;
 
 const getEl = id => document.getElementById(id);
 
 map.on("load", async () => {
-  await initialize();
-});
-
-async function initialize() {
   await hydrate();
   buildMap();
-  attachSearch();
+  bindSearch();
   updateProgress();
-}
+});
 
-/* ================= HYDRATE ================= */
+/* HYDRATE */
 
 async function hydrate() {
 
@@ -45,25 +39,21 @@ async function hydrate() {
     statusMap[String(store.store_id)] = false;
   });
 
-  try {
-    const { data } = await supabaseClient
-      .from("store_status")
-      .select("*");
+  const { data } = await supabaseClient
+    .from("store_status")
+    .select("*");
 
-    if (Array.isArray(data)) {
-      data.forEach(row => {
-        const key = String(row.store_id);
-        if (statusMap.hasOwnProperty(key)) {
-          statusMap[key] = row.completed === true;
-        }
-      });
-    }
-  } catch (err) {
-    console.warn("Supabase read failed");
+  if (Array.isArray(data)) {
+    data.forEach(row => {
+      const key = String(row.store_id);
+      if (statusMap.hasOwnProperty(key)) {
+        statusMap[key] = row.completed === true;
+      }
+    });
   }
 }
 
-/* ================= BUILD MAP ================= */
+/* MAP BUILD */
 
 function buildMap() {
 
@@ -91,34 +81,33 @@ function buildMap() {
   });
 
   map.addLayer({
-  id: "clusters",
-  type: "circle",
-  source: "stores",
-  filter: ["has", "point_count"],
-  paint: {
-    "circle-color": [
-      "step",
-      ["get", "point_count"],
-      "#c8102e",
-      10,
-      "#ff2d2d",
-      25,
-      "#ff5c5c"
-    ],
-    "circle-radius": [
-      "step",
-      ["get", "point_count"],
-      20,
-      10,
-      26,
-      25,
-      34
-    ],
-    "circle-stroke-width": 2,
-    "circle-stroke-color": "#ffffff"
-  }
-});
-
+    id: "clusters",
+    type: "circle",
+    source: "stores",
+    filter: ["has", "point_count"],
+    paint: {
+      "circle-color": [
+        "step",
+        ["get", "point_count"],
+        "#c8102e",
+        10,
+        "#ff2d2d",
+        25,
+        "#ff5c5c"
+      ],
+      "circle-radius": [
+        "step",
+        ["get", "point_count"],
+        20,
+        10,
+        26,
+        25,
+        34
+      ],
+      "circle-stroke-width": 2,
+      "circle-stroke-color": "#ffffff"
+    }
+  });
 
   map.addLayer({
     id: "cluster-count",
@@ -137,44 +126,22 @@ function buildMap() {
     source: "stores",
     filter: ["!", ["has", "point_count"]],
     paint: {
-  "circle-color": [
-    "case",
-    ["==", ["get", "completed"], true],
-    "#2ecc71",
-    "#ff2d2d"
-  ],
-  "circle-radius": 7,
-  "circle-stroke-width": 1.5,
-  "circle-stroke-color": "#ffffff"
-}
+      "circle-color": [
+        "case",
+        ["==", ["get", "completed"], true],
+        "#2ecc71",
+        "#ff2d2d"
+      ],
+      "circle-radius": 7,
+      "circle-stroke-width": 1.5,
+      "circle-stroke-color": "#ffffff"
+    }
   });
 
-  map.on("click", "clusters", expandCluster);
   map.on("click", "points", handleClick);
 }
 
-/* ================= CLUSTER EXPAND ================= */
-
-function expandCluster(e) {
-  const features = map.queryRenderedFeatures(e.point, {
-    layers: ["clusters"]
-  });
-
-  const clusterId = features[0].properties.cluster_id;
-
-  map.getSource("stores").getClusterExpansionZoom(
-    clusterId,
-    (err, zoom) => {
-      if (err) return;
-      map.easeTo({
-        center: features[0].geometry.coordinates,
-        zoom: zoom
-      });
-    }
-  );
-}
-
-/* ================= CLICK HANDLER ================= */
+/* MODAL */
 
 function handleClick(e) {
 
@@ -201,39 +168,26 @@ function handleClick(e) {
   idLine.innerText = `Store ID: ${key}`;
 
   if (store && store.full_address) {
-
-    // Clean up spacing
     const cleaned = store.full_address.replace(/\s+/g, " ").trim();
-
-    // Split by comma
     const parts = cleaned.split(",");
-
-    const address = parts[0]?.trim() || "";
-    const city = parts[1]?.trim() || "";
-    const stateZip = parts[2]?.trim() || "";
-
-    addrLine.innerText = address;
-    cityLine.innerText = `${city}, ${stateZip}`;
+    addrLine.innerText = parts[0]?.trim() || "";
+    cityLine.innerText = `${parts[1]?.trim() || ""}, ${parts[2]?.trim() || ""}`;
   }
 
   modal.classList.remove("hidden");
 
-  cancel.onclick = () => {
-    modal.classList.add("hidden");
-  };
+  cancel.onclick = () => modal.classList.add("hidden");
 
   ok.onclick = async () => {
 
     statusMap[key] = !current;
 
-    try {
-      await supabaseClient
-        .from("store_status")
-        .upsert({
-          store_id: key,
-          completed: statusMap[key]
-        });
-    } catch {}
+    await supabaseClient
+      .from("store_status")
+      .upsert({
+        store_id: key,
+        completed: statusMap[key]
+      });
 
     rebuild();
     updateProgress();
@@ -241,34 +195,26 @@ function handleClick(e) {
   };
 }
 
-/* ================= REBUILD SOURCE ================= */
+/* REBUILD */
 
 function rebuild() {
-
-  geojsonData.features.forEach(feature => {
-    const key = feature.properties.store_id;
-    feature.properties.completed = statusMap[key] === true;
+  geojsonData.features.forEach(f => {
+    const key = f.properties.store_id;
+    f.properties.completed = statusMap[key] === true;
   });
-
   map.getSource("stores").setData(geojsonData);
 }
 
-/* ================= SEARCH ================= */
+/* SEARCH */
 
-function attachSearch() {
-
+function bindSearch() {
   const input = getEl("storeSearch");
-  if (!input) return;
-
   input.addEventListener("input", e => {
-
     const val = e.target.value.trim();
     if (!val) return;
-
     const match = storeData.find(
       s => String(s.store_id) === val
     );
-
     if (match) {
       map.flyTo({
         center: [match.lng, match.lat],
@@ -278,23 +224,15 @@ function attachSearch() {
   });
 }
 
-/* ================= PROGRESS ================= */
+/* PROGRESS */
 
 function updateProgress() {
-
-  const completed = Object.values(statusMap)
-    .filter(v => v === true).length;
-
+  const completed = Object.values(statusMap).filter(v => v).length;
   const total = storeData.length;
 
-  const text = getEl("progressText");
-  const fill = getEl("progressFill");
+  getEl("progressText").innerText =
+    `${completed} / ${total} completed`;
 
-  if (text) {
-    text.innerText = `${completed} / ${total} completed`;
-  }
-
-  if (fill) {
-    fill.style.width = `${(completed / total) * 100}%`;
-  }
+  getEl("progressFill").style.width =
+    `${(completed / total) * 100}%`;
 }
