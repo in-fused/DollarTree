@@ -53,10 +53,8 @@ async function hydrate() {
     data.forEach(row => {
       const key = String(row.store_id);
       if (statusMap[key]) {
-        statusMap[key] = {
-          completed: row.completed === true,
-          closed: row.closed === true
-        };
+        statusMap[key].completed = row.completed === true;
+        statusMap[key].closed = row.closed === true;
       }
     });
   }
@@ -108,7 +106,11 @@ function buildMap() {
     source: "stores",
     filter: ["has", "point_count"],
     layout: {
-      "text-field": "{point_count_abbreviated}"
+      "text-field": "{point_count_abbreviated}",
+      "text-size": 14
+    },
+    paint: {
+      "text-color": "#ffffff"
     }
   });
 
@@ -156,34 +158,26 @@ function buildMap() {
 
 async function handleClick(e) {
 
-  const feature = e.features[0];
-  const key = feature.properties.store_id;
+  const key = e.features[0].properties.store_id;
 
-  const modal = document.getElementById("confirmModal");
-  const pinGate = document.getElementById("pinGate");
-  const editSection = document.getElementById("editSection");
-  const pinInput = document.getElementById("pinInput");
-  const pinSubmit = document.getElementById("pinSubmit");
-  const pinError = document.getElementById("pinError");
-
-  document.getElementById("noteBox").value = "";
+  const store = storeData.find(s => String(s.store_id) === key);
 
   document.getElementById("confirmStoreId").innerText =
     `Store ID: ${key}`;
 
-  const store = storeData.find(s => String(s.store_id) === key);
-
   if (store && store.full_address) {
     const parts = store.full_address.replace(/\s+/g, " ").trim().split(",");
-    document.getElementById("confirmAddressLine").innerText =
-      parts[0] || "";
-    document.getElementById("confirmCityLine").innerText =
-      parts.slice(1).join(", ").trim() || "";
+    document.getElementById("confirmAddressLine").innerText = parts[0] || "";
+    document.getElementById("confirmCityLine").innerText = parts.slice(1).join(", ").trim() || "";
   }
 
   await loadNotes(key);
 
+  const modal = document.getElementById("confirmModal");
   modal.classList.remove("hidden");
+
+  const pinGate = document.getElementById("pinGate");
+  const editSection = document.getElementById("editSection");
 
   if (pinVerified) {
     pinGate.classList.add("hidden");
@@ -193,56 +187,36 @@ async function handleClick(e) {
     editSection.classList.add("hidden");
   }
 
-  pinInput.value = "";
-  pinError.innerText = "";
+  document.getElementById("pinSubmit").onclick = async () => {
+    const input = document.getElementById("pinInput").value;
 
-  pinSubmit.onclick = async () => {
     const { data } = await supabaseClient
-      .rpc("verify_pin", { input_pin: pinInput.value });
+      .rpc("verify_pin", { input_pin: input });
 
     if (data === true) {
       pinVerified = true;
       sessionStorage.setItem("pinVerified", "true");
       pinGate.classList.add("hidden");
       editSection.classList.remove("hidden");
-      pinError.innerText = "";
+      document.getElementById("pinError").innerText = "";
     } else {
-      pinError.innerText = "Incorrect PIN";
+      document.getElementById("pinError").innerText = "Incorrect PIN";
     }
   };
 
-  const addBtn = document.getElementById("addNoteBtn");
-  if (addBtn) {
-    addBtn.onclick = async () => {
+  document.getElementById("addNoteBtn").onclick = async () => {
 
-      const note = document.getElementById("noteBox").value.trim();
-      if (!note) return;
+    const note = document.getElementById("noteBox").value.trim();
+    if (!note) return;
 
-      const { error } = await supabaseClient
-        .from("store_notes")
-        .insert({
-          store_id: Number(key),
-          note
-        });
+    await supabaseClient
+      .from("store_notes")
+      .insert({ store_id: key, note });
 
-      if (error) {
-        console.error(error);
-        return;
-      }
+    document.getElementById("noteBox").value = "";
 
-      document.getElementById("noteBox").value = "";
-      await loadNotes(key);
-    };
-  }
-
-  document.getElementById("markActive").onclick =
-    () => updateStore(key, false, false);
-
-  document.getElementById("markCompleted").onclick =
-    () => updateStore(key, true, false);
-
-  document.getElementById("markClosed").onclick =
-    () => updateStore(key, false, true);
+    await loadNotes(key);
+  };
 
   document.getElementById("confirmCancel").onclick =
     () => modal.classList.add("hidden");
@@ -252,14 +226,13 @@ async function handleClick(e) {
 
 async function loadNotes(storeId) {
 
-  const container = document.getElementById("notesList");
-  if (!container) return;
-
   const { data } = await supabaseClient
     .from("store_notes")
     .select("*")
-    .eq("store_id", Number(storeId))
+    .eq("store_id", storeId)
     .order("created_at", { ascending: false });
+
+  const container = document.getElementById("notesList");
 
   container.innerHTML = "";
 
@@ -269,21 +242,36 @@ async function loadNotes(storeId) {
   }
 
   data.forEach(row => {
-
     const div = document.createElement("div");
-    div.style.marginBottom = "8px";
-    div.style.padding = "6px 8px";
-    div.style.background = "rgba(255,255,255,0.06)";
-    div.style.borderRadius = "6px";
-    div.style.fontSize = "13px";
-
+    div.className = "noteItem";
     div.innerHTML = `
       <div>${row.note}</div>
-      <div style="opacity:.5;font-size:11px;margin-top:4px;">
-        ${new Date(row.created_at).toLocaleString()}
-      </div>
+      <div class="noteTime">${new Date(row.created_at).toLocaleString()}</div>
     `;
-
     container.appendChild(div);
   });
 }
+
+/* ================= PROGRESS ================= */
+
+function updateProgress() {
+
+  const values = Object.values(statusMap);
+
+  const completed = values.filter(v => v.completed).length;
+  const closed = values.filter(v => v.closed).length;
+  const active = storeData.length - completed - closed;
+
+  const actionableTotal = storeData.length - closed;
+  const percent = actionableTotal > 0
+    ? (completed / actionableTotal) * 100
+    : 0;
+
+  document.getElementById("completedCount").innerText = completed;
+  document.getElementById("activeCount").innerText = active;
+  document.getElementById("closedCount").innerText = closed;
+
+  document.getElementById("progressFill").style.width = `${percent}%`;
+  document.getElementById("progressText").innerText =
+    `${percent.toFixed(1)}% of active stores completed`;
+}}
