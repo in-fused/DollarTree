@@ -269,7 +269,7 @@ async function loadNotes(storeId) {
   const { data } = await supabaseClient
     .from("store_notes")
     .select("*")
-    .eq("store_id", storeId)
+    .eq("store_id", Number(storeId))
     .order("created_at", { ascending: false });
 
   const container = document.getElementById("notesList");
