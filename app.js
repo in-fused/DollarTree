@@ -9,7 +9,6 @@ const supabaseClient = supabase.createClient(
 );
 
 let pinVerified = false;
-
 if (sessionStorage.getItem("pinVerified") === "true") {
   pinVerified = true;
 }
@@ -45,8 +44,7 @@ async function hydrate() {
   storeData.forEach(store => {
     statusMap[String(store.store_id)] = {
       completed: false,
-      closed: false,
-      note: ""
+      closed: false
     };
   });
 
@@ -60,8 +58,7 @@ async function hydrate() {
       if (statusMap[key]) {
         statusMap[key] = {
           completed: row.completed === true,
-          closed: row.closed === true,
-          note: row.note || ""
+          closed: row.closed === true
         };
       }
     });
@@ -165,59 +162,31 @@ function handleClick(e) {
   const feature = e.features[0];
   const key = feature.properties.store_id;
   const state = statusMap[key];
-// ===== Populate Preview Info (Visible Before PIN) =====
-
-const store = storeData.find(
-  s => String(s.store_id) === String(key)
-);
-
-document.getElementById("confirmStoreId").innerText =
-  `Store ID: ${key}`;
-  loadNotes(key);
-
-if (store && store.full_address) {
-
-  const cleaned = store.full_address
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const parts = cleaned.split(",");
-
-  document.getElementById("confirmAddressLine").innerText =
-    parts[0] ? parts[0].trim() : "";
-
-  document.getElementById("confirmCityLine").innerText =
-    parts.slice(1).join(",").trim();
-}
-
-const addBtn = document.getElementById("addNoteBtn");
-if (addBtn) {
-  addBtn.onclick = async () => {
-
-    const note = document.getElementById("noteBox").value.trim();
-    if (!note) return;
-
-    await supabaseClient
-      .from("store_notes")
-      .insert({
-        store_id: key,
-        note
-      });
-
-    document.getElementById("noteBox").value = "";
-    loadNotes(key);
-  };
-}
 
   const modal = document.getElementById("confirmModal");
+
   const pinGate = document.getElementById("pinGate");
   const editSection = document.getElementById("editSection");
   const pinInput = document.getElementById("pinInput");
   const pinSubmit = document.getElementById("pinSubmit");
   const pinError = document.getElementById("pinError");
-  const noteBox = document.getElementById("noteBox");
 
-  noteBox.value = state.note || "";
+  document.getElementById("noteBox").value = "";
+
+  document.getElementById("confirmStoreId").innerText =
+    `Store ID: ${key}`;
+
+  const store = storeData.find(s => String(s.store_id) === key);
+
+  if (store && store.full_address) {
+    const parts = store.full_address.replace(/\s+/g, " ").trim().split(",");
+    document.getElementById("confirmAddressLine").innerText =
+      parts[0] || "";
+    document.getElementById("confirmCityLine").innerText =
+      parts.slice(1).join(", ").trim() || "";
+  }
+
+  loadNotes(key);
 
   modal.classList.remove("hidden");
 
@@ -229,12 +198,12 @@ if (addBtn) {
     editSection.classList.add("hidden");
   }
 
+  pinInput.value = "";
+  pinError.innerText = "";
+
   pinSubmit.onclick = async () => {
-
-    const input = pinInput.value;
-
     const { data } = await supabaseClient
-      .rpc("verify_pin", { input_pin: input });
+      .rpc("verify_pin", { input_pin: pinInput.value });
 
     if (data === true) {
       pinVerified = true;
@@ -246,6 +215,19 @@ if (addBtn) {
       pinError.innerText = "Incorrect PIN";
     }
   };
+
+  const addBtn = document.getElementById("addNoteBtn");
+  if (addBtn) {
+    addBtn.onclick = async () => {
+      const note = document.getElementById("noteBox").value.trim();
+      if (!note) return;
+      await supabaseClient
+        .from("store_notes")
+        .insert({ store_id: key, note });
+      document.getElementById("noteBox").value = "";
+      loadNotes(key);
+    };
+  }
 
   document.getElementById("markActive").onclick =
     () => updateStore(key, false, false);
@@ -264,17 +246,14 @@ if (addBtn) {
 
 async function updateStore(key, completed, closed) {
 
-  const note = document.getElementById("noteBox").value;
-
-  statusMap[key] = { completed, closed, note };
+  statusMap[key] = { completed, closed };
 
   await supabaseClient
     .from("store_status")
     .upsert({
       store_id: key,
       completed,
-      closed,
-      note
+      closed
     });
 
   rebuild();
@@ -283,13 +262,32 @@ async function updateStore(key, completed, closed) {
   document.getElementById("confirmModal").classList.add("hidden");
 }
 
-function rebuild() {
-  geojsonData.features.forEach(f => {
-    const key = f.properties.store_id;
-    f.properties.completed = statusMap[key].completed;
-    f.properties.closed = statusMap[key].closed;
+/* ================= NOTES ================= */
+
+async function loadNotes(storeId) {
+
+  const { data } = await supabaseClient
+    .from("store_notes")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: false });
+
+  const container = document.getElementById("notesList");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  if (!Array.isArray(data) || data.length === 0) {
+    container.innerHTML =
+      "<div style='opacity:.6;'>No notes yet.</div>";
+    return;
+  }
+
+  data.forEach(row => {
+    const div = document.createElement("div");
+    div.innerText = row.note;
+    container.appendChild(div);
   });
-  map.getSource("stores").setData(geojsonData);
 }
 
 /* ================= SEARCH ================= */
@@ -379,35 +377,4 @@ function updateActivityList() {
 
     container.appendChild(div);
   });
-  
-  /* ================= NOTES ================= */
-
-async function loadNotes(storeId) {
-
-  const { data } = await supabaseClient
-    .from("store_notes")
-    .select("*")
-    .eq("store_id", storeId)
-    .order("created_at", { ascending: false });
-
-  const notesContainer = document.getElementById("notesList");
-  if (!notesContainer) return;
-
-  notesContainer.innerHTML = "";
-
-  if (!Array.isArray(data) || data.length === 0) {
-    notesContainer.innerHTML =
-      "<div style='opacity:.6;font-size:13px;'>No notes yet.</div>";
-    return;
-  }
-
-  data.forEach(row => {
-    const div = document.createElement("div");
-    div.style.marginBottom = "6px";
-    div.style.fontSize = "13px";
-    div.style.opacity = "0.85";
-    div.innerText = row.note;
-    notesContainer.appendChild(div);
-  });
-}
 }
