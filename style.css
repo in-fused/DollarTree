@@ -301,4 +301,20 @@ textarea {
     font-weight: 700;
     margin-bottom: 6px;
   }
+  
+  .notesList {
+  margin-top: 12px;
+  max-height: 160px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 8px;
+  font-size: 13px;
+}
+
+.notesList div {
+  margin-bottom: 6px;
+  padding: 6px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+}
 }
