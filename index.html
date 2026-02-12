@@ -11,21 +11,16 @@
 <body>
 
 <header>
-
-  <div class="headerMain">
-    <img src="red-bull-rebels-logo.png" class="brandLogoWide" />
-
-    <div class="headerRight">
-      <div class="projectTitle">Central FL Dollar Tree Project</div>
-      <div class="projectSub">Orlando · Field Operations</div>
-    </div>
+  <img src="red-bull-rebels-logo.png" class="brandLogoWide" />
+  <div class="headerRight">
+    <div class="projectTitle">Central FL Dollar Tree Project</div>
+    <div class="projectSub">Orlando · Field Operations</div>
   </div>
-
 </header>
 
 <main class="app">
 
-  <aside id="sidebar">
+  <aside>
     <div class="panel">
       <h3>Search Store</h3>
       <input id="storeSearch" placeholder="Enter Store ID #" />
@@ -33,7 +28,7 @@
 
     <div class="panel">
       <h3>Progress</h3>
-      <div id="progressText">0 / 0 completed</div>
+      <div id="progressText">Loading...</div>
       <div class="progressBar">
         <div id="progressFill"></div>
       </div>
@@ -48,22 +43,16 @@
 
 <div id="confirmModal" class="modal hidden">
   <div class="modalContent">
-
-    <div class="modalHeader">
-      <h3 id="confirmTitle"></h3>
-      <div id="confirmStoreId" class="modalStoreId"></div>
-    </div>
-
+    <h3 id="confirmTitle"></h3>
+    <div class="modalStoreId" id="confirmStoreId"></div>
     <div class="modalAddress">
       <div id="confirmAddressLine"></div>
       <div id="confirmCityLine"></div>
     </div>
-
     <div class="modalButtons">
       <button id="confirmCancel" class="btnSecondary">Cancel</button>
       <button id="confirmOk" class="btnPrimary">Confirm</button>
     </div>
-
   </div>
 </div>
 
