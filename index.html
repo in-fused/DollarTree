@@ -16,6 +16,7 @@
 <main class="app">
 
   <aside>
+    <button class="sidebarToggle" id="sidebarToggle">Collapse</button>
 
     <div class="panel">
       <h3>Search Store</h3>
@@ -49,7 +50,7 @@
 
     <div class="panel">
       <h3>Updated Stores</h3>
-      <div id="activityList" class="activityList"></div>
+      <div id="activityList"></div>
     </div>
 
   </aside>
@@ -65,28 +66,27 @@
   <div class="modalContent">
 
     <h3>Store Details</h3>
-    <div id="confirmStoreId" class="modalTitle"></div>
-    <div id="confirmAddress" class="modalAddress"></div>
+
+    <div id="confirmStoreId"></div>
+    <div id="confirmAddress"></div>
 
     <div class="statusButtons">
-      <button id="markActive" class="btnSecondary">Mark Active</button>
-      <button id="markCompleted" class="btnPrimary">Mark Completed</button>
-      <button id="markClosed" class="btnDanger">Mark Closed</button>
+      <button id="markActive">Mark Active</button>
+      <button id="markCompleted">Mark Completed</button>
+      <button id="markClosed">Mark Closed</button>
     </div>
 
     <textarea id="noteBox" placeholder="Leave note..."></textarea>
-    <button id="addNoteBtn" class="btnPrimary">Add Note</button>
+    <button id="addNoteBtn">Add Note</button>
 
-    <div id="notesList" class="notesList"></div>
+    <div id="notesList"></div>
 
     <hr/>
 
-    <input type="file" id="photoInput" accept="image/*" />
-    <button id="uploadPhotoBtn" class="btnPrimary">Upload Photo</button>
+    <input type="file" id="photoUpload" accept="image/*" />
+    <div id="photoGallery"></div>
 
-    <div id="photoGallery" class="photoGallery"></div>
-
-    <button id="confirmCancel" class="btnSecondary">Close</button>
+    <button id="confirmCancel">Close</button>
 
   </div>
 </div>
