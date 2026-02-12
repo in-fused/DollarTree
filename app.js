@@ -3,7 +3,10 @@ mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2Nyd
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -16,7 +19,8 @@ let storeData = [];
 let statusMap = {};
 let geojsonData;
 
-/* INIT */
+/* ================= INIT ================= */
+
 map.on("load", async () => {
   await hydrate();
   buildMap();
@@ -25,168 +29,358 @@ map.on("load", async () => {
   updateActivityList();
 });
 
-/* HYDRATE */
+/* ================= HYDRATE ================= */
+
 async function hydrate() {
+
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
-  storeData.forEach(s=>{
-    statusMap[String(s.store_id)] = {completed:false,closed:false};
+  storeData.forEach(store => {
+    statusMap[String(store.store_id)] = {
+      completed: false,
+      closed: false
+    };
   });
 
-  const {data} = await supabaseClient.from("store_status").select("*");
-  if(data){
-    data.forEach(row=>{
+  const { data } = await supabaseClient
+    .from("store_status")
+    .select("*");
+
+  if (data) {
+    data.forEach(row => {
       const key = String(row.store_id);
-      statusMap[key] = {
-        completed: row.completed === true,
-        closed: row.closed === true
-      };
+      if (statusMap[key]) {
+        statusMap[key] = {
+          completed: row.completed === true,
+          closed: row.closed === true
+        };
+      }
     });
   }
 }
 
-/* MAP */
-function buildMap(){
+/* ================= MAP ================= */
+
+function buildMap() {
 
   geojsonData = {
-    type:"FeatureCollection",
-    features: storeData.map(s=>({
-      type:"Feature",
-      properties:{
-        store_id:String(s.store_id),
-        completed:statusMap[String(s.store_id)].completed,
-        closed:statusMap[String(s.store_id)].closed
+    type: "FeatureCollection",
+    features: storeData.map(store => ({
+      type: "Feature",
+      properties: {
+        store_id: String(store.store_id),
+        completed: statusMap[String(store.store_id)].completed,
+        closed: statusMap[String(store.store_id)].closed
       },
-      geometry:{
-        type:"Point",
-        coordinates:[s.lng,s.lat]
+      geometry: {
+        type: "Point",
+        coordinates: [store.lng, store.lat]
       }
     }))
   };
 
-  map.addSource("stores",{
-    type:"geojson",
-    data:geojsonData,
-    cluster:true,
-    clusterRadius:50
+  map.addSource("stores", {
+    type: "geojson",
+    data: geojsonData,
+    cluster: true,
+    clusterRadius: 50
   });
 
   map.addLayer({
-    id:"clusters",
-    type:"circle",
-    source:"stores",
-    filter:["has","point_count"],
-    paint:{
-      "circle-radius":24,
-      "circle-color":"#d0021b"
+    id: "clusters",
+    type: "circle",
+    source: "stores",
+    filter: ["has", "point_count"],
+    paint: {
+      "circle-color": "#c8102e",
+      "circle-radius": 24
     }
   });
 
   map.addLayer({
-    id:"cluster-count",
-    type:"symbol",
-    source:"stores",
-    filter:["has","point_count"],
-    layout:{
-      "text-field":"{point_count_abbreviated}",
-      "text-size":16
+    id: "cluster-count",
+    type: "symbol",
+    source: "stores",
+    filter: ["has", "point_count"],
+    layout: {
+      "text-field": "{point_count_abbreviated}",
+      "text-size": 14
     }
   });
 
   map.addLayer({
-    id:"points",
-    type:"circle",
-    source:"stores",
-    filter:["!","has","point_count"],
-    paint:{
-      "circle-radius":8,
-      "circle-color":[
+    id: "points",
+    type: "circle",
+    source: "stores",
+    filter: ["!", ["has", "point_count"]],
+    paint: {
+      "circle-color": [
         "case",
-        ["==",["get","closed"],true],"#ff9900",
-        ["==",["get","completed"],true],"#2ecc71",
-        "#d0021b"
-      ]
+        ["==", ["get", "closed"], true],
+        "#ff9900",
+        ["==", ["get", "completed"], true],
+        "#2ecc71",
+        "#ff2d2d"
+      ],
+      "circle-radius": 8
     }
   });
 
-  map.on("click","points",handleClick);
+  map.on("click", "points", handleClick);
 }
 
-/* SEARCH */
-function bindSearch(){
-  const input=document.getElementById("storeSearch");
-  input.addEventListener("input",e=>{
-    const val=e.target.value.trim();
-    const match=storeData.find(s=>String(s.store_id)===val);
-    if(match){
-      map.flyTo({center:[match.lng,match.lat],zoom:14});
-    }
-  });
-}
+/* ================= SEARCH ================= */
 
-/* ACTIVITY FEED */
-function updateActivityList(){
-  const container=document.getElementById("activityList");
-  container.innerHTML="";
+function bindSearch() {
+  const input = document.getElementById("storeSearch");
+  if (!input) return;
 
-  Object.entries(statusMap).forEach(([id,state])=>{
-    if(state.completed || state.closed){
-      const div=document.createElement("div");
-      div.innerText="Store "+id;
-
-      if(state.completed) div.className="activity-complete";
-      else if(state.closed) div.className="activity-closed";
-      else div.className="activity-active";
-
-      div.onclick=()=>{
-        const match=storeData.find(s=>String(s.store_id)===id);
-        if(match){
-          map.flyTo({center:[match.lng,match.lat],zoom:14});
-        }
-      };
-
-      container.appendChild(div);
+  input.addEventListener("input", e => {
+    const val = e.target.value.trim();
+    const match = storeData.find(s => String(s.store_id) === val);
+    if (match) {
+      map.flyTo({
+        center: [match.lng, match.lat],
+        zoom: 14
+      });
     }
   });
 }
 
-/* UPDATE STORE */
-async function updateStore(id,completed,closed){
-  await supabaseClient.from("store_status").upsert({
-    store_id:id,
-    completed,
-    closed
-  });
+/* ================= MODAL ================= */
 
-  statusMap[id]={completed,closed};
+function handleClick(e) {
+
+  const feature = e.features[0];
+  const key = feature.properties.store_id;
+
+  const modal = document.getElementById("confirmModal");
+  modal.classList.remove("hidden");
+
+  document.getElementById("confirmStoreId").innerText =
+    `Store ID: ${key}`;
+
+  const store = storeData.find(s => String(s.store_id) === key);
+
+  if (store) {
+    document.getElementById("confirmAddress").innerText =
+      store.full_address;
+  }
+
+  loadNotes(key);
+  loadPhotos(key);
+
+  document.getElementById("markActive").onclick =
+    () => updateStore(key, false, false);
+
+  document.getElementById("markCompleted").onclick =
+    () => updateStore(key, true, false);
+
+  document.getElementById("markClosed").onclick =
+    () => updateStore(key, false, true);
+
+  document.getElementById("addNoteBtn").onclick =
+    () => addNote(key);
+
+  document.getElementById("uploadPhotoBtn").onclick =
+    () => uploadPhoto(key);
+
+  document.getElementById("confirmCancel").onclick =
+    () => modal.classList.add("hidden");
+}
+
+/* ================= UPDATE STORE ================= */
+
+async function updateStore(key, completed, closed) {
+
+  await supabaseClient
+    .from("store_status")
+    .upsert({
+      store_id: key,
+      completed,
+      closed
+    });
+
+  statusMap[key] = { completed, closed };
+
   rebuild();
   updateProgress();
   updateActivityList();
 }
 
-/* REBUILD */
-function rebuild(){
-  geojsonData.features.forEach(f=>{
-    const id=f.properties.store_id;
-    f.properties.completed=statusMap[id].completed;
-    f.properties.closed=statusMap[id].closed;
+/* ================= NOTES ================= */
+
+async function addNote(storeId) {
+
+  const note = document.getElementById("noteBox").value.trim();
+  if (!note) return;
+
+  await supabaseClient
+    .from("store_notes")
+    .insert({ store_id: storeId, note });
+
+  document.getElementById("noteBox").value = "";
+  loadNotes(storeId);
+}
+
+async function loadNotes(storeId) {
+
+  const { data } = await supabaseClient
+    .from("store_notes")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: false });
+
+  const container = document.getElementById("notesList");
+  container.innerHTML = "";
+
+  if (!data || data.length === 0) {
+    container.innerHTML = "No notes yet.";
+    return;
+  }
+
+  data.forEach(row => {
+    const div = document.createElement("div");
+    div.innerText = row.note;
+    container.appendChild(div);
+  });
+}
+
+/* ================= PHOTOS ================= */
+
+async function uploadPhoto(storeId) {
+
+  const fileInput = document.getElementById("photoInput");
+  if (!fileInput.files.length) return;
+
+  const file = fileInput.files[0];
+  const filePath = `${storeId}/${Date.now()}_${file.name}`;
+
+  await supabaseClient.storage
+    .from("redbull-photos")
+    .upload(filePath, file);
+
+  await supabaseClient
+    .from("store_photos")
+    .insert({
+      store_id: storeId,
+      file_path: filePath
+    });
+
+  fileInput.value = "";
+  loadPhotos(storeId);
+}
+
+async function loadPhotos(storeId) {
+
+  const { data } = await supabaseClient
+    .from("store_photos")
+    .select("*")
+    .eq("store_id", storeId);
+
+  const container = document.getElementById("photoGallery");
+  container.innerHTML = "";
+
+  if (!data) return;
+
+  data.forEach(row => {
+
+    const { data: publicUrl } = supabaseClient.storage
+      .from("redbull-photos")
+      .getPublicUrl(row.file_path);
+
+    const img = document.createElement("img");
+    img.src = publicUrl.publicUrl;
+
+    img.onclick = () => {
+      const full = document.createElement("div");
+      full.style.position = "fixed";
+      full.style.inset = "0";
+      full.style.background = "rgba(0,0,0,0.8)";
+      full.style.display = "flex";
+      full.style.alignItems = "center";
+      full.style.justifyContent = "center";
+
+      const big = document.createElement("img");
+      big.src = img.src;
+      big.style.maxWidth = "90%";
+      big.style.maxHeight = "90%";
+
+      full.appendChild(big);
+      full.onclick = () => full.remove();
+      document.body.appendChild(full);
+    };
+
+    container.appendChild(img);
+  });
+}
+
+/* ================= REBUILD ================= */
+
+function rebuild() {
+  geojsonData.features.forEach(f => {
+    const key = f.properties.store_id;
+    f.properties.completed = statusMap[key].completed;
+    f.properties.closed = statusMap[key].closed;
   });
   map.getSource("stores").setData(geojsonData);
 }
 
-/* PROGRESS */
-function updateProgress(){
-  const values=Object.values(statusMap);
-  const completed=values.filter(v=>v.completed).length;
-  const closed=values.filter(v=>v.closed).length;
-  const active=storeData.length-completed-closed;
+/* ================= PROGRESS ================= */
 
-  document.getElementById("completedCount").innerText=completed;
-  document.getElementById("activeCount").innerText=active;
-  document.getElementById("closedCount").innerText=closed;
+function updateProgress() {
 
-  const percent=((completed/(storeData.length-closed))*100)||0;
-  document.getElementById("progressFill").style.width=percent+"%";
-  document.getElementById("progressText").innerText=percent.toFixed(1)+"% complete";
+  const values = Object.values(statusMap);
+
+  const completed = values.filter(v => v.completed).length;
+  const closed = values.filter(v => v.closed).length;
+  const active = storeData.length - completed - closed;
+
+  document.getElementById("completedCount").innerText = completed;
+  document.getElementById("activeCount").innerText = active;
+  document.getElementById("closedCount").innerText = closed;
+
+  const actionableTotal = storeData.length - closed;
+  const percent = actionableTotal > 0
+    ? (completed / actionableTotal) * 100
+    : 0;
+
+  document.getElementById("progressFill").style.width =
+    `${percent}%`;
+
+  document.getElementById("progressText").innerText =
+    `${percent.toFixed(1)}% complete`;
+}
+
+/* ================= ACTIVITY ================= */
+
+function updateActivityList() {
+
+  const container = document.getElementById("activityList");
+  container.innerHTML = "";
+
+  Object.entries(statusMap)
+    .filter(([_, val]) => val.completed || val.closed)
+    .forEach(([storeId, state]) => {
+
+      const div = document.createElement("div");
+
+      if (state.completed) div.className = "activity-complete";
+      if (state.closed) div.className = "activity-closed";
+
+      div.innerText = `Store ${storeId}`;
+
+      div.onclick = () => {
+        const match = storeData.find(s => String(s.store_id) === storeId);
+        if (match) {
+          map.flyTo({
+            center: [match.lng, match.lat],
+            zoom: 14
+          });
+        }
+      };
+
+      container.appendChild(div);
+    });
 }
