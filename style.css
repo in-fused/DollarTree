@@ -1,122 +1,112 @@
 body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #0b1624;
-  color: white;
+  margin:0;
+  font-family:Arial, sans-serif;
+  background:#0e1117;
+  color:white;
 }
 
 header {
-  background: #062c4f;
-  text-align: center;
-  padding: 20px 0;
-  border-bottom: 4px solid #c8102e;
+  background:#0b2a44;
+  padding:10px;
+  text-align:center;
+  border-bottom:4px solid #d0021b;
 }
 
-.brandLogoWide {
-  height: 60px;
+.brandLogo {
+  height:130px;
+  transform:scale(2);
 }
 
-.app {
-  display: flex;
-  flex-direction: column;
+@media(max-width:768px){
+  .brandLogo {
+    transform:scale(1.75);
+  }
 }
 
-aside {
-  padding: 15px;
+.sidebar {
+  position:absolute;
+  top:180px;
+  left:0;
+  right:0;
+  max-height:40vh;
+  overflow-y:auto;
+  padding:15px;
+  z-index:2;
 }
 
 .panel {
-  background: rgba(255,255,255,0.05);
-  padding: 15px;
-  border-radius: 10px;
-  margin-bottom: 15px;
+  background:#1b2230;
+  padding:15px;
+  border-radius:12px;
+  margin-bottom:15px;
 }
 
 .statRow {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:8px;
 }
 
 .progressBar {
-  background: rgba(255,255,255,0.1);
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-top: 8px;
+  background:#333;
+  height:8px;
+  border-radius:4px;
+  margin-top:10px;
 }
 
 #progressFill {
-  height: 100%;
-  background: linear-gradient(90deg, red, limegreen);
-  width: 0%;
-}
-
-.mapWrapper {
-  height: 65vh;
+  background:linear-gradient(to right,#d0021b,#2ecc71);
+  height:100%;
+  width:0%;
+  border-radius:4px;
 }
 
 #map {
-  width: 100%;
-  height: 100%;
-}
-
-.activityList {
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.activityItem {
-  cursor: pointer;
-  padding: 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-.activityItem:hover {
-  background: rgba(255,255,255,0.05);
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:100%;
 }
 
 .modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.7);
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
-.hidden {
-  display: none;
-}
+.hidden { display:none; }
 
 .modalContent {
-  background: #12253a;
-  padding: 20px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 85vh;
-  overflow-y: auto;
+  background:#1b2230;
+  padding:20px;
+  border-radius:12px;
+  width:90%;
+  max-width:500px;
+  max-height:90vh;
+  overflow-y:auto;
 }
 
-textarea {
-  width: 100%;
-  margin-top: 10px;
-  padding: 8px;
-  border-radius: 8px;
-  border: none;
+.statusButtons button {
+  margin:5px;
 }
 
-button {
-  margin-top: 8px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
+#activityList div {
+  padding:6px;
+  margin-bottom:4px;
+  border-radius:6px;
+  cursor:pointer;
 }
 
-.photoGallery img {
-  width: 100%;
-  border-radius: 8px;
-  margin-top: 8px;
+.activity-complete { background:#2ecc71; }
+.activity-closed { background:#ff9900; }
+.activity-active { background:#d0021b; }
+
+#photoGallery img {
+  width:100%;
+  margin-top:10px;
+  border-radius:8px;
+  cursor:pointer;
 }
