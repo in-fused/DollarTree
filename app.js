@@ -1,14 +1,9 @@
-mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
+mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9";
 
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
 
-const supabaseClient = supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
-
-let pinVerified = sessionStorage.getItem("pinVerified") === "true";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -19,7 +14,7 @@ const map = new mapboxgl.Map({
 
 let storeData = [];
 let statusMap = {};
-let geojsonData;
+let geojson;
 
 /* ================= INIT ================= */
 
@@ -38,24 +33,20 @@ async function hydrate() {
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
-  storeData.forEach(store => {
-    statusMap[String(store.store_id)] = {
-      completed: false,
-      closed: false
-    };
+  storeData.forEach(s => {
+    statusMap[String(s.store_id)] = { completed:false, closed:false };
   });
 
   const { data } = await supabaseClient
     .from("store_status")
     .select("*");
 
-  if (Array.isArray(data)) {
+  if (data) {
     data.forEach(row => {
-      const key = String(row.store_id);
-      if (statusMap[key]) {
-        statusMap[key].completed = row.completed === true;
-        statusMap[key].closed = row.closed === true;
-      }
+      statusMap[String(row.store_id)] = {
+        completed: row.completed || false,
+        closed: row.closed || false
+      };
     });
   }
 }
@@ -64,214 +55,217 @@ async function hydrate() {
 
 function buildMap() {
 
-  geojsonData = {
-    type: "FeatureCollection",
-    features: storeData.map(store => ({
-      type: "Feature",
-      properties: {
-        store_id: String(store.store_id),
-        completed: statusMap[String(store.store_id)].completed,
-        closed: statusMap[String(store.store_id)].closed
+  geojson = {
+    type:"FeatureCollection",
+    features: storeData.map(s => ({
+      type:"Feature",
+      properties:{
+        store_id:String(s.store_id),
+        completed:statusMap[String(s.store_id)].completed,
+        closed:statusMap[String(s.store_id)].closed
       },
-      geometry: {
-        type: "Point",
-        coordinates: [store.lng, store.lat]
+      geometry:{
+        type:"Point",
+        coordinates:[s.lng, s.lat]
       }
     }))
   };
 
   map.addSource("stores", {
-    type: "geojson",
-    data: geojsonData,
-    cluster: true,
-    clusterRadius: 50
+    type:"geojson",
+    data:geojson,
+    cluster:true,
+    clusterRadius:50
   });
 
   map.addLayer({
-    id: "clusters",
-    type: "circle",
-    source: "stores",
-    filter: ["has", "point_count"],
-    paint: {
-      "circle-color": "#c8102e",
-      "circle-radius": 24,
-      "circle-stroke-width": 2,
-      "circle-stroke-color": "#ffffff"
+    id:"clusters",
+    type:"circle",
+    source:"stores",
+    filter:["has","point_count"],
+    paint:{
+      "circle-color":"#c8102e",
+      "circle-radius":24
     }
   });
 
   map.addLayer({
-    id: "cluster-count",
-    type: "symbol",
-    source: "stores",
-    filter: ["has", "point_count"],
-    layout: {
-      "text-field": "{point_count_abbreviated}",
-      "text-size": 14
-    },
-    paint: {
-      "text-color": "#ffffff"
-    }
+    id:"cluster-count",
+    type:"symbol",
+    source:"stores",
+    filter:["has","point_count"],
+    layout:{ "text-field":"{point_count_abbreviated}" }
   });
 
   map.addLayer({
-    id: "points",
-    type: "circle",
-    source: "stores",
-    filter: ["!", ["has", "point_count"]],
-    paint: {
-      "circle-color": [
+    id:"points",
+    type:"circle",
+    source:"stores",
+    filter:["!","has","point_count"],
+    paint:{
+      "circle-color":[
         "case",
-        ["==", ["get", "closed"], true],
-        "#000000",
-        ["==", ["get", "completed"], true],
-        "#2ecc71",
+        ["==",["get","closed"],true],"#000000",
+        ["==",["get","completed"],true],"#2ecc71",
         "#ff2d2d"
       ],
-      "circle-radius": 8,
-      "circle-stroke-width": 2,
-      "circle-stroke-color": "#ffffff"
+      "circle-radius":8
     }
   });
 
-  map.addLayer({
-    id: "closed-x",
-    type: "symbol",
-    source: "stores",
-    filter: ["all",
-      ["==", ["get", "closed"], true],
-      ["!", ["has", "point_count"]]
-    ],
-    layout: {
-      "text-field": "✕",
-      "text-size": 16
-    },
-    paint: {
-      "text-color": "#ffffff"
-    }
-  });
-
-  map.on("click", "points", handleClick);
+  map.on("click","points",openModal);
 }
 
 /* ================= MODAL ================= */
 
-async function handleClick(e) {
+function openModal(e){
 
-  const key = e.features[0].properties.store_id;
+  const feature = e.features[0];
+  const id = feature.properties.store_id;
 
-  const store = storeData.find(s => String(s.store_id) === key);
+  const store = storeData.find(s=>String(s.store_id)===id);
 
   document.getElementById("confirmStoreId").innerText =
-    `Store ID: ${key}`;
+    "Store ID: "+id;
 
-  if (store && store.full_address) {
-    const parts = store.full_address.replace(/\s+/g, " ").trim().split(",");
-    document.getElementById("confirmAddressLine").innerText = parts[0] || "";
-    document.getElementById("confirmCityLine").innerText = parts.slice(1).join(", ").trim() || "";
+  if(store){
+    const parts = store.full_address.split(",");
+    document.getElementById("confirmAddressLine").innerText = parts[0];
+    document.getElementById("confirmCityLine").innerText =
+      parts.slice(1).join(",");
   }
 
-  await loadNotes(key);
+  loadNotes(id);
 
-  const modal = document.getElementById("confirmModal");
-  modal.classList.remove("hidden");
+  document.getElementById("confirmModal").classList.remove("hidden");
 
-  const pinGate = document.getElementById("pinGate");
-  const editSection = document.getElementById("editSection");
+  document.getElementById("markActive").onclick=
+    ()=>updateStore(id,false,false);
 
-  if (pinVerified) {
-    pinGate.classList.add("hidden");
-    editSection.classList.remove("hidden");
-  } else {
-    pinGate.classList.remove("hidden");
-    editSection.classList.add("hidden");
-  }
+  document.getElementById("markCompleted").onclick=
+    ()=>updateStore(id,true,false);
 
-  document.getElementById("pinSubmit").onclick = async () => {
-    const input = document.getElementById("pinInput").value;
+  document.getElementById("markClosed").onclick=
+    ()=>updateStore(id,false,true);
 
-    const { data } = await supabaseClient
-      .rpc("verify_pin", { input_pin: input });
+  document.getElementById("confirmCancel").onclick=
+    ()=>document.getElementById("confirmModal").classList.add("hidden");
 
-    if (data === true) {
-      pinVerified = true;
-      sessionStorage.setItem("pinVerified", "true");
-      pinGate.classList.add("hidden");
-      editSection.classList.remove("hidden");
-      document.getElementById("pinError").innerText = "";
-    } else {
-      document.getElementById("pinError").innerText = "Incorrect PIN";
+  document.getElementById("addNoteBtn").onclick=async()=>{
+    const note=document.getElementById("noteBox").value.trim();
+    if(!note)return;
+    await supabaseClient.from("store_notes")
+      .insert({store_id:id,note});
+    document.getElementById("noteBox").value="";
+    loadNotes(id);
+  };
+}
+
+/* ================= UPDATE ================= */
+
+async function updateStore(id,completed,closed){
+
+  statusMap[id]={completed,closed};
+
+  await supabaseClient.from("store_status")
+    .upsert({store_id:id,completed,closed});
+
+  geojson.features.forEach(f=>{
+    if(f.properties.store_id===id){
+      f.properties.completed=completed;
+      f.properties.closed=closed;
     }
-  };
+  });
 
-  document.getElementById("addNoteBtn").onclick = async () => {
+  map.getSource("stores").setData(geojson);
 
-    const note = document.getElementById("noteBox").value.trim();
-    if (!note) return;
+  updateProgress();
+  updateActivityList();
 
-    await supabaseClient
-      .from("store_notes")
-      .insert({ store_id: key, note });
-
-    document.getElementById("noteBox").value = "";
-
-    await loadNotes(key);
-  };
-
-  document.getElementById("confirmCancel").onclick =
-    () => modal.classList.add("hidden");
+  document.getElementById("confirmModal").classList.add("hidden");
 }
 
 /* ================= NOTES ================= */
 
-async function loadNotes(storeId) {
+async function loadNotes(id){
 
   const { data } = await supabaseClient
     .from("store_notes")
     .select("*")
-    .eq("store_id", storeId)
-    .order("created_at", { ascending: false });
+    .eq("store_id",id)
+    .order("created_at",{ascending:false});
 
-  const container = document.getElementById("notesList");
+  const container=document.getElementById("notesList");
+  container.innerHTML="";
 
-  container.innerHTML = "";
-
-  if (!data || data.length === 0) {
-    container.innerHTML = "<div style='opacity:.6;'>No notes yet.</div>";
+  if(!data||data.length===0){
+    container.innerHTML="<div style='opacity:.6;'>No notes yet.</div>";
     return;
   }
 
-  data.forEach(row => {
-    const div = document.createElement("div");
-    div.className = "noteItem";
-    div.innerHTML = `
-      <div>${row.note}</div>
-      <div class="noteTime">${new Date(row.created_at).toLocaleString()}</div>
-    `;
+  data.forEach(n=>{
+    const div=document.createElement("div");
+    div.className="noteItem";
+    div.innerHTML=`${n.note}<div class="noteTime">${new Date(n.created_at).toLocaleString()}</div>`;
     container.appendChild(div);
+  });
+}
+
+/* ================= SEARCH ================= */
+
+function bindSearch(){
+  const input=document.getElementById("storeSearch");
+  input.addEventListener("input",e=>{
+    const val=e.target.value.trim();
+    const match=storeData.find(s=>String(s.store_id)===val);
+    if(match){
+      map.flyTo({center:[match.lng,match.lat],zoom:14});
+    }
   });
 }
 
 /* ================= PROGRESS ================= */
 
-function updateProgress() {
+function updateProgress(){
 
-  const values = Object.values(statusMap);
+  const vals=Object.values(statusMap);
 
-  const completed = values.filter(v => v.completed).length;
-  const closed = values.filter(v => v.closed).length;
-  const active = storeData.length - completed - closed;
+  const completed=vals.filter(v=>v.completed).length;
+  const closed=vals.filter(v=>v.closed).length;
+  const active=storeData.length-completed-closed;
 
-  const actionableTotal = storeData.length - closed;
-  const percent = actionableTotal > 0
-    ? (completed / actionableTotal) * 100
-    : 0;
+  const actionable=storeData.length-closed;
+  const percent=actionable? (completed/actionable)*100 :0;
 
-  document.getElementById("completedCount").innerText = completed;
-  document.getElementById("activeCount").innerText = active;
-  document.getElementById("closedCount").innerText = closed;
+  document.getElementById("completedCount").innerText=completed;
+  document.getElementById("activeCount").innerText=active;
+  document.getElementById("closedCount").innerText=closed;
 
-  document.getElementById("progressFill").style.width = `${percent}%`;
-  document.getElementById("progressText").innerText =
-    `${percent.toFixed(1)}% of active stores completed`;
-}}
+  document.getElementById("progressFill").style.width=percent+"%";
+  document.getElementById("progressText").innerText=
+    percent.toFixed(1)+"% of active stores completed";
+}
+
+/* ================= ACTIVITY ================= */
+
+function updateActivityList(){
+
+  const container=document.getElementById("activityList");
+  container.innerHTML="";
+
+  Object.entries(statusMap)
+    .filter(([_,v])=>v.completed||v.closed)
+    .forEach(([id,v])=>{
+
+      const div=document.createElement("div");
+      div.className="activityItem";
+      div.innerText=(v.completed?"✔ ":"⚠ ")+"Store "+id;
+
+      div.onclick=()=>{
+        const s=storeData.find(x=>String(x.store_id)===id);
+        if(s) map.flyTo({center:[s.lng,s.lat],zoom:14});
+      };
+
+      container.appendChild(div);
+    });
+}
