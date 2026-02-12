@@ -18,6 +18,7 @@
 </header>
 
 <main class="app">
+
   <aside>
     <div class="panel">
       <h3>Search Store</h3>
@@ -25,51 +26,51 @@
     </div>
 
     <div class="panel">
-  <h3>Project Status</h3>
+      <h3>Project Status</h3>
 
- <div class="statsColumn">
+      <div class="statsColumn">
 
-  <div class="statRow completedStat">
-    <span>Completed</span>
-    <div id="completedCount">0</div>
-  </div>
+        <div class="statRow completedStat">
+          <span>Completed</span>
+          <div id="completedCount">0</div>
+        </div>
 
-  <div class="statRow activeStat">
-    <span>Remaining</span>
-    <div id="activeCount">0</div>
-  </div>
+        <div class="statRow activeStat">
+          <span>Remaining</span>
+          <div id="activeCount">0</div>
+        </div>
 
-  <div class="statRow closedStat">
-    <span>Closed</span>
-    <div id="closedCount">0</div>
-  </div>
+        <div class="statRow closedStat">
+          <span>Closed</span>
+          <div id="closedCount">0</div>
+        </div>
 
-</div>
+      </div>
 
+      <div class="progressBar">
+        <div id="progressFill"></div>
+      </div>
 
-  <div class="progressBar">
-    <div id="progressFill"></div>
-  </div>
+      <div id="progressText" class="progressLabel"></div>
+    </div>
 
-  <div id="progressText" class="progressLabel"></div>
-</div>
-
-<div class="panel">
-  <h3>Updated Stores</h3>
-  <div id="activityList" class="activityList"></div>
-</div>
-
+    <div class="panel">
+      <h3>Updated Stores</h3>
+      <div id="activityList" class="activityList"></div>
+    </div>
   </aside>
 
   <div class="mapWrapper">
     <div id="map"></div>
   </div>
+
 </main>
 
 <div id="confirmModal" class="modal hidden">
   <div class="modalContent">
 
     <h3>Update Store Status</h3>
+
     <div id="confirmStoreId" class="modalStoreId"></div>
 
     <div class="modalAddress">
@@ -94,11 +95,9 @@
 
       <textarea id="noteBox" placeholder="Leave note (optional)..."></textarea>
 
-<button id="addNoteBtn" class="btnPrimary" style="margin-top:10px;">
-  Add Note
-</button>
+      <button id="addNoteBtn" class="btnPrimary" style="margin-top:10px;">Add Note</button>
 
-<div id="notesList" class="notesList"></div>
+      <div id="notesList" class="notesList"></div>
 
     </div>
 
@@ -108,7 +107,6 @@
 
   </div>
 </div>
-
 
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
