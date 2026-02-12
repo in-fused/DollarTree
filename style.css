@@ -8,9 +8,10 @@ html, body {
   height: 100%;
   background: #0a0f18;
   color: white;
+  overflow: hidden;
 }
 
-/* HEADER */
+/* ================= HEADER ================= */
 
 header {
   height: 180px;
@@ -27,28 +28,43 @@ header {
   transform-origin: center;
 }
 
-@media (max-width: 900px) {
-  .brandLogoWide {
-    transform: scale(1.75);
-  }
-}
-
-/* LAYOUT */
+/* ================= LAYOUT ================= */
 
 .app {
-  display: flex;
   height: calc(100vh - 180px);
+  display: flex;
 }
 
-/* SIDEBAR */
+/* ================= SIDEBAR ================= */
 
 aside {
   width: 340px;
   background: rgba(17,20,26,0.97);
   padding: 18px;
+  border-right: 1px solid rgba(255,255,255,0.06);
   overflow-y: auto;
-  border-right: 1px solid rgba(255,255,255,0.08);
+  transition: transform 0.3s ease;
 }
+
+aside.collapsed {
+  transform: translateY(-100%);
+}
+
+.sidebarToggle {
+  display: none;
+  position: absolute;
+  right: 15px;
+  top: 15px;
+  background: #c8102e;
+  border: none;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  z-index: 300;
+}
+
+/* ================= PANELS ================= */
 
 .panel {
   background: rgba(255,255,255,0.05);
@@ -57,51 +73,47 @@ aside {
   margin-bottom: 18px;
 }
 
-input, textarea {
-  width: 100%;
-  padding: 8px;
-  border-radius: 8px;
-  border: none;
-  margin-top: 8px;
-}
-
 .statRow {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .progressBar {
+  margin-top: 8px;
   background: rgba(255,255,255,0.12);
-  height: 8px;
+  height: 10px;
   border-radius: 6px;
-  margin-top: 10px;
+  overflow: hidden;
 }
 
 #progressFill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #ff2d2d, #2ecc71);
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, #ff2d2d, #c8102e, #2ecc71);
 }
 
-.activityList div {
+/* ================= ACTIVITY ================= */
+
+#activityList div {
   padding: 6px 8px;
-  border-radius: 8px;
+  border-radius: 6px;
   margin-bottom: 6px;
   cursor: pointer;
   font-size: 13px;
 }
 
 .activity-complete {
-  background: rgba(46,204,113,0.25);
+  background: rgba(46, 204, 113, 0.2);
+  border-left: 3px solid #2ecc71;
 }
 
 .activity-closed {
-  background: rgba(255,153,0,0.25);
+  background: rgba(255, 153, 0, 0.2);
+  border-left: 3px solid #ff9900;
 }
 
-/* MAP */
+/* ================= MAP ================= */
 
 .mapWrapper {
   flex: 1;
@@ -113,15 +125,17 @@ input, textarea {
   inset: 0;
 }
 
-/* MODAL */
+/* ================= MODAL ================= */
 
 .modal {
+  backdrop-filter: blur(4px);
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.6);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
+  z-index: 500;
 }
 
 .hidden { display: none; }
@@ -131,47 +145,49 @@ input, textarea {
   padding: 20px;
   border-radius: 16px;
   width: 92%;
-  max-width: 500px;
+  max-width: 450px;
   max-height: 85vh;
   overflow-y: auto;
 }
 
-.btnPrimary {
-  background: #2ecc71;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  margin-top: 8px;
+#photoGallery img {
+  width: 70px;
+  margin: 6px;
   cursor: pointer;
+  border-radius: 6px;
 }
 
-.btnSecondary {
-  background: rgba(255,255,255,0.2);
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  margin-top: 8px;
-  cursor: pointer;
-}
+/* ================= MOBILE ================= */
 
-.btnDanger {
-  background: #ff2d2d;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  margin-top: 8px;
-  cursor: pointer;
-}
+@media (max-width: 900px) {
 
-.photoGallery {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 8px;
-  margin-top: 12px;
-}
+  header {
+    height: 130px;
+  }
 
-.photoGallery img {
-  width: 100%;
-  border-radius: 8px;
-  cursor: pointer;
+  .brandLogoWide {
+    height: 130px;
+    transform: scale(1.75);
+  }
+
+  .app {
+    flex-direction: column;
+    height: calc(100vh - 130px);
+  }
+
+  aside {
+    width: 100%;
+    max-height: 35vh;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    position: relative;
+  }
+
+  .sidebarToggle {
+    display: block;
+  }
+
+  .mapWrapper {
+    height: 65vh;
+  }
 }
