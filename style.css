@@ -24,7 +24,7 @@ header {
 }
 
 .brandLogoWide {
-  height: 90px;           /* base size before scaling */
+  height: 130px;           /* base size before scaling */
   width: auto;
   object-fit: contain;
   transform: scale(2);
@@ -249,7 +249,7 @@ textarea {
     height: 110px;        /* actual rendered size */
     width: auto;
     object-fit: contain;
-    transform: scale(1.3); /* slightly boosted */
+    transform: scale(1.75); /* slightly boosted */
     transform-origin: center;
   }
 
