@@ -235,11 +235,17 @@ textarea {
 @media (max-width: 900px) {
 
   header {
-    height: 110px;
+    height: 130px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .brandLogoWide {
-    height: 95px;
+    height: 85%;
+    max-height: 115px;
+    width: auto;
+    object-fit: contain;
   }
 
   .headerRight {
