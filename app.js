@@ -8,6 +8,9 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
+const EDIT_PIN = "1984";  // change this
+let pinVerified = false;
+
 const map = new mapboxgl.Map({
   container: "map",
   style: "mapbox://styles/mapbox/dark-v11",
