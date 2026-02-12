@@ -264,6 +264,57 @@ function updateProgress() {
   const closed = values.filter(v => v.closed).length;
   const active = storeData.length - completed - closed;
 
+function updateActivityList() {
+
+  const container = document.getElementById("activityList");
+  container.innerHTML = "";
+
+  const entries = Object.entries(statusMap)
+    .filter(([_, val]) => val.completed || val.closed);
+
+  entries
+    .sort((a, b) => {
+      // optional: most recent first (if you add timestamps later)
+      return 0;
+    });
+
+  entries.forEach(([storeId, state]) => {
+
+    const div = document.createElement("div");
+    div.className = "activityItem";
+
+    const left = document.createElement("div");
+
+    const icon = document.createElement("span");
+    icon.className = "activityIcon";
+
+    if (state.completed) {
+      icon.classList.add("iconComplete");
+      icon.innerText = "✔";
+    } else if (state.closed) {
+      icon.classList.add("iconClosed");
+      icon.innerText = "⚠";
+    }
+
+    left.appendChild(icon);
+    left.append(` Store ${storeId}`);
+
+    div.appendChild(left);
+
+    div.onclick = () => {
+      const match = storeData.find(s => String(s.store_id) === storeId);
+      if (match) {
+        map.flyTo({
+          center: [match.lng, match.lat],
+          zoom: 14
+        });
+      }
+    };
+
+    container.appendChild(div);
+  });
+}
+
   const actionableTotal = storeData.length - closed;
   const percent = actionableTotal > 0
     ? (completed / actionableTotal) * 100
