@@ -176,7 +176,7 @@ if (pinVerified) {
 }
 
 pinSubmit.onclick = () => {
-  if (pinInput.value === 1984) {
+  if (pinInput.value === EDIT_PIN) {
     pinVerified = true;
     pinGate.classList.add("hidden");
     editSection.classList.remove("hidden");
