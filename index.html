@@ -43,18 +43,30 @@
 
 <div id="confirmModal" class="modal hidden">
   <div class="modalContent">
-    <h3 id="confirmTitle"></h3>
+
+    <h3 id="confirmTitle">Update Store Status</h3>
     <div class="modalStoreId" id="confirmStoreId"></div>
+
     <div class="modalAddress">
       <div id="confirmAddressLine"></div>
       <div id="confirmCityLine"></div>
     </div>
+
+    <div class="statusButtons">
+      <button id="markActive" class="btnSecondary">Mark Active</button>
+      <button id="markCompleted" class="btnPrimary">Mark Completed</button>
+      <button id="markClosed" class="btnDanger">Mark Closed</button>
+    </div>
+
+    <textarea id="noteBox" placeholder="Leave note (optional)..."></textarea>
+
     <div class="modalButtons">
       <button id="confirmCancel" class="btnSecondary">Cancel</button>
-      <button id="confirmOk" class="btnPrimary">Confirm</button>
     </div>
+
   </div>
 </div>
+
 
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
