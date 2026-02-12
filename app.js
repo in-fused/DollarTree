@@ -8,10 +8,7 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
-let pinVerified = false;
-if (sessionStorage.getItem("pinVerified") === "true") {
-  pinVerified = true;
-}
+let pinVerified = sessionStorage.getItem("pinVerified") === "true";
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -157,14 +154,12 @@ function buildMap() {
 
 /* ================= MODAL ================= */
 
-function handleClick(e) {
+async function handleClick(e) {
 
   const feature = e.features[0];
   const key = feature.properties.store_id;
-  const state = statusMap[key];
 
   const modal = document.getElementById("confirmModal");
-
   const pinGate = document.getElementById("pinGate");
   const editSection = document.getElementById("editSection");
   const pinInput = document.getElementById("pinInput");
@@ -186,7 +181,7 @@ function handleClick(e) {
       parts.slice(1).join(", ").trim() || "";
   }
 
-  loadNotes(key);
+  await loadNotes(key);
 
   modal.classList.remove("hidden");
 
@@ -219,13 +214,24 @@ function handleClick(e) {
   const addBtn = document.getElementById("addNoteBtn");
   if (addBtn) {
     addBtn.onclick = async () => {
+
       const note = document.getElementById("noteBox").value.trim();
       if (!note) return;
-      await supabaseClient
+
+      const { error } = await supabaseClient
         .from("store_notes")
-        .insert({ store_id: key, note });
+        .insert({
+          store_id: Number(key),
+          note
+        });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
       document.getElementById("noteBox").value = "";
-      loadNotes(key);
+      await loadNotes(key);
     };
   }
 
@@ -242,39 +248,18 @@ function handleClick(e) {
     () => modal.classList.add("hidden");
 }
 
-/* ================= UPDATE ================= */
-
-async function updateStore(key, completed, closed) {
-
-  statusMap[key] = { completed, closed };
-
-  await supabaseClient
-    .from("store_status")
-    .upsert({
-      store_id: key,
-      completed,
-      closed
-    });
-
-  rebuild();
-  updateProgress();
-  updateActivityList();
-  document.getElementById("confirmModal").classList.add("hidden");
-}
-
 /* ================= NOTES ================= */
 
 async function loadNotes(storeId) {
+
+  const container = document.getElementById("notesList");
+  if (!container) return;
 
   const { data } = await supabaseClient
     .from("store_notes")
     .select("*")
     .eq("store_id", Number(storeId))
     .order("created_at", { ascending: false });
-
-  const container = document.getElementById("notesList");
-
-  if (!container) return;
 
   container.innerHTML = "";
 
@@ -298,95 +283,6 @@ async function loadNotes(storeId) {
         ${new Date(row.created_at).toLocaleString()}
       </div>
     `;
-
-    container.appendChild(div);
-  });
-}
-
-/* ================= SEARCH ================= */
-
-function bindSearch() {
-  const input = document.getElementById("storeSearch");
-  if (!input) return;
-
-  input.addEventListener("input", e => {
-    const val = e.target.value.trim();
-    const match = storeData.find(s => String(s.store_id) === val);
-    if (match) {
-      map.flyTo({
-        center: [match.lng, match.lat],
-        zoom: 14
-      });
-    }
-  });
-}
-
-/* ================= PROGRESS ================= */
-
-function updateProgress() {
-
-  const values = Object.values(statusMap);
-
-  const completed = values.filter(v => v.completed).length;
-  const closed = values.filter(v => v.closed).length;
-  const active = storeData.length - completed - closed;
-
-  const actionableTotal = storeData.length - closed;
-  const percent = actionableTotal > 0
-    ? (completed / actionableTotal) * 100
-    : 0;
-
-  document.getElementById("completedCount").innerText = completed;
-  document.getElementById("activeCount").innerText = active;
-  document.getElementById("closedCount").innerText = closed;
-
-  document.getElementById("progressFill").style.width =
-    `${percent}%`;
-
-  document.getElementById("progressText").innerText =
-    `${percent.toFixed(1)}% of active stores completed`;
-}
-
-/* ================= ACTIVITY ================= */
-
-function updateActivityList() {
-
-  const container = document.getElementById("activityList");
-  if (!container) return;
-
-  container.innerHTML = "";
-
-  const entries = Object.entries(statusMap)
-    .filter(([_, val]) => val.completed || val.closed);
-
-  entries.forEach(([storeId, state]) => {
-
-    const div = document.createElement("div");
-    div.className = "activityItem";
-
-    const icon = document.createElement("span");
-    icon.className = "activityIcon";
-
-    if (state.completed) {
-      icon.classList.add("iconComplete");
-      icon.innerText = "✔";
-    } else if (state.closed) {
-      icon.classList.add("iconClosed");
-      icon.innerText = "⚠";
-    }
-
-    div.appendChild(icon);
-    div.append(` Store ${storeId}`);
-
-    div.onclick = () => {
-      const match = storeData.find(s => String(s.store_id) === storeId);
-      if (match) {
-        map.flyTo({
-          center: [match.lng, match.lat],
-          zoom: 14
-        });
-      }
-    };
 
     container.appendChild(div);
   });
