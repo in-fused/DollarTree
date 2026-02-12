@@ -8,6 +8,11 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
+let currentStoreId = null;
+let storeData = [];
+let statusMap = {};
+let geojsonData;
+
 const map = new mapboxgl.Map({
   container: "map",
   style: "mapbox://styles/mapbox/dark-v11",
@@ -15,24 +20,16 @@ const map = new mapboxgl.Map({
   zoom: 6.5
 });
 
-let storeData = [];
-let statusMap = {};
-let geojsonData;
-
-/* ================= INIT ================= */
-
 map.on("load", async () => {
   await hydrate();
   buildMap();
   updateProgress();
-  updateActivityList();
   bindSearch();
 });
 
-/* ================= HYDRATE ================= */
+/* ================= DATA ================= */
 
 async function hydrate() {
-
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
@@ -84,17 +81,8 @@ function buildMap() {
     type: "geojson",
     data: geojsonData,
     cluster: true,
-    clusterRadius: 50,
-    clusterProperties: {
-      completedCount: [
-        "+",
-        ["case", ["==", ["get", "completed"], true], 1, 0]
-      ],
-      totalCount: ["+", 1]
-    }
+    clusterRadius: 50
   });
-
-  /* CLUSTERS */
 
   map.addLayer({
     id: "clusters",
@@ -102,14 +90,7 @@ function buildMap() {
     source: "stores",
     filter: ["has", "point_count"],
     paint: {
-      "circle-color": [
-        "case",
-        [">=", ["/", ["get", "completedCount"], ["get", "totalCount"]], 0.75],
-        "#2ecc71",
-        [">=", ["/", ["get", "completedCount"], ["get", "totalCount"]], 0.25],
-        "#ff9900",
-        "#ff2d2d"
-      ],
+      "circle-color": "#c8102e",
       "circle-radius": 24
     }
   });
@@ -120,15 +101,9 @@ function buildMap() {
     source: "stores",
     filter: ["has", "point_count"],
     layout: {
-      "text-field": "{point_count_abbreviated}",
-      "text-size": 14
-    },
-    paint: {
-      "text-color": "#ffffff"
+      "text-field": "{point_count_abbreviated}"
     }
   });
-
-  /* INDIVIDUAL POINTS */
 
   map.addLayer({
     id: "points",
@@ -149,235 +124,129 @@ function buildMap() {
   });
 
   map.on("click", "points", handleClick);
+}
 
-  map.on("click", "clusters", (e) => {
-    const features = map.queryRenderedFeatures(e.point, {
-      layers: ["clusters"]
-    });
+/* ================= SEARCH ================= */
 
-    const clusterId = features[0].properties.cluster_id;
-
-    map.getSource("stores").getClusterExpansionZoom(
-      clusterId,
-      (err, zoom) => {
-        if (err) return;
-
-        map.easeTo({
-          center: features[0].geometry.coordinates,
-          zoom: zoom
-        });
-      }
-    );
+function bindSearch() {
+  const input = document.getElementById("storeSearch");
+  input.addEventListener("input", e => {
+    const val = e.target.value.trim();
+    const match = storeData.find(s => String(s.store_id) === val);
+    if (match) {
+      map.flyTo({
+        center: [match.lng, match.lat],
+        zoom: 15
+      });
+    }
   });
 }
 
 /* ================= MODAL ================= */
 
 function handleClick(e) {
-
   const feature = e.features[0];
   const key = feature.properties.store_id;
+  currentStoreId = key;
 
-  const modal = document.getElementById("confirmModal");
-  modal.classList.remove("hidden");
-
-  document.getElementById("confirmStoreId").innerText =
-    `Store ID: ${key}`;
+  document.getElementById("confirmModal").classList.remove("hidden");
+  document.getElementById("confirmStoreId").innerText = `Store ID: ${key}`;
 
   const store = storeData.find(s => String(s.store_id) === key);
-
   if (store) {
     document.getElementById("confirmAddress").innerText =
       store.full_address;
   }
 
   loadNotes(key);
-
-  document.getElementById("markActive").onclick =
-    () => updateStore(key, false, false);
-
-  document.getElementById("markCompleted").onclick =
-    () => updateStore(key, true, false);
-
-  document.getElementById("markClosed").onclick =
-    () => updateStore(key, false, true);
-
-  document.getElementById("addNoteBtn").onclick =
-    () => addNote(key);
-
-  document.getElementById("confirmCancel").onclick =
-    () => modal.classList.add("hidden");
+  loadPhotos(key);
 }
 
-/* ================= UPDATE STORE ================= */
+document.getElementById("confirmCancel").onclick =
+  () => document.getElementById("confirmModal").classList.add("hidden");
 
-async function updateStore(key, completed, closed) {
+/* ================= PHOTO UPLOAD ================= */
+
+document.getElementById("uploadPhotoBtn").onclick = async () => {
+
+  const fileInput = document.getElementById("photoInput");
+  const file = fileInput.files[0];
+  if (!file || !currentStoreId) return;
+
+  const filePath =
+    `${currentStoreId}/${Date.now()}-${file.name}`;
+
+  const { error } = await supabaseClient
+    .storage
+    .from("store-photos")
+    .upload(filePath, file);
+
+  if (error) {
+    alert("Upload failed.");
+    return;
+  }
+
+  const { data } = supabaseClient
+    .storage
+    .from("store-photos")
+    .getPublicUrl(filePath);
 
   await supabaseClient
-    .from("store_status")
-    .upsert({
-      store_id: key,
-      completed,
-      closed
+    .from("store_photos")
+    .insert({
+      store_id: currentStoreId,
+      image_url: data.publicUrl,
+      storage_path: filePath
     });
 
-  statusMap[key] = { completed, closed };
+  fileInput.value = "";
+  loadPhotos(currentStoreId);
+};
 
-  rebuild();
-  updateProgress();
-  updateActivityList();
-}
+/* ================= LOAD PHOTOS ================= */
 
-/* ================= NOTES ================= */
-
-async function addNote(storeId) {
-
-  const note = document.getElementById("noteBox").value.trim();
-  if (!note) return;
-
-  await supabaseClient
-    .from("store_notes")
-    .insert({ store_id: storeId, note });
-
-  document.getElementById("noteBox").value = "";
-  loadNotes(storeId);
-}
-
-async function loadNotes(storeId) {
+async function loadPhotos(storeId) {
 
   const { data } = await supabaseClient
-    .from("store_notes")
+    .from("store_photos")
     .select("*")
     .eq("store_id", storeId)
     .order("created_at", { ascending: false });
 
-  const container = document.getElementById("notesList");
+  const container = document.getElementById("photoGallery");
   container.innerHTML = "";
 
-  if (!data || data.length === 0) {
-    container.innerHTML = "No notes yet.";
-    return;
-  }
+  if (!data || data.length === 0) return;
 
-  data.forEach(row => {
-    const div = document.createElement("div");
-    div.innerHTML = `
-      <div>${row.note}</div>
-      <div style="opacity:.5;font-size:11px;">
-        ${new Date(row.created_at).toLocaleString()}
-      </div>
-    `;
-    container.appendChild(div);
-  });
-}
+  data.forEach(photo => {
 
-/* ================= SEARCH ================= */
+    const wrapper = document.createElement("div");
 
-function bindSearch() {
+    const img = document.createElement("img");
+    img.src = photo.image_url;
 
-  const input = document.getElementById("storeSearch");
-  if (!input) return;
+    const del = document.createElement("button");
+    del.innerText = "Delete";
+    del.className = "deletePhotoBtn";
 
-  input.addEventListener("input", e => {
+    del.onclick = async () => {
 
-    const val = e.target.value.trim();
+      await supabaseClient
+        .storage
+        .from("store-photos")
+        .remove([photo.storage_path]);
 
-    const match = storeData.find(
-      s => String(s.store_id) === val
-    );
+      await supabaseClient
+        .from("store_photos")
+        .delete()
+        .eq("id", photo.id);
 
-    if (match) {
-      map.flyTo({
-        center: [match.lng, match.lat],
-        zoom: 14,
-        essential: true
-      });
-    }
-  });
-}
-
-/* ================= ACTIVITY FEED ================= */
-
-function updateActivityList() {
-
-  const container = document.getElementById("activityList");
-  if (!container) return;
-
-  container.innerHTML = "";
-
-  const entries = Object.entries(statusMap)
-    .filter(([_, val]) => val.completed || val.closed);
-
-  entries.forEach(([storeId, state]) => {
-
-    const div = document.createElement("div");
-    div.className = "activityItem";
-
-    const icon = document.createElement("span");
-    icon.style.marginRight = "6px";
-
-    if (state.completed) {
-      icon.innerText = "✔";
-      icon.style.color = "#2ecc71";
-    } else {
-      icon.innerText = "⚠";
-      icon.style.color = "#ff9900";
-    }
-
-    div.appendChild(icon);
-    div.append(` Store ${storeId}`);
-
-    div.onclick = () => {
-      const match = storeData.find(
-        s => String(s.store_id) === storeId
-      );
-      if (match) {
-        map.flyTo({
-          center: [match.lng, match.lat],
-          zoom: 14
-        });
-      }
+      loadPhotos(storeId);
     };
 
-    container.appendChild(div);
+    wrapper.appendChild(img);
+    wrapper.appendChild(del);
+
+    container.appendChild(wrapper);
   });
-}
-
-/* ================= REBUILD ================= */
-
-function rebuild() {
-
-  geojsonData.features.forEach(f => {
-    const key = f.properties.store_id;
-    f.properties.completed = statusMap[key].completed;
-    f.properties.closed = statusMap[key].closed;
-  });
-
-  map.getSource("stores").setData(geojsonData);
-}
-
-/* ================= PROGRESS ================= */
-
-function updateProgress() {
-
-  const values = Object.values(statusMap);
-
-  const completed = values.filter(v => v.completed).length;
-  const closed = values.filter(v => v.closed).length;
-  const active = storeData.length - completed - closed;
-
-  document.getElementById("completedCount").innerText = completed;
-  document.getElementById("activeCount").innerText = active;
-  document.getElementById("closedCount").innerText = closed;
-
-  const actionableTotal = storeData.length - closed;
-  const percent = actionableTotal > 0
-    ? (completed / actionableTotal) * 100
-    : 0;
-
-  document.getElementById("progressFill").style.width =
-    `${percent}%`;
-
-  document.getElementById("progressText").innerText =
-    `${percent.toFixed(1)}% complete`;
 }
