@@ -12,8 +12,9 @@ html, body {
 }
 
 /* HEADER */
+
 header {
-  height: 160px;
+  height: 170px;
   background: linear-gradient(90deg, #001a33, #002b55);
   border-bottom: 5px solid #c8102e;
   display: flex;
@@ -22,15 +23,12 @@ header {
   position: relative;
 }
 
-/* FORCE LARGE LOGO */
 .brandLogoWide {
-  height: 140px !important;
-  max-height: none !important;
+  height: 150px;
   width: auto;
   object-fit: contain;
 }
 
-/* Right text block */
 .headerRight {
   position: absolute;
   right: 60px;
@@ -40,24 +38,23 @@ header {
 .projectTitle {
   font-size: 26px;
   font-weight: 800;
-  letter-spacing: 0.5px;
 }
 
 .projectSub {
-  font-size: 15px;
+  font-size: 14px;
   opacity: 0.75;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
+/* LAYOUT */
 
-
-/* APP LAYOUT */
 .app {
-  height: calc(100vh - 160px);
+  height: calc(100vh - 170px);
   display: flex;
 }
 
 /* SIDEBAR */
+
 aside {
   width: 280px;
   background: rgba(17,20,26,0.97);
@@ -68,10 +65,10 @@ aside {
 
 .panel {
   background: rgba(255,255,255,0.04);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 20px;
 }
-
 
 .panel h3 {
   margin: 0 0 8px;
@@ -103,6 +100,7 @@ input {
 }
 
 /* MAP */
+
 .mapWrapper {
   flex: 1;
   position: relative;
@@ -114,6 +112,7 @@ input {
 }
 
 /* MODAL */
+
 .modal {
   position: fixed;
   inset: 0;
@@ -135,12 +134,6 @@ input {
   width: 92%;
   max-width: 360px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-  animation: fadeIn 0.2s ease;
-}
-
-.modalHeader h3 {
-  margin: 0;
-  font-size: 20px;
 }
 
 .modalStoreId {
@@ -160,7 +153,6 @@ input {
   margin-top: 26px;
   display: flex;
   justify-content: space-between;
-  gap: 12px;
 }
 
 .btnPrimary {
@@ -182,23 +174,9 @@ input {
   cursor: pointer;
 }
 
-@keyframes fadeIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
 /* MOBILE */
+
 @media (max-width: 768px) {
-
-  /* HEADER FIX */
-  header {
-    height: 170px;
-    padding-top: 10px;
-  }
-
-  .brandLogoWide {
-    height: 150px !important;
-  }
 
   .headerRight {
     position: static;
@@ -206,23 +184,13 @@ input {
     margin-top: 4px;
   }
 
-  /* STACK LAYOUT PROPERLY */
   .app {
     flex-direction: column;
-    height: calc(100vh - 170px);
   }
 
   aside {
-    position: relative;
     width: 100%;
-    max-width: none;
-    transform: none !important;
     border-right: none;
     border-bottom: 1px solid rgba(255,255,255,0.08);
   }
-
-  .mapWrapper {
-    flex: 1;
-  }
-
 }
