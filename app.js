@@ -165,14 +165,11 @@ function handleClick(e) {
   );
 
   const modal = getEl("confirmModal");
-  const title = getEl("confirmTitle");
   const idLine = getEl("confirmStoreId");
   const addrLine = getEl("confirmAddressLine");
   const cityLine = getEl("confirmCityLine");
-  const cancel = getEl("confirmCancel");
-  const ok = getEl("confirmOk");
+  const noteBox = getEl("noteBox");
 
-  title.innerText = "Update Store Status";
   idLine.innerText = `Store ID: ${key}`;
 
   if (store && store.full_address) {
@@ -181,6 +178,51 @@ function handleClick(e) {
     addrLine.innerText = parts[0]?.trim() || "";
     cityLine.innerText = `${parts[1]?.trim() || ""}, ${parts[2]?.trim() || ""}`;
   }
+
+  noteBox.value = state.note || "";
+
+  modal.classList.remove("hidden");
+
+  getEl("confirmCancel").onclick = () => {
+    modal.classList.add("hidden");
+  };
+
+  getEl("markActive").onclick = async () => {
+    await updateStore(key, false, false);
+  };
+
+  getEl("markCompleted").onclick = async () => {
+    await updateStore(key, true, false);
+  };
+
+  getEl("markClosed").onclick = async () => {
+    await updateStore(key, false, true);
+  };
+}
+
+async function updateStore(key, completed, closed) {
+
+  const note = getEl("noteBox").value;
+
+  statusMap[key] = {
+    completed,
+    closed,
+    note
+  };
+
+  await supabaseClient
+    .from("store_status")
+    .upsert({
+      store_id: key,
+      completed,
+      closed,
+      note
+    });
+
+  rebuild();
+  updateProgress();
+  getEl("confirmModal").classList.add("hidden");
+}
 
   /* Add textarea dynamically */
   let noteBox = document.getElementById("noteBox");
