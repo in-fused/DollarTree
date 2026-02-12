@@ -1,7 +1,7 @@
-mapboxgl.accessToken = "YOUR_MAPBOX_TOKEN";
+mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
 
-const SUPABASE_URL = "YOUR_SUPABASE_URL";
-const SUPABASE_KEY = "YOUR_SUPABASE_KEY";
+const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
+const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
 
 const supabaseClient = supabase.createClient(
   SUPABASE_URL,
