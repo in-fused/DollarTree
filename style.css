@@ -23,8 +23,8 @@ header {
 }
 
 .brandLogoWide {
-  height: 130px;
-  transform: scale(2);
+  height: 150px;
+  transform: scale(2.25);
   transform-origin: center;
 }
 
