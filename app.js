@@ -3,7 +3,10 @@ mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2Nyd
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -87,32 +90,38 @@ function buildMap() {
         "+",
         ["case", ["==", ["get", "completed"], true], 1, 0]
       ],
-      closedCount: [
-        "+",
-        ["case", ["==", ["get", "closed"], true], 1, 0]
-      ]
+      totalCount: ["+", 1]
     }
   });
 
-  /* CLUSTERS */
+  /* Cluster Circle */
   map.addLayer({
     id: "clusters",
     type: "circle",
     source: "stores",
     filter: ["has", "point_count"],
     paint: {
+      "circle-radius": 26,
       "circle-color": [
         "case",
-        ["==", ["get", "completedCount"], ["get", "point_count"]],
+        [
+          ">=",
+          ["/", ["get", "completedCount"], ["get", "totalCount"]],
+          0.75
+        ],
         "#2ecc71",
-        [">", ["get", "closedCount"], 0],
+        [
+          ">=",
+          ["/", ["get", "completedCount"], ["get", "totalCount"]],
+          0.4
+        ],
         "#ff9900",
-        "#c8102e"
-      ],
-      "circle-radius": 26
+        "#ff2d2d"
+      ]
     }
   });
 
+  /* Cluster Count */
   map.addLayer({
     id: "cluster-count",
     type: "symbol",
@@ -121,19 +130,17 @@ function buildMap() {
     layout: {
       "text-field": "{point_count}",
       "text-size": 14
-    },
-    paint: {
-      "text-color": "#ffffff"
     }
   });
 
-  /* INDIVIDUAL POINTS */
+  /* Individual Points */
   map.addLayer({
     id: "points",
     type: "circle",
     source: "stores",
     filter: ["!", ["has", "point_count"]],
     paint: {
+      "circle-radius": 8,
       "circle-color": [
         "case",
         ["==", ["get", "closed"], true],
@@ -141,15 +148,51 @@ function buildMap() {
         ["==", ["get", "completed"], true],
         "#2ecc71",
         "#ff2d2d"
-      ],
-      "circle-radius": 8
+      ]
     }
   });
 
   map.on("click", "points", handleClick);
 }
 
-/* ================= UPDATE STORE ================= */
+/* ================= MODAL ================= */
+
+function handleClick(e) {
+
+  const feature = e.features[0];
+  const key = feature.properties.store_id;
+
+  const modal = document.getElementById("confirmModal");
+  modal.classList.remove("hidden");
+
+  document.getElementById("confirmStoreId").innerText =
+    `Store ID: ${key}`;
+
+  const store = storeData.find(s => String(s.store_id) === key);
+  if (store) {
+    document.getElementById("confirmAddress").innerText =
+      store.full_address;
+  }
+
+  loadNotes(key);
+
+  document.getElementById("markActive").onclick =
+    () => updateStore(key, false, false);
+
+  document.getElementById("markCompleted").onclick =
+    () => updateStore(key, true, false);
+
+  document.getElementById("markClosed").onclick =
+    () => updateStore(key, false, true);
+
+  document.getElementById("addNoteBtn").onclick =
+    () => addNote(key);
+
+  document.getElementById("confirmCancel").onclick =
+    () => modal.classList.add("hidden");
+}
+
+/* ================= UPDATE ================= */
 
 async function updateStore(key, completed, closed) {
 
@@ -168,23 +211,49 @@ async function updateStore(key, completed, closed) {
   updateActivityList();
 }
 
-function rebuild() {
+/* ================= NOTES ================= */
 
-  geojsonData.features.forEach(f => {
-    const key = f.properties.store_id;
-    f.properties.completed = statusMap[key].completed;
-    f.properties.closed = statusMap[key].closed;
+async function addNote(storeId) {
+
+  const note = document.getElementById("noteBox").value.trim();
+  if (!note) return;
+
+  await supabaseClient
+    .from("store_notes")
+    .insert({ store_id: storeId, note });
+
+  document.getElementById("noteBox").value = "";
+  loadNotes(storeId);
+}
+
+async function loadNotes(storeId) {
+
+  const { data } = await supabaseClient
+    .from("store_notes")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: false });
+
+  const container = document.getElementById("notesList");
+  container.innerHTML = "";
+
+  if (!data || data.length === 0) {
+    container.innerHTML = "No notes yet.";
+    return;
+  }
+
+  data.forEach(row => {
+    const div = document.createElement("div");
+    div.className = "noteItem";
+    div.innerText = row.note;
+    container.appendChild(div);
   });
-
-  map.getSource("stores").setData(geojsonData);
 }
 
 /* ================= SEARCH ================= */
 
 function bindSearch() {
   const input = document.getElementById("storeSearch");
-  if (!input) return;
-
   input.addEventListener("input", e => {
     const val = e.target.value.trim();
     const match = storeData.find(s => String(s.store_id) === val);
@@ -195,6 +264,17 @@ function bindSearch() {
       });
     }
   });
+}
+
+/* ================= REBUILD ================= */
+
+function rebuild() {
+  geojsonData.features.forEach(f => {
+    const key = f.properties.store_id;
+    f.properties.completed = statusMap[key].completed;
+    f.properties.closed = statusMap[key].closed;
+  });
+  map.getSource("stores").setData(geojsonData);
 }
 
 /* ================= PROGRESS ================= */
@@ -223,46 +303,36 @@ function updateProgress() {
     `${percent.toFixed(1)}% complete`;
 }
 
-/* ================= ACTIVITY LIST ================= */
+/* ================= ACTIVITY ================= */
 
 function updateActivityList() {
 
   const container = document.getElementById("activityList");
-  if (!container) return;
-
   container.innerHTML = "";
 
-  Object.entries(statusMap)
-    .filter(([_, val]) => val.completed || val.closed)
-    .forEach(([storeId, state]) => {
+  const entries = Object.entries(statusMap)
+    .filter(([_, val]) => val.completed || val.closed);
 
-      const div = document.createElement("div");
-      div.className = "activityItem";
+  entries.forEach(([storeId, state]) => {
 
-      const icon = document.createElement("span");
-      icon.className = "activityIcon";
+    const div = document.createElement("div");
+    div.className = "activityItem";
 
-      if (state.completed) {
-        icon.innerText = "✔";
-        icon.style.color = "#2ecc71";
-      } else if (state.closed) {
-        icon.innerText = "⚠";
-        icon.style.color = "#ff9900";
+    if (state.completed) div.classList.add("completeItem");
+    if (state.closed) div.classList.add("closedItem");
+
+    div.innerText = `Store ${storeId}`;
+
+    div.onclick = () => {
+      const match = storeData.find(s => String(s.store_id) === storeId);
+      if (match) {
+        map.flyTo({
+          center: [match.lng, match.lat],
+          zoom: 14
+        });
       }
+    };
 
-      div.appendChild(icon);
-      div.append(` Store ${storeId}`);
-
-      div.onclick = () => {
-        const match = storeData.find(s => String(s.store_id) === storeId);
-        if (match) {
-          map.flyTo({
-            center: [match.lng, match.lat],
-            zoom: 14
-          });
-        }
-      };
-
-      container.appendChild(div);
-    });
+    container.appendChild(div);
+  });
 }
