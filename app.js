@@ -318,21 +318,47 @@ function updateProgress() {
 function updateActivityList() {
 
   const container = document.getElementById("activityList");
+  if (!container) return;
+
   container.innerHTML = "";
 
   const entries = Object.entries(statusMap)
     .filter(([_, val]) => val.completed || val.closed);
+
+  if (entries.length === 0) {
+    container.innerHTML = "<div style='opacity:.6;'>No updates yet.</div>";
+    return;
+  }
 
   entries.forEach(([storeId, state]) => {
 
     const div = document.createElement("div");
     div.className = "activityItem";
 
-    if (state.completed) div.classList.add("completeItem");
-    if (state.closed) div.classList.add("closedItem");
+    // Color logic
+    if (state.completed) {
+      div.style.background = "rgba(46, 204, 113, 0.18)";
+      div.style.borderLeft = "4px solid #2ecc71";
+    } 
+    else if (state.closed) {
+      div.style.background = "rgba(255, 153, 0, 0.18)";
+      div.style.borderLeft = "4px solid #ff9900";
+    }
 
-    div.innerText = `Store ${storeId}`;
+    div.style.padding = "8px 10px";
+    div.style.marginBottom = "6px";
+    div.style.borderRadius = "6px";
+    div.style.cursor = "pointer";
+    div.style.fontSize = "13px";
+    div.style.transition = "background 0.2s ease";
 
+    const label = document.createElement("div");
+    label.innerText = `Store ${storeId}`;
+    label.style.fontWeight = "600";
+
+    div.appendChild(label);
+
+    // Fly to store on click
     div.onclick = () => {
       const match = storeData.find(s => String(s.store_id) === storeId);
       if (match) {
@@ -346,3 +372,4 @@ function updateActivityList() {
     container.appendChild(div);
   });
 }
+
