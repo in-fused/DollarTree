@@ -3,10 +3,7 @@ mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2Nyd
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
 
-const supabaseClient = supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -25,7 +22,6 @@ map.on("load", async () => {
   await hydrate();
   buildMap();
   bindSearch();
-  bindSidebarToggle();
   updateProgress();
   updateActivityList();
 });
@@ -98,6 +94,7 @@ function buildMap() {
     }
   });
 
+  /* CLUSTERS */
   map.addLayer({
     id: "clusters",
     type: "circle",
@@ -106,17 +103,11 @@ function buildMap() {
     paint: {
       "circle-color": [
         "case",
-        ["==",
-          ["get", "completedCount"],
-          ["get", "point_count"]
-        ],
-        "#2ecc71",  // 100% complete
-        [">",
-          ["get", "closedCount"],
-          0
-        ],
-        "#ff9900",  // contains closed
-        "#c8102e"   // incomplete
+        ["==", ["get", "completedCount"], ["get", "point_count"]],
+        "#2ecc71",
+        [">", ["get", "closedCount"], 0],
+        "#ff9900",
+        "#c8102e"
       ],
       "circle-radius": 26
     }
@@ -136,6 +127,7 @@ function buildMap() {
     }
   });
 
+  /* INDIVIDUAL POINTS */
   map.addLayer({
     id: "points",
     type: "circle",
@@ -191,6 +183,7 @@ function rebuild() {
 
 function bindSearch() {
   const input = document.getElementById("storeSearch");
+  if (!input) return;
 
   input.addEventListener("input", e => {
     const val = e.target.value.trim();
@@ -202,21 +195,6 @@ function bindSearch() {
       });
     }
   });
-}
-
-/* ================= SIDEBAR ================= */
-
-function bindSidebarToggle() {
-  const toggleBtn = document.getElementById("sidebarToggle");
-  const sidebar = document.querySelector("aside");
-
-  toggleBtn.onclick = () => {
-    sidebar.classList.toggle("collapsed");
-    toggleBtn.innerText =
-      sidebar.classList.contains("collapsed")
-        ? "Expand"
-        : "Collapse";
-  };
 }
 
 /* ================= PROGRESS ================= */
@@ -245,11 +223,13 @@ function updateProgress() {
     `${percent.toFixed(1)}% complete`;
 }
 
-/* ================= ACTIVITY ================= */
+/* ================= ACTIVITY LIST ================= */
 
 function updateActivityList() {
 
   const container = document.getElementById("activityList");
+  if (!container) return;
+
   container.innerHTML = "";
 
   Object.entries(statusMap)
@@ -257,11 +237,21 @@ function updateActivityList() {
     .forEach(([storeId, state]) => {
 
       const div = document.createElement("div");
+      div.className = "activityItem";
 
-      if (state.completed) div.className = "activity-complete";
-      if (state.closed) div.className = "activity-closed";
+      const icon = document.createElement("span");
+      icon.className = "activityIcon";
 
-      div.innerText = `Store ${storeId}`;
+      if (state.completed) {
+        icon.innerText = "✔";
+        icon.style.color = "#2ecc71";
+      } else if (state.closed) {
+        icon.innerText = "⚠";
+        icon.style.color = "#ff9900";
+      }
+
+      div.appendChild(icon);
+      div.append(` Store ${storeId}`);
 
       div.onclick = () => {
         const match = storeData.find(s => String(s.store_id) === storeId);
