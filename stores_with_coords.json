@@ -1,11 +1,5 @@
 [
   {
-    "store_id": 2714,
-    "lat": 29.071955,
-    "lng": -82.069601,
-    "full_address": "10369 SE US Hwy 441                , Belleview           , FL   34420"
-  },
-  {
     "store_id": 143,
     "lat": 28.451191,
     "lng": -81.39698,
@@ -664,11 +658,5 @@
     "lat": 28.648618,
     "lng": -81.266451,
     "full_address": "5916 Red Bug Lake Road, Winter Springs, FL 32708"
-  },
-  {
-    "store_id": 1901,
-    "lat": 27.827072,
-    "lng": -80.477776,
-    "full_address": "1801 US Hwy 1                      , Sebastian           , FL   32958"
   }
 ]
