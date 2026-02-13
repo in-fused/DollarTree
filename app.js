@@ -33,9 +33,12 @@ map.on("load", async () => {
 
 async function hydrate() {
 
+  // Load store coordinates
   const res = await fetch("stores_with_coords.json");
   storeData = await res.json();
 
+  // Initialize ALL stores as active
+  statusMap = {};
   storeData.forEach(store => {
     statusMap[String(store.store_id)] = {
       completed: false,
@@ -43,22 +46,29 @@ async function hydrate() {
     };
   });
 
-  const { data } = await supabaseClient
+  // Pull saved statuses from Supabase
+  const { data, error } = await supabaseClient
     .from("store_status")
     .select("*");
 
-  if (data) {
+  if (error) {
+    console.error("Supabase error:", error);
+    return;
+  }
+
+  if (Array.isArray(data)) {
     data.forEach(row => {
       const key = String(row.store_id);
       if (statusMap[key]) {
-        statusMap[key] = {
-          completed: row.completed === true,
-          closed: row.closed === true
-        };
+        statusMap[key].completed = row.completed === true;
+        statusMap[key].closed = row.closed === true;
       }
     });
   }
+
+  console.log("Hydrate complete. Total stores:", storeData.length);
 }
+
 
 /* ================= MAP ================= */
 
