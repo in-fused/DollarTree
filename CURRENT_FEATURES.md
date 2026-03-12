@@ -1,1 +1,11 @@
-placeholder
+Current production features:
+- Mapbox clustered store map
+- Cluster count labels
+- Cluster color based on contained completion %
+- Supabase-backed store status
+- Notes per store
+- Photo uploads per store
+- Search by store ID with fly-to
+- Updated Stores activity feed
+- Mobile-usable sidebar
+- Working rollback baseline saved by user
