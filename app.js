@@ -18,15 +18,25 @@ const map = new mapboxgl.Map({
 let storeData = [];
 let statusMap = {};
 let geojsonData;
+let currentModalStoreId = null;
+let routeModeEnabled = false;
+let selectedRouteStops = [];
+
+const ROUTE_MODE_KEY = "routeModeEnabled";
+const ROUTE_STOPS_KEY = "selectedRouteStops";
 
 /* ================= INIT ================= */
 
 map.on("load", async () => {
   await hydrate();
+  restoreRouteState();
   buildMap();
   bindSearch();
+  bindRouteBuilder();
   updateProgress();
   updateActivityList();
+  renderRouteStops();
+  updateRouteModeUI();
 });
 
 /* ================= HYDRATE ================= */
@@ -68,7 +78,6 @@ async function hydrate() {
 
   console.log("Hydrate complete. Total stores:", storeData.length);
 }
-
 
 /* ================= MAP ================= */
 
@@ -163,6 +172,22 @@ function buildMap() {
   });
 
   map.on("click", "points", handleClick);
+  map.on("click", "clusters", handleClusterClick);
+}
+
+function handleClusterClick(e) {
+  const features = map.queryRenderedFeatures(e.point, { layers: ["clusters"] });
+  if (!features.length) return;
+
+  const clusterId = features[0].properties.cluster_id;
+  map.getSource("stores").getClusterExpansionZoom(clusterId, (err, zoom) => {
+    if (err) return;
+
+    map.easeTo({
+      center: features[0].geometry.coordinates,
+      zoom
+    });
+  });
 }
 
 /* ================= MODAL ================= */
@@ -171,6 +196,7 @@ function handleClick(e) {
 
   const feature = e.features[0];
   const key = feature.properties.store_id;
+  currentModalStoreId = key;
 
   const modal = document.getElementById("confirmModal");
   modal.classList.remove("hidden");
@@ -198,8 +224,13 @@ function handleClick(e) {
   document.getElementById("addNoteBtn").onclick =
     () => addNote(key);
 
+  document.getElementById("addToRouteBtn").onclick =
+    () => addStoreToRoute(key);
+
   document.getElementById("confirmCancel").onclick =
     () => modal.classList.add("hidden");
+
+  updateRouteModeUI();
 }
 
 /* ================= UPDATE ================= */
@@ -339,7 +370,7 @@ function updateActivityList() {
     if (state.completed) {
       div.style.background = "rgba(46, 204, 113, 0.18)";
       div.style.borderLeft = "4px solid #2ecc71";
-    } 
+    }
     else if (state.closed) {
       div.style.background = "rgba(255, 153, 0, 0.18)";
       div.style.borderLeft = "4px solid #ff9900";
@@ -373,3 +404,245 @@ function updateActivityList() {
   });
 }
 
+/* ================= ROUTE BUILDER ================= */
+
+function restoreRouteState() {
+  try {
+    routeModeEnabled = localStorage.getItem(ROUTE_MODE_KEY) === "true";
+    const savedStops = JSON.parse(localStorage.getItem(ROUTE_STOPS_KEY) || "[]");
+    selectedRouteStops = savedStops.filter(stopId =>
+      storeData.some(store => String(store.store_id) === String(stopId))
+    );
+  } catch (error) {
+    console.error("Route restore failed:", error);
+    routeModeEnabled = false;
+    selectedRouteStops = [];
+  }
+}
+
+function persistRouteState() {
+  localStorage.setItem(ROUTE_MODE_KEY, String(routeModeEnabled));
+  localStorage.setItem(ROUTE_STOPS_KEY, JSON.stringify(selectedRouteStops));
+}
+
+function bindRouteBuilder() {
+  const routeModeToggle = document.getElementById("routeModeToggle");
+  const addRouteStoreBtn = document.getElementById("addRouteStoreBtn");
+  const clearRouteBtn = document.getElementById("clearRouteBtn");
+  const openRouteBtn = document.getElementById("openRouteBtn");
+  const routeStoreInput = document.getElementById("routeStoreInput");
+
+  routeModeToggle.checked = routeModeEnabled;
+
+  routeModeToggle.addEventListener("change", () => {
+    routeModeEnabled = routeModeToggle.checked;
+    persistRouteState();
+    updateRouteModeUI();
+  });
+
+  addRouteStoreBtn.addEventListener("click", () => {
+    const storeId = routeStoreInput.value.trim();
+    if (!storeId) return;
+    addStoreToRoute(storeId);
+    routeStoreInput.value = "";
+  });
+
+  routeStoreInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addRouteStoreBtn.click();
+    }
+  });
+
+  clearRouteBtn.addEventListener("click", () => {
+    selectedRouteStops = [];
+    persistRouteState();
+    renderRouteStops();
+  });
+
+  openRouteBtn.addEventListener("click", () => {
+    const routeUrl = buildGoogleMapsRouteUrl();
+    if (!routeUrl) return;
+    window.open(routeUrl, "_blank");
+  });
+}
+
+function updateRouteModeUI() {
+  const routeModeToggle = document.getElementById("routeModeToggle");
+  const addRouteStoreBtn = document.getElementById("addRouteStoreBtn");
+  const routeStoreInput = document.getElementById("routeStoreInput");
+  const addToRouteBtn = document.getElementById("addToRouteBtn");
+
+  if (routeModeToggle) routeModeToggle.checked = routeModeEnabled;
+  if (addRouteStoreBtn) addRouteStoreBtn.disabled = !routeModeEnabled;
+  if (routeStoreInput) routeStoreInput.disabled = !routeModeEnabled;
+
+  if (addToRouteBtn) {
+    addToRouteBtn.disabled = !routeModeEnabled;
+    addToRouteBtn.textContent = routeModeEnabled ? "Add to Route" : "Enable Route Mode";
+  }
+}
+
+function addStoreToRoute(storeId) {
+  if (!routeModeEnabled) {
+    alert("Turn on Route Mode first.");
+    return;
+  }
+
+  const normalizedStoreId = String(storeId);
+  const store = storeData.find(item => String(item.store_id) === normalizedStoreId);
+
+  if (!store) {
+    alert("Store ID not found in current project.");
+    return;
+  }
+
+  if (selectedRouteStops.includes(normalizedStoreId)) {
+    alert("That store is already in the route.");
+    return;
+  }
+
+  if (selectedRouteStops.length >= 10) {
+    alert("For reliability, the route is currently capped at 10 stops.");
+    return;
+  }
+
+  selectedRouteStops.push(normalizedStoreId);
+  persistRouteState();
+  renderRouteStops();
+}
+
+function removeRouteStop(storeId) {
+  selectedRouteStops = selectedRouteStops.filter(id => id !== storeId);
+  persistRouteState();
+  renderRouteStops();
+}
+
+function moveRouteStop(storeId, direction) {
+  const currentIndex = selectedRouteStops.indexOf(storeId);
+  if (currentIndex === -1) return;
+
+  const newIndex = currentIndex + direction;
+  if (newIndex < 0 || newIndex >= selectedRouteStops.length) return;
+
+  const updated = [...selectedRouteStops];
+  const [item] = updated.splice(currentIndex, 1);
+  updated.splice(newIndex, 0, item);
+
+  selectedRouteStops = updated;
+  persistRouteState();
+  renderRouteStops();
+}
+
+function renderRouteStops() {
+  const list = document.getElementById("selectedStopsList");
+  const empty = document.getElementById("selectedStopsEmpty");
+  const openRouteBtn = document.getElementById("openRouteBtn");
+  const clearRouteBtn = document.getElementById("clearRouteBtn");
+
+  if (!list || !empty || !openRouteBtn || !clearRouteBtn) return;
+
+  list.innerHTML = "";
+
+  if (selectedRouteStops.length === 0) {
+    empty.style.display = "block";
+    openRouteBtn.disabled = true;
+    clearRouteBtn.disabled = true;
+    return;
+  }
+
+  empty.style.display = "none";
+  openRouteBtn.disabled = false;
+  clearRouteBtn.disabled = false;
+
+  selectedRouteStops.forEach((storeId, index) => {
+    const store = storeData.find(item => String(item.store_id) === String(storeId));
+    if (!store) return;
+
+    const item = document.createElement("div");
+    item.className = "routeStopItem";
+
+    const top = document.createElement("div");
+    top.className = "routeStopTop";
+
+    const title = document.createElement("div");
+    title.className = "routeStopTitle";
+    title.textContent = `${index + 1}. Store ${storeId}`;
+
+    top.appendChild(title);
+
+    const address = document.createElement("div");
+    address.className = "routeStopAddress";
+    address.textContent = store.full_address || "No address found";
+
+    const actions = document.createElement("div");
+    actions.className = "routeStopActions";
+
+    const flyBtn = createRouteMiniButton("View", () => {
+      map.flyTo({
+        center: [store.lng, store.lat],
+        zoom: 14
+      });
+    });
+
+    const upBtn = createRouteMiniButton("â", () => moveRouteStop(String(storeId), -1));
+    upBtn.disabled = index === 0;
+
+    const downBtn = createRouteMiniButton("â", () => moveRouteStop(String(storeId), 1));
+    downBtn.disabled = index === selectedRouteStops.length - 1;
+
+    const removeBtn = createRouteMiniButton("Remove", () => removeRouteStop(String(storeId)));
+
+    actions.appendChild(flyBtn);
+    actions.appendChild(upBtn);
+    actions.appendChild(downBtn);
+    actions.appendChild(removeBtn);
+
+    item.appendChild(top);
+    item.appendChild(address);
+    item.appendChild(actions);
+    list.appendChild(item);
+  });
+}
+
+function createRouteMiniButton(label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "routeMiniBtn";
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+function buildGoogleMapsRouteUrl() {
+  if (selectedRouteStops.length === 0) {
+    alert("Add at least one stop to build a route.");
+    return "";
+  }
+
+  const coords = selectedRouteStops
+    .map(storeId => storeData.find(store => String(store.store_id) === String(storeId)))
+    .filter(Boolean)
+    .map(store => `${store.lat},${store.lng}`);
+
+  if (coords.length === 0) {
+    alert("No valid route stops found.");
+    return "";
+  }
+
+  if (coords.length === 1) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coords[0])}&travelmode=driving`;
+  }
+
+  const origin = coords[0];
+  const destination = coords[coords.length - 1];
+  const waypoints = coords.slice(1, -1).join("|");
+
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+
+  if (waypoints.length > 0) {
+    url += `&waypoints=${encodeURIComponent(waypoints)}`;
+  }
+
+  return url;
+}
