@@ -23,8 +23,8 @@ header {
 }
 
 .brandLogoWide {
-  height: 150px;
-  transform: scale(3.5);
+  height: 130px;
+  transform: scale(2);
   transform-origin: center;
 }
 
@@ -46,31 +46,32 @@ aside {
   transition: transform 0.3s ease;
 }
 
-aside.collapsed {
-  transform: translateY(-100%);
-}
-
-.sidebarToggle {
-  display: none;
-  position: absolute;
-  right: 15px;
-  top: 15px;
-  background: #c8102e;
-  border: none;
-  color: white;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  z-index: 300;
-}
-
-/* ================= PANELS ================= */
-
 .panel {
   background: rgba(255,255,255,0.05);
   border-radius: 14px;
   padding: 16px;
   margin-bottom: 18px;
+}
+
+input, textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: white;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(255,255,255,0.55);
+}
+
+textarea {
+  min-height: 90px;
+  resize: vertical;
+  margin-top: 10px;
 }
 
 .statRow {
@@ -93,12 +94,141 @@ aside.collapsed {
   background: linear-gradient(90deg, #ff2d2d, #c8102e, #2ecc71);
 }
 
+.progressLabel {
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+/* ================= BUTTONS ================= */
+
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btnSecondary {
+  background: rgba(255,255,255,0.12);
+  color: white;
+}
+
+.btnComplete {
+  background: #2ecc71;
+  color: #062b14;
+  font-weight: 700;
+}
+
+.btnClosed {
+  background: #ff9900;
+  color: #2d1a00;
+  font-weight: 700;
+}
+
+/* ================= ROUTE BUILDER ================= */
+
+.routeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.routeHeader h3 {
+  margin: 0;
+}
+
+.routeToggleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.routeToggleLabel input {
+  width: auto;
+  accent-color: #2ecc71;
+  margin: 0;
+}
+
+.routeControls {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.routeEmpty {
+  opacity: 0.65;
+  font-size: 13px;
+}
+
+.selectedStopsList {
+  display: grid;
+  gap: 8px;
+}
+
+.routeStopItem {
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.routeStopTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.routeStopTitle {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.routeStopAddress {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: 4px;
+}
+
+.routeStopActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.routeMiniBtn {
+  padding: 6px 8px;
+  font-size: 12px;
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+
+.routeActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.routeActions button {
+  flex: 1;
+}
+
 /* ================= ACTIVITY ================= */
 
-#activityList div {
-  padding: 6px 8px;
+.activityList {
+  display: grid;
+  gap: 6px;
+}
+
+.activityItem {
+  padding: 8px 10px;
   border-radius: 6px;
-  margin-bottom: 6px;
+  margin-bottom: 0;
   cursor: pointer;
   font-size: 13px;
 }
@@ -150,11 +280,28 @@ aside.collapsed {
   overflow-y: auto;
 }
 
-#photoGallery img {
-  width: 70px;
-  margin: 6px;
-  cursor: pointer;
-  border-radius: 6px;
+.statusButtons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.statusButtons button {
+  flex: 1;
+  min-width: 120px;
+}
+
+.notesList {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.noteItem {
+  background: rgba(255,255,255,0.05);
+  padding: 8px 10px;
+  border-radius: 8px;
 }
 
 /* ================= MOBILE ================= */
@@ -183,11 +330,16 @@ aside.collapsed {
     position: relative;
   }
 
-  .sidebarToggle {
-    display: block;
-  }
-
   .mapWrapper {
     height: 70vh;
+  }
+
+  .routeHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .routeActions {
+    flex-direction: column;
   }
 }
