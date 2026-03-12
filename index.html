@@ -4,7 +4,8 @@
   <meta charset="utf-8" />
   <title>Red Bull Rebels — Central FL Dollar Tree Project</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
+rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -47,6 +48,32 @@
       <div id="progressText" class="progressLabel"></div>
     </div>
 
+    <div class="panel routePanel">
+      <div class="routeHeader">
+        <h3>Route Builder</h3>
+        <label class="routeToggleLabel">
+          <input type="checkbox" id="routeModeToggle" />
+          <span>Route Mode</span>
+        </label>
+      </div>
+
+      <div class="routeControls">
+        <input id="routeStoreInput" placeholder="Add Store ID to Route" />
+        <button id="addRouteStoreBtn" class="btnSecondary"
+type="button">Add by Store ID</button>
+      </div>
+
+      <div id="selectedStopsEmpty" class="routeEmpty">No selected stops.</div>
+      <div id="selectedStopsList" class="selectedStopsList"></div>
+
+      <div class="routeActions">
+        <button id="clearRouteBtn" class="btnSecondary"
+type="button">Clear</button>
+        <button id="openRouteBtn" class="btnComplete"
+type="button">Open Route</button>
+      </div>
+    </div>
+
     <div class="panel">
       <h3>Updated Stores</h3>
       <div id="activityList" class="activityList"></div>
@@ -69,17 +96,23 @@
     <div id="confirmAddress"></div>
 
     <div class="statusButtons">
-      <button id="markActive" class="btnSecondary">Mark Active</button>
-      <button id="markCompleted" class="btnComplete">Mark Completed</button>
-      <button id="markClosed" class="btnClosed">Mark Closed</button>
+      <button id="markActive" class="btnSecondary" type="button">Mark
+Active</button>
+      <button id="markCompleted" class="btnComplete"
+type="button">Mark Completed</button>
+      <button id="markClosed" class="btnClosed" type="button">Mark
+Closed</button>
     </div>
 
+    <button id="addToRouteBtn" class="btnSecondary" type="button">Add
+to Route</button>
+
     <textarea id="noteBox" placeholder="Leave note (optional)..."></textarea>
-    <button id="addNoteBtn" class="btnSecondary">Add Note</button>
+    <button id="addNoteBtn" class="btnSecondary" type="button">Add Note</button>
 
     <div id="notesList" class="notesList"></div>
 
-    <button id="confirmCancel" class="btnSecondary">Close</button>
+    <button id="confirmCancel" class="btnSecondary" type="button">Close</button>
 
   </div>
 </div>
