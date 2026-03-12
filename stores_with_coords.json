@@ -3,253 +3,217 @@
     "store_id": 143,
     "lat": 28.451191,
     "lng": -81.39698,
-    "full_address": "1431 Sand Lake Rd                  , Orlando
-       , FL   32809"
+    "full_address": "1431 Sand Lake Rd                  , Orlando             , FL   32809"
   },
   {
     "store_id": 167,
     "lat": 28.554368,
     "lng": -81.482,
-    "full_address": "7421 West Colonial Drive           , Orlando
-       , FL   32818"
+    "full_address": "7421 West Colonial Drive           , Orlando             , FL   32818"
   },
   {
     "store_id": 172,
     "lat": 28.667553,
     "lng": -81.422016,
-    "full_address": "945 West SR 436                    , Altamonte
-Springs   , FL   32714"
+    "full_address": "945 West SR 436                    , Altamonte Springs   , FL   32714"
   },
   {
     "store_id": 219,
     "lat": 28.820577,
     "lng": -81.697717,
-    "full_address": "2704 E Burleigh Blvd               , Eustis
-       , FL   32726"
+    "full_address": "2704 E Burleigh Blvd               , Eustis              , FL   32726"
   },
   {
     "store_id": 220,
     "lat": 29.011792,
     "lng": -80.946459,
-    "full_address": "1952 State Road 44                 , New Smyrna
-Beach    , FL   32168"
+    "full_address": "1952 State Road 44                 , New Smyrna Beach    , FL   32168"
   },
   {
     "store_id": 222,
     "lat": 29.211498,
     "lng": -81.021183,
-    "full_address": "2455 International                 , Daytona
-Beach       , FL   32114"
+    "full_address": "2455 International                 , Daytona Beach       , FL   32114"
   },
   {
     "store_id": 343,
     "lat": 28.136909,
     "lng": -80.583373,
-    "full_address": "981 E Eau Gallie Blvd              , Indian
-Harbour Beach, FL   32937"
+    "full_address": "981 E Eau Gallie Blvd              , Indian Harbour Beach, FL   32937"
   },
   {
     "store_id": 413,
     "lat": 29.257113,
     "lng": -81.109666,
-    "full_address": "1462 West Granada Blvd             , Ormond Beach
-       , FL   32174"
+    "full_address": "1462 West Granada Blvd             , Ormond Beach        , FL   32174"
   },
   {
     "store_id": 549,
     "lat": 28.465636,
     "lng": -81.451906,
-    "full_address": "5295 International Drive           , Orlando
-       , FL   32819"
+    "full_address": "5295 International Drive           , Orlando             , FL   32819"
   },
   {
     "store_id": 551,
     "lat": 28.806678,
     "lng": -81.332729,
-    "full_address": "241 Town Center Blvd.              , Sanford
-       , FL   32771"
+    "full_address": "241 Town Center Blvd.              , Sanford             , FL   32771"
   },
   {
     "store_id": 810,
     "lat": 28.36959,
     "lng": -80.70184,
-    "full_address": "755 North Courtenay Pkwy           , Merritt
-Island      , FL   32953"
+    "full_address": "755 North Courtenay Pkwy           , Merritt Island      , FL   32953"
   },
   {
     "store_id": 889,
     "lat": 29.053649,
     "lng": -81.305929,
-    "full_address": "1466 N Woodland Blvd               , Deland
-       , FL   32720"
+    "full_address": "1466 N Woodland Blvd               , Deland              , FL   32720"
   },
   {
     "store_id": 971,
     "lat": 28.636973,
     "lng": -81.321218,
-    "full_address": "1442 State Rd. 436                 , Casselberry
-       , FL   32707"
+    "full_address": "1442 State Rd. 436                 , Casselberry         , FL   32707"
   },
   {
     "store_id": 976,
     "lat": 28.447074,
     "lng": -81.42562,
-    "full_address": "8121 S. John Young Pkwy.           , Orlando
-       , FL   32819"
+    "full_address": "8121 S. John Young Pkwy.           , Orlando             , FL   32819"
   },
   {
     "store_id": 1087,
     "lat": 28.126172,
     "lng": -80.673223,
-    "full_address": "1270 N. Wickham Rd                 , Melbourne
-       , FL   32935"
+    "full_address": "1270 N. Wickham Rd                 , Melbourne           , FL   32935"
   },
   {
     "store_id": 1168,
     "lat": 28.381713,
     "lng": -81.406178,
-    "full_address": "12640 S. Orange Blossom            , Orlando
-       , FL   32837"
+    "full_address": "12640 S. Orange Blossom            , Orlando             , FL   32837"
   },
   {
     "store_id": 1459,
     "lat": 28.03795,
     "lng": -80.66377,
-    "full_address": "215 Palm Bay Road NE               , West
-Melbourne      , FL   32904"
+    "full_address": "215 Palm Bay Road NE               , West Melbourne      , FL   32904"
   },
   {
     "store_id": 1486,
     "lat": 28.560357,
     "lng": -81.309791,
-    "full_address": "997 N Semoran Blvd.                , Orlando
-       , FL   32807"
+    "full_address": "997 N Semoran Blvd.                , Orlando             , FL   32807"
   },
   {
     "store_id": 1579,
     "lat": 28.552339,
     "lng": -81.579165,
-    "full_address": "13263 W. Colonial Drive            , Winter
-Garden       , FL   34787"
+    "full_address": "13263 W. Colonial Drive            , Winter Garden       , FL   34787"
   },
   {
     "store_id": 2190,
     "lat": 28.511971,
     "lng": -81.374019,
-    "full_address": "300 East Michigan Street           , Orlando
-       , FL   32806"
+    "full_address": "300 East Michigan Street           , Orlando             , FL   32806"
   },
   {
     "store_id": 2270,
     "lat": 28.31824,
     "lng": -81.469007,
-    "full_address": "2573 Old Vineland Rd               , Kissimmee
-       , FL   34746"
+    "full_address": "2573 Old Vineland Rd               , Kissimmee           , FL   34746"
   },
   {
     "store_id": 2401,
     "lat": 28.516441,
     "lng": -81.462237,
-    "full_address": "2270 South Kirkman Rd              , Orlando
-       , FL   32811"
+    "full_address": "2270 South Kirkman Rd              , Orlando             , FL   32811"
   },
   {
     "store_id": 2465,
     "lat": 28.670399,
     "lng": -81.490139,
-    "full_address": "769 South Orange Blossom           , Apopka
-       , FL   32703"
+    "full_address": "769 South Orange Blossom           , Apopka              , FL   32703"
   },
   {
     "store_id": 2596,
     "lat": 28.249962,
     "lng": -81.315528,
-    "full_address": "4261 13th Street                   , Saint Cloud
-       , FL   34769"
+    "full_address": "4261 13th Street                   , Saint Cloud         , FL   34769"
   },
   {
     "store_id": 2929,
     "lat": 28.343339,
     "lng": -81.38745,
-    "full_address": "1387 E Osceola Pkwy                , Kissimmee
-       , FL   34744"
+    "full_address": "1387 E Osceola Pkwy                , Kissimmee           , FL   34744"
   },
   {
     "store_id": 3052,
     "lat": 28.55684,
     "lng": -80.80793,
-    "full_address": "621 Cheney Hwy                     , Titusville
-       , FL   32780"
+    "full_address": "621 Cheney Hwy                     , Titusville          , FL   32780"
   },
   {
     "store_id": 3172,
     "lat": 28.552763,
     "lng": -81.354661,
-    "full_address": "2112 E. Colonial Drive             , Orlando
-       , FL   32803"
+    "full_address": "2112 E. Colonial Drive             , Orlando             , FL   32803"
   },
   {
     "store_id": 3548,
     "lat": 28.144686,
     "lng": -81.445451,
-    "full_address": "1076 Cypress Parkway               , Kissimmee
-       , FL   34759"
+    "full_address": "1076 Cypress Parkway               , Kissimmee           , FL   34759"
   },
   {
     "store_id": 3592,
     "lat": 28.329995,
     "lng": -80.720061,
-    "full_address": "1802 US Highway 1                  , Rockledge
-       , FL   32955"
+    "full_address": "1802 US Highway 1                  , Rockledge           , FL   32955"
   },
   {
     "store_id": 3912,
     "lat": 28.306545,
     "lng": -81.434726,
-    "full_address": "3175 W Vine Street                 , Kissimmee
-       , FL   34741"
+    "full_address": "3175 W Vine Street                 , Kissimmee           , FL   34741"
   },
   {
     "store_id": 3934,
     "lat": 28.233765,
     "lng": -80.721799,
-    "full_address": "7201 Shoppes Dr                    , Melbourne
-       , FL   32940"
+    "full_address": "7201 Shoppes Dr                    , Melbourne           , FL   32940"
   },
   {
     "store_id": 3955,
     "lat": 28.227783,
     "lng": -81.645627,
-    "full_address": "1750 Posner Blvd                   , Davenport
-       , FL   33837"
+    "full_address": "1750 Posner Blvd                   , Davenport           , FL   33837"
   },
   {
     "store_id": 3964,
     "lat": 28.91869,
     "lng": -81.289453,
-    "full_address": "843 Harley Strickland              , Orange City
-       , FL   32763"
+    "full_address": "843 Harley Strickland              , Orange City         , FL   32763"
   },
   {
     "store_id": 3976,
     "lat": 28.394817,
     "lng": -80.755552,
-    "full_address": "2701 Clearlake Road                , Cocoa
-       , FL   32922"
+    "full_address": "2701 Clearlake Road                , Cocoa               , FL   32922"
   },
   {
     "store_id": 4020,
     "lat": 28.658346,
     "lng": -81.339237,
-    "full_address": "169 State Road 436                 , Fern Park
-       , FL   32730"
+    "full_address": "169 State Road 436                 , Fern Park           , FL   32730"
   },
   {
     "store_id": 4093,
     "lat": 28.537627,
     "lng": -81.733469,
-    "full_address": "2375 Highway 27                    , Clermont
-       , FL   34711"
+    "full_address": "2375 Highway 27                    , Clermont            , FL   34711"
   },
   {
     "store_id": 4177,
@@ -261,218 +225,187 @@ Garden       , FL   34787"
     "store_id": 4306,
     "lat": 28.952778,
     "lng": -81.95809,
-    "full_address": "486 N. US Hwy 441                  , Lady Lake
-       , FL   32159"
+    "full_address": "486 N. US Hwy 441                  , Lady Lake           , FL   32159"
   },
   {
     "store_id": 4321,
     "lat": 28.077644,
     "lng": -80.658987,
-    "full_address": "2241 W. New Haven Ave              , West
-Melbourne      , FL   32904"
+    "full_address": "2241 W. New Haven Ave              , West Melbourne      , FL   32904"
   },
   {
     "store_id": 4331,
     "lat": 28.840705,
     "lng": -81.89719,
-    "full_address": "2241 Citrus Blvd.                  , Leesburg
-       , FL   34748"
+    "full_address": "2241 Citrus Blvd.                  , Leesburg            , FL   34748"
   },
   {
     "store_id": 4376,
     "lat": 28.496323,
     "lng": -81.429424,
-    "full_address": "4604 Millenia Plaza Way            , Orlando
-       , FL   32839"
+    "full_address": "4604 Millenia Plaza Way            , Orlando             , FL   32839"
   },
   {
     "store_id": 4383,
     "lat": 28.497668,
     "lng": -81.311673,
-    "full_address": "4568 S. Semoran Blvd               , Orlando
-       , FL   32822"
+    "full_address": "4568 S. Semoran Blvd               , Orlando             , FL   32822"
   },
   {
     "store_id": 4420,
     "lat": 28.46297,
     "lng": -81.270671,
-    "full_address": "7155 Narcoossee Rd.                , Orlando
-       , FL   32822"
+    "full_address": "7155 Narcoossee Rd.                , Orlando             , FL   32822"
   },
   {
     "store_id": 4518,
     "lat": 28.686172,
     "lng": -81.538602,
-    "full_address": "1560 W Orange Blossom              , Apopka
-       , FL   32712"
+    "full_address": "1560 W Orange Blossom              , Apopka              , FL   32712"
   },
   {
     "store_id": 4526,
     "lat": 28.566185,
     "lng": -81.389712,
-    "full_address": "1610 Edgewater Drive               , Orlando
-       , FL   32804"
+    "full_address": "1610 Edgewater Drive               , Orlando             , FL   32804"
   },
   {
     "store_id": 4617,
     "lat": 28.923347,
     "lng": -81.188881,
-    "full_address": "2135 Howland Blvd                  , Deltona
-       , FL   32738"
+    "full_address": "2135 Howland Blvd                  , Deltona             , FL   32738"
   },
   {
     "store_id": 4740,
     "lat": 28.36753,
     "lng": -81.501901,
-    "full_address": "13605 S. Apopka Vineland           , Orlando
-       , FL   32821"
+    "full_address": "13605 S. Apopka Vineland           , Orlando             , FL   32821"
   },
   {
     "store_id": 4742,
     "lat": 28.445011,
     "lng": -81.475797,
-    "full_address": "8910 Turkey Lake Rd                , Orlando
-       , FL   32819"
+    "full_address": "8910 Turkey Lake Rd                , Orlando             , FL   32819"
   },
   {
     "store_id": 4764,
     "lat": 28.99715,
     "lng": -81.30329,
-    "full_address": "1800 S Woodland Ave.               , Deland
-       , FL   32720"
+    "full_address": "1800 S Woodland Ave.               , Deland              , FL   32720"
   },
   {
     "store_id": 4774,
     "lat": 28.571032,
     "lng": -81.233587,
-    "full_address": "10527 E. Colonial Dr               , Orlando
-       , FL   32817"
+    "full_address": "10527 E. Colonial Dr               , Orlando             , FL   32817"
   },
   {
     "store_id": 4803,
     "lat": 28.264178,
     "lng": -81.433271,
-    "full_address": "3209 S. John Young Pkwy            , Kissimmee
-       , FL   34746"
+    "full_address": "3209 S. John Young Pkwy            , Kissimmee           , FL   34746"
   },
   {
     "store_id": 4879,
     "lat": 28.605132,
     "lng": -81.297631,
-    "full_address": "6768 Aloma Ave.                    , Winter Park
-       , FL   32792"
+    "full_address": "6768 Aloma Ave.                    , Winter Park         , FL   32792"
   },
   {
     "store_id": 4931,
     "lat": 29.11071,
     "lng": -81.036537,
-    "full_address": "5499 S Williamson Blvd.            , Port Orange
-       , FL   32128"
+    "full_address": "5499 S Williamson Blvd.            , Port Orange         , FL   32128"
   },
   {
     "store_id": 4952,
     "lat": 28.30555,
     "lng": -81.38879,
-    "full_address": "1361 E. Vine St                    , Kissimmee
-       , FL   34744"
+    "full_address": "1361 E. Vine St                    , Kissimmee           , FL   34744"
   },
   {
     "store_id": 5017,
     "lat": 28.343828,
     "lng": -81.612059,
-    "full_address": "3201 Rolling Oaks Blvd.            , Kissimmee
-       , FL   34747"
+    "full_address": "3201 Rolling Oaks Blvd.            , Kissimmee           , FL   34747"
   },
   {
     "store_id": 5147,
     "lat": 28.321768,
     "lng": -81.338292,
-    "full_address": "2640 Simpson Road                  , Kissimmee
-       , FL   34743"
+    "full_address": "2640 Simpson Road                  , Kissimmee           , FL   34743"
   },
   {
     "store_id": 5158,
     "lat": 29.551629,
     "lng": -81.223606,
-    "full_address": "140 Cypress Edge Dr.               , Palm Coast
-       , FL   32164"
+    "full_address": "140 Cypress Edge Dr.               , Palm Coast          , FL   32164"
   },
   {
     "store_id": 5204,
     "lat": 29.254959,
     "lng": -81.047193,
-    "full_address": "1548 Ridgewood Ave.                , Holly Hill
-       , FL   32117"
+    "full_address": "1548 Ridgewood Ave.                , Holly Hill          , FL   32117"
   },
   {
     "store_id": 5236,
     "lat": 28.345526,
     "lng": -80.610413,
-    "full_address": "3015 N Atlantic Avenue             , Cocoa Beach
-       , FL   32931"
+    "full_address": "3015 N Atlantic Avenue             , Cocoa Beach         , FL   32931"
   },
   {
     "store_id": 5547,
     "lat": 28.339067,
     "lng": -81.407215,
-    "full_address": "650 Centerview Blvd                , Kissimmee
-       , FL   34741"
+    "full_address": "650 Centerview Blvd                , Kissimmee           , FL   34741"
   },
   {
     "store_id": 5570,
     "lat": 28.407243,
     "lng": -81.451894,
-    "full_address": "5680 Central Florida               , Orlando
-       , FL   32821"
+    "full_address": "5680 Central Florida               , Orlando             , FL   32821"
   },
   {
     "store_id": 5572,
     "lat": 28.476317,
     "lng": -81.287343,
-    "full_address": "5933 S Goldenrod Rd                , Orlando
-       , FL   32822"
+    "full_address": "5933 S Goldenrod Rd                , Orlando             , FL   32822"
   },
   {
     "store_id": 5994,
     "lat": 28.696897,
     "lng": -81.359549,
-    "full_address": "872 W SR 434                       , Longwood
-       , FL   32750"
+    "full_address": "872 W SR 434                       , Longwood            , FL   32750"
   },
   {
     "store_id": 6191,
     "lat": 28.515804,
     "lng": -81.287918,
-    "full_address": "7311 Curry Ford Road               , Orlando
-       , FL   32822"
+    "full_address": "7311 Curry Ford Road               , Orlando             , FL   32822"
   },
   {
     "store_id": 6251,
     "lat": 28.564727,
     "lng": -81.16836,
-    "full_address": "14524 E Colonial Dr                , Orlando
-       , FL   32826"
+    "full_address": "14524 E Colonial Dr                , Orlando             , FL   32826"
   },
   {
     "store_id": 6265,
     "lat": 29.184229,
     "lng": -81.008105,
-    "full_address": "1541 S Ridgewood Ave               , Daytona
-Beach       , FL   32114"
+    "full_address": "1541 S Ridgewood Ave               , Daytona Beach       , FL   32114"
   },
   {
     "store_id": 6310,
     "lat": 28.246652,
     "lng": -81.267084,
-    "full_address": "100 E 13th Street                  , St Cloud
-       , FL   34769"
+    "full_address": "100 E 13th Street                  , St Cloud            , FL   34769"
   },
   {
     "store_id": 6323,
     "lat": 28.51504,
     "lng": -81.334768,
-    "full_address": "5211 S Conway Rd.                  , Orlando
-       , FL   32812"
+    "full_address": "5211 S Conway Rd.                  , Orlando             , FL   32812"
   },
   {
     "store_id": 6501,
@@ -484,106 +417,91 @@ Beach       , FL   32114"
     "store_id": 6626,
     "lat": 28.755057,
     "lng": -81.332122,
-    "full_address": "3005 Lake Mary Blvd. Ste           , Lake Mary
-       , FL   32746"
+    "full_address": "3005 Lake Mary Blvd. Ste           , Lake Mary           , FL   32746"
   },
   {
     "store_id": 7001,
     "lat": 28.476111,
     "lng": -81.369861,
-    "full_address": "5621 S Orange Ave                  , Orlando
-       , FL   32809"
+    "full_address": "5621 S Orange Ave                  , Orlando             , FL   32809"
   },
   {
     "store_id": 7098,
     "lat": 28.332166,
     "lng": -81.493216,
-    "full_address": "5240 W Irlo Bronson                , Kissimmee
-       , FL   34746"
+    "full_address": "5240 W Irlo Bronson                , Kissimmee           , FL   34746"
   },
   {
     "store_id": 7115,
     "lat": 28.367085,
     "lng": -81.680354,
-    "full_address": "16520 Sunrise Lakes Blvd           , Clermont
-       , FL   34714"
+    "full_address": "16520 Sunrise Lakes Blvd           , Clermont            , FL   34714"
   },
   {
     "store_id": 7249,
     "lat": 28.035953,
     "lng": -80.623303,
-    "full_address": "1595 Palm Bay Rd.                  , Palm Bay
-       , FL   32905"
+    "full_address": "1595 Palm Bay Rd.                  , Palm Bay            , FL   32905"
   },
   {
     "store_id": 7270,
     "lat": 28.545101,
     "lng": -81.20965,
-    "full_address": "12162 Lake Underhill Rd            , Orlando
-       , FL   32825"
+    "full_address": "12162 Lake Underhill Rd            , Orlando             , FL   32825"
   },
   {
     "store_id": 7283,
     "lat": 28.588793,
     "lng": -81.751197,
-    "full_address": "765 N. Highway 27                  , Minneola
-       , FL   34715"
+    "full_address": "765 N. Highway 27                  , Minneola            , FL   34715"
   },
   {
     "store_id": 7484,
     "lat": 28.865835,
     "lng": -82.020826,
-    "full_address": "5977 E County Rd 462               , Wildwood
-       , FL   34785"
+    "full_address": "5977 E County Rd 462               , Wildwood            , FL   34785"
   },
   {
     "store_id": 7578,
     "lat": 28.85114,
     "lng": -81.676268,
-    "full_address": "1800 N State Road 19               , Eustis
-       , FL   32726"
+    "full_address": "1800 N State Road 19               , Eustis              , FL   32726"
   },
   {
     "store_id": 7621,
     "lat": 28.614296,
     "lng": -81.476838,
-    "full_address": "5700 N Hiawassee Rd                , Orlando
-       , FL   32810"
+    "full_address": "5700 N Hiawassee Rd                , Orlando             , FL   32810"
   },
   {
     "store_id": 7930,
     "lat": 28.930114,
     "lng": -82.019923,
-    "full_address": "3675 Wedgewood Lane                , The Villages
-       , FL   32162"
+    "full_address": "3675 Wedgewood Lane                , The Villages        , FL   32162"
   },
   {
     "store_id": 7972,
     "lat": 28.564674,
     "lng": -81.865332,
-    "full_address": "1001 W Broad Street                , Groveland
-       , FL   34736"
+    "full_address": "1001 W Broad Street                , Groveland           , FL   34736"
   },
   {
     "store_id": 7977,
     "lat": 29.215686,
     "lng": -81.095067,
-    "full_address": "1115 Cornerstone Blvd              , Daytona
-Beach       , FL   32117"
+    "full_address": "1115 Cornerstone Blvd              , Daytona Beach       , FL   32117"
   },
   {
     "store_id": 8097,
     "lat": 28.372373,
     "lng": -80.753564,
-    "full_address": "1068 Clearlake Rd                  , Cocoa
-       , FL   32922"
+    "full_address": "1068 Clearlake Rd                  , Cocoa               , FL   32922"
   },
   {
     "store_id": 8113,
     "lat": 28.944361,
     "lng": -81.226918,
-    "full_address": "2901 Howland Blvd.                 , Deltona
-       , FL   32725"
+    "full_address": "2901 Howland Blvd.                 , Deltona             , FL   32725"
   },
   {
     "store_id": 8117,
@@ -601,162 +519,139 @@ Beach       , FL   32117"
     "store_id": 8301,
     "lat": 28.333547,
     "lng": -81.515312,
-    "full_address": "5781 W Irlo Bronson                , Kissimmee
-       , FL   34746"
+    "full_address": "5781 W Irlo Bronson                , Kissimmee           , FL   34746"
   },
   {
     "store_id": 8354,
     "lat": 28.601462,
     "lng": -81.553665,
-    "full_address": "2176 Ocoee Apopka Road             , Ocoee
-       , FL   34761"
+    "full_address": "2176 Ocoee Apopka Road             , Ocoee               , FL   34761"
   },
   {
     "store_id": 8384,
     "lat": 28.85664,
     "lng": -81.18537,
-    "full_address": "55 Courtland Blvd                  , Deltona
-       , FL   32738"
+    "full_address": "55 Courtland Blvd                  , Deltona             , FL   32738"
   },
   {
     "store_id": 8408,
     "lat": 28.523569,
     "lng": -81.347081,
-    "full_address": "2814 Curry Ford Road               , Orlando
-       , FL   32806"
+    "full_address": "2814 Curry Ford Road               , Orlando             , FL   32806"
   },
   {
     "store_id": 8411,
     "lat": 28.693406,
     "lng": -81.32684,
-    "full_address": "821 US Hwy17/92                    , Longwood
-       , FL   32750"
+    "full_address": "821 US Hwy17/92                    , Longwood            , FL   32750"
   },
   {
     "store_id": 8482,
     "lat": 28.19963,
     "lng": -81.295934,
-    "full_address": "2325 Old Canoe Creek Rd            , St Cloud
-       , FL   34772"
+    "full_address": "2325 Old Canoe Creek Rd            , St Cloud            , FL   34772"
   },
   {
     "store_id": 8493,
     "lat": 29.17183,
     "lng": -81.038179,
-    "full_address": "1350 Beville Road                  , Daytona
-Beach       , FL   32114"
+    "full_address": "1350 Beville Road                  , Daytona Beach       , FL   32114"
   },
   {
     "store_id": 8547,
     "lat": 28.303927,
     "lng": -81.665808,
-    "full_address": "49493 Highway 27                   , Davenport
-       , FL   33897"
+    "full_address": "49493 Highway 27                   , Davenport           , FL   33897"
   },
   {
     "store_id": 8639,
     "lat": 28.389377,
     "lng": -81.504982,
-    "full_address": "12145 S Apopka Vineland            , Orlando
-       , FL   32836"
+    "full_address": "12145 S Apopka Vineland            , Orlando             , FL   32836"
   },
   {
     "store_id": 8653,
     "lat": 28.344101,
     "lng": -81.364664,
-    "full_address": "1938 East Osceola Pkwy             , Kissimmee
-       , FL   34743"
+    "full_address": "1938 East Osceola Pkwy             , Kissimmee           , FL   34743"
   },
   {
     "store_id": 8729,
     "lat": 28.696488,
     "lng": -81.264604,
-    "full_address": "1189 E State Road 434              , Winter
-Springs      , FL   32708"
+    "full_address": "1189 E State Road 434              , Winter Springs      , FL   32708"
   },
   {
     "store_id": 8899,
     "lat": 28.670111,
     "lng": -81.466369,
-    "full_address": "2316 E Semoran Blvd                , Apopka
-       , FL   32703"
+    "full_address": "2316 E Semoran Blvd                , Apopka              , FL   32703"
   },
   {
     "store_id": 8907,
     "lat": 28.904483,
     "lng": -81.245129,
-    "full_address": "1501 Saxon Blvd                    , Deltona
-       , FL   32725"
+    "full_address": "1501 Saxon Blvd                    , Deltona             , FL   32725"
   },
   {
     "store_id": 8961,
     "lat": 29.475321,
     "lng": -81.148389,
-    "full_address": "2501B Moody Blvd                   , Flagler
-Beach       , FL   32136"
+    "full_address": "2501B Moody Blvd                   , Flagler Beach       , FL   32136"
   },
   {
     "store_id": 9100,
     "lat": 28.81914,
     "lng": -81.88288,
-    "full_address": "1105 W. North Blvd                 , Leesburg
-       , FL   34748"
+    "full_address": "1105 W. North Blvd                 , Leesburg            , FL   34748"
   },
   {
     "store_id": 9153,
     "lat": 28.789012,
     "lng": -81.624233,
-    "full_address": "21761 US Hwy. 441                  , Mt Dora
-       , FL   32757"
+    "full_address": "21761 US Hwy. 441                  , Mt Dora             , FL   32757"
   },
   {
     "store_id": 9213,
     "lat": 28.5759,
     "lng": -81.453071,
-    "full_address": "5324B Silver Star Rd               , Orlando
-       , FL   32808"
+    "full_address": "5324B Silver Star Rd               , Orlando             , FL   32808"
   },
   {
     "store_id": 9315,
     "lat": 28.49746,
     "lng": -81.39791,
-    "full_address": "4504 Orange Blossom Trai           , Orlando
-       , FL   32839"
+    "full_address": "4504 Orange Blossom Trai           , Orlando             , FL   32839"
   },
   {
     "store_id": 9341,
     "lat": 28.812183,
     "lng": -81.272624,
-    "full_address": "550 West 1st Street                , Sanford
-       , FL   32771"
+    "full_address": "550 West 1st Street                , Sanford             , FL   32771"
   },
   {
     "store_id": 9343,
     "lat": 28.420518,
     "lng": -81.404209,
-    "full_address": "9539 S.Orange Blossom Tr           , Orlando
-       , FL   32837"
+    "full_address": "9539 S.Orange Blossom Tr           , Orlando             , FL   32837"
   },
   {
     "store_id": 9789,
     "lat": 29.277102,
     "lng": -81.084416,
-    "full_address": "130 S Nova Road                    , Ormond Beach
-       , FL   32174"
+    "full_address": "130 S Nova Road                    , Ormond Beach        , FL   32174"
   },
   {
     "store_id": 10086,
     "lat": 28.552733,
     "lng": -81.777133,
-    "full_address": "1203 W Highway 50                  , Clermont
-       , FL   34711"
+    "full_address": "1203 W Highway 50                  , Clermont            , FL   34711"
   },
   {
     "store_id": 10101,
     "lat": 28.654216,
     "lng": -81.23765,
-    "full_address": "1115 Vidina Place                  , Oviedo
-       , FL   32765"
+    "full_address": "1115 Vidina Place                  , Oviedo              , FL   32765"
   },
   {
     "store_id": 11069,
