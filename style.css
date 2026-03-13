@@ -343,3 +343,19 @@ button {
     flex-direction: column;
   }
 }
+
+/* ================= PROJECT SELECTOR ================= */
+
+.projectSourceTag {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.importLink {
+  display: inline-block;
+  margin-top: 10px;
+  color: #9fd1ff;
+  text-decoration: none;
+  font-size: 13px;
+}
