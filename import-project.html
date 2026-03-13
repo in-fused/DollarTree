@@ -49,6 +49,17 @@
       font-weight: 700;
     }
     code, pre { white-space: pre-wrap; }
+    label.inlineCheck {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 12px;
+      line-height: 1.35;
+    }
+    label.inlineCheck input {
+      width: auto;
+      margin: 2px 0 0 0;
+    }
     @media (max-width: 700px) {
       .row { grid-template-columns: 1fr; }
     }
@@ -94,12 +105,10 @@
         </div>
       </div>
 
-      <div style="margin-top:12px;">
-        <label>
-          <input id="replaceExisting" type="checkbox" style="width:auto; margin-right:8px;" />
-          Replace existing stores for this project before import
-        </label>
-      </div>
+      <label class="inlineCheck">
+        <input id="replaceExisting" type="checkbox" />
+        <span>Replace all existing project data before import</span>
+      </label>
 
       <input id="csvFile" type="file" accept=".csv" />
       <button id="runImportBtn" type="button">Run Import</button>
@@ -252,13 +261,29 @@
       if (error) throw error;
     }
 
-    async function replaceProjectStores(projectId) {
-      const { error } = await supabaseClient
-        .from("stores")
-        .delete()
-        .eq("project_id", projectId);
+    async function replaceProjectData(projectId) {
+      log("Replacing all existing project data...", "warn");
 
-      if (error) throw error;
+      const steps = [
+        { table: "routes", label: "routes" },
+        { table: "store_photos", label: "store_photos" },
+        { table: "store_notes", label: "store_notes" },
+        { table: "store_status", label: "store_status" },
+        { table: "stores", label: "stores" }
+      ];
+
+      for (const step of steps) {
+        const { error } = await supabaseClient
+          .from(step.table)
+          .delete()
+          .eq("project_id", projectId);
+
+        if (error) {
+          throw new Error(`Failed clearing ${step.label}: ${error.message}`);
+        }
+
+        log(`Cleared ${step.label}`, "warn");
+      }
     }
 
     async function insertStores(projectId, rows) {
@@ -348,8 +373,7 @@
         log("Project upserted successfully", "success");
 
         if (replaceExisting) {
-          await replaceProjectStores(projectId);
-          log("Existing project stores cleared", "warn");
+          await replaceProjectData(projectId);
         }
 
         await insertStores(projectId, normalizedRows);
