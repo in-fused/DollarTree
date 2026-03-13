@@ -91,7 +91,7 @@ textarea {
 #progressFill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #ff2d2d, #c8102e, #2ecc71);
+  background: linear-gradient(90deg, #cba03e, #35ab67, #2ecc71);
 }
 
 .progressLabel {
