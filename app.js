@@ -8,6 +8,10 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
+const DEFAULT_PROJECT_ID = "central-fl-dollar-tree";
+const PROJECTS_FILE = "data/projects.json";
+const ACTIVE_PROJECT_KEY = "activeProjectId";
+
 const map = new mapboxgl.Map({
   container: "map",
   style: "mapbox://styles/mapbox/dark-v11",
@@ -21,33 +25,120 @@ let geojsonData;
 let currentModalStoreId = null;
 let routeModeEnabled = false;
 let selectedRouteStops = [];
+let projectList = [];
+let currentProjectId = DEFAULT_PROJECT_ID;
+let currentProjectMeta = null;
 
-const ROUTE_MODE_KEY = "routeModeEnabled";
-const ROUTE_STOPS_KEY = "selectedRouteStops";
+function routeModeKey() {
+  return `routeModeEnabled:${currentProjectId}`;
+}
+
+function routeStopsKey() {
+  return `selectedRouteStops:${currentProjectId}`;
+}
 
 /* ================= INIT ================= */
 
 map.on("load", async () => {
-  await hydrate();
-  restoreRouteState();
-  buildMap();
+  currentProjectId = localStorage.getItem(ACTIVE_PROJECT_KEY) || DEFAULT_PROJECT_ID;
+  await loadProjects();
+  bindProjectSelector();
+  await loadActiveProject();
   bindSearch();
   bindRouteBuilder();
+  updateRouteModeUI();
+});
+
+/* ================= PROJECTS ================= */
+
+async function loadProjects() {
+  try {
+    const res = await fetch(PROJECTS_FILE, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Failed to load ${PROJECTS_FILE}`);
+    projectList = await res.json();
+  } catch (error) {
+    console.warn("Using default project list fallback:", error);
+    projectList = [{
+      project_id: DEFAULT_PROJECT_ID,
+      name: "Central FL Dollar Tree",
+      store_file: "data/central-fl-dollar-tree/stores_with_coords.json"
+    }];
+  }
+
+  if (!Array.isArray(projectList) || projectList.length === 0) {
+    projectList = [{
+      project_id: DEFAULT_PROJECT_ID,
+      name: "Central FL Dollar Tree",
+      store_file: "data/central-fl-dollar-tree/stores_with_coords.json"
+    }];
+  }
+
+  if (!projectList.some(project => project.project_id === currentProjectId)) {
+    currentProjectId = projectList[0].project_id;
+    localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
+  }
+
+  const select = document.getElementById("projectSelect");
+  if (!select) return;
+
+  select.innerHTML = "";
+  projectList.forEach(project => {
+    const option = document.createElement("option");
+    option.value = project.project_id;
+    option.textContent = project.name;
+    select.appendChild(option);
+  });
+
+  select.value = currentProjectId;
+}
+
+function bindProjectSelector() {
+  const select = document.getElementById("projectSelect");
+  if (!select || select.dataset.bound) return;
+
+  select.addEventListener("change", async (e) => {
+    currentProjectId = e.target.value;
+    localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
+    await loadActiveProject();
+  });
+
+  select.dataset.bound = "true";
+}
+
+async function loadActiveProject() {
+  currentProjectMeta = projectList.find(project => project.project_id === currentProjectId) || {
+    project_id: currentProjectId,
+    name: currentProjectId,
+    store_file: `data/${currentProjectId}/stores_with_coords.json`
+  };
+
+  await hydrate();
+  restoreRouteState();
+
+  if (map.getSource("stores")) {
+    rebuildFullMap();
+  } else {
+    buildMap();
+  }
+
   updateProgress();
   updateActivityList();
   renderRouteStops();
   updateRouteModeUI();
-});
+  updateProjectSourceTag();
+}
+
+function updateProjectSourceTag() {
+  const tag = document.getElementById("projectSourceTag");
+  if (!tag) return;
+  tag.textContent = `${currentProjectMeta?.name || currentProjectId} · ${currentProjectMeta?.sourceLabel || "Project ready"}`;
+}
 
 /* ================= HYDRATE ================= */
 
 async function hydrate() {
+  storeData = await loadStoresForProject(currentProjectId);
 
-  // Load store coordinates
-  const res = await fetch("stores_with_coords.json");
-  storeData = await res.json();
-
-  // Initialize ALL stores as active
   statusMap = {};
   storeData.forEach(store => {
     statusMap[String(store.store_id)] = {
@@ -56,10 +147,10 @@ async function hydrate() {
     };
   });
 
-  // Pull saved statuses from Supabase
   const { data, error } = await supabaseClient
     .from("store_status")
-    .select("*");
+    .select("*")
+    .eq("project_id", currentProjectId);
 
   if (error) {
     console.error("Supabase error:", error);
@@ -76,28 +167,57 @@ async function hydrate() {
     });
   }
 
-  console.log("Hydrate complete. Total stores:", storeData.length);
+  console.log("Hydrate complete. Project:", currentProjectId, "Total stores:", storeData.length);
+}
+
+async function loadStoresForProject(projectId) {
+  const { data, error } = await supabaseClient
+    .from("stores")
+    .select("store_id, lat, lng, full_address")
+    .eq("project_id", projectId);
+
+  if (!error && Array.isArray(data) && data.length > 0) {
+    currentProjectMeta.sourceLabel = "Supabase";
+    return data.map(normalizeStoreRecord);
+  }
+
+  const fallbackPaths = [
+    currentProjectMeta?.store_file,
+    `data/${projectId}/stores_with_coords.json`,
+    "stores_with_coords.json"
+  ].filter(Boolean);
+
+  for (const path of fallbackPaths) {
+    try {
+      const res = await fetch(path, { cache: "no-store" });
+      if (!res.ok) continue;
+      const json = await res.json();
+      if (Array.isArray(json) && json.length > 0) {
+        currentProjectMeta.sourceLabel = "JSON fallback";
+        return json.map(normalizeStoreRecord);
+      }
+    } catch (err) {
+      console.warn("Store file fallback failed:", path, err);
+    }
+  }
+
+  currentProjectMeta.sourceLabel = "No stores found";
+  return [];
+}
+
+function normalizeStoreRecord(store) {
+  return {
+    store_id: String(store.store_id),
+    lat: Number(store.lat),
+    lng: Number(store.lng),
+    full_address: String(store.full_address || "").trim()
+  };
 }
 
 /* ================= MAP ================= */
 
 function buildMap() {
-
-  geojsonData = {
-    type: "FeatureCollection",
-    features: storeData.map(store => ({
-      type: "Feature",
-      properties: {
-        store_id: String(store.store_id),
-        completed: statusMap[String(store.store_id)].completed,
-        closed: statusMap[String(store.store_id)].closed
-      },
-      geometry: {
-        type: "Point",
-        coordinates: [store.lng, store.lat]
-      }
-    }))
-  };
+  geojsonData = createGeoJson();
 
   map.addSource("stores", {
     type: "geojson",
@@ -113,7 +233,6 @@ function buildMap() {
     }
   });
 
-  /* Cluster Circle */
   map.addLayer({
     id: "clusters",
     type: "circle",
@@ -140,7 +259,6 @@ function buildMap() {
     }
   });
 
-  /* Cluster Count */
   map.addLayer({
     id: "cluster-count",
     type: "symbol",
@@ -152,7 +270,6 @@ function buildMap() {
     }
   });
 
-  /* Individual Points */
   map.addLayer({
     id: "points",
     type: "circle",
@@ -175,6 +292,24 @@ function buildMap() {
   map.on("click", "clusters", handleClusterClick);
 }
 
+function createGeoJson() {
+  return {
+    type: "FeatureCollection",
+    features: storeData.map(store => ({
+      type: "Feature",
+      properties: {
+        store_id: String(store.store_id),
+        completed: statusMap[String(store.store_id)]?.completed === true,
+        closed: statusMap[String(store.store_id)]?.closed === true
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [store.lng, store.lat]
+      }
+    }))
+  };
+}
+
 function handleClusterClick(e) {
   const features = map.queryRenderedFeatures(e.point, { layers: ["clusters"] });
   if (!features.length) return;
@@ -190,10 +325,14 @@ function handleClusterClick(e) {
   });
 }
 
+function rebuildFullMap() {
+  geojsonData = createGeoJson();
+  map.getSource("stores").setData(geojsonData);
+}
+
 /* ================= MODAL ================= */
 
 function handleClick(e) {
-
   const feature = e.features[0];
   const key = feature.properties.store_id;
   currentModalStoreId = key;
@@ -201,34 +340,21 @@ function handleClick(e) {
   const modal = document.getElementById("confirmModal");
   modal.classList.remove("hidden");
 
-  document.getElementById("confirmStoreId").innerText =
-    `Store ID: ${key}`;
+  document.getElementById("confirmStoreId").innerText = `Store ID: ${key}`;
 
   const store = storeData.find(s => String(s.store_id) === key);
   if (store) {
-    document.getElementById("confirmAddress").innerText =
-      store.full_address;
+    document.getElementById("confirmAddress").innerText = store.full_address;
   }
 
   loadNotes(key);
 
-  document.getElementById("markActive").onclick =
-    () => updateStore(key, false, false);
-
-  document.getElementById("markCompleted").onclick =
-    () => updateStore(key, true, false);
-
-  document.getElementById("markClosed").onclick =
-    () => updateStore(key, false, true);
-
-  document.getElementById("addNoteBtn").onclick =
-    () => addNote(key);
-
-  document.getElementById("addToRouteBtn").onclick =
-    () => addStoreToRoute(key);
-
-  document.getElementById("confirmCancel").onclick =
-    () => modal.classList.add("hidden");
+  document.getElementById("markActive").onclick = () => updateStore(key, false, false);
+  document.getElementById("markCompleted").onclick = () => updateStore(key, true, false);
+  document.getElementById("markClosed").onclick = () => updateStore(key, false, true);
+  document.getElementById("addNoteBtn").onclick = () => addNote(key);
+  document.getElementById("addToRouteBtn").onclick = () => addStoreToRoute(key);
+  document.getElementById("confirmCancel").onclick = () => modal.classList.add("hidden");
 
   updateRouteModeUI();
 }
@@ -236,10 +362,10 @@ function handleClick(e) {
 /* ================= UPDATE ================= */
 
 async function updateStore(key, completed, closed) {
-
   await supabaseClient
     .from("store_status")
     .upsert({
+      project_id: currentProjectId,
       store_id: key,
       completed,
       closed
@@ -252,26 +378,38 @@ async function updateStore(key, completed, closed) {
   updateActivityList();
 }
 
+function rebuild() {
+  geojsonData.features.forEach(f => {
+    const key = f.properties.store_id;
+    f.properties.completed = statusMap[key].completed;
+    f.properties.closed = statusMap[key].closed;
+  });
+  map.getSource("stores").setData(geojsonData);
+}
+
 /* ================= NOTES ================= */
 
 async function addNote(storeId) {
-
   const note = document.getElementById("noteBox").value.trim();
   if (!note) return;
 
   await supabaseClient
     .from("store_notes")
-    .insert({ store_id: storeId, note });
+    .insert({
+      project_id: currentProjectId,
+      store_id: storeId,
+      note
+    });
 
   document.getElementById("noteBox").value = "";
   loadNotes(storeId);
 }
 
 async function loadNotes(storeId) {
-
   const { data } = await supabaseClient
     .from("store_notes")
     .select("*")
+    .eq("project_id", currentProjectId)
     .eq("store_id", storeId)
     .order("created_at", { ascending: false });
 
@@ -295,33 +433,24 @@ async function loadNotes(storeId) {
 
 function bindSearch() {
   const input = document.getElementById("storeSearch");
-  input.addEventListener("input", e => {
-    const val = e.target.value.trim();
-    const match = storeData.find(s => String(s.store_id) === val);
-    if (match) {
-      map.flyTo({
-        center: [match.lng, match.lat],
-        zoom: 14
-      });
-    }
-  });
-}
-
-/* ================= REBUILD ================= */
-
-function rebuild() {
-  geojsonData.features.forEach(f => {
-    const key = f.properties.store_id;
-    f.properties.completed = statusMap[key].completed;
-    f.properties.closed = statusMap[key].closed;
-  });
-  map.getSource("stores").setData(geojsonData);
+  if (!input.dataset.bound) {
+    input.addEventListener("input", e => {
+      const val = e.target.value.trim();
+      const match = storeData.find(s => String(s.store_id) === val);
+      if (match) {
+        map.flyTo({
+          center: [match.lng, match.lat],
+          zoom: 14
+        });
+      }
+    });
+    input.dataset.bound = "true";
+  }
 }
 
 /* ================= PROGRESS ================= */
 
 function updateProgress() {
-
   const values = Object.values(statusMap);
 
   const completed = values.filter(v => v.completed).length;
@@ -337,17 +466,13 @@ function updateProgress() {
     ? (completed / actionableTotal) * 100
     : 0;
 
-  document.getElementById("progressFill").style.width =
-    `${percent}%`;
-
-  document.getElementById("progressText").innerText =
-    `${percent.toFixed(1)}% complete`;
+  document.getElementById("progressFill").style.width = `${percent}%`;
+  document.getElementById("progressText").innerText = `${percent.toFixed(1)}% complete`;
 }
 
 /* ================= ACTIVITY ================= */
 
 function updateActivityList() {
-
   const container = document.getElementById("activityList");
   if (!container) return;
 
@@ -362,16 +487,13 @@ function updateActivityList() {
   }
 
   entries.forEach(([storeId, state]) => {
-
     const div = document.createElement("div");
     div.className = "activityItem";
 
-    // Color logic
     if (state.completed) {
       div.style.background = "rgba(46, 204, 113, 0.18)";
       div.style.borderLeft = "4px solid #2ecc71";
-    }
-    else if (state.closed) {
+    } else if (state.closed) {
       div.style.background = "rgba(255, 153, 0, 0.18)";
       div.style.borderLeft = "4px solid #ff9900";
     }
@@ -389,7 +511,6 @@ function updateActivityList() {
 
     div.appendChild(label);
 
-    // Fly to store on click
     div.onclick = () => {
       const match = storeData.find(s => String(s.store_id) === storeId);
       if (match) {
@@ -408,8 +529,8 @@ function updateActivityList() {
 
 function restoreRouteState() {
   try {
-    routeModeEnabled = localStorage.getItem(ROUTE_MODE_KEY) === "true";
-    const savedStops = JSON.parse(localStorage.getItem(ROUTE_STOPS_KEY) || "[]");
+    routeModeEnabled = localStorage.getItem(routeModeKey()) === "true";
+    const savedStops = JSON.parse(localStorage.getItem(routeStopsKey()) || "[]");
     selectedRouteStops = savedStops.filter(stopId =>
       storeData.some(store => String(store.store_id) === String(stopId))
     );
@@ -421,8 +542,8 @@ function restoreRouteState() {
 }
 
 function persistRouteState() {
-  localStorage.setItem(ROUTE_MODE_KEY, String(routeModeEnabled));
-  localStorage.setItem(ROUTE_STOPS_KEY, JSON.stringify(selectedRouteStops));
+  localStorage.setItem(routeModeKey(), String(routeModeEnabled));
+  localStorage.setItem(routeStopsKey(), JSON.stringify(selectedRouteStops));
 }
 
 function bindRouteBuilder() {
@@ -432,39 +553,52 @@ function bindRouteBuilder() {
   const openRouteBtn = document.getElementById("openRouteBtn");
   const routeStoreInput = document.getElementById("routeStoreInput");
 
-  routeModeToggle.checked = routeModeEnabled;
+  if (!routeModeToggle.dataset.bound) {
+    routeModeToggle.addEventListener("change", () => {
+      routeModeEnabled = routeModeToggle.checked;
+      persistRouteState();
+      updateRouteModeUI();
+    });
+    routeModeToggle.dataset.bound = "true";
+  }
 
-  routeModeToggle.addEventListener("change", () => {
-    routeModeEnabled = routeModeToggle.checked;
-    persistRouteState();
-    updateRouteModeUI();
-  });
+  if (!addRouteStoreBtn.dataset.bound) {
+    addRouteStoreBtn.addEventListener("click", () => {
+      const storeId = routeStoreInput.value.trim();
+      if (!storeId) return;
+      addStoreToRoute(storeId);
+      routeStoreInput.value = "";
+    });
+    addRouteStoreBtn.dataset.bound = "true";
+  }
 
-  addRouteStoreBtn.addEventListener("click", () => {
-    const storeId = routeStoreInput.value.trim();
-    if (!storeId) return;
-    addStoreToRoute(storeId);
-    routeStoreInput.value = "";
-  });
+  if (!routeStoreInput.dataset.bound) {
+    routeStoreInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addRouteStoreBtn.click();
+      }
+    });
+    routeStoreInput.dataset.bound = "true";
+  }
 
-  routeStoreInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addRouteStoreBtn.click();
-    }
-  });
+  if (!clearRouteBtn.dataset.bound) {
+    clearRouteBtn.addEventListener("click", () => {
+      selectedRouteStops = [];
+      persistRouteState();
+      renderRouteStops();
+    });
+    clearRouteBtn.dataset.bound = "true";
+  }
 
-  clearRouteBtn.addEventListener("click", () => {
-    selectedRouteStops = [];
-    persistRouteState();
-    renderRouteStops();
-  });
-
-  openRouteBtn.addEventListener("click", () => {
-    const routeUrl = buildGoogleMapsRouteUrl();
-    if (!routeUrl) return;
-    window.open(routeUrl, "_blank");
-  });
+  if (!openRouteBtn.dataset.bound) {
+    openRouteBtn.addEventListener("click", () => {
+      const routeUrl = buildGoogleMapsRouteUrl();
+      if (!routeUrl) return;
+      window.open(routeUrl, "_blank");
+    });
+    openRouteBtn.dataset.bound = "true";
+  }
 }
 
 function updateRouteModeUI() {
@@ -528,7 +662,6 @@ function moveRouteStop(storeId, direction) {
   const updated = [...selectedRouteStops];
   const [item] = updated.splice(currentIndex, 1);
   updated.splice(newIndex, 0, item);
-
   selectedRouteStops = updated;
   persistRouteState();
   renderRouteStops();
@@ -568,7 +701,6 @@ function renderRouteStops() {
     const title = document.createElement("div");
     title.className = "routeStopTitle";
     title.textContent = `${index + 1}. Store ${storeId}`;
-
     top.appendChild(title);
 
     const address = document.createElement("div");
@@ -579,16 +711,13 @@ function renderRouteStops() {
     actions.className = "routeStopActions";
 
     const flyBtn = createRouteMiniButton("View", () => {
-      map.flyTo({
-        center: [store.lng, store.lat],
-        zoom: 14
-      });
+      map.flyTo({ center: [store.lng, store.lat], zoom: 14 });
     });
 
-    const upBtn = createRouteMiniButton("â", () => moveRouteStop(String(storeId), -1));
+    const upBtn = createRouteMiniButton("↑", () => moveRouteStop(String(storeId), -1));
     upBtn.disabled = index === 0;
 
-    const downBtn = createRouteMiniButton("â", () => moveRouteStop(String(storeId), 1));
+    const downBtn = createRouteMiniButton("↓", () => moveRouteStop(String(storeId), 1));
     downBtn.disabled = index === selectedRouteStops.length - 1;
 
     const removeBtn = createRouteMiniButton("Remove", () => removeRouteStop(String(storeId)));
@@ -601,6 +730,7 @@ function renderRouteStops() {
     item.appendChild(top);
     item.appendChild(address);
     item.appendChild(actions);
+
     list.appendChild(item);
   });
 }
