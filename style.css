@@ -24,7 +24,7 @@ header {
 
 .brandLogoWide {
   height: 130px;
-  transform: scale(3.5);
+  transform: scale(2);
   transform-origin: center;
 }
 
@@ -91,7 +91,7 @@ textarea {
 #progressFill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #d39200, #32d36e, #2ecc71);
+  background: linear-gradient(90deg, #ff2d2d, #c8102e, #2ecc71);
 }
 
 .progressLabel {
