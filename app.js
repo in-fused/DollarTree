@@ -52,26 +52,51 @@ map.on("load", async () => {
 /* ================= PROJECTS ================= */
 
 async function loadProjects() {
+  let loadedProjects = [];
+
+  // 1) Supabase-first
   try {
-    const res = await fetch(PROJECTS_FILE, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Failed to load ${PROJECTS_FILE}`);
-    projectList = await res.json();
+    const { data, error } = await supabaseClient
+      .from("projects")
+      .select("project_id, name")
+      .order("created_at", { ascending: true });
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      loadedProjects = data.map(project => ({
+        project_id: project.project_id,
+        name: project.name,
+        store_file: `data/${project.project_id}/stores_with_coords.json`
+      }));
+    }
   } catch (error) {
-    console.warn("Using default project list fallback:", error);
-    projectList = [{
+    console.warn("Supabase project load failed:", error);
+  }
+
+  // 2) Fallback to local file
+  if (loadedProjects.length === 0) {
+    try {
+      const res = await fetch(PROJECTS_FILE, { cache: "no-store" });
+      if (!res.ok) throw new Error(`Failed to load ${PROJECTS_FILE}`);
+      const fileProjects = await res.json();
+
+      if (Array.isArray(fileProjects) && fileProjects.length > 0) {
+        loadedProjects = fileProjects;
+      }
+    } catch (error) {
+      console.warn("Using default project list fallback:", error);
+    }
+  }
+
+  // 3) Final safety fallback
+  if (loadedProjects.length === 0) {
+    loadedProjects = [{
       project_id: DEFAULT_PROJECT_ID,
       name: "Central FL Dollar Tree",
       store_file: "data/central-fl-dollar-tree/stores_with_coords.json"
     }];
   }
 
-  if (!Array.isArray(projectList) || projectList.length === 0) {
-    projectList = [{
-      project_id: DEFAULT_PROJECT_ID,
-      name: "Central FL Dollar Tree",
-      store_file: "data/central-fl-dollar-tree/stores_with_coords.json"
-    }];
-  }
+  projectList = loadedProjects;
 
   if (!projectList.some(project => project.project_id === currentProjectId)) {
     currentProjectId = projectList[0].project_id;
@@ -378,15 +403,6 @@ async function updateStore(key, completed, closed) {
   updateActivityList();
 }
 
-function rebuild() {
-  geojsonData.features.forEach(f => {
-    const key = f.properties.store_id;
-    f.properties.completed = statusMap[key].completed;
-    f.properties.closed = statusMap[key].closed;
-  });
-  map.getSource("stores").setData(geojsonData);
-}
-
 /* ================= NOTES ================= */
 
 async function addNote(storeId) {
@@ -446,6 +462,17 @@ function bindSearch() {
     });
     input.dataset.bound = "true";
   }
+}
+
+/* ================= REBUILD ================= */
+
+function rebuild() {
+  geojsonData.features.forEach(f => {
+    const key = f.properties.store_id;
+    f.properties.completed = statusMap[key].completed;
+    f.properties.closed = statusMap[key].closed;
+  });
+  map.getSource("stores").setData(geojsonData);
 }
 
 /* ================= PROGRESS ================= */
