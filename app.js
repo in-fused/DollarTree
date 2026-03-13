@@ -131,7 +131,7 @@ async function loadActiveProject() {
 function updateProjectSourceTag() {
   const tag = document.getElementById("projectSourceTag");
   if (!tag) return;
-  tag.textContent = `${currentProjectMeta?.name || currentProjectId} · ${currentProjectMeta?.sourceLabel || "Project ready"}`;
+  tag.innerText = `${currentProjectMeta?.name || currentProjectId} · ${currentProjectMeta?.sourceLabel || "Project ready"}`;
 }
 
 /* ================= HYDRATE ================= */
