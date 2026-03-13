@@ -4,18 +4,63 @@
   <meta charset="utf-8" />
   <title>Import Project Data</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
-    body { font-family: Inter, Arial, sans-serif; background:#0a0f18; color:white; margin:0; padding:24px; }
-    .wrap { max-width: 760px; margin: 0 auto; }
+    * { box-sizing: border-box; font-family: Inter, system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background:#0a0f18; color:white; padding:24px; }
+    .wrap { max-width: 860px; margin: 0 auto; }
     .card { background: rgba(255,255,255,0.05); border-radius: 14px; padding: 20px; margin-bottom: 18px; }
+    h1, h2, h3 { margin-top: 0; }
+    input, button, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.08);
+      color: white;
+      margin-top: 10px;
+      font: inherit;
+    }
+    button { cursor: pointer; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .muted { opacity: 0.75; font-size: 14px; }
+    .log {
+      background: #111827;
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 160px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-size: 13px;
+    }
+    .success { color: #2ecc71; }
+    .warn { color: #ffcc66; }
+    .error { color: #ff6b6b; }
+    .downloadArea { margin-top: 14px; }
+    a.buttonLink {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #2ecc71;
+      color: #062b14;
+      text-decoration: none;
+      font-weight: 700;
+    }
     code, pre { white-space: pre-wrap; }
+    @media (max-width: 700px) {
+      .row { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h2>Import Project Data</h2>
-      <p>This starter import page documents the exact store format your app expects.</p>
+      <h1>Import Project Data</h1>
+      <p class="muted">
+        This importer preserves the exact store object shape used by the app:
+      </p>
       <pre>[
   {
     "store_id": "143",
@@ -24,8 +69,301 @@
     "full_address": "1431 Sand Lake Rd , FL 32809"
   }
 ]</pre>
-      <p>Next pass: add spreadsheet upload + geocoding workflow while preserving this exact store object shape.</p>
+      <p class="muted">
+        Supported CSV headers:
+        <br />
+        <strong>Option A:</strong> store_id, full_address
+        <br />
+        <strong>Option B:</strong> store_id, address, city, state, zip
+        <br />
+        <strong>Optional bypass:</strong> include lat and lng to skip geocoding for rows that already have coordinates.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>Project Details</h2>
+
+      <div class="row">
+        <div>
+          <label>Project ID</label>
+          <input id="projectId" placeholder="example: tampa-reset-2026" />
+        </div>
+        <div>
+          <label>Project Name</label>
+          <input id="projectName" placeholder="example: Tampa Reset 2026" />
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label>
+          <input id="replaceExisting" type="checkbox" style="width:auto; margin-right:8px;" />
+          Replace existing stores for this project before import
+        </label>
+      </div>
+
+      <input id="csvFile" type="file" accept=".csv" />
+      <button id="runImportBtn" type="button">Run Import</button>
+    </div>
+
+    <div class="card">
+      <h2>Import Log</h2>
+      <div id="log" class="log">Waiting for import…</div>
+      <div id="downloadArea" class="downloadArea"></div>
     </div>
   </div>
+
+  <script>
+    const MAPBOX_TOKEN = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
+    const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const logEl = document.getElementById("log");
+    const downloadArea = document.getElementById("downloadArea");
+
+    function log(message, type = "") {
+      const span = document.createElement("div");
+      if (type) span.className = type;
+      span.textContent = message;
+      logEl.appendChild(span);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function clearLog() {
+      logEl.innerHTML = "";
+      downloadArea.innerHTML = "";
+    }
+
+    function normalizeProjectId(value) {
+      return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    }
+
+    function buildFullAddress(row) {
+      if (row.full_address && String(row.full_address).trim()) {
+        return String(row.full_address).trim();
+      }
+
+      const address = String(row.address || "").trim();
+      const city = String(row.city || "").trim();
+      const state = String(row.state || "").trim();
+      const zip = String(row.zip || row.postcode || row.postal_code || "").trim();
+
+      return [address, city, state, zip].filter(Boolean).join(", ");
+    }
+
+    async function geocodeAddress(fullAddress) {
+      const url =
+        "https://api.mapbox.com/search/geocode/v6/forward?" +
+        new URLSearchParams({
+          q: fullAddress,
+          access_token: MAPBOX_TOKEN,
+          limit: "1",
+          autocomplete: "false",
+          country: "US",
+          permanent: "true"
+        }).toString();
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Geocoding failed (${res.status}) for: ${fullAddress}`);
+      }
+
+      const json = await res.json();
+      if (!json.features || json.features.length === 0) {
+        throw new Error(`No geocoding result for: ${fullAddress}`);
+      }
+
+      const feature = json.features[0];
+      const coords = feature.geometry?.coordinates;
+
+      if (!coords || coords.length < 2) {
+        throw new Error(`Invalid coordinates returned for: ${fullAddress}`);
+      }
+
+      return {
+        lng: Number(coords[0]),
+        lat: Number(coords[1])
+      };
+    }
+
+    async function processRows(rows) {
+      const normalizedRows = [];
+      const exactShapeRows = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const storeId = String(row.store_id || "").trim();
+
+        if (!storeId) {
+          log(`Skipping row ${i + 1}: missing store_id`, "warn");
+          continue;
+        }
+
+        const fullAddress = buildFullAddress(row);
+        if (!fullAddress) {
+          log(`Skipping store ${storeId}: missing address data`, "warn");
+          continue;
+        }
+
+        let lat = row.lat !== undefined && row.lat !== "" ? Number(row.lat) : null;
+        let lng = row.lng !== undefined && row.lng !== "" ? Number(row.lng) : null;
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          log(`Geocoding store ${storeId}...`);
+          const coords = await geocodeAddress(fullAddress);
+          lat = coords.lat;
+          lng = coords.lng;
+        } else {
+          log(`Using provided coordinates for store ${storeId}`);
+        }
+
+        const normalized = {
+          store_id: storeId,
+          lat,
+          lng,
+          full_address: fullAddress
+        };
+
+        normalizedRows.push(normalized);
+        exactShapeRows.push({
+          store_id: storeId,
+          lat,
+          lng,
+          full_address: fullAddress
+        });
+      }
+
+      return { normalizedRows, exactShapeRows };
+    }
+
+    async function insertProject(projectId, projectName) {
+      const { error } = await supabaseClient
+        .from("projects")
+        .upsert({
+          project_id: projectId,
+          name: projectName
+        });
+
+      if (error) throw error;
+    }
+
+    async function replaceProjectStores(projectId) {
+      const { error } = await supabaseClient
+        .from("stores")
+        .delete()
+        .eq("project_id", projectId);
+
+      if (error) throw error;
+    }
+
+    async function insertStores(projectId, rows) {
+      const payload = rows.map(row => ({
+        project_id: projectId,
+        store_id: row.store_id,
+        lat: row.lat,
+        lng: row.lng,
+        full_address: row.full_address
+      }));
+
+      const chunkSize = 200;
+      for (let i = 0; i < payload.length; i += chunkSize) {
+        const chunk = payload.slice(i, i + chunkSize);
+        const { error } = await supabaseClient
+          .from("stores")
+          .upsert(chunk, { onConflict: "project_id,store_id" });
+
+        if (error) throw error;
+      }
+    }
+
+    function makeJsonDownload(projectId, rows) {
+      const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${projectId}-stores_with_coords.json`;
+      link.className = "buttonLink";
+      link.textContent = "Download Generated JSON";
+
+      downloadArea.innerHTML = "";
+      downloadArea.appendChild(link);
+    }
+
+    document.getElementById("runImportBtn").addEventListener("click", async () => {
+      clearLog();
+
+      const projectIdRaw = document.getElementById("projectId").value;
+      const projectNameRaw = document.getElementById("projectName").value;
+      const replaceExisting = document.getElementById("replaceExisting").checked;
+      const file = document.getElementById("csvFile").files[0];
+
+      const projectId = normalizeProjectId(projectIdRaw);
+      const projectName = String(projectNameRaw || "").trim() || projectId;
+
+      if (!projectId) {
+        log("Project ID is required.", "error");
+        return;
+      }
+
+      if (!file) {
+        log("Please choose a CSV file first.", "error");
+        return;
+      }
+
+      log(`Starting import for project: ${projectId}`);
+      log(`Project name: ${projectName}`);
+
+      try {
+        const parsed = await new Promise((resolve, reject) => {
+          Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: results => resolve(results),
+            error: err => reject(err)
+          });
+        });
+
+        const rows = parsed.data || [];
+        if (!rows.length) {
+          log("CSV contained no data rows.", "error");
+          return;
+        }
+
+        log(`Parsed ${rows.length} CSV rows`);
+
+        const { normalizedRows, exactShapeRows } = await processRows(rows);
+
+        if (!normalizedRows.length) {
+          log("No valid stores were produced from this CSV.", "error");
+          return;
+        }
+
+        await insertProject(projectId, projectName);
+        log("Project upserted successfully", "success");
+
+        if (replaceExisting) {
+          await replaceProjectStores(projectId);
+          log("Existing project stores cleared", "warn");
+        }
+
+        await insertStores(projectId, normalizedRows);
+        log(`Inserted/upserted ${normalizedRows.length} stores`, "success");
+
+        makeJsonDownload(projectId, exactShapeRows);
+        log("Generated JSON is ready for download", "success");
+        log("Import complete.", "success");
+
+      } catch (error) {
+        console.error(error);
+        log(error.message || "Import failed.", "error");
+      }
+    });
+  </script>
 </body>
 </html>
