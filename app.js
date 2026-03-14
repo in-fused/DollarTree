@@ -29,6 +29,10 @@ let projectList = [];
 let currentProjectId = DEFAULT_PROJECT_ID;
 let currentProjectMeta = null;
 
+let currentSession = null;
+let currentUser = null;
+let currentRole = "viewer";
+
 function routeModeKey() {
   return `routeModeEnabled:${currentProjectId}`;
 }
@@ -37,24 +41,202 @@ function routeStopsKey() {
   return `selectedRouteStops:${currentProjectId}`;
 }
 
+function isSignedIn() {
+  return !!currentUser;
+}
+
+function isAdmin() {
+  return currentRole === "admin";
+}
+
 /* ================= INIT ================= */
 
 map.on("load", async () => {
   currentProjectId = localStorage.getItem(ACTIVE_PROJECT_KEY) || DEFAULT_PROJECT_ID;
+
+  await initializeAuth();
+  bindAuthUI();
+
   await loadProjects();
   bindProjectSelector();
   await loadActiveProject();
   bindSearch();
   bindRouteBuilder();
   updateRouteModeUI();
+  updateAuthUI();
 });
+
+/* ================= AUTH ================= */
+
+async function initializeAuth() {
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) {
+    console.error("Auth session error:", error);
+  }
+
+  currentSession = data?.session || null;
+  currentUser = currentSession?.user || null;
+
+  if (currentUser) {
+    await loadCurrentUserRole();
+  } else {
+    currentRole = "viewer";
+  }
+
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    currentSession = session || null;
+    currentUser = currentSession?.user || null;
+
+    if (currentUser) {
+      await loadCurrentUserRole();
+    } else {
+      currentRole = "viewer";
+    }
+
+    updateAuthUI();
+    updateWriteAccessUI();
+  });
+}
+
+async function loadCurrentUserRole() {
+  if (!currentUser) {
+    currentRole = "viewer";
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("role, email")
+    .eq("user_id", currentUser.id)
+    .single();
+
+  if (error) {
+    console.error("Profile lookup failed:", error);
+    currentRole = "viewer";
+    return;
+  }
+
+  currentRole = data?.role || "viewer";
+}
+
+function bindAuthUI() {
+  const signInBtn = document.getElementById("signInBtn");
+  const signOutBtn = document.getElementById("signOutBtn");
+
+  if (signInBtn && !signInBtn.dataset.bound) {
+    signInBtn.addEventListener("click", signIn);
+    signInBtn.dataset.bound = "true";
+  }
+
+  if (signOutBtn && !signOutBtn.dataset.bound) {
+    signOutBtn.addEventListener("click", signOut);
+    signOutBtn.dataset.bound = "true";
+  }
+}
+
+async function signIn() {
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+
+  setAuthMessage("");
+
+  if (!email || !password) {
+    setAuthMessage("Email and password are required.", "error");
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    setAuthMessage(error.message || "Sign-in failed.", "error");
+    return;
+  }
+
+  setAuthMessage("Signed in successfully.", "success");
+}
+
+async function signOut() {
+  const { error } = await supabaseClient.auth.signOut();
+  if (error) {
+    setAuthMessage(error.message || "Sign-out failed.", "error");
+    return;
+  }
+  setAuthMessage("Signed out.", "success");
+}
+
+function setAuthMessage(message, type = "") {
+  const el = document.getElementById("authMessage");
+  if (!el) return;
+
+  el.className = "authMessage";
+  if (type === "success") el.classList.add("authSuccess");
+  if (type === "error") el.classList.add("authError");
+  el.textContent = message;
+}
+
+function updateAuthUI() {
+  const loggedOut = document.getElementById("authLoggedOut");
+  const loggedIn = document.getElementById("authLoggedIn");
+  const authUserDisplay = document.getElementById("authUserDisplay");
+  const authRoleDisplay = document.getElementById("authRoleDisplay");
+  const importLink = document.getElementById("importProjectLink");
+
+  if (isSignedIn()) {
+    loggedOut.classList.add("hidden");
+    loggedIn.classList.remove("hidden");
+    authUserDisplay.textContent = currentUser.email || "Signed in";
+    authRoleDisplay.textContent = `Role: ${currentRole}`;
+  } else {
+    loggedOut.classList.remove("hidden");
+    loggedIn.classList.add("hidden");
+    authUserDisplay.textContent = "";
+    authRoleDisplay.textContent = "";
+  }
+
+  if (importLink) {
+    if (isAdmin()) {
+      importLink.classList.remove("disabled");
+      importLink.title = "";
+    } else {
+      importLink.classList.add("disabled");
+      importLink.title = "Admin sign-in required";
+    }
+  }
+
+  updateWriteAccessUI();
+}
+
+function updateWriteAccessUI() {
+  const writeMessage = document.getElementById("writeAccessMessage");
+  const markActive = document.getElementById("markActive");
+  const markCompleted = document.getElementById("markCompleted");
+  const markClosed = document.getElementById("markClosed");
+  const addNoteBtn = document.getElementById("addNoteBtn");
+  const noteBox = document.getElementById("noteBox");
+
+  const writeEnabled = isSignedIn();
+
+  if (markActive) markActive.disabled = !writeEnabled;
+  if (markCompleted) markCompleted.disabled = !writeEnabled;
+  if (markClosed) markClosed.disabled = !writeEnabled;
+  if (addNoteBtn) addNoteBtn.disabled = !writeEnabled;
+  if (noteBox) noteBox.disabled = !writeEnabled;
+
+  if (writeMessage) {
+    writeMessage.textContent = writeEnabled
+      ? ""
+      : "Sign in to update store status and add notes.";
+  }
+}
 
 /* ================= PROJECTS ================= */
 
 async function loadProjects() {
   let loadedProjects = [];
 
-  // 1) Supabase-first
   try {
     const { data, error } = await supabaseClient
       .from("projects")
@@ -72,7 +254,6 @@ async function loadProjects() {
     console.warn("Supabase project load failed:", error);
   }
 
-  // 2) Fallback to local file
   if (loadedProjects.length === 0) {
     try {
       const res = await fetch(PROJECTS_FILE, { cache: "no-store" });
@@ -87,7 +268,6 @@ async function loadProjects() {
     }
   }
 
-  // 3) Final safety fallback
   if (loadedProjects.length === 0) {
     loadedProjects = [{
       project_id: DEFAULT_PROJECT_ID,
@@ -382,11 +562,17 @@ function handleClick(e) {
   document.getElementById("confirmCancel").onclick = () => modal.classList.add("hidden");
 
   updateRouteModeUI();
+  updateWriteAccessUI();
 }
 
 /* ================= UPDATE ================= */
 
 async function updateStore(key, completed, closed) {
+  if (!isSignedIn()) {
+    alert("Sign in to update store status.");
+    return;
+  }
+
   await supabaseClient
     .from("store_status")
     .upsert({
@@ -406,6 +592,11 @@ async function updateStore(key, completed, closed) {
 /* ================= NOTES ================= */
 
 async function addNote(storeId) {
+  if (!isSignedIn()) {
+    alert("Sign in to add notes.");
+    return;
+  }
+
   const note = document.getElementById("noteBox").value.trim();
   if (!note) return;
 
@@ -420,6 +611,8 @@ async function addNote(storeId) {
   document.getElementById("noteBox").value = "";
   loadNotes(storeId);
 }
+
+/* ================= LOAD NOTES ================= */
 
 async function loadNotes(storeId) {
   const { data } = await supabaseClient
