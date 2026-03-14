@@ -12,6 +12,9 @@ const DEFAULT_PROJECT_ID = "central-fl-dollar-tree";
 const PROJECTS_FILE = "data/projects.json";
 const ACTIVE_PROJECT_KEY = "activeProjectId";
 
+const PHOTO_BUCKET_CANDIDATES = ["store-photos", "store_photos", "photos"];
+let resolvedPhotoBucket = null;
+
 const map = new mapboxgl.Map({
   container: "map",
   style: "mapbox://styles/mapbox/dark-v11",
@@ -62,8 +65,9 @@ map.on("load", async () => {
   await loadActiveProject();
   bindSearch();
   bindRouteBuilder();
+  bindPhotoUI();
+  bindLightboxUI();
   updateRouteModeUI();
-  updateAuthUI();
 });
 
 /* ================= AUTH ================= */
@@ -216,6 +220,8 @@ function updateWriteAccessUI() {
   const markClosed = document.getElementById("markClosed");
   const addNoteBtn = document.getElementById("addNoteBtn");
   const noteBox = document.getElementById("noteBox");
+  const photoInput = document.getElementById("photoInput");
+  const uploadPhotoBtn = document.getElementById("uploadPhotoBtn");
 
   const writeEnabled = isSignedIn();
 
@@ -224,11 +230,13 @@ function updateWriteAccessUI() {
   if (markClosed) markClosed.disabled = !writeEnabled;
   if (addNoteBtn) addNoteBtn.disabled = !writeEnabled;
   if (noteBox) noteBox.disabled = !writeEnabled;
+  if (photoInput) photoInput.disabled = !writeEnabled;
+  if (uploadPhotoBtn) uploadPhotoBtn.disabled = !writeEnabled;
 
   if (writeMessage) {
     writeMessage.textContent = writeEnabled
       ? ""
-      : "Sign in to update store status and add notes.";
+      : "Sign in to update store status, add notes, and upload photos.";
   }
 }
 
@@ -331,6 +339,11 @@ async function loadActiveProject() {
   renderRouteStops();
   updateRouteModeUI();
   updateProjectSourceTag();
+
+  if (currentModalStoreId) {
+    currentModalStoreId = null;
+    clearPhotoUI();
+  }
 }
 
 function updateProjectSourceTag() {
@@ -553,16 +566,19 @@ function handleClick(e) {
   }
 
   loadNotes(key);
+  loadPhotos(key);
 
   document.getElementById("markActive").onclick = () => updateStore(key, false, false);
   document.getElementById("markCompleted").onclick = () => updateStore(key, true, false);
   document.getElementById("markClosed").onclick = () => updateStore(key, false, true);
   document.getElementById("addNoteBtn").onclick = () => addNote(key);
   document.getElementById("addToRouteBtn").onclick = () => addStoreToRoute(key);
+  document.getElementById("uploadPhotoBtn").onclick = () => uploadPhoto(key);
   document.getElementById("confirmCancel").onclick = () => modal.classList.add("hidden");
 
   updateRouteModeUI();
   updateWriteAccessUI();
+  clearPhotoMessage();
 }
 
 /* ================= UPDATE ================= */
@@ -573,7 +589,7 @@ async function updateStore(key, completed, closed) {
     return;
   }
 
-  await supabaseClient
+  const { error } = await supabaseClient
     .from("store_status")
     .upsert({
       project_id: currentProjectId,
@@ -581,6 +597,12 @@ async function updateStore(key, completed, closed) {
       completed,
       closed
     });
+
+  if (error) {
+    console.error(error);
+    alert(error.message || "Store update failed.");
+    return;
+  }
 
   statusMap[key] = { completed, closed };
 
@@ -600,7 +622,7 @@ async function addNote(storeId) {
   const note = document.getElementById("noteBox").value.trim();
   if (!note) return;
 
-  await supabaseClient
+  const { error } = await supabaseClient
     .from("store_notes")
     .insert({
       project_id: currentProjectId,
@@ -608,11 +630,15 @@ async function addNote(storeId) {
       note
     });
 
+  if (error) {
+    console.error(error);
+    alert(error.message || "Adding note failed.");
+    return;
+  }
+
   document.getElementById("noteBox").value = "";
   loadNotes(storeId);
 }
-
-/* ================= LOAD NOTES ================= */
 
 async function loadNotes(storeId) {
   const { data } = await supabaseClient
@@ -636,6 +662,249 @@ async function loadNotes(storeId) {
     div.innerText = row.note;
     container.appendChild(div);
   });
+}
+
+/* ================= PHOTOS ================= */
+
+function bindPhotoUI() {
+  const uploadBtn = document.getElementById("uploadPhotoBtn");
+  if (!uploadBtn || uploadBtn.dataset.bound) return;
+
+  uploadBtn.addEventListener("click", () => {
+    if (!currentModalStoreId) return;
+    uploadPhoto(currentModalStoreId);
+  });
+
+  uploadBtn.dataset.bound = "true";
+}
+
+function bindLightboxUI() {
+  const lightbox = document.getElementById("photoLightbox");
+  const closeBtn = document.getElementById("closeLightboxBtn");
+
+  if (closeBtn && !closeBtn.dataset.bound) {
+    closeBtn.addEventListener("click", closePhotoLightbox);
+    closeBtn.dataset.bound = "true";
+  }
+
+  if (lightbox && !lightbox.dataset.bound) {
+    lightbox.addEventListener("click", (e) => {
+      if (e.target.id === "photoLightbox") {
+        closePhotoLightbox();
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closePhotoLightbox();
+      }
+    });
+
+    lightbox.dataset.bound = "true";
+  }
+}
+
+async function resolvePhotoBucketName() {
+  if (resolvedPhotoBucket) return resolvedPhotoBucket;
+
+  for (const bucketName of PHOTO_BUCKET_CANDIDATES) {
+    try {
+      const { error } = await supabaseClient
+        .storage
+        .from(bucketName)
+        .list("", { limit: 1 });
+
+      if (!error) {
+        resolvedPhotoBucket = bucketName;
+        return resolvedPhotoBucket;
+      }
+    } catch (error) {
+      console.warn("Bucket probe failed:", bucketName, error);
+    }
+  }
+
+  resolvedPhotoBucket = PHOTO_BUCKET_CANDIDATES[0];
+  return resolvedPhotoBucket;
+}
+
+function sanitizeFileName(name) {
+  return String(name || "photo")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9._-]/g, "")
+    .toLowerCase();
+}
+
+function buildPhotoPath(storeId, file) {
+  const safeName = sanitizeFileName(file.name);
+  const timestamp = Date.now();
+  return `${currentProjectId}/${storeId}/${timestamp}-${safeName}`;
+}
+
+function setPhotoMessage(message = "", isError = false) {
+  const el = document.getElementById("photoUploadMessage");
+  if (!el) return;
+  el.textContent = message;
+  el.style.color = isError ? "#ff6b6b" : "#d7f9e0";
+}
+
+function clearPhotoMessage() {
+  setPhotoMessage("");
+}
+
+function clearPhotoUI() {
+  const input = document.getElementById("photoInput");
+  const gallery = document.getElementById("photoGallery");
+  if (input) input.value = "";
+  if (gallery) gallery.innerHTML = "";
+  clearPhotoMessage();
+}
+
+async function uploadPhoto(storeId) {
+  if (!isSignedIn()) {
+    alert("Sign in to upload photos.");
+    return;
+  }
+
+  const input = document.getElementById("photoInput");
+  const file = input?.files?.[0];
+
+  if (!file) {
+    setPhotoMessage("Choose a photo first.", true);
+    return;
+  }
+
+  setPhotoMessage("Uploading photo...");
+
+  const bucketName = await resolvePhotoBucketName();
+  const path = buildPhotoPath(storeId, file);
+
+  const { error: uploadError } = await supabaseClient
+    .storage
+    .from(bucketName)
+    .upload(path, file, {
+      cacheControl: "3600",
+      upsert: false
+    });
+
+  if (uploadError) {
+    console.error(uploadError);
+    setPhotoMessage(uploadError.message || "Photo upload failed.", true);
+    return;
+  }
+
+  const { data: publicData } = supabaseClient
+    .storage
+    .from(bucketName)
+    .getPublicUrl(path);
+
+  const imageUrl = publicData?.publicUrl || "";
+
+  const { error: rowError } = await supabaseClient
+    .from("store_photos")
+    .insert({
+      project_id: currentProjectId,
+      store_id: storeId,
+      image_url: imageUrl,
+      storage_path: path
+    });
+
+  if (rowError) {
+    console.error(rowError);
+    setPhotoMessage(rowError.message || "Photo metadata save failed.", true);
+    return;
+  }
+
+  input.value = "";
+  setPhotoMessage("Photo uploaded successfully.");
+  await loadPhotos(storeId);
+}
+
+async function loadPhotos(storeId) {
+  const gallery = document.getElementById("photoGallery");
+  if (!gallery) return;
+
+  gallery.innerHTML = `<div class="photoEmptyState">Loading photos…</div>`;
+
+  const { data, error } = await supabaseClient
+    .from("store_photos")
+    .select("*")
+    .eq("project_id", currentProjectId)
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    gallery.innerHTML = `<div class="photoEmptyState">Unable to load photos.</div>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    gallery.innerHTML = `<div class="photoEmptyState">No photos uploaded yet.</div>`;
+    return;
+  }
+
+  const bucketName = await resolvePhotoBucketName();
+  gallery.innerHTML = "";
+
+  data.forEach(row => {
+    let imageUrl = row.image_url || "";
+
+    if (!imageUrl && row.storage_path) {
+      const { data: publicData } = supabaseClient
+        .storage
+        .from(bucketName)
+        .getPublicUrl(row.storage_path);
+
+      imageUrl = publicData?.publicUrl || "";
+    }
+
+    const card = document.createElement("div");
+    card.className = "photoCard";
+
+    const img = document.createElement("img");
+    img.className = "photoThumb";
+    img.alt = `Store ${storeId} photo`;
+    img.src = imageUrl;
+    img.loading = "lazy";
+
+    const meta = document.createElement("div");
+    meta.className = "photoMeta";
+    meta.textContent = formatPhotoDate(row.created_at);
+
+    card.appendChild(img);
+    card.appendChild(meta);
+
+    card.addEventListener("click", () => {
+      if (imageUrl) openPhotoLightbox(imageUrl);
+    });
+
+    gallery.appendChild(card);
+  });
+}
+
+function formatPhotoDate(value) {
+  if (!value) return "Uploaded";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Uploaded";
+  return date.toLocaleString();
+}
+
+function openPhotoLightbox(url) {
+  const lightbox = document.getElementById("photoLightbox");
+  const image = document.getElementById("lightboxImage");
+  if (!lightbox || !image) return;
+
+  image.src = url;
+  lightbox.classList.remove("hidden");
+}
+
+function closePhotoLightbox() {
+  const lightbox = document.getElementById("photoLightbox");
+  const image = document.getElementById("lightboxImage");
+  if (!lightbox || !image) return;
+
+  lightbox.classList.add("hidden");
+  image.src = "";
 }
 
 /* ================= SEARCH ================= */
