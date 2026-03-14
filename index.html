@@ -18,10 +18,28 @@
   <aside class="sidebar">
 
     <div class="panel">
+      <h3>Access</h3>
+
+      <div id="authLoggedOut">
+        <input id="authEmail" type="email" placeholder="Email" />
+        <input id="authPassword" type="password" placeholder="Password" />
+        <button id="signInBtn" class="btnComplete" type="button">Sign In</button>
+      </div>
+
+      <div id="authLoggedIn" class="hidden">
+        <div id="authUserDisplay" class="authUserDisplay"></div>
+        <div id="authRoleDisplay" class="authRoleDisplay"></div>
+        <button id="signOutBtn" class="btnSecondary" type="button">Sign Out</button>
+      </div>
+
+      <div id="authMessage" class="authMessage"></div>
+    </div>
+
+    <div class="panel">
       <h3>Project</h3>
       <select id="projectSelect"></select>
       <div id="projectSourceTag" class="projectSourceTag">Loading project…</div>
-      <a class="importLink" href="import-project.html">Import Project Data</a>
+      <a id="importProjectLink" class="importLink" href="import-project.html">Import Project Data</a>
     </div>
 
     <div class="panel">
@@ -96,6 +114,8 @@
     <h3>Update Store Status</h3>
     <div id="confirmStoreId"></div>
     <div id="confirmAddress"></div>
+
+    <div id="writeAccessMessage" class="writeAccessMessage"></div>
 
     <div class="statusButtons">
       <button id="markActive" class="btnSecondary" type="button">Mark Active</button>
