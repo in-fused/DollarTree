@@ -130,9 +130,26 @@
 
     <div id="notesList" class="notesList"></div>
 
+    <div class="photoSection">
+      <h4>Store Photos</h4>
+
+      <div class="photoUploadRow">
+        <input id="photoInput" type="file" accept="image/*" capture="environment" />
+        <button id="uploadPhotoBtn" class="btnComplete" type="button">Upload Photo</button>
+      </div>
+
+      <div id="photoUploadMessage" class="photoUploadMessage"></div>
+      <div id="photoGallery" class="photoGallery"></div>
+    </div>
+
     <button id="confirmCancel" class="btnSecondary" type="button">Close</button>
 
   </div>
+</div>
+
+<div id="photoLightbox" class="photoLightbox hidden">
+  <button id="closeLightboxBtn" class="lightboxClose" type="button">×</button>
+  <img id="lightboxImage" class="lightboxImage" alt="Expanded store photo" />
 </div>
 
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
