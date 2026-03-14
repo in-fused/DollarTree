@@ -7,12 +7,36 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
-    * { box-sizing: border-box; font-family: Inter, system-ui, -apple-system, sans-serif; }
-    body { margin: 0; background:#0a0f18; color:white; padding:24px; }
-    .wrap { max-width: 860px; margin: 0 auto; }
-    .card { background: rgba(255,255,255,0.05); border-radius: 14px; padding: 20px; margin-bottom: 18px; }
-    h1, h2, h3 { margin-top: 0; }
-    input, button, textarea {
+    * {
+      box-sizing: border-box;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: #0a0f18;
+      color: white;
+      padding: 24px;
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    h1, h2 {
+      margin-top: 0;
+    }
+
+    input,
+    button {
       width: 100%;
       padding: 10px 12px;
       border-radius: 10px;
@@ -22,22 +46,60 @@
       margin-top: 10px;
       font: inherit;
     }
-    button { cursor: pointer; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .muted { opacity: 0.75; font-size: 14px; }
+
+    button {
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .primaryBtn {
+      background: #2ecc71;
+      color: #062b14;
+      border: none;
+    }
+
+    .secondaryBtn {
+      background: rgba(255,255,255,0.12);
+      color: white;
+      border: none;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .muted {
+      opacity: 0.75;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
     .log {
       background: #111827;
       border-radius: 10px;
       padding: 12px;
-      min-height: 160px;
+      min-height: 180px;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       font-size: 13px;
+      line-height: 1.45;
     }
+
     .success { color: #2ecc71; }
     .warn { color: #ffcc66; }
     .error { color: #ff6b6b; }
-    .downloadArea { margin-top: 14px; }
+
+    .downloadArea {
+      margin-top: 14px;
+    }
+
     a.buttonLink {
       display: inline-block;
       margin-top: 10px;
@@ -48,7 +110,19 @@
       text-decoration: none;
       font-weight: 700;
     }
-    code, pre { white-space: pre-wrap; }
+
+    a.subtleLink {
+      display: inline-block;
+      margin-top: 10px;
+      color: #9fd1ff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    code, pre {
+      white-space: pre-wrap;
+    }
+
     label.inlineCheck {
       display: flex;
       align-items: flex-start;
@@ -56,17 +130,88 @@
       margin-top: 12px;
       line-height: 1.35;
     }
+
     label.inlineCheck input {
       width: auto;
       margin: 2px 0 0 0;
     }
-    @media (max-width: 700px) {
-      .row { grid-template-columns: 1fr; }
+
+    .summaryGrid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .summaryStat {
+      background: rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .summaryLabel {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-bottom: 6px;
+    }
+
+    .summaryValue {
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .actionRow {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .actionRow > * {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .authUser {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .authRole {
+      opacity: 0.8;
+      font-size: 13px;
+    }
+
+    .accessBanner {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #ffcc66;
+    }
+
+    @media (max-width: 900px) {
+      .row {
+        grid-template-columns: 1fr;
+      }
+
+      .summaryGrid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .summaryGrid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
+
     <div class="card">
       <h1>Import Project Data</h1>
       <p class="muted">
@@ -89,6 +234,27 @@
         <br />
         <strong>Optional bypass:</strong> include lat and lng to skip geocoding for rows that already have coordinates.
       </p>
+      <a class="subtleLink" href="demo-project-import-template.csv">Use demo CSV template</a>
+      <br />
+      <a class="subtleLink" href="/">Return to main app</a>
+    </div>
+
+    <div class="card">
+      <h2>Admin Access</h2>
+
+      <div id="authLoggedOut">
+        <input id="authEmail" type="email" placeholder="Admin email" />
+        <input id="authPassword" type="password" placeholder="Password" />
+        <button id="signInBtn" class="primaryBtn" type="button">Sign In</button>
+      </div>
+
+      <div id="authLoggedIn" class="hidden">
+        <div id="authUserDisplay" class="authUser"></div>
+        <div id="authRoleDisplay" class="authRole"></div>
+        <button id="signOutBtn" class="secondaryBtn" type="button">Sign Out</button>
+      </div>
+
+      <div id="authMessage" class="accessBanner"></div>
     </div>
 
     <div class="card">
@@ -111,14 +277,44 @@
       </label>
 
       <input id="csvFile" type="file" accept=".csv" />
-      <button id="runImportBtn" type="button">Run Import</button>
+      <div class="actionRow">
+        <button id="runImportBtn" class="primaryBtn" type="button">Run Import</button>
+      </div>
+    </div>
+
+    <div id="summaryCard" class="card hidden">
+      <h2>Import Summary</h2>
+      <div class="summaryGrid">
+        <div class="summaryStat">
+          <div class="summaryLabel">Imported Stores</div>
+          <div id="summaryImported" class="summaryValue">0</div>
+        </div>
+        <div class="summaryStat">
+          <div class="summaryLabel">Skipped Rows</div>
+          <div id="summarySkipped" class="summaryValue">0</div>
+        </div>
+        <div class="summaryStat">
+          <div class="summaryLabel">Geocoded Rows</div>
+          <div id="summaryGeocoded" class="summaryValue">0</div>
+        </div>
+        <div class="summaryStat">
+          <div class="summaryLabel">Used Existing Coordinates</div>
+          <div id="summaryProvidedCoords" class="summaryValue">0</div>
+        </div>
+      </div>
+
+      <div class="actionRow">
+        <a href="/" class="buttonLink">Open Main App</a>
+      </div>
+
+      <div id="downloadArea" class="downloadArea"></div>
     </div>
 
     <div class="card">
       <h2>Import Log</h2>
       <div id="log" class="log">Waiting for import…</div>
-      <div id="downloadArea" class="downloadArea"></div>
     </div>
+
   </div>
 
   <script>
@@ -128,8 +324,39 @@
 
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    let currentUser = null;
+    let currentRole = "viewer";
+
     const logEl = document.getElementById("log");
     const downloadArea = document.getElementById("downloadArea");
+    const summaryCard = document.getElementById("summaryCard");
+
+    const summaryImported = document.getElementById("summaryImported");
+    const summarySkipped = document.getElementById("summarySkipped");
+    const summaryGeocoded = document.getElementById("summaryGeocoded");
+    const summaryProvidedCoords = document.getElementById("summaryProvidedCoords");
+
+    const importStats = {
+      imported: 0,
+      skipped: 0,
+      geocoded: 0,
+      providedCoords: 0
+    };
+
+    function resetStats() {
+      importStats.imported = 0;
+      importStats.skipped = 0;
+      importStats.geocoded = 0;
+      importStats.providedCoords = 0;
+    }
+
+    function renderSummary() {
+      summaryImported.textContent = importStats.imported;
+      summarySkipped.textContent = importStats.skipped;
+      summaryGeocoded.textContent = importStats.geocoded;
+      summaryProvidedCoords.textContent = importStats.providedCoords;
+      summaryCard.classList.remove("hidden");
+    }
 
     function log(message, type = "") {
       const span = document.createElement("div");
@@ -142,6 +369,16 @@
     function clearLog() {
       logEl.innerHTML = "";
       downloadArea.innerHTML = "";
+      summaryCard.classList.add("hidden");
+      resetStats();
+    }
+
+    function setAuthMessage(message, type = "") {
+      const el = document.getElementById("authMessage");
+      el.textContent = message;
+      el.className = "accessBanner";
+      if (type === "success") el.classList.add("success");
+      if (type === "error") el.classList.add("error");
     }
 
     function normalizeProjectId(value) {
@@ -209,12 +446,14 @@
         const storeId = String(row.store_id || "").trim();
 
         if (!storeId) {
+          importStats.skipped++;
           log(`Skipping row ${i + 1}: missing store_id`, "warn");
           continue;
         }
 
         const fullAddress = buildFullAddress(row);
         if (!fullAddress) {
+          importStats.skipped++;
           log(`Skipping store ${storeId}: missing address data`, "warn");
           continue;
         }
@@ -227,8 +466,10 @@
           const coords = await geocodeAddress(fullAddress);
           lat = coords.lat;
           lng = coords.lng;
+          importStats.geocoded++;
         } else {
           log(`Using provided coordinates for store ${storeId}`);
+          importStats.providedCoords++;
         }
 
         const normalized = {
@@ -320,8 +561,105 @@
       downloadArea.appendChild(link);
     }
 
+    async function loadRole() {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      currentUser = sessionData?.session?.user || null;
+
+      if (!currentUser) {
+        currentRole = "viewer";
+        updateAuthUI();
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from("profiles")
+        .select("role")
+        .eq("user_id", currentUser.id)
+        .single();
+
+      if (error) {
+        console.error(error);
+        currentRole = "viewer";
+      } else {
+        currentRole = data?.role || "viewer";
+      }
+
+      updateAuthUI();
+    }
+
+    function updateAuthUI() {
+      const loggedOut = document.getElementById("authLoggedOut");
+      const loggedIn = document.getElementById("authLoggedIn");
+      const authUserDisplay = document.getElementById("authUserDisplay");
+      const authRoleDisplay = document.getElementById("authRoleDisplay");
+      const runImportBtn = document.getElementById("runImportBtn");
+
+      if (currentUser) {
+        loggedOut.classList.add("hidden");
+        loggedIn.classList.remove("hidden");
+        authUserDisplay.textContent = currentUser.email || "Signed in";
+        authRoleDisplay.textContent = `Role: ${currentRole}`;
+      } else {
+        loggedOut.classList.remove("hidden");
+        loggedIn.classList.add("hidden");
+        authUserDisplay.textContent = "";
+        authRoleDisplay.textContent = "";
+      }
+
+      const canImport = currentUser && currentRole === "admin";
+      runImportBtn.disabled = !canImport;
+
+      if (!currentUser) {
+        setAuthMessage("Sign in as admin to import projects.");
+      } else if (currentRole !== "admin") {
+        setAuthMessage("Your account is signed in but not authorized for imports.", "error");
+      } else {
+        setAuthMessage("Admin access verified.", "success");
+      }
+    }
+
+    document.getElementById("signInBtn").addEventListener("click", async () => {
+      const email = document.getElementById("authEmail").value.trim();
+      const password = document.getElementById("authPassword").value;
+
+      if (!email || !password) {
+        setAuthMessage("Email and password are required.", "error");
+        return;
+      }
+
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        setAuthMessage(error.message || "Sign-in failed.", "error");
+        return;
+      }
+
+      await loadRole();
+    });
+
+    document.getElementById("signOutBtn").addEventListener("click", async () => {
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) {
+        setAuthMessage(error.message || "Sign-out failed.", "error");
+        return;
+      }
+
+      currentUser = null;
+      currentRole = "viewer";
+      updateAuthUI();
+    });
+
+    supabaseClient.auth.onAuthStateChange(async () => {
+      await loadRole();
+    });
+
     document.getElementById("runImportBtn").addEventListener("click", async () => {
       clearLog();
+
+      if (!currentUser || currentRole !== "admin") {
+        log("Admin sign-in is required before import.", "error");
+        return;
+      }
 
       const projectIdRaw = document.getElementById("projectId").value;
       const projectNameRaw = document.getElementById("projectName").value;
@@ -377,17 +715,22 @@
         }
 
         await insertStores(projectId, normalizedRows);
+        importStats.imported = normalizedRows.length;
         log(`Inserted/upserted ${normalizedRows.length} stores`, "success");
 
         makeJsonDownload(projectId, exactShapeRows);
         log("Generated JSON is ready for download", "success");
         log("Import complete.", "success");
 
+        renderSummary();
+
       } catch (error) {
         console.error(error);
         log(error.message || "Import failed.", "error");
       }
     });
+
+    loadRole();
   </script>
 </body>
 </html>
