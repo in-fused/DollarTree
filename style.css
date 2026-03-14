@@ -24,7 +24,7 @@ header {
 
 .brandLogoWide {
   height: 130px;
-  transform: scale(3.5);
+  transform: scale(2);
   transform-origin: center;
 }
 
@@ -53,7 +53,7 @@ aside {
   margin-bottom: 18px;
 }
 
-input, textarea {
+input, select, textarea {
   width: 100%;
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.12);
@@ -61,6 +61,7 @@ input, textarea {
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 14px;
+  margin-top: 10px;
 }
 
 input::placeholder,
@@ -72,6 +73,10 @@ textarea {
   min-height: 90px;
   resize: vertical;
   margin-top: 10px;
+}
+
+select option {
+  color: #111827;
 }
 
 .statRow {
@@ -91,7 +96,6 @@ textarea {
 #progressFill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #cba03e, #35ab67, #2ecc71);
 }
 
 .progressLabel {
@@ -108,6 +112,12 @@ button {
   padding: 10px 12px;
   cursor: pointer;
   font-size: 14px;
+  margin-top: 10px;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .btnSecondary {
@@ -125,6 +135,54 @@ button {
   background: #ff9900;
   color: #2d1a00;
   font-weight: 700;
+}
+
+/* ================= AUTH ================= */
+
+.authUserDisplay {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.authRoleDisplay {
+  font-size: 13px;
+  opacity: 0.8;
+  margin-bottom: 8px;
+}
+
+.authMessage {
+  margin-top: 10px;
+  font-size: 13px;
+  opacity: 0.9;
+  min-height: 18px;
+}
+
+.authSuccess {
+  color: #2ecc71;
+}
+
+.authError {
+  color: #ff6b6b;
+}
+
+.importLink {
+  display: inline-block;
+  margin-top: 10px;
+  color: #9fd1ff;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.importLink.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  text-decoration: none;
+}
+
+.projectSourceTag {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.8;
 }
 
 /* ================= ROUTE BUILDER ================= */
@@ -199,6 +257,7 @@ button {
   display: flex;
   gap: 6px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 .routeMiniBtn {
@@ -206,6 +265,7 @@ button {
   font-size: 12px;
   background: rgba(255,255,255,0.1);
   color: white;
+  margin-top: 0;
 }
 
 .routeActions {
@@ -231,16 +291,6 @@ button {
   margin-bottom: 0;
   cursor: pointer;
   font-size: 13px;
-}
-
-.activity-complete {
-  background: rgba(46, 204, 113, 0.2);
-  border-left: 3px solid #2ecc71;
-}
-
-.activity-closed {
-  background: rgba(255, 153, 0, 0.2);
-  border-left: 3px solid #ff9900;
 }
 
 /* ================= MAP ================= */
@@ -304,6 +354,13 @@ button {
   border-radius: 8px;
 }
 
+.writeAccessMessage {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #ffcc66;
+  min-height: 18px;
+}
+
 /* ================= MOBILE ================= */
 
 @media (max-width: 900px) {
@@ -342,20 +399,4 @@ button {
   .routeActions {
     flex-direction: column;
   }
-}
-
-/* ================= PROJECT SELECTOR ================= */
-
-.projectSourceTag {
-  margin-top: 10px;
-  font-size: 12px;
-  opacity: 0.8;
-}
-
-.importLink {
-  display: inline-block;
-  margin-top: 10px;
-  color: #9fd1ff;
-  text-decoration: none;
-  font-size: 13px;
 }
