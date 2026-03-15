@@ -3,13 +3,35 @@
   font-family: Inter, system-ui, -apple-system, sans-serif;
 }
 
+:root {
+  --bg: #0a0f18;
+  --panel: rgba(255,255,255,0.05);
+  --panel-strong: rgba(12, 18, 29, 0.9);
+  --panel-border: rgba(255,255,255,0.09);
+  --text: #ffffff;
+  --muted: rgba(255,255,255,0.7);
+  --soft: rgba(255,255,255,0.5);
+  --green: #2ecc71;
+  --orange: #ff9900;
+  --red: #ff2d2d;
+  --blue: #64b5f6;
+  --header-a: #001a33;
+  --header-b: #002b55;
+  --accent: #c8102e;
+}
+
 html,
 body {
   margin: 0;
   height: 100%;
-  background: #0a0f18;
-  color: white;
+  background: var(--bg);
+  color: var(--text);
   overflow: hidden;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .hidden {
@@ -19,9 +41,11 @@ body {
 /* ================= HEADER ================= */
 
 .topHeader {
-  height: 150px;
-  background: linear-gradient(90deg, #001a33, #002b55);
-  border-bottom: 4px solid #c8102e;
+  height: 158px;
+  background:
+    radial-gradient(circle at center, rgba(255,255,255,0.04), transparent 35%),
+    linear-gradient(90deg, var(--header-a), var(--header-b));
+  border-bottom: 4px solid var(--accent);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -62,7 +86,7 @@ body {
 .headerProjectSubline {
   margin-top: 3px;
   font-size: 12px;
-  opacity: 0.78;
+  opacity: 0.8;
 }
 
 .headerLogoCenter {
@@ -87,6 +111,7 @@ body {
   align-items: center;
   justify-self: end;
   gap: 10px;
+  flex-wrap: wrap;
   flex-shrink: 0;
 }
 
@@ -100,12 +125,13 @@ body {
   padding: 8px 12px;
   font-size: 12px;
   white-space: nowrap;
+  backdrop-filter: blur(8px);
 }
 
 .executiveToggle input {
   width: auto;
   margin: 0;
-  accent-color: #2ecc71;
+  accent-color: var(--green);
 }
 
 .mobileSidebarToggle {
@@ -165,7 +191,7 @@ body {
 .headerProgressFill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #ff2d2d, #ff9900, #2ecc71);
+  background: linear-gradient(90deg, var(--red), var(--orange), var(--green));
   transition: width 0.25s ease;
   border-radius: 999px;
 }
@@ -173,7 +199,7 @@ body {
 /* ================= EXECUTIVE MODE ================= */
 
 body.executive-mode .topHeader {
-  height: 112px;
+  height: 114px;
   padding: 8px 18px;
 }
 
@@ -211,18 +237,19 @@ body.executive-mode .floatingExecutiveExit {
 /* ================= LAYOUT ================= */
 
 .app {
-  height: calc(100vh - 150px);
+  height: calc(100vh - 158px);
   display: flex;
   transition: height 0.25s ease;
 }
 
 body.executive-mode .app {
-  height: calc(100vh - 112px);
+  height: calc(100vh - 114px);
 }
 
 .sidebar {
-  width: 340px;
-  background: rgba(17,20,26,0.97);
+  width: 360px;
+  background:
+    linear-gradient(180deg, rgba(15, 20, 30, 0.98), rgba(10, 14, 22, 0.98));
   border-right: 1px solid rgba(255,255,255,0.06);
   overflow: hidden;
   transition: width 0.28s ease, transform 0.28s ease, opacity 0.28s ease;
@@ -238,6 +265,7 @@ body.executive-mode .app {
   flex: 1;
   position: relative;
   min-width: 0;
+  background: #060b12;
 }
 
 #map {
@@ -245,7 +273,30 @@ body.executive-mode .app {
   inset: 0;
 }
 
-/* ================= MAP LEGEND ================= */
+/* ================= MAP OVERLAYS ================= */
+
+.mapTopOverlay {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 35;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: calc(100% - 120px);
+}
+
+.mapModeTag,
+.mapScopeTag {
+  background: rgba(8, 12, 20, 0.86);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-size: 12px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+  backdrop-filter: blur(8px);
+}
 
 .mapLegendCard {
   position: absolute;
@@ -291,24 +342,31 @@ body.executive-mode .app {
 }
 
 .legendRed {
-  background: #ff2d2d;
+  background: var(--red);
 }
 
 .legendOrange {
-  background: #ff9900;
+  background: var(--orange);
 }
 
 .legendGreen {
-  background: #2ecc71;
+  background: var(--green);
 }
 
 /* ================= PANELS ================= */
 
 .panel {
-  background: rgba(255,255,255,0.05);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
   border-radius: 14px;
   padding: 16px;
   margin-bottom: 18px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.16);
+}
+
+.panel h3 {
+  margin: 0 0 2px 0;
+  font-size: 15px;
 }
 
 input,
@@ -338,6 +396,54 @@ select option {
   color: #111827;
 }
 
+.filterGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.filterGrid select {
+  margin-top: 0;
+}
+
+.filterActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.filterActions button {
+  flex: 1;
+  margin-top: 0;
+}
+
+.scopeSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.scopeSummaryCard {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.scopeSummaryLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.65;
+  margin-bottom: 6px;
+}
+
+.scopeSummaryValue {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 /* ================= BUTTONS ================= */
 
 button {
@@ -360,13 +466,13 @@ button:disabled {
 }
 
 .btnComplete {
-  background: #2ecc71;
+  background: var(--green);
   color: #062b14;
   font-weight: 700;
 }
 
 .btnClosed {
-  background: #ff9900;
+  background: var(--orange);
   color: #2d1a00;
   font-weight: 700;
 }
@@ -392,7 +498,7 @@ button:disabled {
 }
 
 .authSuccess {
-  color: #2ecc71;
+  color: var(--green);
 }
 
 .authError {
@@ -417,6 +523,7 @@ button:disabled {
   margin-top: 10px;
   font-size: 12px;
   opacity: 0.8;
+  line-height: 1.4;
 }
 
 /* ================= ROUTE BUILDER ================= */
@@ -444,13 +551,18 @@ button:disabled {
 .routeToggleLabel input {
   width: auto;
   margin: 0;
-  accent-color: #2ecc71;
+  accent-color: var(--green);
 }
 
 .routeControls {
   display: grid;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.routeControls input,
+.routeControls button {
+  margin-top: 0;
 }
 
 .routeEmpty {
@@ -658,6 +770,7 @@ button:disabled {
 
 .modalContent {
   background: #111827;
+  border: 1px solid rgba(255,255,255,0.08);
   padding: 20px;
   border-radius: 16px;
   width: 92%;
@@ -831,13 +944,13 @@ button:disabled {
 
 @media (max-width: 900px) {
   .topHeader {
-    height: 132px;
+    height: 140px;
     padding: 8px 12px 10px;
     gap: 8px;
   }
 
   body.executive-mode .topHeader {
-    height: 92px;
+    height: 96px;
   }
 
   .headerMainRow {
@@ -917,16 +1030,16 @@ button:disabled {
   }
 
   .app {
-    height: calc(100vh - 132px);
+    height: calc(100vh - 140px);
   }
 
   body.executive-mode .app {
-    height: calc(100vh - 92px);
+    height: calc(100vh - 96px);
   }
 
   .sidebar {
     position: fixed;
-    top: 132px;
+    top: 140px;
     left: 0;
     bottom: 0;
     width: min(88vw, 360px);
@@ -947,11 +1060,21 @@ button:disabled {
     width: 100%;
   }
 
+  .mapTopOverlay {
+    top: 10px;
+    left: 10px;
+    max-width: calc(100% - 20px);
+  }
+
   .mapLegendCard {
     left: 10px;
     bottom: 88px;
     min-width: 150px;
     padding: 8px 10px;
+  }
+
+  .scopeSummaryGrid {
+    grid-template-columns: 1fr 1fr;
   }
 
   .routeHeader {
@@ -980,12 +1103,12 @@ button:disabled {
 
 @media (max-width: 560px) {
   .topHeader {
-    height: 126px;
+    height: 132px;
     padding: 8px 10px 10px;
   }
 
   body.executive-mode .topHeader {
-    height: 88px;
+    height: 90px;
   }
 
   .headerMainRow {
@@ -1028,15 +1151,19 @@ button:disabled {
   }
 
   .app {
-    height: calc(100vh - 126px);
+    height: calc(100vh - 132px);
   }
 
   body.executive-mode .app {
-    height: calc(100vh - 88px);
+    height: calc(100vh - 90px);
   }
 
   .sidebar {
-    top: 126px;
+    top: 132px;
+  }
+
+  .scopeSummaryGrid {
+    grid-template-columns: 1fr;
   }
 
   .routeMetricsGrid {
@@ -1058,5 +1185,11 @@ button:disabled {
 
   .mapLegendRow {
     font-size: 11px;
+  }
+
+  .mapModeTag,
+  .mapScopeTag {
+    font-size: 11px;
+    padding: 8px 10px;
   }
 }
