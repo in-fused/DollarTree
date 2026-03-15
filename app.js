@@ -13,6 +13,7 @@ const PROJECTS_FILE = "data/projects.json";
 const ACTIVE_PROJECT_KEY = "activeProjectId";
 const EXECUTIVE_MODE_KEY = "executiveModeEnabled";
 const NATIONAL_OVERVIEW_KEY = "nationalOverviewEnabled";
+const ACTIVE_VIEW_KEY = "activeWorkspaceView";
 
 const DEFAULT_LOCAL_CENTER = [-81.7, 27.8];
 const DEFAULT_LOCAL_ZOOM = 6.5;
@@ -50,11 +51,20 @@ let statusRowsCache = [];
 let photoRowsCache = [];
 let executiveModeEnabled = false;
 let nationalOverviewEnabled = false;
+let activeWorkspaceView = localStorage.getItem(ACTIVE_VIEW_KEY) || "map";
+let currentPhotoLibrarySelection = null;
 
 let activeFilters = {
   region: "",
   territory: "",
   state: ""
+};
+
+let photoLibraryFilters = {
+  type: "",
+  sort: "newest",
+  group: "none",
+  search: ""
 };
 
 function routeModeKey() {
@@ -88,6 +98,8 @@ map.on("load", async () => {
   bindNationalOverviewUI();
   bindMobileSidebarUI();
   bindFilters();
+  bindWorkspaceViews();
+  bindPhotoLibraryUI();
 
   await loadProjects();
   bindProjectSelector();
@@ -102,6 +114,7 @@ map.on("load", async () => {
   updateRouteModeUI();
   updateExecutiveModeUI();
   updateNationalOverviewUI();
+  updateWorkspaceViewUI();
 });
 
 /* ================= AUTH ================= */
@@ -334,6 +347,7 @@ function bindNationalOverviewUI() {
     updateScopeSummary();
     updateIntelRail();
     updateMapViewportForMode();
+    renderPhotoLibrary();
   });
 
   toggle.dataset.bound = "true";
@@ -375,6 +389,60 @@ function bindMobileSidebarUI() {
     }
     setTimeout(() => map.resize(), 120);
   });
+}
+
+/* ================= WORKSPACE VIEWS ================= */
+
+function bindWorkspaceViews() {
+  const mapBtn = document.getElementById("mapViewBtn");
+  const photoBtn = document.getElementById("photoLibraryViewBtn");
+
+  if (mapBtn && !mapBtn.dataset.bound) {
+    mapBtn.addEventListener("click", () => {
+      activeWorkspaceView = "map";
+      localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
+      updateWorkspaceViewUI();
+    });
+    mapBtn.dataset.bound = "true";
+  }
+
+  if (photoBtn && !photoBtn.dataset.bound) {
+    photoBtn.addEventListener("click", () => {
+      activeWorkspaceView = "photos";
+      localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
+      updateWorkspaceViewUI();
+      renderPhotoLibrary();
+    });
+    photoBtn.dataset.bound = "true";
+  }
+}
+
+function updateWorkspaceViewUI() {
+  const mapBtn = document.getElementById("mapViewBtn");
+  const photoBtn = document.getElementById("photoLibraryViewBtn");
+  const mapView = document.getElementById("mapWorkspaceView");
+  const photoView = document.getElementById("photoLibraryWorkspaceView");
+
+  const showingMap = activeWorkspaceView !== "photos";
+
+  if (mapBtn) mapBtn.classList.toggle("active", showingMap);
+  if (photoBtn) photoBtn.classList.toggle("active", !showingMap);
+
+  if (mapView) {
+    mapView.classList.toggle("hidden", !showingMap);
+    mapView.classList.toggle("active", showingMap);
+  }
+
+  if (photoView) {
+    photoView.classList.toggle("hidden", showingMap);
+    photoView.classList.toggle("active", !showingMap);
+  }
+
+  if (showingMap) {
+    setTimeout(() => map.resize(), 120);
+  } else {
+    renderPhotoLibrary();
+  }
 }
 
 /* ================= PROJECTS ================= */
@@ -464,6 +532,7 @@ async function loadActiveProject() {
   };
 
   currentSelectedStoreId = null;
+  currentPhotoLibrarySelection = null;
   restoreFilterState();
   await hydrate();
   await hydrateActivityFeed();
@@ -488,6 +557,9 @@ async function loadActiveProject() {
   updateMapViewportForMode();
   updateIntelRail();
   resetSelectedStorePanel();
+  resetPhotoLibraryDetail();
+  renderPhotoLibrary();
+  updateWorkspaceViewUI();
 
   if (currentModalStoreId) {
     currentModalStoreId = null;
@@ -556,6 +628,8 @@ function handleFilterChange() {
   setMapModeTags();
   updateMapViewportForMode();
   updateIntelRail();
+  renderPhotoLibrary();
+
   if (currentSelectedStoreId && !getFilteredStores().some(s => String(s.store_id) === String(currentSelectedStoreId))) {
     currentSelectedStoreId = null;
     resetSelectedStorePanel();
@@ -755,7 +829,7 @@ async function hydrateActivityFeed() {
 
   const { data: photoRows } = await supabaseClient
     .from("store_photos")
-    .select("store_id, created_at")
+    .select("*")
     .eq("project_id", currentProjectId)
     .order("created_at", { ascending: false });
 
@@ -961,6 +1035,8 @@ function rebuild() {
 }
 
 function updateMapViewportForMode() {
+  if (activeWorkspaceView === "photos") return;
+
   const filteredStores = getFilteredStores();
 
   if (filteredStores.length === 0) {
@@ -1179,6 +1255,355 @@ function formatEta(days) {
   return `${days.toFixed(1)} days`;
 }
 
+/* ================= PHOTO LIBRARY ================= */
+
+function bindPhotoLibraryUI() {
+  const typeFilter = document.getElementById("photoTypeFilter");
+  const sortFilter = document.getElementById("photoSortFilter");
+  const groupFilter = document.getElementById("photoGroupFilter");
+  const searchInput = document.getElementById("photoSearchInput");
+  const openLightboxBtn = document.getElementById("photoDetailOpenLightboxBtn");
+  const jumpToStoreBtn = document.getElementById("photoDetailJumpToStoreBtn");
+
+  if (typeFilter && !typeFilter.dataset.bound) {
+    typeFilter.addEventListener("change", () => {
+      photoLibraryFilters.type = typeFilter.value;
+      renderPhotoLibrary();
+    });
+    typeFilter.dataset.bound = "true";
+  }
+
+  if (sortFilter && !sortFilter.dataset.bound) {
+    sortFilter.addEventListener("change", () => {
+      photoLibraryFilters.sort = sortFilter.value;
+      renderPhotoLibrary();
+    });
+    sortFilter.dataset.bound = "true";
+  }
+
+  if (groupFilter && !groupFilter.dataset.bound) {
+    groupFilter.addEventListener("change", () => {
+      photoLibraryFilters.group = groupFilter.value;
+      renderPhotoLibrary();
+    });
+    groupFilter.dataset.bound = "true";
+  }
+
+  if (searchInput && !searchInput.dataset.bound) {
+    searchInput.addEventListener("input", () => {
+      photoLibraryFilters.search = searchInput.value.trim();
+      renderPhotoLibrary();
+    });
+    searchInput.dataset.bound = "true";
+  }
+
+  if (openLightboxBtn && !openLightboxBtn.dataset.bound) {
+    openLightboxBtn.addEventListener("click", () => {
+      if (currentPhotoLibrarySelection?.url) {
+        openPhotoLightbox(currentPhotoLibrarySelection.url);
+      }
+    });
+    openLightboxBtn.dataset.bound = "true";
+  }
+
+  if (jumpToStoreBtn && !jumpToStoreBtn.dataset.bound) {
+    jumpToStoreBtn.addEventListener("click", () => {
+      if (!currentPhotoLibrarySelection?.store_id) return;
+      jumpToStoreFromPhoto(currentPhotoLibrarySelection.store_id);
+    });
+    jumpToStoreBtn.dataset.bound = "true";
+  }
+}
+
+function getScopedPhotoRows() {
+  const filteredStores = getFilteredStores();
+  const filteredIds = new Set(filteredStores.map(store => String(store.store_id)));
+
+  const enriched = photoRowsCache
+    .filter(row => filteredIds.has(String(row.store_id)))
+    .map(row => {
+      const store = storeData.find(s => String(s.store_id) === String(row.store_id)) || null;
+      const photoType = normalizePhotoType(row.photo_type || row.type || "");
+      const url = getPhotoUrlFromRow(row);
+
+      return {
+        ...row,
+        store,
+        store_id: String(row.store_id),
+        photo_type: photoType,
+        url,
+        created_at: row.created_at || null
+      };
+    });
+
+  return enriched.filter(item => !!item.url);
+}
+
+function normalizePhotoType(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "before") return "before";
+  if (normalized === "after") return "after";
+  return "other";
+}
+
+function getPhotoUrlFromRow(row) {
+  if (row.image_url) return row.image_url;
+  if (row.url) return row.url;
+  if (row.public_url) return row.public_url;
+
+  if (row.storage_path && resolvedPhotoBucket) {
+    const { data } = supabaseClient.storage.from(resolvedPhotoBucket).getPublicUrl(row.storage_path);
+    return data?.publicUrl || "";
+  }
+
+  return "";
+}
+
+function getFilteredPhotoLibraryRows() {
+  const rows = getScopedPhotoRows();
+
+  return rows.filter(row => {
+    if (photoLibraryFilters.type && row.photo_type !== photoLibraryFilters.type) return false;
+
+    if (photoLibraryFilters.search) {
+      const needle = photoLibraryFilters.search.toLowerCase();
+      const haystack = [
+        row.store_id,
+        row.store?.full_address || "",
+        row.store?.territory || "",
+        row.store?.state || ""
+      ].join(" ").toLowerCase();
+
+      if (!haystack.includes(needle)) return false;
+    }
+
+    return true;
+  });
+}
+
+function sortPhotoLibraryRows(rows) {
+  const sorted = [...rows];
+
+  if (photoLibraryFilters.sort === "oldest") {
+    sorted.sort((a, b) => getTimestampValue(a.created_at) - getTimestampValue(b.created_at));
+  } else if (photoLibraryFilters.sort === "store_asc") {
+    sorted.sort((a, b) => a.store_id.localeCompare(b.store_id, undefined, { numeric: true }));
+  } else if (photoLibraryFilters.sort === "store_desc") {
+    sorted.sort((a, b) => b.store_id.localeCompare(a.store_id, undefined, { numeric: true }));
+  } else {
+    sorted.sort((a, b) => getTimestampValue(b.created_at) - getTimestampValue(a.created_at));
+  }
+
+  return sorted;
+}
+
+function renderPhotoLibrary() {
+  const grid = document.getElementById("photoLibraryGrid");
+  const resultCount = document.getElementById("photoLibraryResultCount");
+  if (!grid || activeWorkspaceView !== "photos") return;
+
+  const rows = sortPhotoLibraryRows(getFilteredPhotoLibraryRows());
+
+  if (resultCount) {
+    resultCount.textContent = `${rows.length.toLocaleString()} photos in current scope`;
+  }
+
+  grid.innerHTML = "";
+
+  if (rows.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "photoLibraryEmptyState";
+    empty.textContent = "No photos found for the current filters.";
+    grid.appendChild(empty);
+    resetPhotoLibraryDetail();
+    return;
+  }
+
+  if (currentPhotoLibrarySelection) {
+    const exists = rows.some(row => String(row.id || row.storage_path || row.url) === currentPhotoLibrarySelection.key);
+    if (!exists) {
+      currentPhotoLibrarySelection = null;
+      resetPhotoLibraryDetail();
+    }
+  }
+
+  const grouped = groupPhotoLibraryRows(rows);
+
+  grouped.forEach(group => {
+    if (group.label) {
+      const header = document.createElement("div");
+      header.className = "photoLibraryGroupHeader";
+      header.textContent = group.label;
+      header.style.gridColumn = "1 / -1";
+      header.style.fontWeight = "800";
+      header.style.fontSize = "14px";
+      header.style.opacity = "0.9";
+      header.style.margin = "4px 0 0";
+      grid.appendChild(header);
+    }
+
+    group.items.forEach(row => {
+      const card = document.createElement("div");
+      const key = getPhotoSelectionKey(row);
+      card.className = "photoLibraryCard";
+      if (currentPhotoLibrarySelection?.key === key) {
+        card.classList.add("active");
+      }
+
+      const imageWrap = document.createElement("div");
+      imageWrap.className = "photoLibraryImageWrap";
+
+      const image = document.createElement("img");
+      image.className = "photoLibraryImage";
+      image.src = row.url;
+      image.alt = `Store ${row.store_id} photo`;
+      image.loading = "lazy";
+      imageWrap.appendChild(image);
+
+      const body = document.createElement("div");
+      body.className = "photoLibraryCardBody";
+
+      const top = document.createElement("div");
+      top.className = "photoLibraryCardTop";
+
+      const store = document.createElement("div");
+      store.className = "photoLibraryStore";
+      store.textContent = `Store ${row.store_id}`;
+
+      const typePill = document.createElement("div");
+      typePill.className = "photoLibraryTypePill";
+      typePill.textContent = row.photo_type;
+
+      top.appendChild(store);
+      top.appendChild(typePill);
+
+      const meta = document.createElement("div");
+      meta.className = "photoLibraryMeta";
+      meta.textContent = [
+        row.store?.full_address || "No address",
+        row.store?.territory ? `Territory ${row.store.territory}` : "",
+        formatPhotoDate(row.created_at)
+      ].filter(Boolean).join(" • ");
+
+      body.appendChild(top);
+      body.appendChild(meta);
+
+      card.appendChild(imageWrap);
+      card.appendChild(body);
+
+      card.addEventListener("click", () => {
+        currentPhotoLibrarySelection = {
+          key,
+          row
+        };
+        renderPhotoLibrary();
+        populatePhotoLibraryDetail(row);
+      });
+
+      grid.appendChild(card);
+    });
+  });
+
+  if (!currentPhotoLibrarySelection && rows.length > 0) {
+    currentPhotoLibrarySelection = {
+      key: getPhotoSelectionKey(rows[0]),
+      row: rows[0]
+    };
+    populatePhotoLibraryDetail(rows[0]);
+    renderPhotoLibrary();
+  }
+}
+
+function groupPhotoLibraryRows(rows) {
+  const mode = photoLibraryFilters.group;
+
+  if (mode === "store") {
+    return buildGroupedRows(rows, row => `Store ${row.store_id}`);
+  }
+
+  if (mode === "date") {
+    return buildGroupedRows(rows, row => {
+      const date = new Date(row.created_at || "");
+      if (Number.isNaN(date.getTime())) return "Unknown Date";
+      return date.toLocaleDateString();
+    });
+  }
+
+  if (mode === "territory") {
+    return buildGroupedRows(rows, row => row.store?.territory || "Unassigned Territory");
+  }
+
+  return [{ label: "", items: rows }];
+}
+
+function buildGroupedRows(rows, labelGetter) {
+  const mapGroups = new Map();
+
+  rows.forEach(row => {
+    const label = labelGetter(row);
+    if (!mapGroups.has(label)) mapGroups.set(label, []);
+    mapGroups.get(label).push(row);
+  });
+
+  return [...mapGroups.entries()].map(([label, items]) => ({ label, items }));
+}
+
+function getPhotoSelectionKey(row) {
+  return String(row.id || row.storage_path || row.url || `${row.store_id}-${row.created_at}`);
+}
+
+function populatePhotoLibraryDetail(row) {
+  const empty = document.getElementById("photoDetailEmptyState");
+  const content = document.getElementById("photoDetailContent");
+
+  if (!row) {
+    resetPhotoLibraryDetail();
+    return;
+  }
+
+  if (empty) empty.classList.add("hidden");
+  if (content) content.classList.remove("hidden");
+
+  const preview = document.getElementById("photoDetailPreview");
+  if (preview) preview.src = row.url;
+
+  setText("photoDetailStore", `Store ${row.store_id}`);
+  setText("photoDetailAddress", row.store?.full_address || "No address");
+  setText("photoDetailType", row.photo_type || "other");
+  setText("photoDetailTimestamp", formatPhotoDate(row.created_at));
+  setText("photoDetailTerritory", row.store?.territory || "—");
+  setText("photoDetailState", row.store?.state || "—");
+}
+
+function resetPhotoLibraryDetail() {
+  currentPhotoLibrarySelection = null;
+
+  const empty = document.getElementById("photoDetailEmptyState");
+  const content = document.getElementById("photoDetailContent");
+  const preview = document.getElementById("photoDetailPreview");
+
+  if (empty) empty.classList.remove("hidden");
+  if (content) content.classList.add("hidden");
+  if (preview) preview.src = "";
+}
+
+function jumpToStoreFromPhoto(storeId) {
+  const store = storeData.find(item => String(item.store_id) === String(storeId));
+  if (!store) return;
+
+  activeWorkspaceView = "map";
+  localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
+  updateWorkspaceViewUI();
+
+  currentSelectedStoreId = String(storeId);
+  updateSelectedStorePanel(storeId);
+
+  map.flyTo({
+    center: [store.lng, store.lat],
+    zoom: 14
+  });
+}
+
 /* ================= MODAL ================= */
 
 function handleClick(e) {
@@ -1254,6 +1679,7 @@ async function updateStore(key, completed, closed) {
   updateActivityList();
   updateIntelRail();
   updateSelectedStorePanel(key);
+  renderPhotoLibrary();
 }
 
 async function addNote(storeId) {
@@ -1501,11 +1927,14 @@ async function uploadPhoto(storeId) {
     return;
   }
 
-  if (input) input.value = "";
-  recentPhotoCount += 1;
   photoRowsCache.unshift({
+    id: cryptoRandomKey(),
+    project_id: currentProjectId,
     store_id: String(storeId),
-    created_at: new Date().toISOString()
+    image_url: imageUrl,
+    storage_path: path,
+    created_at: new Date().toISOString(),
+    photo_type: "other"
   });
 
   prependActivity({
@@ -1516,11 +1945,14 @@ async function uploadPhoto(storeId) {
     detail: `${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}`
   });
 
+  if (input) input.value = "";
+
   updateHeaderDashboard();
   updateScopeSummary();
   updateActivityList();
   updateIntelRail();
   updateSelectedStorePanel(storeId);
+  renderPhotoLibrary();
   setPhotoMessage(`Photo uploaded successfully (${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}).`);
   await loadPhotos(storeId);
 }
@@ -1614,6 +2046,10 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+function cryptoRandomKey() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 /* ================= SEARCH ================= */
 
 function bindSearch() {
@@ -1626,6 +2062,10 @@ function bindSearch() {
     if (match) {
       currentSelectedStoreId = String(match.store_id);
       updateSelectedStorePanel(match.store_id);
+
+      activeWorkspaceView = "map";
+      localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
+      updateWorkspaceViewUI();
 
       map.flyTo({
         center: [match.lng, match.lat],
@@ -1692,6 +2132,10 @@ function updateActivityList() {
       if (match) {
         currentSelectedStoreId = String(match.store_id);
         updateSelectedStorePanel(match.store_id);
+
+        activeWorkspaceView = "map";
+        localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
+        updateWorkspaceViewUI();
 
         map.flyTo({
           center: [match.lng, match.lat],
@@ -1935,6 +2379,11 @@ function renderRouteStops() {
     const flyBtn = createRouteMiniButton("View", () => {
       currentSelectedStoreId = String(storeId);
       updateSelectedStorePanel(storeId);
+
+      activeWorkspaceView = "map";
+      localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
+      updateWorkspaceViewUI();
+
       map.flyTo({ center: [store.lng, store.lat], zoom: 14 });
       if (window.innerWidth <= 900) {
         document.body.classList.remove("sidebar-open");
