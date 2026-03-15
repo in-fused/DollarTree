@@ -18,6 +18,21 @@
         <div class="headerEyebrow">Enterprise Operations Console</div>
         <div id="dashboardProjectName" class="headerProjectName">Loading project…</div>
         <div id="dashboardProjectSubline" class="headerProjectSubline">Operational visibility • Loading source…</div>
+
+        <div class="headerSummaryRow">
+          <div class="headerSummaryPill">
+            <span class="headerSummaryLabel">Scope</span>
+            <span id="headerScopeSummary">Project View</span>
+          </div>
+          <div class="headerSummaryPill">
+            <span class="headerSummaryLabel">Data</span>
+            <span id="projectSourceTagInline">Loading source…</span>
+          </div>
+          <div class="headerSummaryPill">
+            <span class="headerSummaryLabel">Status</span>
+            <span id="headerOperationalSummary">System ready</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -44,6 +59,17 @@
     <div class="viewSwitch" id="viewSwitch">
       <button id="mapViewBtn" class="viewSwitchBtn active" type="button">Map View</button>
       <button id="photoLibraryViewBtn" class="viewSwitchBtn" type="button">Photo Library</button>
+    </div>
+
+    <div class="headerViewMeta">
+      <div class="headerViewMetaItem">
+        <span class="headerViewMetaLabel">Mode</span>
+        <span id="headerViewModeText">Map Operations</span>
+      </div>
+      <div class="headerViewMetaItem">
+        <span class="headerViewMetaLabel">Updated</span>
+        <span id="headerLastUpdatedText">Live</span>
+      </div>
     </div>
   </div>
 
@@ -95,7 +121,10 @@
     <div class="sidebarInner">
 
       <div class="panel panelAccess">
-        <h3>Access</h3>
+        <div class="panelHeaderRow">
+          <h3>Access</h3>
+          <div class="panelHeaderTag">Secure</div>
+        </div>
 
         <div id="authLoggedOut">
           <input id="authEmail" type="email" placeholder="Email" />
@@ -113,7 +142,11 @@
       </div>
 
       <div class="panel panelProject">
-        <h3>Project</h3>
+        <div class="panelHeaderRow">
+          <h3>Project</h3>
+          <div class="panelHeaderTag">Active</div>
+        </div>
+
         <select id="projectSelect"></select>
         <div id="projectSourceTag" class="projectSourceTag">Loading project…</div>
         <a id="importProjectLink" class="importLink" href="import-project.html">Import Project Data</a>
@@ -143,7 +176,11 @@
       </div>
 
       <div class="panel panelSearch">
-        <h3>Search Store</h3>
+        <div class="panelHeaderRow">
+          <h3>Search Store</h3>
+          <div class="panelHeaderTag">Jump</div>
+        </div>
+
         <input id="storeSearch" placeholder="Enter Store ID #" />
       </div>
 
@@ -190,7 +227,13 @@
           <button id="addRouteStoreBtn" class="btnSecondary" type="button">Add by Store ID</button>
         </div>
 
-        <div id="selectedStopsEmpty" class="routeEmpty">No selected stops.</div>
+        <div id="selectedStopsEmpty" class="routeEmpty">
+          <div class="emptyStateMini">
+            <div class="emptyStateMiniTitle">No route stops selected</div>
+            <div class="emptyStateMiniText">Enable Route Mode, then add store IDs or add stops from a store card.</div>
+          </div>
+        </div>
+
         <div id="selectedStopsList" class="selectedStopsList"></div>
 
         <div class="routeActions">
@@ -234,7 +277,10 @@
 
       <div class="workspaceProgressBar">
         <div class="workspaceProgressMeta">
-          <span>Project Progress</span>
+          <div class="workspaceProgressMetaLeft">
+            <span class="workspaceProgressLabel">Project Progress</span>
+            <span id="workspaceProgressContext" class="workspaceProgressContext">Execution pace and completion trend</span>
+          </div>
           <span id="dashboardProgressLabel">0.0% complete</span>
         </div>
         <div class="workspaceProgressTrack">
@@ -258,6 +304,11 @@
             <div class="mapLegendRow"><span class="legendDot legendGreen"></span><span>Mostly complete</span></div>
           </div>
 
+          <div class="mapExecutiveCallout" id="mapExecutiveCallout">
+            <div class="mapExecutiveCalloutEyebrow">Operational Summary</div>
+            <div id="mapExecutiveSummaryLine" class="mapExecutiveSummaryLine">Loading store execution summary…</div>
+          </div>
+
           <div id="map"></div>
         </div>
       </section>
@@ -268,11 +319,29 @@
             <div>
               <div class="headerEyebrow">Visual Execution Evidence</div>
               <div class="photoLibraryTitle">Photo Library</div>
-              <div class="photoLibrarySubline">Filter, review, and compare field photos across the project scope.</div>
+              <div class="photoLibrarySubline">Filter, review, compare, and present field execution evidence across the current project scope.</div>
+            </div>
+
+            <div class="photoLibraryHeaderBadgeGroup">
+              <div class="photoLibraryHeaderBadge">
+                <span class="photoLibraryHeaderBadgeLabel">Evidence Scope</span>
+                <span id="photoLibraryScopeBadge">All Stores</span>
+              </div>
+              <div class="photoLibraryHeaderBadge">
+                <span class="photoLibraryHeaderBadgeLabel">Selected View</span>
+                <span id="photoLibraryModeBadge">Review</span>
+              </div>
             </div>
           </div>
 
           <div class="photoLibraryToolbar panel">
+            <div class="photoLibraryToolbarTop">
+              <div class="panelHeaderRow">
+                <h3>Evidence Filters</h3>
+                <div id="photoLibraryResultCount" class="projectSourceTag">0 photos in current scope</div>
+              </div>
+            </div>
+
             <div class="photoLibraryToolbarGrid">
               <select id="photoTypeFilter">
                 <option value="">All Photo Types</option>
@@ -297,30 +366,53 @@
 
               <input id="photoSearchInput" type="text" placeholder="Search store ID or address" />
             </div>
-
-            <div class="photoLibraryToolbarMeta">
-              <div id="photoLibraryResultCount" class="projectSourceTag">0 photos in current scope</div>
-            </div>
           </div>
 
           <div class="photoLibraryContent">
             <div class="photoLibraryGridWrap">
               <div id="photoLibraryGrid" class="photoLibraryGrid"></div>
+
+              <div id="photoLibraryEmptyShell" class="photoLibraryEmptyShell hidden">
+                <div class="emptyStateHero">
+                  <div class="emptyStateHeroEyebrow">No Photo Evidence Yet</div>
+                  <div class="emptyStateHeroTitle">Your photo library will become the visual proof layer for field execution.</div>
+                  <div class="emptyStateHeroText">Upload before and after images from any store card to build executive-ready evidence for resets, closures, and completion quality.</div>
+                </div>
+              </div>
             </div>
 
             <aside class="photoLibraryDetailRail">
               <div class="panel photoLibraryDetailPanel">
                 <div class="panelHeaderRow">
                   <h3>Photo Detail</h3>
+                  <div class="panelHeaderTag">Review</div>
                 </div>
 
                 <div id="photoDetailEmptyState" class="photoDetailEmptyState">
-                  Select a photo to inspect its store, timestamp, and metadata.
+                  <div class="emptyStateMini">
+                    <div class="emptyStateMiniTitle">No photo selected</div>
+                    <div class="emptyStateMiniText">Choose a photo from the library to inspect store metadata, evidence type, and capture timing.</div>
+                  </div>
                 </div>
 
                 <div id="photoDetailContent" class="hidden">
-                  <div class="photoDetailPreviewWrap">
-                    <img id="photoDetailPreview" class="photoDetailPreview" alt="Selected field photo" />
+                  <div class="photoDetailHero">
+                    <div class="photoDetailHeroTop">
+                      <div>
+                        <div class="photoDetailHeroEyebrow">Selected Evidence</div>
+                        <div id="photoDetailHeroTitle" class="photoDetailHeroTitle">Store Evidence</div>
+                      </div>
+                      <div id="photoDetailHeroTypePill" class="photoLibraryTypePill">other</div>
+                    </div>
+
+                    <div class="photoDetailPreviewWrap">
+                      <img id="photoDetailPreview" class="photoDetailPreview" alt="Selected field photo" />
+                    </div>
+                  </div>
+
+                  <div class="photoComparePlaceholder">
+                    <div class="photoComparePlaceholderTitle">Before / After Comparison</div>
+                    <div class="photoComparePlaceholderText">Comparison mode becomes active once multiple evidence types exist for the same store.</div>
                   </div>
 
                   <div class="photoDetailMetaList">
@@ -430,6 +522,7 @@
         <div class="panel intelPanel">
           <div class="panelHeaderRow">
             <h3>Selected Store</h3>
+            <div class="panelHeaderTag">Live</div>
           </div>
 
           <div class="intelSelectedStore">
