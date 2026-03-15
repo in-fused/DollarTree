@@ -12,6 +12,12 @@ const DEFAULT_PROJECT_ID = "central-fl-dollar-tree";
 const PROJECTS_FILE = "data/projects.json";
 const ACTIVE_PROJECT_KEY = "activeProjectId";
 const EXECUTIVE_MODE_KEY = "executiveModeEnabled";
+const NATIONAL_OVERVIEW_KEY = "nationalOverviewEnabled";
+
+const DEFAULT_LOCAL_CENTER = [-81.7, 27.8];
+const DEFAULT_LOCAL_ZOOM = 6.5;
+const NATIONAL_CENTER = [-96, 38];
+const NATIONAL_ZOOM = 3.2;
 
 const PHOTO_BUCKET_CANDIDATES = ["store-photos", "store_photos", "photos"];
 let resolvedPhotoBucket = null;
@@ -19,13 +25,13 @@ let resolvedPhotoBucket = null;
 const map = new mapboxgl.Map({
   container: "map",
   style: "mapbox://styles/mapbox/dark-v11",
-  center: [-81.7, 27.8],
-  zoom: 6.5
+  center: DEFAULT_LOCAL_CENTER,
+  zoom: DEFAULT_LOCAL_ZOOM
 });
 
 let storeData = [];
 let statusMap = {};
-let geojsonData;
+let geojsonData = { type: "FeatureCollection", features: [] };
 let currentModalStoreId = null;
 let routeModeEnabled = false;
 let selectedRouteStops = [];
@@ -40,7 +46,15 @@ let currentRole = "viewer";
 let activityFeed = [];
 let recentPhotoCount = 0;
 let statusRowsCache = [];
+let photoRowsCache = [];
 let executiveModeEnabled = false;
+let nationalOverviewEnabled = false;
+
+let activeFilters = {
+  region: "",
+  territory: "",
+  state: ""
+};
 
 function routeModeKey() {
   return `routeModeEnabled:${currentProjectId}`;
@@ -48,6 +62,10 @@ function routeModeKey() {
 
 function routeStopsKey() {
   return `selectedRouteStops:${currentProjectId}`;
+}
+
+function filtersKey() {
+  return `activeFilters:${currentProjectId}`;
 }
 
 function isSignedIn() {
@@ -61,15 +79,19 @@ function isAdmin() {
 map.on("load", async () => {
   currentProjectId = localStorage.getItem(ACTIVE_PROJECT_KEY) || DEFAULT_PROJECT_ID;
   executiveModeEnabled = localStorage.getItem(EXECUTIVE_MODE_KEY) === "true";
+  nationalOverviewEnabled = localStorage.getItem(NATIONAL_OVERVIEW_KEY) === "true";
 
   await initializeAuth();
   bindAuthUI();
   bindExecutiveModeUI();
+  bindNationalOverviewUI();
   bindMobileSidebarUI();
+  bindFilters();
 
   await loadProjects();
   bindProjectSelector();
   await loadActiveProject();
+
   bindSearch();
   bindRouteBuilder();
   bindPhotoUI();
@@ -78,6 +100,7 @@ map.on("load", async () => {
   updateAuthUI();
   updateRouteModeUI();
   updateExecutiveModeUI();
+  updateNationalOverviewUI();
 });
 
 /* ================= AUTH ================= */
@@ -174,10 +197,12 @@ async function signIn() {
 
 async function signOut() {
   const { error } = await supabaseClient.auth.signOut();
+
   if (error) {
     setAuthMessage(error.message || "Sign-out failed.", "error");
     return;
   }
+
   setAuthMessage("Signed out.", "success");
 }
 
@@ -250,7 +275,7 @@ function updateWriteAccessUI() {
   }
 }
 
-/* ================= EXECUTIVE MODE / MOBILE SIDEBAR ================= */
+/* ================= EXECUTIVE / NATIONAL / MOBILE ================= */
 
 function bindExecutiveModeUI() {
   const toggle = document.getElementById("executiveModeToggle");
@@ -294,6 +319,29 @@ function updateExecutiveModeUI() {
   }
 
   setTimeout(() => map.resize(), 180);
+}
+
+function bindNationalOverviewUI() {
+  const toggle = document.getElementById("nationalOverviewToggle");
+  if (!toggle || toggle.dataset.bound) return;
+
+  toggle.addEventListener("change", () => {
+    nationalOverviewEnabled = toggle.checked;
+    localStorage.setItem(NATIONAL_OVERVIEW_KEY, String(nationalOverviewEnabled));
+    updateNationalOverviewUI();
+    updateMapViewportForMode();
+  });
+
+  toggle.dataset.bound = "true";
+}
+
+function updateNationalOverviewUI() {
+  const toggle = document.getElementById("nationalOverviewToggle");
+  if (toggle) {
+    toggle.checked = nationalOverviewEnabled;
+  }
+
+  setMapModeTags();
 }
 
 function bindMobileSidebarUI() {
@@ -411,9 +459,12 @@ async function loadActiveProject() {
     store_file: `data/${currentProjectId}/stores_with_coords.json`
   };
 
+  restoreFilterState();
   await hydrate();
   await hydrateActivityFeed();
   restoreRouteState();
+
+  populateFilterOptions();
 
   if (map.getSource("stores")) {
     rebuildFullMap();
@@ -422,10 +473,14 @@ async function loadActiveProject() {
   }
 
   updateHeaderDashboard();
+  updateScopeSummary();
   updateActivityList();
   renderRouteStops();
   updateRouteModeUI();
   updateProjectSourceTag();
+  updateFilterSummary();
+  setMapModeTags();
+  updateMapViewportForMode();
 
   if (currentModalStoreId) {
     currentModalStoreId = null;
@@ -437,6 +492,175 @@ function updateProjectSourceTag() {
   const tag = document.getElementById("projectSourceTag");
   if (!tag) return;
   tag.innerText = `${currentProjectMeta?.name || currentProjectId} · ${currentProjectMeta?.sourceLabel || "Project ready"}`;
+}
+
+/* ================= FILTERS ================= */
+
+function bindFilters() {
+  const regionFilter = document.getElementById("regionFilter");
+  const territoryFilter = document.getElementById("territoryFilter");
+  const stateFilter = document.getElementById("stateFilter");
+  const clearBtn = document.getElementById("clearFiltersBtn");
+
+  if (regionFilter && !regionFilter.dataset.bound) {
+    regionFilter.addEventListener("change", () => {
+      activeFilters.region = regionFilter.value;
+      persistFilterState();
+      handleFilterChange();
+    });
+    regionFilter.dataset.bound = "true";
+  }
+
+  if (territoryFilter && !territoryFilter.dataset.bound) {
+    territoryFilter.addEventListener("change", () => {
+      activeFilters.territory = territoryFilter.value;
+      persistFilterState();
+      handleFilterChange();
+    });
+    territoryFilter.dataset.bound = "true";
+  }
+
+  if (stateFilter && !stateFilter.dataset.bound) {
+    stateFilter.addEventListener("change", () => {
+      activeFilters.state = stateFilter.value;
+      persistFilterState();
+      handleFilterChange();
+    });
+    stateFilter.dataset.bound = "true";
+  }
+
+  if (clearBtn && !clearBtn.dataset.bound) {
+    clearBtn.addEventListener("click", () => {
+      activeFilters = { region: "", territory: "", state: "" };
+      persistFilterState();
+      handleFilterChange();
+    });
+    clearBtn.dataset.bound = "true";
+  }
+}
+
+function handleFilterChange() {
+  populateFilterOptions();
+  rebuildFullMap();
+  updateHeaderDashboard();
+  updateScopeSummary();
+  updateActivityList();
+  updateFilterSummary();
+  setMapModeTags();
+  updateMapViewportForMode();
+}
+
+function restoreFilterState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(filtersKey()) || "{}");
+    activeFilters = {
+      region: saved.region || "",
+      territory: saved.territory || "",
+      state: saved.state || ""
+    };
+  } catch (_error) {
+    activeFilters = { region: "", territory: "", state: "" };
+  }
+}
+
+function persistFilterState() {
+  localStorage.setItem(filtersKey(), JSON.stringify(activeFilters));
+}
+
+function getFilteredStores() {
+  return storeData.filter(store => {
+    if (activeFilters.region && String(store.region || "") !== activeFilters.region) return false;
+    if (activeFilters.territory && String(store.territory || "") !== activeFilters.territory) return false;
+    if (activeFilters.state && String(store.state || "") !== activeFilters.state) return false;
+    return true;
+  });
+}
+
+function getStoresForOptionPopulation(dimension) {
+  return storeData.filter(store => {
+    if (dimension !== "region" && activeFilters.region && String(store.region || "") !== activeFilters.region) return false;
+    if (dimension !== "territory" && activeFilters.territory && String(store.territory || "") !== activeFilters.territory) return false;
+    if (dimension !== "state" && activeFilters.state && String(store.state || "") !== activeFilters.state) return false;
+    return true;
+  });
+}
+
+function populateFilterOptions() {
+  fillFilterSelect(
+    "regionFilter",
+    "All Regions",
+    uniqueSortedValues(getStoresForOptionPopulation("region").map(store => store.region)),
+    activeFilters.region
+  );
+
+  fillFilterSelect(
+    "territoryFilter",
+    "All Territories",
+    uniqueSortedValues(getStoresForOptionPopulation("territory").map(store => store.territory)),
+    activeFilters.territory
+  );
+
+  fillFilterSelect(
+    "stateFilter",
+    "All States",
+    uniqueSortedValues(getStoresForOptionPopulation("state").map(store => store.state)),
+    activeFilters.state
+  );
+}
+
+function fillFilterSelect(id, defaultLabel, values, selectedValue) {
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  el.innerHTML = "";
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = defaultLabel;
+  el.appendChild(defaultOption);
+
+  values.forEach(value => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    el.appendChild(option);
+  });
+
+  if (selectedValue && values.includes(selectedValue)) {
+    el.value = selectedValue;
+  } else {
+    el.value = "";
+    if (id === "regionFilter") activeFilters.region = "";
+    if (id === "territoryFilter") activeFilters.territory = "";
+    if (id === "stateFilter") activeFilters.state = "";
+  }
+}
+
+function uniqueSortedValues(values) {
+  return [...new Set(
+    values
+      .map(value => String(value || "").trim())
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b));
+}
+
+function updateFilterSummary() {
+  const el = document.getElementById("activeFilterSummary");
+  if (!el) return;
+
+  const parts = [];
+  if (activeFilters.region) parts.push(`Region: ${activeFilters.region}`);
+  if (activeFilters.territory) parts.push(`Territory: ${activeFilters.territory}`);
+  if (activeFilters.state) parts.push(`State: ${activeFilters.state}`);
+
+  const filteredCount = getFilteredStores().length;
+
+  if (parts.length === 0) {
+    el.textContent = `Showing all stores • ${filteredCount.toLocaleString()} in scope`;
+    return;
+  }
+
+  el.textContent = `${parts.join(" • ")} • ${filteredCount.toLocaleString()} in scope`;
 }
 
 /* ================= HYDRATE ================= */
@@ -477,6 +701,7 @@ async function hydrate() {
 async function hydrateActivityFeed() {
   const events = [];
   recentPhotoCount = 0;
+  photoRowsCache = [];
 
   statusRowsCache.forEach(row => {
     const eventTime = row.updated_at || row.created_at || null;
@@ -504,7 +729,7 @@ async function hydrateActivityFeed() {
     .select("store_id, note, created_at")
     .eq("project_id", currentProjectId)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(50);
 
   (noteRows || []).forEach(row => {
     events.push({
@@ -522,9 +747,10 @@ async function hydrateActivityFeed() {
     .eq("project_id", currentProjectId)
     .order("created_at", { ascending: false });
 
-  recentPhotoCount = (photoRows || []).length;
+  photoRowsCache = Array.isArray(photoRows) ? photoRows : [];
+  recentPhotoCount = photoRowsCache.length;
 
-  (photoRows || []).forEach(row => {
+  photoRowsCache.forEach(row => {
     events.push({
       type: "photo",
       store_id: String(row.store_id),
@@ -542,7 +768,7 @@ async function hydrateActivityFeed() {
 async function loadStoresForProject(projectId) {
   const { data, error } = await supabaseClient
     .from("stores")
-    .select("store_id, lat, lng, full_address")
+    .select("store_id, lat, lng, full_address, region, territory, state, city, district, division, market")
     .eq("project_id", projectId);
 
   if (!error && Array.isArray(data) && data.length > 0) {
@@ -579,14 +805,21 @@ function normalizeStoreRecord(store) {
     store_id: String(store.store_id),
     lat: Number(store.lat),
     lng: Number(store.lng),
-    full_address: String(store.full_address || "").trim()
+    full_address: String(store.full_address || "").trim(),
+    region: String(store.region || "").trim(),
+    territory: String(store.territory || "").trim(),
+    state: String(store.state || "").trim(),
+    city: String(store.city || "").trim(),
+    district: String(store.district || "").trim(),
+    division: String(store.division || "").trim(),
+    market: String(store.market || "").trim()
   };
 }
 
 /* ================= MAP ================= */
 
 function buildMap() {
-  geojsonData = createGeoJson();
+  geojsonData = createGeoJson(getFilteredStores());
 
   map.addSource("stores", {
     type: "geojson",
@@ -657,10 +890,10 @@ function buildMap() {
   map.on("click", "clusters", handleClusterClick);
 }
 
-function createGeoJson() {
+function createGeoJson(stores) {
   return {
     type: "FeatureCollection",
-    features: storeData.map(store => ({
+    features: stores.map(store => ({
       type: "Feature",
       properties: {
         store_id: String(store.store_id),
@@ -690,41 +923,153 @@ function handleClusterClick(e) {
 }
 
 function rebuildFullMap() {
-  geojsonData = createGeoJson();
+  if (!map.getSource("stores")) return;
+  geojsonData = createGeoJson(getFilteredStores());
   map.getSource("stores").setData(geojsonData);
 }
 
-/* ================= HEADER DASHBOARD ================= */
+function rebuild() {
+  rebuildFullMap();
+}
+
+function updateMapViewportForMode() {
+  const filteredStores = getFilteredStores();
+
+  if (filteredStores.length === 0) {
+    map.easeTo({
+      center: nationalOverviewEnabled ? NATIONAL_CENTER : DEFAULT_LOCAL_CENTER,
+      zoom: nationalOverviewEnabled ? NATIONAL_ZOOM : DEFAULT_LOCAL_ZOOM,
+      duration: 700
+    });
+    return;
+  }
+
+  if (nationalOverviewEnabled) {
+    fitMapToStores(filteredStores, 48, 5.5);
+    return;
+  }
+
+  if (filteredStores.length === 1) {
+    map.easeTo({
+      center: [filteredStores[0].lng, filteredStores[0].lat],
+      zoom: 12.5,
+      duration: 700
+    });
+    return;
+  }
+
+  fitMapToStores(filteredStores, 58, 8.75);
+}
+
+function fitMapToStores(stores, padding = 40, maxZoom = 8.5) {
+  if (!stores || stores.length === 0) return;
+
+  const bounds = new mapboxgl.LngLatBounds();
+
+  stores.forEach(store => {
+    if (Number.isFinite(store.lng) && Number.isFinite(store.lat)) {
+      bounds.extend([store.lng, store.lat]);
+    }
+  });
+
+  if (bounds.isEmpty()) return;
+
+  map.fitBounds(bounds, {
+    padding,
+    maxZoom,
+    duration: 700
+  });
+}
+
+function setMapModeTags() {
+  const modeTag = document.getElementById("mapModeTag");
+  const scopeTag = document.getElementById("mapScopeTag");
+  const filteredCount = getFilteredStores().length;
+
+  if (modeTag) {
+    modeTag.textContent = nationalOverviewEnabled ? "National Overview" : "Project View";
+  }
+
+  if (scopeTag) {
+    const parts = [];
+    if (activeFilters.region) parts.push(activeFilters.region);
+    if (activeFilters.territory) parts.push(activeFilters.territory);
+    if (activeFilters.state) parts.push(activeFilters.state);
+
+    scopeTag.textContent = parts.length
+      ? `${parts.join(" • ")} • ${filteredCount.toLocaleString()} stores`
+      : `${filteredCount.toLocaleString()} stores in scope`;
+  }
+}
+
+/* ================= DASHBOARD ================= */
 
 function updateHeaderDashboard() {
-  const values = Object.values(statusMap);
-  const totalStores = storeData.length;
-  const completed = values.filter(v => v.completed).length;
-  const closed = values.filter(v => v.closed).length;
-  const active = totalStores - completed - closed;
+  const filteredStores = getFilteredStores();
+  const filteredIds = new Set(filteredStores.map(store => String(store.store_id)));
 
+  const totalStores = filteredStores.length;
+  let completed = 0;
+  let closed = 0;
+
+  filteredStores.forEach(store => {
+    const status = statusMap[String(store.store_id)] || {};
+    if (status.completed) completed += 1;
+    if (status.closed) closed += 1;
+  });
+
+  const active = totalStores - completed - closed;
   const actionableTotal = totalStores - closed;
   const percent = actionableTotal > 0 ? (completed / actionableTotal) * 100 : 0;
 
-  const completedEvents = activityFeed.filter(item => item.type === "status-completed");
+  const completedEvents = activityFeed.filter(item =>
+    item.type === "status-completed" && filteredIds.has(String(item.store_id))
+  );
+
   const completedToday = completedEvents.filter(item => isToday(item.timestamp)).length;
   const avgPerDay = calculateAverageCompletedPerDay(completedEvents);
   const etaDays = avgPerDay > 0 ? active / avgPerDay : null;
+  const filteredPhotoCount = photoRowsCache.filter(row => filteredIds.has(String(row.store_id))).length;
 
   setText("dashboardProjectName", currentProjectMeta?.name || currentProjectId);
-  setText("dashboardProjectSubline", `Operational visibility • ${currentProjectMeta?.sourceLabel || "Project ready"}`);
+  setText(
+    "dashboardProjectSubline",
+    `Operational visibility • ${currentProjectMeta?.sourceLabel || "Project ready"} • ${nationalOverviewEnabled ? "National Overview" : "Project View"}`
+  );
   setText("dashboardTotalStores", totalStores.toLocaleString());
   setText("dashboardCompletedStores", completed.toLocaleString());
   setText("dashboardActiveStores", active.toLocaleString());
   setText("dashboardClosedStores", closed.toLocaleString());
   setText("dashboardStoresToday", completedToday.toLocaleString());
   setText("dashboardAvgPerDay", avgPerDay > 0 ? avgPerDay.toFixed(1) : "—");
-  setText("dashboardPhotoCount", recentPhotoCount.toLocaleString());
+  setText("dashboardPhotoCount", filteredPhotoCount.toLocaleString());
   setText("dashboardEta", etaDays !== null ? formatEta(etaDays) : "—");
   setText("dashboardProgressLabel", `${percent.toFixed(1)}% complete`);
 
   const fill = document.getElementById("dashboardProgressFill");
   if (fill) fill.style.width = `${percent}%`;
+}
+
+function updateScopeSummary() {
+  const filteredStores = getFilteredStores();
+  const totalStores = filteredStores.length;
+
+  let completed = 0;
+  let closed = 0;
+
+  filteredStores.forEach(store => {
+    const status = statusMap[String(store.store_id)] || {};
+    if (status.completed) completed += 1;
+    if (status.closed) closed += 1;
+  });
+
+  const active = totalStores - completed - closed;
+
+  setText("scopeStoreCountPill", totalStores.toLocaleString());
+  setText("scopeVisibleStores", totalStores.toLocaleString());
+  setText("scopeVisibleCompleted", completed.toLocaleString());
+  setText("scopeVisibleActive", active.toLocaleString());
+  setText("scopeVisibleClosed", closed.toLocaleString());
 }
 
 function calculateAverageCompletedPerDay(events) {
@@ -820,10 +1165,9 @@ async function updateStore(key, completed, closed) {
 
   rebuild();
   updateHeaderDashboard();
+  updateScopeSummary();
   updateActivityList();
 }
-
-/* ================= NOTES ================= */
 
 async function addNote(storeId) {
   if (!isSignedIn()) {
@@ -1071,6 +1415,10 @@ async function uploadPhoto(storeId) {
 
   if (input) input.value = "";
   recentPhotoCount += 1;
+  photoRowsCache.unshift({
+    store_id: String(storeId),
+    created_at: new Date().toISOString()
+  });
 
   prependActivity({
     type: "photo",
@@ -1081,6 +1429,7 @@ async function uploadPhoto(storeId) {
   });
 
   updateHeaderDashboard();
+  updateScopeSummary();
   updateActivityList();
   setPhotoMessage(`Photo uploaded successfully (${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}).`);
   await loadPhotos(storeId);
@@ -1208,7 +1557,11 @@ function updateActivityList() {
 
   container.innerHTML = "";
 
-  const recentItems = activityFeed.slice(0, 12);
+  const filteredIds = new Set(getFilteredStores().map(store => String(store.store_id)));
+  const recentItems = activityFeed
+    .filter(item => filteredIds.has(String(item.store_id)))
+    .slice(0, 12);
+
   if (countPill) countPill.textContent = recentItems.length;
 
   if (recentItems.length === 0) {
@@ -1296,17 +1649,6 @@ function isToday(timestamp) {
 function setText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value;
-}
-
-/* ================= REBUILD ================= */
-
-function rebuild() {
-  geojsonData.features.forEach(f => {
-    const key = f.properties.store_id;
-    f.properties.completed = statusMap[key].completed;
-    f.properties.closed = statusMap[key].closed;
-  });
-  map.getSource("stores").setData(geojsonData);
 }
 
 /* ================= ROUTE BUILDER ================= */
