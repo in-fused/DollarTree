@@ -12,8 +12,9 @@
 <header class="topHeader">
   <div class="headerMainRow">
     <div class="headerInfoLeft">
+      <div class="headerEyebrow">Operations Command Dashboard</div>
       <div id="dashboardProjectName" class="headerProjectName">Loading project…</div>
-      <div id="dashboardProjectSubline" class="headerProjectSubline">Operational visibility</div>
+      <div id="dashboardProjectSubline" class="headerProjectSubline">Operational visibility • Loading source…</div>
     </div>
 
     <div class="headerLogoCenter">
@@ -50,7 +51,7 @@
       <div id="dashboardClosedStores" class="headerStatValue">0</div>
     </div>
 
-    <div class="headerStat">
+    <div class="headerStat desktopOnlyStat">
       <div class="headerStatLabel">Completed Today</div>
       <div id="dashboardStoresToday" class="headerStatValue">0</div>
     </div>
@@ -60,7 +61,7 @@
       <div id="dashboardAvgPerDay" class="headerStatValue">—</div>
     </div>
 
-    <div class="headerStat">
+    <div class="headerStat desktopOnlyStat">
       <div class="headerStatLabel">Photos</div>
       <div id="dashboardPhotoCount" class="headerStatValue">0</div>
     </div>
@@ -79,13 +80,6 @@
     <div class="headerProgressTrack">
       <div id="dashboardProgressFill" class="headerProgressFill"></div>
     </div>
-  </div>
-
-  <div class="headerLegendRow">
-    <div class="legendTitle">Cluster Heat</div>
-    <div class="legendItem"><span class="legendDot legendRed"></span> Low completion</div>
-    <div class="legendItem"><span class="legendDot legendOrange"></span> Mid progress</div>
-    <div class="legendItem"><span class="legendDot legendGreen"></span> Mostly complete</div>
   </div>
 </header>
 
@@ -178,6 +172,14 @@
 
   <div class="mapWrapper">
     <button id="floatingExecutiveExit" class="floatingExecutiveExit hidden" type="button">Exit Executive Mode</button>
+
+    <div class="mapLegendCard" id="mapLegendCard">
+      <div class="mapLegendTitle">Cluster Heat Key</div>
+      <div class="mapLegendRow"><span class="legendDot legendRed"></span><span>Low completion</span></div>
+      <div class="mapLegendRow"><span class="legendDot legendOrange"></span><span>Mid progress</span></div>
+      <div class="mapLegendRow"><span class="legendDot legendGreen"></span><span>Mostly complete</span></div>
+    </div>
+
     <div id="map"></div>
   </div>
 </main>
