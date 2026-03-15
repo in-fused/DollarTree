@@ -36,6 +36,10 @@ let currentSession = null;
 let currentUser = null;
 let currentRole = "viewer";
 
+let activityFeed = [];
+let recentPhotoCount = 0;
+let statusRowsCache = [];
+
 function routeModeKey() {
   return `routeModeEnabled:${currentProjectId}`;
 }
@@ -67,6 +71,8 @@ map.on("load", async () => {
   bindRouteBuilder();
   bindPhotoUI();
   bindLightboxUI();
+
+  updateAuthUI();
   updateRouteModeUI();
 });
 
@@ -248,13 +254,14 @@ async function loadProjects() {
   try {
     const { data, error } = await supabaseClient
       .from("projects")
-      .select("project_id, name")
+      .select("project_id, name, created_at")
       .order("created_at", { ascending: true });
 
     if (!error && Array.isArray(data) && data.length > 0) {
       loadedProjects = data.map(project => ({
         project_id: project.project_id,
         name: project.name,
+        created_at: project.created_at,
         store_file: `data/${project.project_id}/stores_with_coords.json`
       }));
     }
@@ -326,6 +333,7 @@ async function loadActiveProject() {
   };
 
   await hydrate();
+  await hydrateActivityFeed();
   restoreRouteState();
 
   if (map.getSource("stores")) {
@@ -335,6 +343,7 @@ async function loadActiveProject() {
   }
 
   updateProgress();
+  updateCommandDashboard();
   updateActivityList();
   renderRouteStops();
   updateRouteModeUI();
@@ -372,8 +381,11 @@ async function hydrate() {
 
   if (error) {
     console.error("Supabase error:", error);
+    statusRowsCache = [];
     return;
   }
+
+  statusRowsCache = Array.isArray(data) ? data : [];
 
   if (Array.isArray(data)) {
     data.forEach(row => {
@@ -386,6 +398,71 @@ async function hydrate() {
   }
 
   console.log("Hydrate complete. Project:", currentProjectId, "Total stores:", storeData.length);
+}
+
+async function hydrateActivityFeed() {
+  const events = [];
+  recentPhotoCount = 0;
+
+  statusRowsCache.forEach(row => {
+    const eventTime = row.updated_at || row.created_at || null;
+    if (row.completed === true) {
+      events.push({
+        type: "status-completed",
+        store_id: String(row.store_id),
+        timestamp: eventTime,
+        title: `✔ Store ${row.store_id} completed`,
+        detail: "Status updated"
+      });
+    } else if (row.closed === true) {
+      events.push({
+        type: "status-closed",
+        store_id: String(row.store_id),
+        timestamp: eventTime,
+        title: `⚠ Store ${row.store_id} closed`,
+        detail: "Status updated"
+      });
+    }
+  });
+
+  const { data: noteRows } = await supabaseClient
+    .from("store_notes")
+    .select("store_id, note, created_at")
+    .eq("project_id", currentProjectId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  (noteRows || []).forEach(row => {
+    events.push({
+      type: "note",
+      store_id: String(row.store_id),
+      timestamp: row.created_at || null,
+      title: `📝 Note added to Store ${row.store_id}`,
+      detail: row.note || "Note saved"
+    });
+  });
+
+  const { data: photoRows } = await supabaseClient
+    .from("store_photos")
+    .select("store_id, created_at")
+    .eq("project_id", currentProjectId)
+    .order("created_at", { ascending: false });
+
+  recentPhotoCount = (photoRows || []).length;
+
+  (photoRows || []).forEach(row => {
+    events.push({
+      type: "photo",
+      store_id: String(row.store_id),
+      timestamp: row.created_at || null,
+      title: `📷 Photo uploaded for Store ${row.store_id}`,
+      detail: "Field photo evidence captured"
+    });
+  });
+
+  activityFeed = events
+    .sort((a, b) => getTimestampValue(b.timestamp) - getTimestampValue(a.timestamp))
+    .slice(0, 100);
 }
 
 async function loadStoresForProject(projectId) {
@@ -548,6 +625,68 @@ function rebuildFullMap() {
   map.getSource("stores").setData(geojsonData);
 }
 
+/* ================= COMMAND DASHBOARD ================= */
+
+function updateCommandDashboard() {
+  const values = Object.values(statusMap);
+  const totalStores = storeData.length;
+  const completed = values.filter(v => v.completed).length;
+  const closed = values.filter(v => v.closed).length;
+  const active = totalStores - completed - closed;
+
+  const actionableTotal = totalStores - closed;
+  const percent = actionableTotal > 0 ? (completed / actionableTotal) * 100 : 0;
+
+  const completedStatusEvents = activityFeed.filter(item => item.type === "status-completed");
+  const completedToday = completedStatusEvents.filter(item => isToday(item.timestamp)).length;
+
+  const avgPerDay = calculateAverageCompletedPerDay(completedStatusEvents);
+  const etaDays = avgPerDay > 0 ? active / avgPerDay : null;
+
+  setText("dashboardProjectName", currentProjectMeta?.name || currentProjectId);
+  setText("dashboardTotalStores", totalStores.toLocaleString());
+  setText("dashboardCompletedStores", completed.toLocaleString());
+  setText("dashboardActiveStores", active.toLocaleString());
+  setText("dashboardClosedStores", closed.toLocaleString());
+  setText("dashboardCompletionPercent", `${percent.toFixed(0)}%`);
+  setText("dashboardStoresToday", completedToday.toLocaleString());
+  setText("dashboardAvgPerDay", avgPerDay > 0 ? avgPerDay.toFixed(1) : "—");
+  setText("dashboardPhotoCount", recentPhotoCount.toLocaleString());
+  setText("dashboardProgressLabel", `${percent.toFixed(1)}% complete`);
+  setText("dashboardEta", etaDays !== null ? `ETA ${formatEta(etaDays)}` : "ETA —");
+
+  const dashboardProgressFill = document.getElementById("dashboardProgressFill");
+  if (dashboardProgressFill) {
+    dashboardProgressFill.style.width = `${percent}%`;
+  }
+}
+
+function calculateAverageCompletedPerDay(events) {
+  const dated = events.filter(item => !!item.timestamp);
+  if (dated.length === 0) return 0;
+
+  const uniqueDays = new Set(
+    dated.map(item => {
+      const date = new Date(item.timestamp);
+      return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+    }).filter(Boolean)
+  );
+
+  const dayCount = uniqueDays.size;
+  if (dayCount === 0) return 0;
+
+  return dated.length / dayCount;
+}
+
+function formatEta(days) {
+  if (!Number.isFinite(days) || days <= 0) return "0 days";
+  if (days < 1) {
+    const hours = Math.max(1, Math.round(days * 24));
+    return `${hours}h`;
+  }
+  return `${days.toFixed(1)} days`;
+}
+
 /* ================= MODAL ================= */
 
 function handleClick(e) {
@@ -606,8 +745,20 @@ async function updateStore(key, completed, closed) {
 
   statusMap[key] = { completed, closed };
 
+  const eventType = completed ? "status-completed" : closed ? "status-closed" : "status-active";
+  if (eventType !== "status-active") {
+    prependActivity({
+      type: eventType,
+      store_id: String(key),
+      timestamp: new Date().toISOString(),
+      title: completed ? `✔ Store ${key} completed` : `⚠ Store ${key} closed`,
+      detail: "Status updated"
+    });
+  }
+
   rebuild();
   updateProgress();
+  updateCommandDashboard();
   updateActivityList();
 }
 
@@ -637,6 +788,16 @@ async function addNote(storeId) {
   }
 
   document.getElementById("noteBox").value = "";
+
+  prependActivity({
+    type: "note",
+    store_id: String(storeId),
+    timestamp: new Date().toISOString(),
+    title: `📝 Note added to Store ${storeId}`,
+    detail: note
+  });
+
+  updateActivityList();
   loadNotes(storeId);
 }
 
@@ -759,6 +920,43 @@ function clearPhotoUI() {
   clearPhotoMessage();
 }
 
+async function compressImageFile(file, maxDimension = 1600, quality = 0.82) {
+  if (!file || !file.type.startsWith("image/")) return file;
+
+  const imageBitmap = await createImageBitmap(file);
+  const { width, height } = imageBitmap;
+
+  let targetWidth = width;
+  let targetHeight = height;
+
+  if (width > height && width > maxDimension) {
+    targetWidth = maxDimension;
+    targetHeight = Math.round((height / width) * maxDimension);
+  } else if (height >= width && height > maxDimension) {
+    targetHeight = maxDimension;
+    targetWidth = Math.round((width / height) * maxDimension);
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
+
+  const blob = await new Promise(resolve => {
+    canvas.toBlob(resolve, "image/jpeg", quality);
+  });
+
+  if (!blob) return file;
+
+  const compressedName = sanitizeFileName(file.name).replace(/\.[^.]+$/, "") + ".jpg";
+  return new File([blob], compressedName, {
+    type: "image/jpeg",
+    lastModified: Date.now()
+  });
+}
+
 async function uploadPhoto(storeId) {
   if (!isSignedIn()) {
     alert("Sign in to upload photos.");
@@ -766,14 +964,23 @@ async function uploadPhoto(storeId) {
   }
 
   const input = document.getElementById("photoInput");
-  const file = input?.files?.[0];
+  const originalFile = input?.files?.[0];
 
-  if (!file) {
+  if (!originalFile) {
     setPhotoMessage("Choose a photo first.", true);
     return;
   }
 
-  setPhotoMessage("Uploading photo...");
+  setPhotoMessage("Compressing and uploading photo...");
+
+  let file = originalFile;
+
+  try {
+    file = await compressImageFile(originalFile);
+  } catch (error) {
+    console.warn("Photo compression failed. Falling back to original file.", error);
+    file = originalFile;
+  }
 
   const bucketName = await resolvePhotoBucketName();
   const path = buildPhotoPath(storeId, file);
@@ -815,7 +1022,19 @@ async function uploadPhoto(storeId) {
   }
 
   input.value = "";
-  setPhotoMessage("Photo uploaded successfully.");
+  recentPhotoCount += 1;
+
+  prependActivity({
+    type: "photo",
+    store_id: String(storeId),
+    timestamp: new Date().toISOString(),
+    title: `📷 Photo uploaded for Store ${storeId}`,
+    detail: `${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}`
+  });
+
+  updateCommandDashboard();
+  updateActivityList();
+  setPhotoMessage(`Photo uploaded successfully (${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}).`);
   await loadPhotos(storeId);
 }
 
@@ -907,6 +1126,13 @@ function closePhotoLightbox() {
   image.src = "";
 }
 
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes)) return "0 KB";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 /* ================= SEARCH ================= */
 
 function bindSearch() {
@@ -963,45 +1189,54 @@ function updateProgress() {
 
 function updateActivityList() {
   const container = document.getElementById("activityList");
+  const countPill = document.getElementById("activityCountPill");
   if (!container) return;
 
   container.innerHTML = "";
 
-  const entries = Object.entries(statusMap)
-    .filter(([_, val]) => val.completed || val.closed);
+  const recentItems = activityFeed.slice(0, 12);
 
-  if (entries.length === 0) {
-    container.innerHTML = "<div style='opacity:.6;'>No updates yet.</div>";
+  if (countPill) {
+    countPill.textContent = recentItems.length;
+  }
+
+  if (recentItems.length === 0) {
+    container.innerHTML = `<div class="activity-empty">No recent activity yet.</div>`;
     return;
   }
 
-  entries.forEach(([storeId, state]) => {
+  recentItems.forEach(item => {
     const div = document.createElement("div");
     div.className = "activityItem";
 
-    if (state.completed) {
-      div.style.background = "rgba(46, 204, 113, 0.18)";
-      div.style.borderLeft = "4px solid #2ecc71";
-    } else if (state.closed) {
-      div.style.background = "rgba(255, 153, 0, 0.18)";
-      div.style.borderLeft = "4px solid #ff9900";
+    if (item.type === "status-completed") {
+      div.style.borderLeftColor = "#2ecc71";
+    } else if (item.type === "status-closed") {
+      div.style.borderLeftColor = "#ff9900";
+    } else if (item.type === "photo") {
+      div.style.borderLeftColor = "#64b5f6";
+    } else if (item.type === "note") {
+      div.style.borderLeftColor = "#d4a5ff";
     }
 
-    div.style.padding = "8px 10px";
-    div.style.marginBottom = "6px";
-    div.style.borderRadius = "6px";
-    div.style.cursor = "pointer";
-    div.style.fontSize = "13px";
-    div.style.transition = "background 0.2s ease";
+    const time = document.createElement("div");
+    time.className = "activityTime";
+    time.textContent = formatActivityTime(item.timestamp);
 
-    const label = document.createElement("div");
-    label.innerText = `Store ${storeId}`;
-    label.style.fontWeight = "600";
+    const title = document.createElement("div");
+    title.className = "activityTitle";
+    title.textContent = item.title;
 
-    div.appendChild(label);
+    const detail = document.createElement("div");
+    detail.className = "activityDetail";
+    detail.textContent = item.detail || "";
+
+    div.appendChild(time);
+    div.appendChild(title);
+    div.appendChild(detail);
 
     div.onclick = () => {
-      const match = storeData.find(s => String(s.store_id) === storeId);
+      const match = storeData.find(s => String(s.store_id) === String(item.store_id));
       if (match) {
         map.flyTo({
           center: [match.lng, match.lat],
@@ -1012,6 +1247,45 @@ function updateActivityList() {
 
     container.appendChild(div);
   });
+}
+
+function prependActivity(event) {
+  activityFeed.unshift(event);
+  activityFeed = activityFeed
+    .sort((a, b) => getTimestampValue(b.timestamp) - getTimestampValue(a.timestamp))
+    .slice(0, 100);
+}
+
+function formatActivityTime(timestamp) {
+  if (!timestamp) return "Recent";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "Recent";
+  return date.toLocaleString();
+}
+
+function getTimestampValue(timestamp) {
+  if (!timestamp) return 0;
+  const date = new Date(timestamp);
+  const value = date.getTime();
+  return Number.isNaN(value) ? 0 : value;
+}
+
+function isToday(timestamp) {
+  if (!timestamp) return false;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 
 /* ================= ROUTE BUILDER ================= */
@@ -1264,4 +1538,4 @@ function buildGoogleMapsRouteUrl() {
   }
 
   return url;
-}
+  }
