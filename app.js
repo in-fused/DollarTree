@@ -92,6 +92,16 @@ map.on("load", async () => {
   executiveModeEnabled = localStorage.getItem(EXECUTIVE_MODE_KEY) === "true";
   nationalOverviewEnabled = localStorage.getItem(NATIONAL_OVERVIEW_KEY) === "true";
 
+const logo = document.querySelector(".brandLogoWide");
+if (logo) {
+  logo.addEventListener("click", () => {
+    activeWorkspaceView = "map";
+    localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
+    updateWorkspaceViewUI();
+    updateMapViewportForMode();
+  });
+}
+
   await initializeAuth();
   bindAuthUI();
   bindExecutiveModeUI();
