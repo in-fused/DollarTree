@@ -9,60 +9,82 @@
 </head>
 <body>
 
-<header>
-
-  <div class="headerRow">
-
-    <img src="red-bull-rebels-logo.png" class="brandLogoWide">
-
-    <div>
-      <div id="dashboardProjectName" class="headerProject">
-        Central FL Dollar Tree
+<header class="topHeader">
+  <div class="headerTopRow">
+    <div class="headerBrandBlock">
+      <img src="red-bull-rebels-logo.png" class="brandLogoWide" alt="Red Bull Rebels logo" />
+      <div class="headerBrandMeta">
+        <div class="dashboardEyebrow">Red Bull Field Execution Platform</div>
+        <div id="dashboardProjectName" class="dashboardProjectName">Loading project…</div>
+        <div id="dashboardProjectSubline" class="dashboardProjectSubline">Operations command dashboard</div>
       </div>
-
-      <div class="headerStats">
-
-        <div>
-          TOTAL
-          <div id="dashboardTotalStores" class="headerStatValue">0</div>
-        </div>
-
-        <div>
-          COMPLETED
-          <div id="dashboardCompletedStores" class="headerStatValue">0</div>
-        </div>
-
-        <div>
-          CLOSED
-          <div id="dashboardClosedStores" class="headerStatValue">0</div>
-        </div>
-
-        <div>
-          AVG / DAY
-          <div id="dashboardAvgPerDay" class="headerStatValue">0</div>
-        </div>
-
-        <div>
-          ETA
-          <div id="dashboardEta" class="headerStatValue">—</div>
-        </div>
-
-      </div>
-
-      <div class="headerProgressBar">
-        <div id="dashboardProgressFill" class="headerProgressFill"></div>
-      </div>
-
     </div>
 
+    <div class="headerActionGroup">
+      <label class="executiveToggle">
+        <input type="checkbox" id="executiveModeToggle" />
+        <span>Executive Mode</span>
+      </label>
+      <button id="sidebarToggleBtn" class="headerGhostBtn" type="button">Hide Sidebar</button>
+      <div id="dashboardEta" class="dashboardEtaBadge">ETA —</div>
+    </div>
   </div>
 
+  <div class="dashboardStatsGrid">
+    <div class="dashboardCard">
+      <div class="dashboardLabel">Total Stores</div>
+      <div id="dashboardTotalStores" class="dashboardValue">0</div>
+    </div>
+    <div class="dashboardCard">
+      <div class="dashboardLabel">Completed</div>
+      <div id="dashboardCompletedStores" class="dashboardValue">0</div>
+    </div>
+    <div class="dashboardCard">
+      <div class="dashboardLabel">Active</div>
+      <div id="dashboardActiveStores" class="dashboardValue">0</div>
+    </div>
+    <div class="dashboardCard">
+      <div class="dashboardLabel">Closed</div>
+      <div id="dashboardClosedStores" class="dashboardValue">0</div>
+    </div>
+    <div class="dashboardCard">
+      <div class="dashboardLabel">Stores Today</div>
+      <div id="dashboardStoresToday" class="dashboardValue">0</div>
+    </div>
+    <div class="dashboardCard">
+      <div class="dashboardLabel">Average / Day</div>
+      <div id="dashboardAvgPerDay" class="dashboardValue">—</div>
+    </div>
+    <div class="dashboardCard">
+      <div class="dashboardLabel">Photos Uploaded</div>
+      <div id="dashboardPhotoCount" class="dashboardValue">0</div>
+    </div>
+    <div class="dashboardCard">
+      <div class="dashboardLabel">Completion</div>
+      <div id="dashboardCompletionPercent" class="dashboardValue">0%</div>
+    </div>
+  </div>
+
+  <div class="dashboardProgressBlock">
+    <div class="dashboardProgressHeader">
+      <span>Project Progress</span>
+      <span id="dashboardProgressLabel">0.0% complete</span>
+    </div>
+    <div class="dashboardProgressTrack">
+      <div id="dashboardProgressFill" class="dashboardProgressFill"></div>
+    </div>
+  </div>
+
+  <div class="clusterLegend">
+    <span class="legendTitle">Cluster Heat Map</span>
+    <span class="legendItem"><span class="legendDot legendRed"></span> Low completion</span>
+    <span class="legendItem"><span class="legendDot legendOrange"></span> Mid progress</span>
+    <span class="legendItem"><span class="legendDot legendGreen"></span> Mostly complete</span>
+  </div>
 </header>
 
 <main class="app">
-
-  <aside class="sidebar">
-
+  <aside class="sidebar" id="sidebar">
     <div class="panel">
       <h3>Access</h3>
 
@@ -93,31 +115,6 @@
       <input id="storeSearch" placeholder="Enter Store ID #" />
     </div>
 
-    <div class="panel">
-      <h3>Project Status</h3>
-
-      <div class="statRow">
-        <span>Completed</span>
-        <div id="completedCount">0</div>
-      </div>
-
-      <div class="statRow">
-        <span>Remaining</span>
-        <div id="activeCount">0</div>
-      </div>
-
-      <div class="statRow">
-        <span>Closed</span>
-        <div id="closedCount">0</div>
-      </div>
-
-      <div class="progressBar">
-        <div id="progressFill"></div>
-      </div>
-
-      <div id="progressText" class="progressLabel"></div>
-    </div>
-
     <div class="panel routePanel">
       <div class="routeHeader">
         <h3>Route Builder</h3>
@@ -139,6 +136,25 @@
         <button id="clearRouteBtn" class="btnSecondary" type="button">Clear</button>
         <button id="openRouteBtn" class="btnComplete" type="button">Open Route</button>
       </div>
+
+      <div class="routeMetricsPanel">
+        <div class="routeMetricsHeader">Route Efficiency</div>
+        <div class="routeMetricsGrid">
+          <div class="routeMetricCard">
+            <div class="routeMetricLabel">Stops</div>
+            <div id="routeMetricStops" class="routeMetricValue">0</div>
+          </div>
+          <div class="routeMetricCard">
+            <div class="routeMetricLabel">Approx Miles</div>
+            <div id="routeMetricMiles" class="routeMetricValue">0</div>
+          </div>
+          <div class="routeMetricCard">
+            <div class="routeMetricLabel">Efficiency</div>
+            <div id="routeMetricScore" class="routeMetricValue">—</div>
+          </div>
+        </div>
+        <div id="routeMetricDetail" class="routeMetricDetail">Add stops to calculate route efficiency.</div>
+      </div>
     </div>
 
     <div class="panel">
@@ -148,74 +164,16 @@
       </div>
       <div id="activityList" class="activityList"></div>
     </div>
-
   </aside>
 
   <div class="mapWrapper">
-
-    <section class="commandDashboard" id="commandDashboard">
-      <div class="dashboardTopRow">
-        <div>
-          <div class="dashboardEyebrow">Operations Command Dashboard</div>
-          <div id="dashboardProjectName" class="dashboardProjectName">Loading project…</div>
-        </div>
-        <div id="dashboardEta" class="dashboardEtaBadge">ETA —</div>
-      </div>
-
-      <div class="dashboardStatsGrid">
-        <div class="dashboardCard">
-          <div class="dashboardLabel">Total Stores</div>
-          <div id="dashboardTotalStores" class="dashboardValue">0</div>
-        </div>
-        <div class="dashboardCard">
-          <div class="dashboardLabel">Completed</div>
-          <div id="dashboardCompletedStores" class="dashboardValue">0</div>
-        </div>
-        <div class="dashboardCard">
-          <div class="dashboardLabel">Active</div>
-          <div id="dashboardActiveStores" class="dashboardValue">0</div>
-        </div>
-        <div class="dashboardCard">
-          <div class="dashboardLabel">Closed</div>
-          <div id="dashboardClosedStores" class="dashboardValue">0</div>
-        </div>
-        <div class="dashboardCard">
-          <div class="dashboardLabel">Stores Completed Today</div>
-          <div id="dashboardStoresToday" class="dashboardValue">0</div>
-        </div>
-        <div class="dashboardCard">
-          <div class="dashboardLabel">Average / Day</div>
-          <div id="dashboardAvgPerDay" class="dashboardValue">—</div>
-        </div>
-        <div class="dashboardCard">
-          <div class="dashboardLabel">Photos Uploaded</div>
-          <div id="dashboardPhotoCount" class="dashboardValue">0</div>
-        </div>
-        <div class="dashboardCard">
-          <div class="dashboardLabel">Completion</div>
-          <div id="dashboardCompletionPercent" class="dashboardValue">0%</div>
-        </div>
-      </div>
-
-      <div class="dashboardProgressBlock">
-        <div class="dashboardProgressHeader">
-          <span>Project Progress</span>
-          <span id="dashboardProgressLabel">0.0% complete</span>
-        </div>
-        <div class="dashboardProgressTrack">
-          <div id="dashboardProgressFill" class="dashboardProgressFill"></div>
-        </div>
-      </div>
-    </section>
-
+    <button id="floatingExecutiveExit" class="floatingExecutiveExit hidden" type="button">Exit Executive Mode</button>
     <div id="map"></div>
   </div>
-
 </main>
 
 <div id="confirmModal" class="modal hidden">
   <div class="modalContent">
-
     <h3>Update Store Status</h3>
     <div id="confirmStoreId"></div>
     <div id="confirmAddress"></div>
@@ -248,7 +206,6 @@
     </div>
 
     <button id="confirmCancel" class="btnSecondary" type="button">Close</button>
-
   </div>
 </div>
 
@@ -260,6 +217,5 @@
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <script src="app.js"></script>
-
 </body>
 </html>
