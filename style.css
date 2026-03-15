@@ -1,23 +1,34 @@
 * {
   box-sizing: border-box;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 :root {
-  --bg: #0a0f18;
-  --panel: rgba(255,255,255,0.05);
-  --panel-strong: rgba(12, 18, 29, 0.9);
-  --panel-border: rgba(255,255,255,0.09);
+  --bg: #09111b;
+  --bg-deep: #050b12;
+  --panel: rgba(255, 255, 255, 0.05);
+  --panel-strong: rgba(9, 15, 24, 0.92);
+  --panel-border: rgba(255, 255, 255, 0.09);
   --text: #ffffff;
-  --muted: rgba(255,255,255,0.7);
-  --soft: rgba(255,255,255,0.5);
+  --muted: rgba(255, 255, 255, 0.72);
+  --soft: rgba(255, 255, 255, 0.52);
   --green: #2ecc71;
   --orange: #ff9900;
   --red: #ff2d2d;
   --blue: #64b5f6;
+  --purple: #c28cff;
   --header-a: #001a33;
-  --header-b: #002b55;
+  --header-b: #002f63;
   --accent: #c8102e;
+  --shadow-lg: 0 18px 42px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 10px 26px rgba(0, 0, 0, 0.2);
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 10px;
+  --header-h: 176px;
+  --header-h-exec: 116px;
+  --sidebar-w: 360px;
+  --rail-w: 320px;
 }
 
 html,
@@ -27,6 +38,7 @@ body {
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -41,29 +53,53 @@ body {
 /* ================= HEADER ================= */
 
 .topHeader {
-  height: 158px;
+  height: var(--header-h);
+  padding:
+    max(10px, env(safe-area-inset-top))
+    18px
+    12px;
   background:
-    radial-gradient(circle at center, rgba(255,255,255,0.04), transparent 35%),
+    radial-gradient(circle at 50% 30%, rgba(255,255,255,0.05), transparent 34%),
     linear-gradient(90deg, var(--header-a), var(--header-b));
   border-bottom: 4px solid var(--accent);
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 10px;
-  padding: 10px 18px 12px;
-  transition: height 0.25s ease, padding 0.25s ease;
+  position: relative;
+  z-index: 20;
+  transition: height 0.22s ease, padding 0.22s ease;
 }
 
-.headerMainRow {
+.commandBar {
+  min-height: 64px;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 18px;
+  gap: 16px;
 }
 
-.headerInfoLeft {
+.commandBarLeft {
   min-width: 0;
-  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.commandBarCenter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.commandBarRight {
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.headerTitleBlock {
+  min-width: 0;
 }
 
 .headerEyebrow {
@@ -75,7 +111,7 @@ body {
 }
 
 .headerProjectName {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
   line-height: 1.05;
   white-space: nowrap;
@@ -84,35 +120,29 @@ body {
 }
 
 .headerProjectSubline {
-  margin-top: 3px;
+  margin-top: 4px;
   font-size: 12px;
   opacity: 0.8;
-}
-
-.headerLogoCenter {
-  justify-self: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: visible;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .brandLogoWide {
-  height: 130px;
+  height: 48px;
   width: auto;
-  transform: scale(3.5);
-  transform-origin: center;
   display: block;
+  object-fit: contain;
   pointer-events: none;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25));
 }
 
-.headerActions {
+.headerModeToggles {
   display: flex;
   align-items: center;
-  justify-self: end;
+  justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
-  flex-shrink: 0;
 }
 
 .executiveToggle {
@@ -137,20 +167,27 @@ body {
 .mobileSidebarToggle {
   display: none;
   margin-top: 0;
+  padding: 10px 14px;
   background: rgba(255,255,255,0.1);
   color: white;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 12px;
+  font-weight: 600;
 }
 
-.headerStatsRow {
+.headerMetricsStrip {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 8px;
-  align-items: end;
+  align-items: stretch;
 }
 
 .headerStat {
   min-width: 0;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  padding: 10px 12px;
 }
 
 .headerStatLabel {
@@ -158,11 +195,11 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.68;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 
 .headerStatValue {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   line-height: 1;
 }
@@ -199,23 +236,26 @@ body {
 /* ================= EXECUTIVE MODE ================= */
 
 body.executive-mode .topHeader {
-  height: 114px;
-  padding: 8px 18px;
+  height: var(--header-h-exec);
+  padding:
+    max(8px, env(safe-area-inset-top))
+    18px
+    10px;
 }
 
-body.executive-mode .headerProjectSubline,
 body.executive-mode .headerEyebrow,
-body.executive-mode .desktopOnlyStat {
+body.executive-mode .headerProjectSubline,
+body.executive-mode .desktopOnlyStat,
+body.executive-mode .headerProgressRow {
   display: none;
 }
 
-body.executive-mode .brandLogoWide {
-  height: 90px;
-  transform: scale(2.5);
+body.executive-mode .headerMetricsStrip {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
-body.executive-mode .headerStatValue {
-  font-size: 15px;
+body.executive-mode .brandLogoWide {
+  height: 38px;
 }
 
 body.executive-mode .sidebar {
@@ -234,22 +274,22 @@ body.executive-mode .floatingExecutiveExit {
   justify-content: center;
 }
 
-/* ================= LAYOUT ================= */
+/* ================= APP SHELL ================= */
 
-.app {
-  height: calc(100vh - 158px);
+.appShell {
+  height: calc(100vh - var(--header-h));
   display: flex;
-  transition: height 0.25s ease;
+  transition: height 0.22s ease;
 }
 
-body.executive-mode .app {
-  height: calc(100vh - 114px);
+body.executive-mode .appShell {
+  height: calc(100vh - var(--header-h-exec));
 }
 
 .sidebar {
-  width: 360px;
-  background:
-    linear-gradient(180deg, rgba(15, 20, 30, 0.98), rgba(10, 14, 22, 0.98));
+  width: var(--sidebar-w);
+  flex: 0 0 var(--sidebar-w);
+  background: linear-gradient(180deg, rgba(15,20,30,0.985), rgba(8,12,20,0.985));
   border-right: 1px solid rgba(255,255,255,0.06);
   overflow: hidden;
   transition: width 0.28s ease, transform 0.28s ease, opacity 0.28s ease;
@@ -259,10 +299,18 @@ body.executive-mode .app {
   height: 100%;
   overflow-y: auto;
   padding: 18px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.workspace {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--rail-w);
+  background: var(--bg-deep);
 }
 
 .mapWrapper {
-  flex: 1;
   position: relative;
   min-width: 0;
   background: #060b12;
@@ -271,6 +319,23 @@ body.executive-mode .app {
 #map {
   position: absolute;
   inset: 0;
+}
+
+.intelRail {
+  border-left: 1px solid rgba(255,255,255,0.06);
+  background: linear-gradient(180deg, rgba(11, 16, 25, 0.98), rgba(7, 11, 18, 0.98));
+  overflow: hidden;
+}
+
+.intelRailInner {
+  height: 100%;
+  overflow-y: auto;
+  padding: 18px 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.executive-mode .workspace {
+  grid-template-columns: minmax(0, 1fr) var(--rail-w);
 }
 
 /* ================= MAP OVERLAYS ================= */
@@ -283,7 +348,7 @@ body.executive-mode .app {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  max-width: calc(100% - 120px);
+  max-width: calc(100% - 140px);
 }
 
 .mapModeTag,
@@ -365,8 +430,24 @@ body.executive-mode .app {
 }
 
 .panel h3 {
-  margin: 0 0 2px 0;
+  margin: 0;
   font-size: 15px;
+}
+
+.panelHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.panelInlineAction {
+  margin-top: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: transparent;
+  color: #9fd1ff;
+  border: 1px solid rgba(159, 209, 255, 0.2);
 }
 
 input,
@@ -399,20 +480,10 @@ select option {
 .filterGrid {
   display: grid;
   gap: 8px;
-}
-
-.filterGrid select {
-  margin-top: 0;
-}
-
-.filterActions {
-  display: flex;
-  gap: 8px;
   margin-top: 10px;
 }
 
-.filterActions button {
-  flex: 1;
+.filterGrid select {
   margin-top: 0;
 }
 
@@ -421,6 +492,10 @@ select option {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 12px;
+}
+
+.scopeSummaryGridIntel {
+  margin-top: 10px;
 }
 
 .scopeSummaryCard {
@@ -442,6 +517,68 @@ select option {
   font-size: 20px;
   font-weight: 800;
   line-height: 1;
+}
+
+/* ================= INTEL RAIL ================= */
+
+.intelPanel {
+  background: rgba(255,255,255,0.04);
+}
+
+.statusBadge {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.intelMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.intelMetricCard {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.intelMetricLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.65;
+  margin-bottom: 6px;
+}
+
+.intelMetricValue {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.intelSelectedStore {
+  margin-top: 10px;
+}
+
+.intelSelectedPrimary {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.intelSelectedSecondary {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 /* ================= BUTTONS ================= */
@@ -670,17 +807,6 @@ button:disabled {
 
 /* ================= ACTIVITY ================= */
 
-.timelineHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.timelineHeader h3 {
-  margin: 0;
-}
-
 .activityCountPill {
   min-width: 28px;
   height: 28px;
@@ -700,6 +826,7 @@ button:disabled {
   margin-top: 12px;
   max-height: 340px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .activityItem {
@@ -766,6 +893,11 @@ button:disabled {
   align-items: center;
   justify-content: center;
   z-index: 500;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
 }
 
 .modalContent {
@@ -773,10 +905,10 @@ button:disabled {
   border: 1px solid rgba(255,255,255,0.08);
   padding: 20px;
   border-radius: 16px;
-  width: 92%;
-  max-width: 560px;
+  width: min(560px, 100%);
   max-height: 88vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .statusButtons {
@@ -894,7 +1026,11 @@ button:disabled {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 24px;
+  padding:
+    max(24px, env(safe-area-inset-top))
+    max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
 }
 
 .photoLightbox:not(.hidden) {
@@ -911,8 +1047,8 @@ button:disabled {
 
 .lightboxClose {
   position: fixed;
-  top: 18px;
-  right: 18px;
+  top: max(18px, env(safe-area-inset-top));
+  right: max(18px, env(safe-area-inset-right));
   width: 44px;
   height: 44px;
   padding: 0;
@@ -924,55 +1060,121 @@ button:disabled {
   line-height: 1;
 }
 
-/* ================= RESPONSIVE ================= */
+/* ================= DESKTOP TUNING ================= */
 
-@media (max-width: 1200px) {
-  .headerStatsRow {
+@media (max-width: 1320px) {
+  :root {
+    --rail-w: 290px;
+  }
+
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) 290px;
+  }
+
+  .headerMetricsStrip {
     grid-template-columns: repeat(8, minmax(0, 1fr));
     gap: 6px;
   }
 
   .headerStatValue {
-    font-size: 15px;
-  }
-
-  .brandLogoWide {
-    height: 90px;
-    transform: scale(2.8);
+    font-size: 16px;
   }
 }
 
+/* ================= TABLET ================= */
+
+@media (max-width: 1100px) {
+  .commandBar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "left right"
+      "center center";
+    gap: 10px 14px;
+  }
+
+  .commandBarLeft {
+    grid-area: left;
+  }
+
+  .commandBarCenter {
+    grid-area: center;
+  }
+
+  .commandBarRight {
+    grid-area: right;
+  }
+
+  .brandLogoWide {
+    height: 34px;
+  }
+
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .intelRail {
+    display: none;
+  }
+
+  .headerMetricsStrip {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .desktopOnlyStat {
+    display: none;
+  }
+}
+
+/* ================= MOBILE / IOS SAFARI ================= */
+
 @media (max-width: 900px) {
+  :root {
+    --header-h: 164px;
+    --header-h-exec: 96px;
+  }
+
   .topHeader {
-    height: 140px;
-    padding: 8px 12px 10px;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      12px
+      10px;
     gap: 8px;
   }
 
-  body.executive-mode .topHeader {
-    height: 96px;
-  }
-
-  .headerMainRow {
+  .commandBar {
+    min-height: 52px;
     grid-template-columns: 1fr auto;
     grid-template-areas:
-      "info actions"
-      "logo logo";
-    gap: 6px;
+      "left right"
+      "center center";
+    gap: 8px;
   }
 
-  .headerInfoLeft {
-    grid-area: info;
+  .commandBarLeft {
+    grid-area: left;
+    align-items: flex-start;
+    gap: 10px;
   }
 
-  .headerActions {
-    grid-area: actions;
-    justify-self: end;
+  .commandBarCenter {
+    grid-area: center;
+    justify-content: flex-start;
   }
 
-  .headerLogoCenter {
-    grid-area: logo;
-    justify-self: center;
+  .commandBarRight {
+    grid-area: right;
+    justify-content: flex-end;
+  }
+
+  .mobileSidebarToggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .headerTitleBlock {
+    min-width: 0;
   }
 
   .headerEyebrow {
@@ -980,39 +1182,42 @@ button:disabled {
   }
 
   .headerProjectName {
-    font-size: 15px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 16px;
+    line-height: 1.05;
   }
 
   .headerProjectSubline {
     font-size: 10px;
-    margin-top: 1px;
+    margin-top: 2px;
+    max-width: 100%;
   }
 
   .brandLogoWide {
-    height: 26px;
-    transform: scale(1.9);
+    height: 18px;
   }
 
-  body.executive-mode .brandLogoWide {
-    height: 22px;
-    transform: scale(1.5);
+  .headerModeToggles {
+    gap: 6px;
   }
 
-  .headerStatsRow {
+  .executiveToggle {
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+
+  .headerMetricsStrip {
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 4px;
   }
 
-  .desktopOnlyStat {
-    display: none;
+  .headerStat {
+    padding: 8px 8px 7px;
+    border-radius: 10px;
   }
 
   .headerStatLabel {
     font-size: 7px;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
   }
 
   .headerStatValue {
@@ -1023,23 +1228,17 @@ button:disabled {
     font-size: 11px;
   }
 
-  .mobileSidebarToggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  .appShell {
+    height: calc(100vh - var(--header-h));
   }
 
-  .app {
-    height: calc(100vh - 140px);
-  }
-
-  body.executive-mode .app {
-    height: calc(100vh - 96px);
+  body.executive-mode .appShell {
+    height: calc(100vh - var(--header-h-exec));
   }
 
   .sidebar {
     position: fixed;
-    top: 140px;
+    top: var(--header-h);
     left: 0;
     bottom: 0;
     width: min(88vw, 360px);
@@ -1048,16 +1247,21 @@ button:disabled {
     box-shadow: 16px 0 40px rgba(0,0,0,0.35);
   }
 
+  body.executive-mode .sidebar {
+    top: var(--header-h-exec);
+    transform: translateX(-100%);
+  }
+
   body.sidebar-open .sidebar {
     transform: translateX(0);
   }
 
-  body.executive-mode .sidebar {
-    transform: translateX(-100%);
+  .sidebarInner {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
 
-  .mapWrapper {
-    width: 100%;
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .mapTopOverlay {
@@ -1068,8 +1272,8 @@ button:disabled {
 
   .mapLegendCard {
     left: 10px;
-    bottom: 88px;
-    min-width: 150px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    min-width: 148px;
     padding: 8px 10px;
   }
 
@@ -1095,24 +1299,31 @@ button:disabled {
   }
 
   .modalContent {
-    width: 96%;
+    width: 100%;
     max-height: 90vh;
     padding: 16px;
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 640px) {
+  :root {
+    --header-h: 156px;
+    --header-h-exec: 90px;
+  }
+
   .topHeader {
-    height: 132px;
-    padding: 8px 10px 10px;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      10px
+      10px;
   }
 
-  body.executive-mode .topHeader {
-    height: 90px;
+  .commandBar {
+    gap: 6px;
   }
 
-  .headerMainRow {
-    gap: 4px;
+  .commandBarLeft {
+    gap: 8px;
   }
 
   .headerProjectName {
@@ -1121,52 +1332,36 @@ button:disabled {
 
   .headerProjectSubline {
     font-size: 9px;
-    max-width: 165px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .brandLogoWide {
-    height: 20px;
-    transform: scale(1.7);
+    height: 16px;
   }
 
-  body.executive-mode .brandLogoWide {
-    height: 18px;
-    transform: scale(1.35);
+  .executiveToggle {
+    padding: 6px 9px;
+    font-size: 10px;
   }
 
-  .headerStatsRow {
+  .headerMetricsStrip {
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 4px;
-  }
-
-  .headerStatLabel {
-    font-size: 7px;
   }
 
   .headerStatValue {
     font-size: 11px;
   }
 
-  .app {
-    height: calc(100vh - 132px);
-  }
-
-  body.executive-mode .app {
-    height: calc(100vh - 90px);
-  }
-
-  .sidebar {
-    top: 132px;
+  .headerStatLabel {
+    font-size: 7px;
   }
 
   .scopeSummaryGrid {
     grid-template-columns: 1fr;
   }
 
-  .routeMetricsGrid {
+  .routeMetricsGrid,
+  .intelMetricGrid {
     grid-template-columns: 1fr;
   }
 
@@ -1191,5 +1386,26 @@ button:disabled {
   .mapScopeTag {
     font-size: 11px;
     padding: 8px 10px;
+  }
+}
+
+@media (max-width: 420px) {
+  :root {
+    --header-h: 152px;
+  }
+
+  .headerModeToggles {
+    justify-content: flex-end;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+  }
+
+  .executiveToggle {
+    min-height: 28px;
+  }
+
+  .headerProjectSubline {
+    max-width: 180px;
   }
 }
