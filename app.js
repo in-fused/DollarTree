@@ -50,8 +50,8 @@ let routeModeEnabled = false;
 let selectedRouteStops = [];
 let executiveModeEnabled = false;
 let nationalOverviewEnabled = false;
-
 let currentPhotoLibrarySelection = null;
+let lastDataRefreshAt = null;
 
 let activeFilters = {
   region: "",
@@ -144,6 +144,13 @@ function formatPhotoDate(timestamp) {
   return date.toLocaleString();
 }
 
+function formatLastUpdated(timestamp) {
+  if (!timestamp) return "Live";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "Live";
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 function isToday(timestamp) {
   if (!timestamp) return false;
   const date = new Date(timestamp);
@@ -204,6 +211,14 @@ function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function touchDataRefresh() {
+  lastDataRefreshAt = new Date().toISOString();
+}
+
+function getPhotoSelectionKey(row) {
+  return String(row.id || row.storage_path || row.url || `${row.store_id}-${row.created_at}`);
 }
 
 /* ================= AUTH ================= */
@@ -320,8 +335,6 @@ function setAuthMessage(message, type = "") {
 function updateAuthUI() {
   const loggedOut = document.getElementById("authLoggedOut");
   const loggedIn = document.getElementById("authLoggedIn");
-  const authUserDisplay = document.getElementById("authUserDisplay");
-  const authRoleDisplay = document.getElementById("authRoleDisplay");
   const importLink = document.getElementById("importProjectLink");
 
   if (isSignedIn()) {
@@ -425,6 +438,7 @@ function updateExecutiveModeUI() {
     document.body.classList.remove("sidebar-open");
   }
 
+  updateHeaderMetaAndSummaries();
   setTimeout(() => map.resize(), 180);
 }
 
@@ -450,6 +464,7 @@ function updateNationalOverviewUI() {
   const toggle = document.getElementById("nationalOverviewToggle");
   if (toggle) toggle.checked = nationalOverviewEnabled;
   setMapModeTags();
+  updateHeaderMetaAndSummaries();
 }
 
 function bindMobileSidebarUI() {
@@ -523,6 +538,8 @@ function updateWorkspaceViewUI() {
 
   photoView?.classList.toggle("hidden", showingMap);
   photoView?.classList.toggle("active", !showingMap);
+
+  updateHeaderMetaAndSummaries();
 
   if (showingMap) {
     setTimeout(() => map.resize(), 120);
@@ -654,10 +671,9 @@ async function loadActiveProject() {
 }
 
 function updateProjectSourceTag() {
-  setText(
-    "projectSourceTag",
-    `${currentProjectMeta?.name || currentProjectId} · ${currentProjectMeta?.sourceLabel || "Project ready"}`
-  );
+  const text = `${currentProjectMeta?.name || currentProjectId} · ${currentProjectMeta?.sourceLabel || "Project ready"}`;
+  setText("projectSourceTag", text);
+  setText("projectSourceTagInline", currentProjectMeta?.sourceLabel || "Project ready");
 }
 
 /* ================= FILTERS ================= */
@@ -976,6 +992,8 @@ async function hydrateActivityFeed() {
   activityFeed = events
     .sort((a, b) => getTimestampValue(b.timestamp) - getTimestampValue(a.timestamp))
     .slice(0, 100);
+
+  touchDataRefresh();
 }
 
 /* ================= MAP ================= */
@@ -1188,7 +1206,7 @@ function setMapModeTags() {
   );
 }
 
-/* ================= DASHBOARD / INTEL ================= */
+/* ================= DASHBOARD / INTEL / SUMMARIES ================= */
 
 function calculateAverageCompletedPerDay(events) {
   const dated = events.filter(item => !!item.timestamp);
@@ -1246,6 +1264,55 @@ function getScopeMetrics() {
   };
 }
 
+function buildOperationalSummary(metrics) {
+  if (metrics.totalStores === 0) return "No stores loaded";
+  return `${metrics.totalStores.toLocaleString()} stores in scope • ${metrics.completed.toLocaleString()} completed • ${metrics.active.toLocaleString()} active • ${metrics.closed.toLocaleString()} closed`;
+}
+
+function buildExecutiveSummary(metrics) {
+  if (metrics.totalStores === 0) return "No mapped stores currently in scope.";
+  return `${metrics.totalStores.toLocaleString()} stores in scope with ${metrics.completionRate.toFixed(1)}% actionable completion, ${metrics.completedToday.toLocaleString()} completed today, and ${metrics.filteredPhotoCount.toLocaleString()} photo evidence records captured.`;
+}
+
+function getCurrentScopeLabel(metrics) {
+  const parts = [];
+  if (nationalOverviewEnabled) {
+    parts.push("National View");
+  } else {
+    parts.push("Project View");
+  }
+
+  if (activeFilters.region) parts.push(activeFilters.region);
+  if (activeFilters.territory) parts.push(activeFilters.territory);
+  if (activeFilters.state) parts.push(activeFilters.state);
+
+  if (metrics.totalStores > 0) {
+    parts.push(`${metrics.totalStores.toLocaleString()} stores`);
+  }
+
+  return parts.join(" • ");
+}
+
+function getWorkspaceProgressContext(metrics) {
+  if (metrics.totalStores === 0) return "Awaiting project data";
+  if (metrics.avgPerDay > 0 && metrics.etaDays !== null) {
+    return `${metrics.avgPerDay.toFixed(1)}/day pace • ETA ${formatEta(metrics.etaDays)}`;
+  }
+  return "Execution pace and completion trend";
+}
+
+function updateHeaderMetaAndSummaries() {
+  const metrics = getScopeMetrics();
+  setText("headerScopeSummary", getCurrentScopeLabel(metrics));
+  setText("headerOperationalSummary", buildOperationalSummary(metrics));
+  setText("headerViewModeText", currentWorkspaceView === "photos" ? "Photo Evidence Review" : "Map Operations");
+  setText("headerLastUpdatedText", formatLastUpdated(lastDataRefreshAt));
+  setText("workspaceProgressContext", getWorkspaceProgressContext(metrics));
+  setText("mapExecutiveSummaryLine", buildExecutiveSummary(metrics));
+  setText("photoLibraryScopeBadge", metrics.totalStores > 0 ? `${metrics.totalStores.toLocaleString()} in scope` : "No Stores");
+  setText("photoLibraryModeBadge", currentPhotoLibrarySelection ? "Inspection" : "Review");
+}
+
 function updateHeaderDashboard() {
   const metrics = getScopeMetrics();
 
@@ -1266,6 +1333,8 @@ function updateHeaderDashboard() {
 
   const fill = document.getElementById("dashboardProgressFill");
   if (fill) fill.style.width = `${metrics.completionRate}%`;
+
+  updateHeaderMetaAndSummaries();
 }
 
 function updateScopeSummary() {
@@ -1489,32 +1558,27 @@ function groupPhotoLibraryRows(rows) {
   return [{ label: "", items: rows }];
 }
 
-function getPhotoSelectionKey(row) {
-  return String(row.id || row.storage_path || row.url || `${row.store_id}-${row.created_at}`);
-}
-
 function renderPhotoLibrary() {
   const grid = document.getElementById("photoLibraryGrid");
+  const emptyShell = document.getElementById("photoLibraryEmptyShell");
   const resultCount = document.getElementById("photoLibraryResultCount");
 
   if (!grid || currentWorkspaceView !== "photos") return;
 
   const rows = sortPhotoLibraryRows(getFilteredPhotoLibraryRows());
 
-  if (resultCount) {
-    resultCount.textContent = `${rows.length.toLocaleString()} photos in current scope`;
-  }
-
-  grid.innerHTML = "";
+  setText("photoLibraryResultCount", `${rows.length.toLocaleString()} photos in current scope`);
 
   if (rows.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "photoLibraryEmptyState";
-    empty.textContent = "No photos found for the current filters.";
-    grid.appendChild(empty);
+    grid.innerHTML = "";
+    emptyShell?.classList.remove("hidden");
     resetPhotoLibraryDetail();
+    updateHeaderMetaAndSummaries();
     return;
   }
+
+  emptyShell?.classList.add("hidden");
+  grid.innerHTML = "";
 
   if (currentPhotoLibrarySelection) {
     const exists = rows.some(row => getPhotoSelectionKey(row) === currentPhotoLibrarySelection.key);
@@ -1613,7 +1677,10 @@ function renderPhotoLibrary() {
     };
     populatePhotoLibraryDetail(first);
     renderPhotoLibrary();
+    return;
   }
+
+  updateHeaderMetaAndSummaries();
 }
 
 function populatePhotoLibraryDetail(row) {
@@ -1630,12 +1697,16 @@ function populatePhotoLibraryDetail(row) {
   content?.classList.remove("hidden");
   if (preview) preview.src = row.url;
 
+  setText("photoDetailHeroTitle", `Store ${row.store_id} evidence`);
   setText("photoDetailStore", `Store ${row.store_id}`);
   setText("photoDetailAddress", row.store?.full_address || "No address");
   setText("photoDetailType", row.photo_type || "other");
   setText("photoDetailTimestamp", formatPhotoDate(row.created_at));
   setText("photoDetailTerritory", row.store?.territory || "—");
   setText("photoDetailState", row.store?.state || "—");
+  setText("photoDetailHeroTypePill", row.photo_type || "other");
+
+  updateHeaderMetaAndSummaries();
 }
 
 function resetPhotoLibraryDetail() {
@@ -1646,6 +1717,10 @@ function resetPhotoLibraryDetail() {
 
   const preview = document.getElementById("photoDetailPreview");
   if (preview) preview.src = "";
+
+  setText("photoDetailHeroTitle", "Store Evidence");
+  setText("photoDetailHeroTypePill", "other");
+  updateHeaderMetaAndSummaries();
 }
 
 function jumpToStoreFromPhoto(storeId) {
@@ -1729,6 +1804,7 @@ async function updateStore(storeId, completed, closed) {
   }
 
   statusMap[String(storeId)] = { completed, closed };
+  touchDataRefresh();
 
   prependActivity({
     type: completed ? "status-completed" : closed ? "status-closed" : "status-active",
@@ -1777,6 +1853,8 @@ async function addNote(storeId) {
   const noteBox = document.getElementById("noteBox");
   if (noteBox) noteBox.value = "";
 
+  touchDataRefresh();
+
   prependActivity({
     type: "note",
     store_id: String(storeId),
@@ -1785,6 +1863,7 @@ async function addNote(storeId) {
     detail: note
   });
 
+  updateHeaderDashboard();
   updateActivityList();
   updateIntelRail();
   await loadNotes(storeId);
@@ -2006,6 +2085,8 @@ async function uploadPhoto(storeId) {
     created_at: new Date().toISOString(),
     photo_type: "other"
   });
+
+  touchDataRefresh();
 
   prependActivity({
     type: "photo",
