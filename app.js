@@ -33,6 +33,7 @@ let storeData = [];
 let statusMap = {};
 let geojsonData = { type: "FeatureCollection", features: [] };
 let currentModalStoreId = null;
+let currentSelectedStoreId = null;
 let routeModeEnabled = false;
 let selectedRouteStops = [];
 let projectList = [];
@@ -329,6 +330,9 @@ function bindNationalOverviewUI() {
     nationalOverviewEnabled = toggle.checked;
     localStorage.setItem(NATIONAL_OVERVIEW_KEY, String(nationalOverviewEnabled));
     updateNationalOverviewUI();
+    updateHeaderDashboard();
+    updateScopeSummary();
+    updateIntelRail();
     updateMapViewportForMode();
   });
 
@@ -459,6 +463,7 @@ async function loadActiveProject() {
     store_file: `data/${currentProjectId}/stores_with_coords.json`
   };
 
+  currentSelectedStoreId = null;
   restoreFilterState();
   await hydrate();
   await hydrateActivityFeed();
@@ -481,6 +486,8 @@ async function loadActiveProject() {
   updateFilterSummary();
   setMapModeTags();
   updateMapViewportForMode();
+  updateIntelRail();
+  resetSelectedStorePanel();
 
   if (currentModalStoreId) {
     currentModalStoreId = null;
@@ -548,6 +555,11 @@ function handleFilterChange() {
   updateFilterSummary();
   setMapModeTags();
   updateMapViewportForMode();
+  updateIntelRail();
+  if (currentSelectedStoreId && !getFilteredStores().some(s => String(s.store_id) === String(currentSelectedStoreId))) {
+    currentSelectedStoreId = null;
+    resetSelectedStorePanel();
+  }
 }
 
 function restoreFilterState() {
@@ -888,6 +900,22 @@ function buildMap() {
 
   map.on("click", "points", handleClick);
   map.on("click", "clusters", handleClusterClick);
+
+  map.on("mouseenter", "points", () => {
+    map.getCanvas().style.cursor = "pointer";
+  });
+
+  map.on("mouseleave", "points", () => {
+    map.getCanvas().style.cursor = "";
+  });
+
+  map.on("mouseenter", "clusters", () => {
+    map.getCanvas().style.cursor = "pointer";
+  });
+
+  map.on("mouseleave", "clusters", () => {
+    map.getCanvas().style.cursor = "";
+  });
 }
 
 function createGeoJson(stores) {
@@ -1002,13 +1030,12 @@ function setMapModeTags() {
   }
 }
 
-/* ================= DASHBOARD ================= */
+/* ================= DASHBOARD + INTEL ================= */
 
-function updateHeaderDashboard() {
+function getScopeMetrics() {
   const filteredStores = getFilteredStores();
   const filteredIds = new Set(filteredStores.map(store => String(store.store_id)));
 
-  const totalStores = filteredStores.length;
   let completed = 0;
   let closed = 0;
 
@@ -1018,9 +1045,10 @@ function updateHeaderDashboard() {
     if (status.closed) closed += 1;
   });
 
+  const totalStores = filteredStores.length;
   const active = totalStores - completed - closed;
   const actionableTotal = totalStores - closed;
-  const percent = actionableTotal > 0 ? (completed / actionableTotal) * 100 : 0;
+  const completionRate = actionableTotal > 0 ? (completed / actionableTotal) * 100 : 0;
 
   const completedEvents = activityFeed.filter(item =>
     item.type === "status-completed" && filteredIds.has(String(item.store_id))
@@ -1031,45 +1059,101 @@ function updateHeaderDashboard() {
   const etaDays = avgPerDay > 0 ? active / avgPerDay : null;
   const filteredPhotoCount = photoRowsCache.filter(row => filteredIds.has(String(row.store_id))).length;
 
+  return {
+    filteredStores,
+    filteredIds,
+    totalStores,
+    completed,
+    closed,
+    active,
+    completionRate,
+    completedToday,
+    avgPerDay,
+    etaDays,
+    filteredPhotoCount
+  };
+}
+
+function updateHeaderDashboard() {
+  const metrics = getScopeMetrics();
+
   setText("dashboardProjectName", currentProjectMeta?.name || currentProjectId);
   setText(
     "dashboardProjectSubline",
     `Operational visibility • ${currentProjectMeta?.sourceLabel || "Project ready"} • ${nationalOverviewEnabled ? "National Overview" : "Project View"}`
   );
-  setText("dashboardTotalStores", totalStores.toLocaleString());
-  setText("dashboardCompletedStores", completed.toLocaleString());
-  setText("dashboardActiveStores", active.toLocaleString());
-  setText("dashboardClosedStores", closed.toLocaleString());
-  setText("dashboardStoresToday", completedToday.toLocaleString());
-  setText("dashboardAvgPerDay", avgPerDay > 0 ? avgPerDay.toFixed(1) : "—");
-  setText("dashboardPhotoCount", filteredPhotoCount.toLocaleString());
-  setText("dashboardEta", etaDays !== null ? formatEta(etaDays) : "—");
-  setText("dashboardProgressLabel", `${percent.toFixed(1)}% complete`);
+  setText("dashboardTotalStores", metrics.totalStores.toLocaleString());
+  setText("dashboardCompletedStores", metrics.completed.toLocaleString());
+  setText("dashboardActiveStores", metrics.active.toLocaleString());
+  setText("dashboardClosedStores", metrics.closed.toLocaleString());
+  setText("dashboardStoresToday", metrics.completedToday.toLocaleString());
+  setText("dashboardAvgPerDay", metrics.avgPerDay > 0 ? metrics.avgPerDay.toFixed(1) : "—");
+  setText("dashboardPhotoCount", metrics.filteredPhotoCount.toLocaleString());
+  setText("dashboardEta", metrics.etaDays !== null ? formatEta(metrics.etaDays) : "—");
+  setText("dashboardProgressLabel", `${metrics.completionRate.toFixed(1)}% complete`);
 
   const fill = document.getElementById("dashboardProgressFill");
-  if (fill) fill.style.width = `${percent}%`;
+  if (fill) fill.style.width = `${metrics.completionRate}%`;
 }
 
 function updateScopeSummary() {
-  const filteredStores = getFilteredStores();
-  const totalStores = filteredStores.length;
+  const metrics = getScopeMetrics();
 
-  let completed = 0;
-  let closed = 0;
+  setText("scopeStoreCountPill", metrics.totalStores.toLocaleString());
+  setText("scopeVisibleStores", metrics.totalStores.toLocaleString());
+  setText("scopeVisibleCompleted", metrics.completed.toLocaleString());
+  setText("scopeVisibleActive", metrics.active.toLocaleString());
+  setText("scopeVisibleClosed", metrics.closed.toLocaleString());
+}
 
-  filteredStores.forEach(store => {
-    const status = statusMap[String(store.store_id)] || {};
-    if (status.completed) completed += 1;
-    if (status.closed) closed += 1;
-  });
+function updateIntelRail() {
+  const metrics = getScopeMetrics();
 
-  const active = totalStores - completed - closed;
+  setText("intelScopeMode", nationalOverviewEnabled ? "National" : "Project");
+  setText("intelVisibleStores", metrics.totalStores.toLocaleString());
+  setText("intelCompletionRate", `${metrics.completionRate.toFixed(1)}%`);
+  setText("intelPhotoCount", metrics.filteredPhotoCount.toLocaleString());
+  setText("intelEtaValue", metrics.etaDays !== null ? formatEta(metrics.etaDays) : "—");
+  setText("intelCompletedStores", metrics.completed.toLocaleString());
+  setText("intelActiveStores", metrics.active.toLocaleString());
+  setText("intelClosedStores", metrics.closed.toLocaleString());
+  setText("intelCompletedToday", metrics.completedToday.toLocaleString());
 
-  setText("scopeStoreCountPill", totalStores.toLocaleString());
-  setText("scopeVisibleStores", totalStores.toLocaleString());
-  setText("scopeVisibleCompleted", completed.toLocaleString());
-  setText("scopeVisibleActive", active.toLocaleString());
-  setText("scopeVisibleClosed", closed.toLocaleString());
+  if (!currentSelectedStoreId) {
+    resetSelectedStorePanel();
+  }
+}
+
+function resetSelectedStorePanel() {
+  setText("intelSelectedStoreId", "No store selected");
+  setText("intelSelectedStoreAddress", "Tap a store marker to inspect status, notes, and photos.");
+}
+
+function updateSelectedStorePanel(storeId) {
+  currentSelectedStoreId = String(storeId);
+
+  const store = storeData.find(s => String(s.store_id) === String(storeId));
+  if (!store) {
+    resetSelectedStorePanel();
+    return;
+  }
+
+  const status = statusMap[String(store.store_id)] || { completed: false, closed: false };
+  const statusLabel = status.closed
+    ? "Closed"
+    : status.completed
+      ? "Completed"
+      : "Active";
+
+  const lines = [];
+  if (store.full_address) lines.push(store.full_address);
+  if (store.region) lines.push(`Region: ${store.region}`);
+  if (store.territory) lines.push(`Territory: ${store.territory}`);
+  if (store.state) lines.push(`State: ${store.state}`);
+  lines.push(`Status: ${statusLabel}`);
+
+  setText("intelSelectedStoreId", `Store ${store.store_id}`);
+  setText("intelSelectedStoreAddress", lines.join(" • "));
 }
 
 function calculateAverageCompletedPerDay(events) {
@@ -1101,6 +1185,7 @@ function handleClick(e) {
   const feature = e.features[0];
   const key = feature.properties.store_id;
   currentModalStoreId = key;
+  updateSelectedStorePanel(key);
 
   const modal = document.getElementById("confirmModal");
   modal.classList.remove("hidden");
@@ -1167,6 +1252,8 @@ async function updateStore(key, completed, closed) {
   updateHeaderDashboard();
   updateScopeSummary();
   updateActivityList();
+  updateIntelRail();
+  updateSelectedStorePanel(key);
 }
 
 async function addNote(storeId) {
@@ -1203,6 +1290,7 @@ async function addNote(storeId) {
   });
 
   updateActivityList();
+  updateIntelRail();
   loadNotes(storeId);
 }
 
@@ -1431,6 +1519,8 @@ async function uploadPhoto(storeId) {
   updateHeaderDashboard();
   updateScopeSummary();
   updateActivityList();
+  updateIntelRail();
+  updateSelectedStorePanel(storeId);
   setPhotoMessage(`Photo uploaded successfully (${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}).`);
   await loadPhotos(storeId);
 }
@@ -1534,6 +1624,9 @@ function bindSearch() {
     const val = e.target.value.trim();
     const match = storeData.find(s => String(s.store_id) === val);
     if (match) {
+      currentSelectedStoreId = String(match.store_id);
+      updateSelectedStorePanel(match.store_id);
+
       map.flyTo({
         center: [match.lng, match.lat],
         zoom: 14
@@ -1597,6 +1690,9 @@ function updateActivityList() {
     div.onclick = () => {
       const match = storeData.find(s => String(s.store_id) === String(item.store_id));
       if (match) {
+        currentSelectedStoreId = String(match.store_id);
+        updateSelectedStorePanel(match.store_id);
+
         map.flyTo({
           center: [match.lng, match.lat],
           zoom: 14
@@ -1837,6 +1933,8 @@ function renderRouteStops() {
     actions.className = "routeStopActions";
 
     const flyBtn = createRouteMiniButton("View", () => {
+      currentSelectedStoreId = String(storeId);
+      updateSelectedStorePanel(storeId);
       map.flyTo({ center: [store.lng, store.lat], zoom: 14 });
       if (window.innerWidth <= 900) {
         document.body.classList.remove("sidebar-open");
