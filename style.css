@@ -70,14 +70,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: visible;
 }
 
 .brandLogoWide {
-  height: 44px;
+  height: 130px;
   width: auto;
-  display: block;
-  transform: scale(2);
+  transform: scale(3.5);
   transform-origin: center;
+  display: block;
+  pointer-events: none;
 }
 
 .headerActions {
@@ -182,7 +184,8 @@ body.executive-mode .desktopOnlyStat {
 }
 
 body.executive-mode .brandLogoWide {
-  transform: scale(1.6);
+  height: 90px;
+  transform: scale(2.5);
 }
 
 body.executive-mode .headerStatValue {
@@ -203,10 +206,6 @@ body.executive-mode .floatingExecutiveExit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-body.executive-mode .mapLegendCard {
-  opacity: 0.88;
 }
 
 /* ================= LAYOUT ================= */
@@ -250,8 +249,8 @@ body.executive-mode .app {
 
 .mapLegendCard {
   position: absolute;
-  top: 14px;
   left: 14px;
+  bottom: 14px;
   z-index: 30;
   background: rgba(10, 15, 24, 0.9);
   border: 1px solid rgba(255,255,255,0.1);
@@ -823,17 +822,22 @@ button:disabled {
   .headerStatValue {
     font-size: 15px;
   }
+
+  .brandLogoWide {
+    height: 90px;
+    transform: scale(2.8);
+  }
 }
 
 @media (max-width: 900px) {
   .topHeader {
-    height: 138px;
+    height: 132px;
     padding: 8px 12px 10px;
     gap: 8px;
   }
 
   body.executive-mode .topHeader {
-    height: 96px;
+    height: 92px;
   }
 
   .headerMainRow {
@@ -841,7 +845,7 @@ button:disabled {
     grid-template-areas:
       "info actions"
       "logo logo";
-    gap: 8px;
+    gap: 6px;
   }
 
   .headerInfoLeft {
@@ -863,29 +867,30 @@ button:disabled {
   }
 
   .headerProjectName {
-    font-size: 18px;
+    font-size: 15px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .headerProjectSubline {
-    font-size: 11px;
-    margin-top: 2px;
+    font-size: 10px;
+    margin-top: 1px;
   }
 
   .brandLogoWide {
-    height: 30px;
-    transform: scale(1.8);
+    height: 26px;
+    transform: scale(1.9);
   }
 
   body.executive-mode .brandLogoWide {
-    transform: scale(1.45);
+    height: 22px;
+    transform: scale(1.5);
   }
 
   .headerStatsRow {
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 6px;
+    gap: 4px;
   }
 
   .desktopOnlyStat {
@@ -893,11 +898,16 @@ button:disabled {
   }
 
   .headerStatLabel {
-    font-size: 8px;
+    font-size: 7px;
+    margin-bottom: 2px;
   }
 
   .headerStatValue {
-    font-size: 14px;
+    font-size: 12px;
+  }
+
+  .headerProgressMeta {
+    font-size: 11px;
   }
 
   .mobileSidebarToggle {
@@ -907,16 +917,16 @@ button:disabled {
   }
 
   .app {
-    height: calc(100vh - 138px);
+    height: calc(100vh - 132px);
   }
 
   body.executive-mode .app {
-    height: calc(100vh - 96px);
+    height: calc(100vh - 92px);
   }
 
   .sidebar {
     position: fixed;
-    top: 138px;
+    top: 132px;
     left: 0;
     bottom: 0;
     width: min(88vw, 360px);
@@ -938,8 +948,8 @@ button:disabled {
   }
 
   .mapLegendCard {
-    top: 10px;
     left: 10px;
+    bottom: 88px;
     min-width: 150px;
     padding: 8px 10px;
   }
@@ -970,36 +980,37 @@ button:disabled {
 
 @media (max-width: 560px) {
   .topHeader {
-    height: 132px;
+    height: 126px;
     padding: 8px 10px 10px;
   }
 
   body.executive-mode .topHeader {
-    height: 90px;
+    height: 88px;
   }
 
   .headerMainRow {
-    gap: 6px;
+    gap: 4px;
   }
 
   .headerProjectName {
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .headerProjectSubline {
-    font-size: 10px;
-    max-width: 170px;
+    font-size: 9px;
+    max-width: 165px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .brandLogoWide {
-    height: 24px;
+    height: 20px;
     transform: scale(1.7);
   }
 
   body.executive-mode .brandLogoWide {
+    height: 18px;
     transform: scale(1.35);
   }
 
@@ -1010,27 +1021,22 @@ button:disabled {
 
   .headerStatLabel {
     font-size: 7px;
-    margin-bottom: 2px;
   }
 
   .headerStatValue {
-    font-size: 12px;
-  }
-
-  .headerProgressMeta {
     font-size: 11px;
   }
 
   .app {
-    height: calc(100vh - 132px);
+    height: calc(100vh - 126px);
   }
 
   body.executive-mode .app {
-    height: calc(100vh - 90px);
+    height: calc(100vh - 88px);
   }
 
   .sidebar {
-    top: 132px;
+    top: 126px;
   }
 
   .routeMetricsGrid {
