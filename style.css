@@ -129,8 +129,8 @@ body {
 }
 
 .brandLogoWide {
-  height: 130px;
-  transform: scale(3.5);
+  height: 125px;
+  transform: scale(2.5);
   transform-origin: center;
   pointer-events: none;
   filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25));
