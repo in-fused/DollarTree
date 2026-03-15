@@ -14,18 +14,54 @@ html, body {
 /* ================= HEADER ================= */
 
 header {
-  height: 180px;
-  background: linear-gradient(90deg, #001a33, #002b55);
-  border-bottom: 5px solid #c8102e;
+  height: 120px;
+  background: linear-gradient(90deg,#001a33,#002b55);
+  border-bottom: 4px solid #c8102e;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 24px;
+}
+
+.headerRow {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 20px;
 }
 
 .brandLogoWide {
-  height: 130px;
-  transform: scale(3.5);
-  transform-origin: center;
+  height: 60px;
+}
+
+.headerProject {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.headerStats {
+  display: flex;
+  gap: 30px;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.headerStatValue {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.headerProgressBar {
+  margin-top: 10px;
+  height: 6px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.headerProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg,#ff2d2d,#ff9900,#2ecc71);
+  width: 0%;
 }
 
 /* ================= LAYOUT ================= */
