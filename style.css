@@ -6,9 +6,11 @@
 :root {
   --bg: #09111b;
   --bg-deep: #050b12;
-  --panel: rgba(255, 255, 255, 0.05);
+  --bg-elevated: #0c1622;
+  --panel: rgba(255, 255, 255, 0.045);
   --panel-strong: rgba(9, 15, 24, 0.92);
-  --panel-border: rgba(255, 255, 255, 0.09);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-border-soft: rgba(255, 255, 255, 0.05);
   --text: #ffffff;
   --muted: rgba(255, 255, 255, 0.72);
   --soft: rgba(255, 255, 255, 0.52);
@@ -22,11 +24,13 @@
   --accent: #c8102e;
   --shadow-lg: 0 18px 42px rgba(0, 0, 0, 0.28);
   --shadow-md: 0 10px 26px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.16);
+  --radius-xl: 18px;
   --radius-lg: 16px;
   --radius-md: 12px;
   --radius-sm: 10px;
-  --header-h: 170px;
-  --header-h-exec: 102px;
+  --header-h: 214px;
+  --header-h-exec: 116px;
   --sidebar-w: 360px;
   --rail-w: 320px;
 }
@@ -55,13 +59,13 @@ body {
 .topHeader {
   height: var(--header-h);
   padding:
-    max(8px, env(safe-area-inset-top))
+    max(10px, env(safe-area-inset-top))
     16px
     10px;
   background:
-    radial-gradient(circle at 50% 28%, rgba(255,255,255,0.05), transparent 34%),
+    radial-gradient(circle at 50% 26%, rgba(255,255,255,0.06), transparent 34%),
     linear-gradient(90deg, var(--header-a), var(--header-b));
-  border-bottom: 4px solid var(--accent);
+  border-bottom: 3px solid rgba(200, 16, 46, 0.8);
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -72,11 +76,11 @@ body {
 }
 
 .commandBar {
-  min-height: 56px;
+  min-height: 74px;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto minmax(260px, 1fr);
+  grid-template-columns: minmax(280px, 1fr) auto minmax(220px, 1fr);
   align-items: start;
-  gap: 12px;
+  gap: 14px;
 }
 
 .commandBarLeft {
@@ -91,7 +95,6 @@ body {
   display: flex;
   align-self: start;
   justify-content: center;
-  padding-top: 0;
 }
 
 .commandBarRight {
@@ -101,24 +104,34 @@ body {
   align-self: start;
 }
 
+.mobileSidebarToggle {
+  display: none;
+  margin-top: 0;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 12px;
+  font-weight: 700;
+}
+
 .headerTitleBlock {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  padding-top: 0;
+  gap: 0;
 }
 
 .headerEyebrow {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  opacity: 0.62;
-  margin-bottom: 3px;
+  opacity: 0.64;
+  margin-bottom: 4px;
 }
 
 .headerProjectName {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 800;
   line-height: 1.02;
   margin: 0;
@@ -128,17 +141,46 @@ body {
 }
 
 .headerProjectSubline {
-  margin-top: 3px;
+  margin-top: 4px;
   font-size: 12px;
   line-height: 1.2;
-  opacity: 0.8;
+  opacity: 0.82;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.headerSummaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.headerSummaryPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+
+.headerSummaryLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.64;
+}
+
 .brandLogoWide {
-  width: 300px;
+  width: 320px;
   min-width: 0;
   max-width: 100%;
   height: auto;
@@ -176,22 +218,12 @@ body {
   accent-color: var(--green);
 }
 
-.mobileSidebarToggle {
-  display: none;
-  margin-top: 0;
-  padding: 10px 14px;
-  background: rgba(255,255,255,0.1);
-  color: white;
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 12px;
-  font-weight: 600;
-}
-
 .headerViewBar {
   display: flex;
   align-items: center;
-  min-height: 34px;
-  margin-top: -2px;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
 }
 
 .viewSwitch {
@@ -218,6 +250,32 @@ body {
   background: rgba(255,255,255,0.16);
 }
 
+.headerViewMeta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.headerViewMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.headerViewMetaLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+
 .headerMetricsStrip {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
@@ -227,23 +285,24 @@ body {
 
 .headerStat {
   min-width: 0;
-  min-height: 52px;
+  min-height: 56px;
   background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.06);
   border-radius: 12px;
-  padding: 9px 12px 8px;
+  padding: 10px 12px 8px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.01);
 }
 
 .headerStatLabel {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  opacity: 0.68;
+  opacity: 0.66;
   margin-bottom: 4px;
 }
 
 .headerStatValue {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 800;
   line-height: 1;
 }
@@ -267,18 +326,23 @@ body.executive-mode .topHeader {
 
 body.executive-mode .headerEyebrow,
 body.executive-mode .headerProjectSubline,
+body.executive-mode .headerSummaryRow,
 body.executive-mode .desktopOnlyStat,
-body.executive-mode .headerViewBar {
+body.executive-mode .headerViewMeta {
   display: none !important;
 }
 
 body.executive-mode .commandBar {
-  min-height: 50px;
-  grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+  min-height: 52px;
+  grid-template-columns: minmax(220px, 1fr) auto minmax(180px, 1fr);
 }
 
 body.executive-mode .brandLogoWide {
-  width: 200px;
+  width: 210px;
+}
+
+body.executive-mode .headerViewBar {
+  min-height: 0;
 }
 
 body.executive-mode .headerMetricsStrip {
@@ -287,7 +351,7 @@ body.executive-mode .headerMetricsStrip {
 }
 
 body.executive-mode .headerStat {
-  min-height: 48px;
+  min-height: 46px;
   padding: 8px 10px 7px;
 }
 
@@ -369,8 +433,8 @@ body.executive-mode .appShell {
 .workspaceProgressBar {
   position: relative;
   z-index: 26;
-  padding: 10px 14px 8px;
-  background: linear-gradient(180deg, rgba(5, 11, 18, 0.88), rgba(5, 11, 18, 0.58));
+  padding: 12px 14px 10px;
+  background: linear-gradient(180deg, rgba(5, 11, 18, 0.92), rgba(5, 11, 18, 0.68));
   border-bottom: 1px solid rgba(255,255,255,0.07);
   backdrop-filter: blur(6px);
 }
@@ -381,12 +445,28 @@ body.executive-mode .appShell {
   justify-content: space-between;
   gap: 12px;
   font-size: 12px;
-  color: rgba(255,255,255,0.9);
+  color: rgba(255,255,255,0.92);
   margin-bottom: 8px;
 }
 
+.workspaceProgressMetaLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workspaceProgressLabel {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workspaceProgressContext {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .workspaceProgressTrack {
-  height: 12px;
+  height: 10px;
   border-radius: 999px;
   overflow: hidden;
   background: rgba(255,255,255,0.10);
@@ -441,16 +521,16 @@ body.executive-mode .workspace {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  max-width: calc(100% - 140px);
+  max-width: calc(100% - 154px);
 }
 
 .mapModeTag,
 .mapScopeTag {
-  background: rgba(8, 12, 20, 0.86);
+  background: rgba(8, 12, 20, 0.78);
   color: white;
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 999px;
-  padding: 9px 12px;
+  padding: 8px 12px;
   font-size: 12px;
   box-shadow: 0 10px 24px rgba(0,0,0,0.22);
   backdrop-filter: blur(8px);
@@ -461,11 +541,11 @@ body.executive-mode .workspace {
   left: 14px;
   bottom: 14px;
   z-index: 30;
-  background: rgba(10, 15, 24, 0.9);
+  background: rgba(10, 15, 24, 0.88);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 12px;
   padding: 10px 12px;
-  min-width: 168px;
+  min-width: 160px;
   box-shadow: 0 14px 30px rgba(0,0,0,0.24);
   backdrop-filter: blur(8px);
 }
@@ -499,16 +579,36 @@ body.executive-mode .workspace {
   flex-shrink: 0;
 }
 
-.legendRed {
-  background: var(--red);
+.legendRed { background: var(--red); }
+.legendOrange { background: var(--orange); }
+.legendGreen { background: var(--green); }
+
+.mapExecutiveCallout {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 34;
+  max-width: 360px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(8, 12, 20, 0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.22);
+  backdrop-filter: blur(8px);
 }
 
-.legendOrange {
-  background: var(--orange);
+.mapExecutiveCalloutEyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.62;
+  margin-bottom: 4px;
 }
 
-.legendGreen {
-  background: var(--green);
+.mapExecutiveSummaryLine {
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.94);
 }
 
 /* ================= PANELS ================= */
@@ -532,6 +632,21 @@ body.executive-mode .workspace {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.panelHeaderTag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
 }
 
 .panelInlineAction {
@@ -612,6 +727,58 @@ select option {
   line-height: 1;
 }
 
+/* ================= EMPTY STATES ================= */
+
+.emptyStateMini {
+  padding: 10px 0 2px;
+}
+
+.emptyStateMiniTitle {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.emptyStateMiniText {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.emptyStateHero {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-radius: 16px;
+  border: 1px dashed rgba(255,255,255,0.12);
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  padding: 24px;
+}
+
+.emptyStateHeroEyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  opacity: 0.62;
+  margin-bottom: 8px;
+}
+
+.emptyStateHeroTitle {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.15;
+  max-width: 700px;
+  margin-bottom: 10px;
+}
+
+.emptyStateHeroText {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 760px;
+}
+
 /* ================= INTEL RAIL ================= */
 
 .intelPanel {
@@ -647,7 +814,7 @@ select option {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  opacity: 0.65;
+  opacity: 0.62;
   margin-bottom: 6px;
 }
 
@@ -694,7 +861,7 @@ select option {
 }
 
 .photoLibraryTitle {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 800;
   line-height: 1.05;
   margin: 0;
@@ -704,10 +871,44 @@ select option {
   margin-top: 6px;
   font-size: 13px;
   color: var(--muted);
+  line-height: 1.5;
+  max-width: 760px;
+}
+
+.photoLibraryHeaderBadgeGroup {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.photoLibraryHeaderBadge {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 132px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.photoLibraryHeaderBadgeLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
 }
 
 .photoLibraryToolbar {
   margin-bottom: 0;
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  backdrop-filter: blur(10px);
+}
+
+.photoLibraryToolbarTop {
+  margin-bottom: 12px;
 }
 
 .photoLibraryToolbarGrid {
@@ -721,15 +922,11 @@ select option {
   margin-top: 0;
 }
 
-.photoLibraryToolbarMeta {
-  margin-top: 12px;
-}
-
 .photoLibraryContent {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 16px;
 }
 
@@ -743,27 +940,32 @@ select option {
 
 .photoLibraryGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 14px;
 }
 
+.photoLibraryEmptyShell {
+  min-height: 100%;
+}
+
 .photoLibraryCard {
-  background: rgba(255,255,255,0.05);
+  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.03));
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 14px;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .photoLibraryCard:hover {
   transform: translateY(-1px);
   background: rgba(255,255,255,0.065);
+  box-shadow: var(--shadow-sm);
 }
 
 .photoLibraryCard.active {
   border-color: rgba(100,181,246,0.65);
-  box-shadow: 0 0 0 1px rgba(100,181,246,0.28);
+  box-shadow: 0 0 0 1px rgba(100,181,246,0.28), var(--shadow-sm);
 }
 
 .photoLibraryImageWrap {
@@ -805,6 +1007,7 @@ select option {
   padding: 0 8px;
   border-radius: 999px;
   background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.08);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -817,17 +1020,6 @@ select option {
   color: var(--muted);
 }
 
-.photoLibraryEmptyState {
-  min-height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-size: 14px;
-  border: 1px dashed rgba(255,255,255,0.12);
-  border-radius: 14px;
-}
-
 .photoLibraryDetailRail {
   min-width: 0;
 }
@@ -835,6 +1027,8 @@ select option {
 .photoLibraryDetailPanel {
   height: 100%;
   margin-bottom: 0;
+  position: sticky;
+  top: 0;
 }
 
 .photoDetailEmptyState {
@@ -844,11 +1038,37 @@ select option {
   color: var(--muted);
 }
 
-.photoDetailPreviewWrap {
+.photoDetailHero {
   margin-top: 12px;
+}
+
+.photoDetailHeroTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.photoDetailHeroEyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+
+.photoDetailHeroTitle {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.photoDetailPreviewWrap {
   border-radius: 14px;
   overflow: hidden;
   background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
 }
 
 .photoDetailPreview {
@@ -856,6 +1076,26 @@ select option {
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
+}
+
+.photoComparePlaceholder {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px dashed rgba(255,255,255,0.1);
+}
+
+.photoComparePlaceholderTitle {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.photoComparePlaceholderText {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .photoDetailMetaList {
@@ -1018,7 +1258,7 @@ button:disabled {
 }
 
 .routeEmpty {
-  opacity: 0.65;
+  opacity: 1;
   font-size: 13px;
 }
 
@@ -1257,7 +1497,7 @@ button:disabled {
   min-height: 18px;
 }
 
-/* ================= PHOTOS ================= */
+/* ================= MODAL PHOTOS ================= */
 
 .photoSection {
   margin-top: 18px;
@@ -1379,19 +1619,28 @@ button:disabled {
 
 @media (max-width: 1320px) {
   :root {
-    --rail-w: 290px;
+    --rail-w: 300px;
   }
 
   .workspace {
-    grid-template-columns: minmax(0, 1fr) 290px;
+    grid-template-columns: minmax(0, 1fr) 300px;
   }
 
   .photoLibraryContent {
-    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+
+  .brandLogoWide {
+    width: 280px;
   }
 }
 
 @media (max-width: 1100px) {
+  :root {
+    --header-h: 226px;
+    --header-h-exec: 108px;
+  }
+
   .commandBar {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
@@ -1400,19 +1649,13 @@ button:disabled {
     gap: 10px 14px;
   }
 
-  .commandBarLeft {
-    grid-area: left;
-  }
-
+  .commandBarLeft { grid-area: left; }
   .commandBarCenter {
     grid-area: center;
     min-width: 0;
     justify-content: center;
   }
-
-  .commandBarRight {
-    grid-area: right;
-  }
+  .commandBarRight { grid-area: right; }
 
   .brandLogoWide {
     width: 240px;
@@ -1441,14 +1684,18 @@ button:disabled {
   .photoLibraryDetailRail {
     display: none;
   }
+
+  .mapExecutiveCallout {
+    max-width: 300px;
+  }
 }
 
 /* ================= MOBILE / IOS SAFARI ================= */
 
 @media (max-width: 900px) {
   :root {
-    --header-h: 146px;
-    --header-h-exec: 82px;
+    --header-h: 210px;
+    --header-h-exec: 88px;
   }
 
   .topHeader {
@@ -1460,7 +1707,7 @@ button:disabled {
   }
 
   .commandBar {
-    min-height: 48px;
+    min-height: 52px;
     grid-template-columns: 1fr auto;
     grid-template-areas: "left right";
     gap: 8px;
@@ -1490,16 +1737,31 @@ button:disabled {
   }
 
   .headerProjectName {
-    font-size: 14px;
+    font-size: 16px;
     max-width: 190px;
   }
 
   .headerProjectSubline {
-    font-size: 9px;
+    font-size: 10px;
     max-width: 190px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .headerSummaryRow {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .headerSummaryPill {
+    min-height: 24px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .headerSummaryLabel {
+    font-size: 9px;
   }
 
   .headerModeToggles {
@@ -1517,10 +1779,15 @@ button:disabled {
     min-height: 32px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
   }
 
   .viewSwitch {
     min-width: max-content;
+  }
+
+  .headerViewMeta {
+    display: none;
   }
 
   .headerMetricsStrip {
@@ -1584,7 +1851,7 @@ button:disabled {
   }
 
   .workspaceProgressBar {
-    padding: 8px 12px 8px;
+    padding: 9px 12px 8px;
   }
 
   .workspaceProgressMeta {
@@ -1592,8 +1859,12 @@ button:disabled {
     margin-bottom: 6px;
   }
 
+  .workspaceProgressContext {
+    font-size: 10px;
+  }
+
   .workspaceProgressTrack {
-    height: 10px;
+    height: 9px;
   }
 
   .mapTopOverlay {
@@ -1605,8 +1876,17 @@ button:disabled {
   .mapLegendCard {
     left: 10px;
     bottom: calc(84px + env(safe-area-inset-bottom));
-    min-width: 148px;
+    min-width: 142px;
     padding: 8px 10px;
+  }
+
+  .mapExecutiveCallout {
+    right: 10px;
+    left: 10px;
+    top: auto;
+    bottom: calc(140px + env(safe-area-inset-bottom));
+    max-width: none;
+    padding: 10px 12px;
   }
 
   .scopeSummaryGrid {
@@ -1635,12 +1915,29 @@ button:disabled {
     gap: 12px;
   }
 
+  .photoLibraryHeader {
+    flex-direction: column;
+  }
+
   .photoLibraryTitle {
-    font-size: 18px;
+    font-size: 20px;
   }
 
   .photoLibrarySubline {
     font-size: 11px;
+  }
+
+  .photoLibraryHeaderBadgeGroup {
+    width: 100%;
+  }
+
+  .photoLibraryHeaderBadge {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .photoLibraryToolbar {
+    position: static;
   }
 
   .photoLibraryToolbarGrid {
@@ -1654,6 +1951,19 @@ button:disabled {
 
   .photoLibraryCardBody {
     padding: 10px;
+  }
+
+  .emptyStateHero {
+    min-height: 220px;
+    padding: 18px;
+  }
+
+  .emptyStateHeroTitle {
+    font-size: 18px;
+  }
+
+  .emptyStateHeroText {
+    font-size: 13px;
   }
 
   .modalContent {
@@ -1692,6 +2002,7 @@ button:disabled {
 
   body.executive-mode .headerProjectSubline,
   body.executive-mode .headerEyebrow,
+  body.executive-mode .headerSummaryRow,
   body.executive-mode .headerViewBar {
     display: none !important;
   }
@@ -1743,6 +2054,10 @@ button:disabled {
     padding-right: 110px;
   }
 
+  body.executive-mode .mapExecutiveCallout {
+    bottom: calc(148px + env(safe-area-inset-bottom));
+  }
+
   body.executive-mode .floatingExecutiveExit {
     right: 10px;
     bottom: calc(92px + env(safe-area-inset-bottom));
@@ -1758,6 +2073,11 @@ button:disabled {
 }
 
 @media (max-width: 640px) {
+  :root {
+    --header-h: 202px;
+    --header-h-exec: 84px;
+  }
+
   .brandLogoWide {
     width: 132px;
   }
@@ -1781,7 +2101,7 @@ button:disabled {
   }
 
   .mapLegendCard {
-    min-width: 136px;
+    min-width: 134px;
     padding: 8px 9px;
   }
 
