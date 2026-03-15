@@ -3,10 +3,7 @@ mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2Nyd
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
 
-const supabaseClient = supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const DEFAULT_PROJECT_ID = "central-fl-dollar-tree";
 const PROJECTS_FILE = "data/projects.json";
@@ -21,7 +18,6 @@ const NATIONAL_CENTER = [-96, 38];
 const NATIONAL_ZOOM = 3.2;
 
 const PHOTO_BUCKET_CANDIDATES = ["store-photos", "store_photos", "photos"];
-let resolvedPhotoBucket = null;
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -30,28 +26,31 @@ const map = new mapboxgl.Map({
   zoom: DEFAULT_LOCAL_ZOOM
 });
 
+let resolvedPhotoBucket = null;
+
 let storeData = [];
 let statusMap = {};
 let geojsonData = { type: "FeatureCollection", features: [] };
+
 let currentModalStoreId = null;
 let currentSelectedStoreId = null;
-let routeModeEnabled = false;
-let selectedRouteStops = [];
-let projectList = [];
 let currentProjectId = DEFAULT_PROJECT_ID;
 let currentProjectMeta = null;
+let currentWorkspaceView = localStorage.getItem(ACTIVE_VIEW_KEY) || "map";
 
 let currentSession = null;
 let currentUser = null;
 let currentRole = "viewer";
 
-let activityFeed = [];
-let recentPhotoCount = 0;
+let projectList = [];
 let statusRowsCache = [];
 let photoRowsCache = [];
+let activityFeed = [];
+let routeModeEnabled = false;
+let selectedRouteStops = [];
 let executiveModeEnabled = false;
 let nationalOverviewEnabled = false;
-let activeWorkspaceView = localStorage.getItem(ACTIVE_VIEW_KEY) || "map";
+
 let currentPhotoLibrarySelection = null;
 
 let activeFilters = {
@@ -92,16 +91,7 @@ map.on("load", async () => {
   executiveModeEnabled = localStorage.getItem(EXECUTIVE_MODE_KEY) === "true";
   nationalOverviewEnabled = localStorage.getItem(NATIONAL_OVERVIEW_KEY) === "true";
 
-const logo = document.querySelector(".brandLogoWide");
-if (logo) {
-  logo.addEventListener("click", () => {
-    activeWorkspaceView = "map";
-    localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
-    updateWorkspaceViewUI();
-    updateMapViewportForMode();
-  });
-}
-
+  bindLogoHome();
   await initializeAuth();
   bindAuthUI();
   bindExecutiveModeUI();
@@ -110,15 +100,14 @@ if (logo) {
   bindFilters();
   bindWorkspaceViews();
   bindPhotoLibraryUI();
-
-  await loadProjects();
   bindProjectSelector();
-  await loadActiveProject();
-
   bindSearch();
   bindRouteBuilder();
   bindPhotoUI();
   bindLightboxUI();
+
+  await loadProjects();
+  await loadActiveProject();
 
   updateAuthUI();
   updateRouteModeUI();
@@ -127,10 +116,101 @@ if (logo) {
   updateWorkspaceViewUI();
 });
 
+/* ================= BASIC HELPERS ================= */
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function getTimestampValue(timestamp) {
+  if (!timestamp) return 0;
+  const date = new Date(timestamp);
+  const value = date.getTime();
+  return Number.isNaN(value) ? 0 : value;
+}
+
+function formatActivityTime(timestamp) {
+  if (!timestamp) return "Recent";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "Recent";
+  return date.toLocaleString();
+}
+
+function formatPhotoDate(timestamp) {
+  if (!timestamp) return "Uploaded";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "Uploaded";
+  return date.toLocaleString();
+}
+
+function isToday(timestamp) {
+  if (!timestamp) return false;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
+
+function formatEta(days) {
+  if (!Number.isFinite(days) || days <= 0) return "0 days";
+  if (days < 1) {
+    const hours = Math.max(1, Math.round(days * 24));
+    return `${hours}h`;
+  }
+  return `${days.toFixed(1)} days`;
+}
+
+function uniqueSortedValues(values) {
+  return [...new Set(
+    values
+      .map(value => String(value || "").trim())
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b));
+}
+
+function prependActivity(event) {
+  activityFeed.unshift(event);
+  activityFeed = activityFeed
+    .sort((a, b) => getTimestampValue(b.timestamp) - getTimestampValue(a.timestamp))
+    .slice(0, 100);
+}
+
+function normalizePhotoType(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "before") return "before";
+  if (normalized === "after") return "after";
+  return "other";
+}
+
+function cryptoRandomKey() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function sanitizeFileName(name) {
+  return String(name || "photo")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9._-]/g, "")
+    .toLowerCase();
+}
+
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes)) return "0 KB";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 /* ================= AUTH ================= */
 
 async function initializeAuth() {
   const { data, error } = await supabaseClient.auth.getSession();
+
   if (error) {
     console.error("Auth session error:", error);
   }
@@ -196,8 +276,8 @@ function bindAuthUI() {
 }
 
 async function signIn() {
-  const email = document.getElementById("authEmail").value.trim();
-  const password = document.getElementById("authPassword").value;
+  const email = document.getElementById("authEmail")?.value.trim() || "";
+  const password = document.getElementById("authPassword")?.value || "";
 
   setAuthMessage("");
 
@@ -206,10 +286,7 @@ async function signIn() {
     return;
   }
 
-  const { error } = await supabaseClient.auth.signInWithPassword({
-    email,
-    password
-  });
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
   if (error) {
     setAuthMessage(error.message || "Sign-in failed.", "error");
@@ -248,15 +325,15 @@ function updateAuthUI() {
   const importLink = document.getElementById("importProjectLink");
 
   if (isSignedIn()) {
-    loggedOut.classList.add("hidden");
-    loggedIn.classList.remove("hidden");
-    authUserDisplay.textContent = currentUser.email || "Signed in";
-    authRoleDisplay.textContent = `Role: ${currentRole}`;
+    loggedOut?.classList.add("hidden");
+    loggedIn?.classList.remove("hidden");
+    setText("authUserDisplay", currentUser.email || "Signed in");
+    setText("authRoleDisplay", `Role: ${currentRole}`);
   } else {
-    loggedOut.classList.remove("hidden");
-    loggedIn.classList.add("hidden");
-    authUserDisplay.textContent = "";
-    authRoleDisplay.textContent = "";
+    loggedOut?.classList.remove("hidden");
+    loggedIn?.classList.add("hidden");
+    setText("authUserDisplay", "");
+    setText("authRoleDisplay", "");
   }
 
   if (importLink) {
@@ -273,30 +350,41 @@ function updateAuthUI() {
 }
 
 function updateWriteAccessUI() {
-  const writeMessage = document.getElementById("writeAccessMessage");
-  const markActive = document.getElementById("markActive");
-  const markCompleted = document.getElementById("markCompleted");
-  const markClosed = document.getElementById("markClosed");
-  const addNoteBtn = document.getElementById("addNoteBtn");
-  const noteBox = document.getElementById("noteBox");
-  const photoInput = document.getElementById("photoInput");
-  const uploadPhotoBtn = document.getElementById("uploadPhotoBtn");
-
   const writeEnabled = isSignedIn();
 
-  if (markActive) markActive.disabled = !writeEnabled;
-  if (markCompleted) markCompleted.disabled = !writeEnabled;
-  if (markClosed) markClosed.disabled = !writeEnabled;
-  if (addNoteBtn) addNoteBtn.disabled = !writeEnabled;
-  if (noteBox) noteBox.disabled = !writeEnabled;
-  if (photoInput) photoInput.disabled = !writeEnabled;
-  if (uploadPhotoBtn) uploadPhotoBtn.disabled = !writeEnabled;
+  [
+    "markActive",
+    "markCompleted",
+    "markClosed",
+    "addNoteBtn",
+    "noteBox",
+    "photoInput",
+    "uploadPhotoBtn"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !writeEnabled;
+  });
 
-  if (writeMessage) {
-    writeMessage.textContent = writeEnabled
-      ? ""
-      : "Sign in to update store status, add notes, and upload photos.";
-  }
+  setText(
+    "writeAccessMessage",
+    writeEnabled ? "" : "Sign in to update store status, add notes, and upload photos."
+  );
+}
+
+/* ================= LOGO / HOME ================= */
+
+function bindLogoHome() {
+  const logo = document.querySelector(".brandLogoWide");
+  if (!logo || logo.dataset.bound) return;
+
+  logo.addEventListener("click", () => {
+    currentWorkspaceView = "map";
+    localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
+    updateWorkspaceViewUI();
+    updateMapViewportForMode();
+  });
+
+  logo.dataset.bound = "true";
 }
 
 /* ================= EXECUTIVE / NATIONAL / MOBILE ================= */
@@ -330,13 +418,8 @@ function updateExecutiveModeUI() {
   const toggle = document.getElementById("executiveModeToggle");
   const floatingExit = document.getElementById("floatingExecutiveExit");
 
-  if (toggle) {
-    toggle.checked = executiveModeEnabled;
-  }
-
-  if (floatingExit) {
-    floatingExit.classList.toggle("hidden", !executiveModeEnabled);
-  }
+  if (toggle) toggle.checked = executiveModeEnabled;
+  if (floatingExit) floatingExit.classList.toggle("hidden", !executiveModeEnabled);
 
   if (executiveModeEnabled) {
     document.body.classList.remove("sidebar-open");
@@ -365,10 +448,7 @@ function bindNationalOverviewUI() {
 
 function updateNationalOverviewUI() {
   const toggle = document.getElementById("nationalOverviewToggle");
-  if (toggle) {
-    toggle.checked = nationalOverviewEnabled;
-  }
-
+  if (toggle) toggle.checked = nationalOverviewEnabled;
   setMapModeTags();
 }
 
@@ -409,8 +489,8 @@ function bindWorkspaceViews() {
 
   if (mapBtn && !mapBtn.dataset.bound) {
     mapBtn.addEventListener("click", () => {
-      activeWorkspaceView = "map";
-      localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
+      currentWorkspaceView = "map";
+      localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
       updateWorkspaceViewUI();
     });
     mapBtn.dataset.bound = "true";
@@ -418,8 +498,8 @@ function bindWorkspaceViews() {
 
   if (photoBtn && !photoBtn.dataset.bound) {
     photoBtn.addEventListener("click", () => {
-      activeWorkspaceView = "photos";
-      localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
+      currentWorkspaceView = "photos";
+      localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
       updateWorkspaceViewUI();
       renderPhotoLibrary();
     });
@@ -433,20 +513,16 @@ function updateWorkspaceViewUI() {
   const mapView = document.getElementById("mapWorkspaceView");
   const photoView = document.getElementById("photoLibraryWorkspaceView");
 
-  const showingMap = activeWorkspaceView !== "photos";
+  const showingMap = currentWorkspaceView !== "photos";
 
-  if (mapBtn) mapBtn.classList.toggle("active", showingMap);
-  if (photoBtn) photoBtn.classList.toggle("active", !showingMap);
+  mapBtn?.classList.toggle("active", showingMap);
+  photoBtn?.classList.toggle("active", !showingMap);
 
-  if (mapView) {
-    mapView.classList.toggle("hidden", !showingMap);
-    mapView.classList.toggle("active", showingMap);
-  }
+  mapView?.classList.toggle("hidden", !showingMap);
+  mapView?.classList.toggle("active", showingMap);
 
-  if (photoView) {
-    photoView.classList.toggle("hidden", showingMap);
-    photoView.classList.toggle("active", !showingMap);
-  }
+  photoView?.classList.toggle("hidden", showingMap);
+  photoView?.classList.toggle("active", !showingMap);
 
   if (showingMap) {
     setTimeout(() => map.resize(), 120);
@@ -543,11 +619,11 @@ async function loadActiveProject() {
 
   currentSelectedStoreId = null;
   currentPhotoLibrarySelection = null;
+
   restoreFilterState();
   await hydrate();
   await hydrateActivityFeed();
   restoreRouteState();
-
   populateFilterOptions();
 
   if (map.getSource("stores")) {
@@ -556,17 +632,17 @@ async function loadActiveProject() {
     buildMap();
   }
 
+  updateProjectSourceTag();
   updateHeaderDashboard();
   updateScopeSummary();
+  updateFilterSummary();
+  setMapModeTags();
+  updateIntelRail();
+  resetSelectedStorePanel();
   updateActivityList();
   renderRouteStops();
   updateRouteModeUI();
-  updateProjectSourceTag();
-  updateFilterSummary();
-  setMapModeTags();
   updateMapViewportForMode();
-  updateIntelRail();
-  resetSelectedStorePanel();
   resetPhotoLibraryDetail();
   renderPhotoLibrary();
   updateWorkspaceViewUI();
@@ -578,9 +654,10 @@ async function loadActiveProject() {
 }
 
 function updateProjectSourceTag() {
-  const tag = document.getElementById("projectSourceTag");
-  if (!tag) return;
-  tag.innerText = `${currentProjectMeta?.name || currentProjectId} · ${currentProjectMeta?.sourceLabel || "Project ready"}`;
+  setText(
+    "projectSourceTag",
+    `${currentProjectMeta?.name || currentProjectId} · ${currentProjectMeta?.sourceLabel || "Project ready"}`
+  );
 }
 
 /* ================= FILTERS ================= */
@@ -628,24 +705,6 @@ function bindFilters() {
   }
 }
 
-function handleFilterChange() {
-  populateFilterOptions();
-  rebuildFullMap();
-  updateHeaderDashboard();
-  updateScopeSummary();
-  updateActivityList();
-  updateFilterSummary();
-  setMapModeTags();
-  updateMapViewportForMode();
-  updateIntelRail();
-  renderPhotoLibrary();
-
-  if (currentSelectedStoreId && !getFilteredStores().some(s => String(s.store_id) === String(currentSelectedStoreId))) {
-    currentSelectedStoreId = null;
-    resetSelectedStorePanel();
-  }
-}
-
 function restoreFilterState() {
   try {
     const saved = JSON.parse(localStorage.getItem(filtersKey()) || "{}");
@@ -654,7 +713,7 @@ function restoreFilterState() {
       territory: saved.territory || "",
       state: saved.state || ""
     };
-  } catch (_error) {
+  } catch {
     activeFilters = { region: "", territory: "", state: "" };
   }
 }
@@ -679,29 +738,6 @@ function getStoresForOptionPopulation(dimension) {
     if (dimension !== "state" && activeFilters.state && String(store.state || "") !== activeFilters.state) return false;
     return true;
   });
-}
-
-function populateFilterOptions() {
-  fillFilterSelect(
-    "regionFilter",
-    "All Regions",
-    uniqueSortedValues(getStoresForOptionPopulation("region").map(store => store.region)),
-    activeFilters.region
-  );
-
-  fillFilterSelect(
-    "territoryFilter",
-    "All Territories",
-    uniqueSortedValues(getStoresForOptionPopulation("territory").map(store => store.territory)),
-    activeFilters.territory
-  );
-
-  fillFilterSelect(
-    "stateFilter",
-    "All States",
-    uniqueSortedValues(getStoresForOptionPopulation("state").map(store => store.state)),
-    activeFilters.state
-  );
 }
 
 function fillFilterSelect(id, defaultLabel, values, selectedValue) {
@@ -732,18 +768,30 @@ function fillFilterSelect(id, defaultLabel, values, selectedValue) {
   }
 }
 
-function uniqueSortedValues(values) {
-  return [...new Set(
-    values
-      .map(value => String(value || "").trim())
-      .filter(Boolean)
-  )].sort((a, b) => a.localeCompare(b));
+function populateFilterOptions() {
+  fillFilterSelect(
+    "regionFilter",
+    "All Regions",
+    uniqueSortedValues(getStoresForOptionPopulation("region").map(store => store.region)),
+    activeFilters.region
+  );
+
+  fillFilterSelect(
+    "territoryFilter",
+    "All Territories",
+    uniqueSortedValues(getStoresForOptionPopulation("territory").map(store => store.territory)),
+    activeFilters.territory
+  );
+
+  fillFilterSelect(
+    "stateFilter",
+    "All States",
+    uniqueSortedValues(getStoresForOptionPopulation("state").map(store => store.state)),
+    activeFilters.state
+  );
 }
 
 function updateFilterSummary() {
-  const el = document.getElementById("activeFilterSummary");
-  if (!el) return;
-
   const parts = [];
   if (activeFilters.region) parts.push(`Region: ${activeFilters.region}`);
   if (activeFilters.territory) parts.push(`Territory: ${activeFilters.territory}`);
@@ -752,114 +800,33 @@ function updateFilterSummary() {
   const filteredCount = getFilteredStores().length;
 
   if (parts.length === 0) {
-    el.textContent = `Showing all stores • ${filteredCount.toLocaleString()} in scope`;
+    setText("activeFilterSummary", `Showing all stores • ${filteredCount.toLocaleString()} in scope`);
     return;
   }
 
-  el.textContent = `${parts.join(" • ")} • ${filteredCount.toLocaleString()} in scope`;
+  setText("activeFilterSummary", `${parts.join(" • ")} • ${filteredCount.toLocaleString()} in scope`);
 }
 
-/* ================= HYDRATE ================= */
+function handleFilterChange() {
+  populateFilterOptions();
+  rebuildFullMap();
+  updateProjectSourceTag();
+  updateHeaderDashboard();
+  updateScopeSummary();
+  updateFilterSummary();
+  setMapModeTags();
+  updateMapViewportForMode();
+  updateIntelRail();
+  updateActivityList();
+  renderPhotoLibrary();
 
-async function hydrate() {
-  storeData = await loadStoresForProject(currentProjectId);
-
-  statusMap = {};
-  storeData.forEach(store => {
-    statusMap[String(store.store_id)] = {
-      completed: false,
-      closed: false
-    };
-  });
-
-  const { data, error } = await supabaseClient
-    .from("store_status")
-    .select("*")
-    .eq("project_id", currentProjectId);
-
-  if (error) {
-    console.error("Supabase error:", error);
-    statusRowsCache = [];
-    return;
+  if (currentSelectedStoreId && !getFilteredStores().some(s => String(s.store_id) === String(currentSelectedStoreId))) {
+    currentSelectedStoreId = null;
+    resetSelectedStorePanel();
   }
-
-  statusRowsCache = Array.isArray(data) ? data : [];
-
-  statusRowsCache.forEach(row => {
-    const key = String(row.store_id);
-    if (statusMap[key]) {
-      statusMap[key].completed = row.completed === true;
-      statusMap[key].closed = row.closed === true;
-    }
-  });
 }
 
-async function hydrateActivityFeed() {
-  const events = [];
-  recentPhotoCount = 0;
-  photoRowsCache = [];
-
-  statusRowsCache.forEach(row => {
-    const eventTime = row.updated_at || row.created_at || null;
-    if (row.completed === true) {
-      events.push({
-        type: "status-completed",
-        store_id: String(row.store_id),
-        timestamp: eventTime,
-        title: `✔ Store ${row.store_id} completed`,
-        detail: "Status updated"
-      });
-    } else if (row.closed === true) {
-      events.push({
-        type: "status-closed",
-        store_id: String(row.store_id),
-        timestamp: eventTime,
-        title: `⚠ Store ${row.store_id} closed`,
-        detail: "Status updated"
-      });
-    }
-  });
-
-  const { data: noteRows } = await supabaseClient
-    .from("store_notes")
-    .select("store_id, note, created_at")
-    .eq("project_id", currentProjectId)
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  (noteRows || []).forEach(row => {
-    events.push({
-      type: "note",
-      store_id: String(row.store_id),
-      timestamp: row.created_at || null,
-      title: `📝 Note added to Store ${row.store_id}`,
-      detail: row.note || "Note saved"
-    });
-  });
-
-  const { data: photoRows } = await supabaseClient
-    .from("store_photos")
-    .select("*")
-    .eq("project_id", currentProjectId)
-    .order("created_at", { ascending: false });
-
-  photoRowsCache = Array.isArray(photoRows) ? photoRows : [];
-  recentPhotoCount = photoRowsCache.length;
-
-  photoRowsCache.forEach(row => {
-    events.push({
-      type: "photo",
-      store_id: String(row.store_id),
-      timestamp: row.created_at || null,
-      title: `📷 Photo uploaded for Store ${row.store_id}`,
-      detail: "Field photo evidence captured"
-    });
-  });
-
-  activityFeed = events
-    .sort((a, b) => getTimestampValue(b.timestamp) - getTimestampValue(a.timestamp))
-    .slice(0, 100);
-}
+/* ================= DATA HYDRATION ================= */
 
 async function loadStoresForProject(projectId) {
   const { data, error } = await supabaseClient
@@ -912,7 +879,124 @@ function normalizeStoreRecord(store) {
   };
 }
 
+async function hydrate() {
+  storeData = await loadStoresForProject(currentProjectId);
+
+  statusMap = {};
+  storeData.forEach(store => {
+    statusMap[String(store.store_id)] = {
+      completed: false,
+      closed: false
+    };
+  });
+
+  const { data, error } = await supabaseClient
+    .from("store_status")
+    .select("*")
+    .eq("project_id", currentProjectId);
+
+  if (error) {
+    console.error("Supabase store_status error:", error);
+    statusRowsCache = [];
+    return;
+  }
+
+  statusRowsCache = Array.isArray(data) ? data : [];
+
+  statusRowsCache.forEach(row => {
+    const key = String(row.store_id);
+    if (statusMap[key]) {
+      statusMap[key].completed = row.completed === true;
+      statusMap[key].closed = row.closed === true;
+    }
+  });
+}
+
+async function hydrateActivityFeed() {
+  const events = [];
+  photoRowsCache = [];
+
+  statusRowsCache.forEach(row => {
+    const eventTime = row.updated_at || row.created_at || null;
+
+    if (row.completed === true) {
+      events.push({
+        type: "status-completed",
+        store_id: String(row.store_id),
+        timestamp: eventTime,
+        title: `✔ Store ${row.store_id} completed`,
+        detail: "Status updated"
+      });
+    } else if (row.closed === true) {
+      events.push({
+        type: "status-closed",
+        store_id: String(row.store_id),
+        timestamp: eventTime,
+        title: `⚠ Store ${row.store_id} closed`,
+        detail: "Status updated"
+      });
+    }
+  });
+
+  const { data: noteRows } = await supabaseClient
+    .from("store_notes")
+    .select("store_id, note, created_at")
+    .eq("project_id", currentProjectId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  (noteRows || []).forEach(row => {
+    events.push({
+      type: "note",
+      store_id: String(row.store_id),
+      timestamp: row.created_at || null,
+      title: `📝 Note added to Store ${row.store_id}`,
+      detail: row.note || "Note saved"
+    });
+  });
+
+  const { data: photoRows } = await supabaseClient
+    .from("store_photos")
+    .select("*")
+    .eq("project_id", currentProjectId)
+    .order("created_at", { ascending: false });
+
+  photoRowsCache = Array.isArray(photoRows) ? photoRows : [];
+
+  photoRowsCache.forEach(row => {
+    events.push({
+      type: "photo",
+      store_id: String(row.store_id),
+      timestamp: row.created_at || null,
+      title: `📷 Photo uploaded for Store ${row.store_id}`,
+      detail: "Field photo evidence captured"
+    });
+  });
+
+  activityFeed = events
+    .sort((a, b) => getTimestampValue(b.timestamp) - getTimestampValue(a.timestamp))
+    .slice(0, 100);
+}
+
 /* ================= MAP ================= */
+
+function createGeoJson(stores) {
+  return {
+    type: "FeatureCollection",
+    features: stores.map(store => ({
+      type: "Feature",
+      properties: {
+        store_id: String(store.store_id),
+        completed: statusMap[String(store.store_id)]?.completed === true,
+        closed: statusMap[String(store.store_id)]?.closed === true
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [store.lng, store.lat]
+      }
+    }))
+  };
+}
 
 function buildMap() {
   geojsonData = createGeoJson(getFilteredStores());
@@ -982,7 +1066,7 @@ function buildMap() {
     }
   });
 
-  map.on("click", "points", handleClick);
+  map.on("click", "points", handleStorePointClick);
   map.on("click", "clusters", handleClusterClick);
 
   map.on("mouseenter", "points", () => {
@@ -1002,22 +1086,14 @@ function buildMap() {
   });
 }
 
-function createGeoJson(stores) {
-  return {
-    type: "FeatureCollection",
-    features: stores.map(store => ({
-      type: "Feature",
-      properties: {
-        store_id: String(store.store_id),
-        completed: statusMap[String(store.store_id)]?.completed === true,
-        closed: statusMap[String(store.store_id)]?.closed === true
-      },
-      geometry: {
-        type: "Point",
-        coordinates: [store.lng, store.lat]
-      }
-    }))
-  };
+function rebuildFullMap() {
+  if (!map.getSource("stores")) return;
+  geojsonData = createGeoJson(getFilteredStores());
+  map.getSource("stores").setData(geojsonData);
+}
+
+function rebuild() {
+  rebuildFullMap();
 }
 
 function handleClusterClick(e) {
@@ -1034,18 +1110,17 @@ function handleClusterClick(e) {
   });
 }
 
-function rebuildFullMap() {
-  if (!map.getSource("stores")) return;
-  geojsonData = createGeoJson(getFilteredStores());
-  map.getSource("stores").setData(geojsonData);
-}
-
-function rebuild() {
-  rebuildFullMap();
+function handleStorePointClick(e) {
+  const feature = e.features?.[0];
+  if (!feature) return;
+  const storeId = String(feature.properties.store_id);
+  currentSelectedStoreId = storeId;
+  updateSelectedStorePanel(storeId);
+  openStoreModal(storeId);
 }
 
 function updateMapViewportForMode() {
-  if (activeWorkspaceView === "photos") return;
+  if (currentWorkspaceView === "photos") return;
 
   const filteredStores = getFilteredStores();
 
@@ -1096,27 +1171,38 @@ function fitMapToStores(stores, padding = 40, maxZoom = 8.5) {
 }
 
 function setMapModeTags() {
-  const modeTag = document.getElementById("mapModeTag");
-  const scopeTag = document.getElementById("mapScopeTag");
   const filteredCount = getFilteredStores().length;
 
-  if (modeTag) {
-    modeTag.textContent = nationalOverviewEnabled ? "National Overview" : "Project View";
-  }
+  setText("mapModeTag", nationalOverviewEnabled ? "National Overview" : "Project View");
 
-  if (scopeTag) {
-    const parts = [];
-    if (activeFilters.region) parts.push(activeFilters.region);
-    if (activeFilters.territory) parts.push(activeFilters.territory);
-    if (activeFilters.state) parts.push(activeFilters.state);
+  const parts = [];
+  if (activeFilters.region) parts.push(activeFilters.region);
+  if (activeFilters.territory) parts.push(activeFilters.territory);
+  if (activeFilters.state) parts.push(activeFilters.state);
 
-    scopeTag.textContent = parts.length
+  setText(
+    "mapScopeTag",
+    parts.length
       ? `${parts.join(" • ")} • ${filteredCount.toLocaleString()} stores`
-      : `${filteredCount.toLocaleString()} stores in scope`;
-  }
+      : `${filteredCount.toLocaleString()} stores in scope`
+  );
 }
 
-/* ================= DASHBOARD + INTEL ================= */
+/* ================= DASHBOARD / INTEL ================= */
+
+function calculateAverageCompletedPerDay(events) {
+  const dated = events.filter(item => !!item.timestamp);
+  if (dated.length === 0) return 0;
+
+  const uniqueDays = new Set(
+    dated.map(item => {
+      const d = new Date(item.timestamp);
+      return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    }).filter(Boolean)
+  );
+
+  return uniqueDays.size > 0 ? dated.length / uniqueDays.size : 0;
+}
 
 function getScopeMetrics() {
   const filteredStores = getFilteredStores();
@@ -1218,51 +1304,24 @@ function resetSelectedStorePanel() {
 function updateSelectedStorePanel(storeId) {
   currentSelectedStoreId = String(storeId);
 
-  const store = storeData.find(s => String(s.store_id) === String(storeId));
+  const store = storeData.find(item => String(item.store_id) === String(storeId));
   if (!store) {
     resetSelectedStorePanel();
     return;
   }
 
   const status = statusMap[String(store.store_id)] || { completed: false, closed: false };
-  const statusLabel = status.closed
-    ? "Closed"
-    : status.completed
-      ? "Completed"
-      : "Active";
+  const statusLabel = status.closed ? "Closed" : status.completed ? "Completed" : "Active";
 
-  const lines = [];
-  if (store.full_address) lines.push(store.full_address);
-  if (store.region) lines.push(`Region: ${store.region}`);
-  if (store.territory) lines.push(`Territory: ${store.territory}`);
-  if (store.state) lines.push(`State: ${store.state}`);
-  lines.push(`Status: ${statusLabel}`);
+  const parts = [];
+  if (store.full_address) parts.push(store.full_address);
+  if (store.region) parts.push(`Region: ${store.region}`);
+  if (store.territory) parts.push(`Territory: ${store.territory}`);
+  if (store.state) parts.push(`State: ${store.state}`);
+  parts.push(`Status: ${statusLabel}`);
 
   setText("intelSelectedStoreId", `Store ${store.store_id}`);
-  setText("intelSelectedStoreAddress", lines.join(" • "));
-}
-
-function calculateAverageCompletedPerDay(events) {
-  const dated = events.filter(item => !!item.timestamp);
-  if (dated.length === 0) return 0;
-
-  const uniqueDays = new Set(
-    dated.map(item => {
-      const d = new Date(item.timestamp);
-      return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-    }).filter(Boolean)
-  );
-
-  return uniqueDays.size > 0 ? dated.length / uniqueDays.size : 0;
-}
-
-function formatEta(days) {
-  if (!Number.isFinite(days) || days <= 0) return "0 days";
-  if (days < 1) {
-    const hours = Math.max(1, Math.round(days * 24));
-    return `${hours}h`;
-  }
-  return `${days.toFixed(1)} days`;
+  setText("intelSelectedStoreAddress", parts.join(" • "));
 }
 
 /* ================= PHOTO LIBRARY ================= */
@@ -1318,42 +1377,12 @@ function bindPhotoLibraryUI() {
 
   if (jumpToStoreBtn && !jumpToStoreBtn.dataset.bound) {
     jumpToStoreBtn.addEventListener("click", () => {
-      if (!currentPhotoLibrarySelection?.store_id) return;
-      jumpToStoreFromPhoto(currentPhotoLibrarySelection.store_id);
+      if (currentPhotoLibrarySelection?.store_id) {
+        jumpToStoreFromPhoto(currentPhotoLibrarySelection.store_id);
+      }
     });
     jumpToStoreBtn.dataset.bound = "true";
   }
-}
-
-function getScopedPhotoRows() {
-  const filteredStores = getFilteredStores();
-  const filteredIds = new Set(filteredStores.map(store => String(store.store_id)));
-
-  const enriched = photoRowsCache
-    .filter(row => filteredIds.has(String(row.store_id)))
-    .map(row => {
-      const store = storeData.find(s => String(s.store_id) === String(row.store_id)) || null;
-      const photoType = normalizePhotoType(row.photo_type || row.type || "");
-      const url = getPhotoUrlFromRow(row);
-
-      return {
-        ...row,
-        store,
-        store_id: String(row.store_id),
-        photo_type: photoType,
-        url,
-        created_at: row.created_at || null
-      };
-    });
-
-  return enriched.filter(item => !!item.url);
-}
-
-function normalizePhotoType(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (normalized === "before") return "before";
-  if (normalized === "after") return "after";
-  return "other";
 }
 
 function getPhotoUrlFromRow(row) {
@@ -1369,10 +1398,31 @@ function getPhotoUrlFromRow(row) {
   return "";
 }
 
-function getFilteredPhotoLibraryRows() {
-  const rows = getScopedPhotoRows();
+function getScopedPhotoRows() {
+  const filteredStores = getFilteredStores();
+  const filteredIds = new Set(filteredStores.map(store => String(store.store_id)));
 
-  return rows.filter(row => {
+  return photoRowsCache
+    .filter(row => filteredIds.has(String(row.store_id)))
+    .map(row => {
+      const store = storeData.find(s => String(s.store_id) === String(row.store_id)) || null;
+      const photoType = normalizePhotoType(row.photo_type || row.type || "");
+      const url = getPhotoUrlFromRow(row);
+
+      return {
+        ...row,
+        store,
+        store_id: String(row.store_id),
+        photo_type: photoType,
+        url,
+        created_at: row.created_at || null
+      };
+    })
+    .filter(item => !!item.url);
+}
+
+function getFilteredPhotoLibraryRows() {
+  return getScopedPhotoRows().filter(row => {
     if (photoLibraryFilters.type && row.photo_type !== photoLibraryFilters.type) return false;
 
     if (photoLibraryFilters.search) {
@@ -1407,10 +1457,47 @@ function sortPhotoLibraryRows(rows) {
   return sorted;
 }
 
+function buildGroupedRows(rows, labelGetter) {
+  const grouped = new Map();
+
+  rows.forEach(row => {
+    const label = labelGetter(row);
+    if (!grouped.has(label)) grouped.set(label, []);
+    grouped.get(label).push(row);
+  });
+
+  return [...grouped.entries()].map(([label, items]) => ({ label, items }));
+}
+
+function groupPhotoLibraryRows(rows) {
+  if (photoLibraryFilters.group === "store") {
+    return buildGroupedRows(rows, row => `Store ${row.store_id}`);
+  }
+
+  if (photoLibraryFilters.group === "date") {
+    return buildGroupedRows(rows, row => {
+      const date = new Date(row.created_at || "");
+      if (Number.isNaN(date.getTime())) return "Unknown Date";
+      return date.toLocaleDateString();
+    });
+  }
+
+  if (photoLibraryFilters.group === "territory") {
+    return buildGroupedRows(rows, row => row.store?.territory || "Unassigned Territory");
+  }
+
+  return [{ label: "", items: rows }];
+}
+
+function getPhotoSelectionKey(row) {
+  return String(row.id || row.storage_path || row.url || `${row.store_id}-${row.created_at}`);
+}
+
 function renderPhotoLibrary() {
   const grid = document.getElementById("photoLibraryGrid");
   const resultCount = document.getElementById("photoLibraryResultCount");
-  if (!grid || activeWorkspaceView !== "photos") return;
+
+  if (!grid || currentWorkspaceView !== "photos") return;
 
   const rows = sortPhotoLibraryRows(getFilteredPhotoLibraryRows());
 
@@ -1430,7 +1517,7 @@ function renderPhotoLibrary() {
   }
 
   if (currentPhotoLibrarySelection) {
-    const exists = rows.some(row => String(row.id || row.storage_path || row.url) === currentPhotoLibrarySelection.key);
+    const exists = rows.some(row => getPhotoSelectionKey(row) === currentPhotoLibrarySelection.key);
     if (!exists) {
       currentPhotoLibrarySelection = null;
       resetPhotoLibraryDetail();
@@ -1453,8 +1540,8 @@ function renderPhotoLibrary() {
     }
 
     group.items.forEach(row => {
-      const card = document.createElement("div");
       const key = getPhotoSelectionKey(row);
+      const card = document.createElement("div");
       card.className = "photoLibraryCard";
       if (currentPhotoLibrarySelection?.key === key) {
         card.classList.add("active");
@@ -1504,10 +1591,12 @@ function renderPhotoLibrary() {
       card.addEventListener("click", () => {
         currentPhotoLibrarySelection = {
           key,
+          store_id: row.store_id,
+          url: row.url,
           row
         };
-        renderPhotoLibrary();
         populatePhotoLibraryDetail(row);
+        renderPhotoLibrary();
       });
 
       grid.appendChild(card);
@@ -1515,66 +1604,30 @@ function renderPhotoLibrary() {
   });
 
   if (!currentPhotoLibrarySelection && rows.length > 0) {
+    const first = rows[0];
     currentPhotoLibrarySelection = {
-      key: getPhotoSelectionKey(rows[0]),
-      row: rows[0]
+      key: getPhotoSelectionKey(first),
+      store_id: first.store_id,
+      url: first.url,
+      row: first
     };
-    populatePhotoLibraryDetail(rows[0]);
+    populatePhotoLibraryDetail(first);
     renderPhotoLibrary();
   }
-}
-
-function groupPhotoLibraryRows(rows) {
-  const mode = photoLibraryFilters.group;
-
-  if (mode === "store") {
-    return buildGroupedRows(rows, row => `Store ${row.store_id}`);
-  }
-
-  if (mode === "date") {
-    return buildGroupedRows(rows, row => {
-      const date = new Date(row.created_at || "");
-      if (Number.isNaN(date.getTime())) return "Unknown Date";
-      return date.toLocaleDateString();
-    });
-  }
-
-  if (mode === "territory") {
-    return buildGroupedRows(rows, row => row.store?.territory || "Unassigned Territory");
-  }
-
-  return [{ label: "", items: rows }];
-}
-
-function buildGroupedRows(rows, labelGetter) {
-  const mapGroups = new Map();
-
-  rows.forEach(row => {
-    const label = labelGetter(row);
-    if (!mapGroups.has(label)) mapGroups.set(label, []);
-    mapGroups.get(label).push(row);
-  });
-
-  return [...mapGroups.entries()].map(([label, items]) => ({ label, items }));
-}
-
-function getPhotoSelectionKey(row) {
-  return String(row.id || row.storage_path || row.url || `${row.store_id}-${row.created_at}`);
 }
 
 function populatePhotoLibraryDetail(row) {
   const empty = document.getElementById("photoDetailEmptyState");
   const content = document.getElementById("photoDetailContent");
+  const preview = document.getElementById("photoDetailPreview");
 
   if (!row) {
     resetPhotoLibraryDetail();
     return;
   }
 
-  if (empty) empty.classList.add("hidden");
-  if (content) content.classList.remove("hidden");
-
-  const preview = document.getElementById("photoDetailPreview");
+  empty?.classList.add("hidden");
+  content?.classList.remove("hidden");
   if (preview) preview.src = row.url;
 
   setText("photoDetailStore", `Store ${row.store_id}`);
@@ -1588,12 +1641,10 @@ function populatePhotoLibraryDetail(row) {
 function resetPhotoLibraryDetail() {
   currentPhotoLibrarySelection = null;
 
-  const empty = document.getElementById("photoDetailEmptyState");
-  const content = document.getElementById("photoDetailContent");
-  const preview = document.getElementById("photoDetailPreview");
+  document.getElementById("photoDetailEmptyState")?.classList.remove("hidden");
+  document.getElementById("photoDetailContent")?.classList.add("hidden");
 
-  if (empty) empty.classList.remove("hidden");
-  if (content) content.classList.add("hidden");
+  const preview = document.getElementById("photoDetailPreview");
   if (preview) preview.src = "";
 }
 
@@ -1601,8 +1652,8 @@ function jumpToStoreFromPhoto(storeId) {
   const store = storeData.find(item => String(item.store_id) === String(storeId));
   if (!store) return;
 
-  activeWorkspaceView = "map";
-  localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
+  currentWorkspaceView = "map";
+  localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
   updateWorkspaceViewUI();
 
   currentSelectedStoreId = String(storeId);
@@ -1614,43 +1665,49 @@ function jumpToStoreFromPhoto(storeId) {
   });
 }
 
-/* ================= MODAL ================= */
+/* ================= MODAL / STORE DETAILS ================= */
 
-function handleClick(e) {
-  const feature = e.features[0];
-  const key = feature.properties.store_id;
-  currentModalStoreId = key;
-  updateSelectedStorePanel(key);
+function openStoreModal(storeId) {
+  currentModalStoreId = storeId;
+  updateSelectedStorePanel(storeId);
 
   const modal = document.getElementById("confirmModal");
+  if (!modal) return;
+
   modal.classList.remove("hidden");
+  setText("confirmStoreId", `Store ID: ${storeId}`);
 
-  setText("confirmStoreId", `Store ID: ${key}`);
+  const store = storeData.find(item => String(item.store_id) === String(storeId));
+  setText("confirmAddress", store?.full_address || "");
 
-  const store = storeData.find(s => String(s.store_id) === key);
-  if (store) {
-    setText("confirmAddress", store.full_address);
+  const markActive = document.getElementById("markActive");
+  const markCompleted = document.getElementById("markCompleted");
+  const markClosed = document.getElementById("markClosed");
+  const addNoteBtn = document.getElementById("addNoteBtn");
+  const addToRouteBtn = document.getElementById("addToRouteBtn");
+  const uploadPhotoBtn = document.getElementById("uploadPhotoBtn");
+  const confirmCancel = document.getElementById("confirmCancel");
+
+  if (markActive) markActive.onclick = () => updateStore(storeId, false, false);
+  if (markCompleted) markCompleted.onclick = () => updateStore(storeId, true, false);
+  if (markClosed) markClosed.onclick = () => updateStore(storeId, false, true);
+  if (addNoteBtn) addNoteBtn.onclick = () => addNote(storeId);
+  if (addToRouteBtn) addToRouteBtn.onclick = () => addStoreToRoute(storeId);
+  if (uploadPhotoBtn) uploadPhotoBtn.onclick = () => uploadPhoto(storeId);
+  if (confirmCancel) {
+    confirmCancel.onclick = () => {
+      modal.classList.add("hidden");
+    };
   }
 
-  loadNotes(key);
-  loadPhotos(key);
-
-  document.getElementById("markActive").onclick = () => updateStore(key, false, false);
-  document.getElementById("markCompleted").onclick = () => updateStore(key, true, false);
-  document.getElementById("markClosed").onclick = () => updateStore(key, false, true);
-  document.getElementById("addNoteBtn").onclick = () => addNote(key);
-  document.getElementById("addToRouteBtn").onclick = () => addStoreToRoute(key);
-  document.getElementById("uploadPhotoBtn").onclick = () => uploadPhoto(key);
-  document.getElementById("confirmCancel").onclick = () => modal.classList.add("hidden");
-
-  updateRouteModeUI();
+  loadNotes(storeId);
+  loadPhotos(storeId);
   updateWriteAccessUI();
+  updateRouteModeUI();
   clearPhotoMessage();
 }
 
-/* ================= STORE STATUS ================= */
-
-async function updateStore(key, completed, closed) {
+async function updateStore(storeId, completed, closed) {
   if (!isSignedIn()) {
     alert("Sign in to update store status.");
     return;
@@ -1660,7 +1717,7 @@ async function updateStore(key, completed, closed) {
     .from("store_status")
     .upsert({
       project_id: currentProjectId,
-      store_id: key,
+      store_id: storeId,
       completed,
       closed
     });
@@ -1671,24 +1728,26 @@ async function updateStore(key, completed, closed) {
     return;
   }
 
-  statusMap[key] = { completed, closed };
+  statusMap[String(storeId)] = { completed, closed };
 
-  if (completed || closed) {
-    prependActivity({
-      type: completed ? "status-completed" : "status-closed",
-      store_id: String(key),
-      timestamp: new Date().toISOString(),
-      title: completed ? `✔ Store ${key} completed` : `⚠ Store ${key} closed`,
-      detail: "Status updated"
-    });
-  }
+  prependActivity({
+    type: completed ? "status-completed" : closed ? "status-closed" : "status-active",
+    store_id: String(storeId),
+    timestamp: new Date().toISOString(),
+    title: completed
+      ? `✔ Store ${storeId} completed`
+      : closed
+        ? `⚠ Store ${storeId} closed`
+        : `• Store ${storeId} active`,
+    detail: "Status updated"
+  });
 
   rebuild();
   updateHeaderDashboard();
   updateScopeSummary();
   updateActivityList();
   updateIntelRail();
-  updateSelectedStorePanel(key);
+  updateSelectedStorePanel(storeId);
   renderPhotoLibrary();
 }
 
@@ -1698,7 +1757,7 @@ async function addNote(storeId) {
     return;
   }
 
-  const note = document.getElementById("noteBox").value.trim();
+  const note = document.getElementById("noteBox")?.value.trim() || "";
   if (!note) return;
 
   const { error } = await supabaseClient
@@ -1715,7 +1774,8 @@ async function addNote(storeId) {
     return;
   }
 
-  document.getElementById("noteBox").value = "";
+  const noteBox = document.getElementById("noteBox");
+  if (noteBox) noteBox.value = "";
 
   prependActivity({
     type: "note",
@@ -1727,11 +1787,11 @@ async function addNote(storeId) {
 
   updateActivityList();
   updateIntelRail();
-  loadNotes(storeId);
+  await loadNotes(storeId);
 }
 
 async function loadNotes(storeId) {
-  const { data } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from("store_notes")
     .select("*")
     .eq("project_id", currentProjectId)
@@ -1742,6 +1802,12 @@ async function loadNotes(storeId) {
   if (!container) return;
 
   container.innerHTML = "";
+
+  if (error) {
+    console.error(error);
+    container.innerHTML = "Unable to load notes.";
+    return;
+  }
 
   if (!data || data.length === 0) {
     container.innerHTML = "No notes yet.";
@@ -1810,22 +1876,15 @@ async function resolvePhotoBucketName() {
   return resolvedPhotoBucket;
 }
 
-function sanitizeFileName(name) {
-  return String(name || "photo")
-    .replace(/\s+/g, "-")
-    .replace(/[^a-zA-Z0-9._-]/g, "")
-    .toLowerCase();
-}
-
 function buildPhotoPath(storeId, file) {
   const safeName = sanitizeFileName(file.name);
-  const timestamp = Date.now();
-  return `${currentProjectId}/${storeId}/${timestamp}-${safeName}`;
+  return `${currentProjectId}/${storeId}/${Date.now()}-${safeName}`;
 }
 
 function setPhotoMessage(message = "", isError = false) {
   const el = document.getElementById("photoUploadMessage");
   if (!el) return;
+
   el.textContent = message;
   el.style.color = isError ? "#ff6b6b" : "#d7f9e0";
 }
@@ -1837,6 +1896,7 @@ function clearPhotoMessage() {
 function clearPhotoUI() {
   const input = document.getElementById("photoInput");
   const gallery = document.getElementById("photoGallery");
+
   if (input) input.value = "";
   if (gallery) gallery.innerHTML = "";
   clearPhotoMessage();
@@ -2026,17 +2086,11 @@ async function loadPhotos(storeId) {
   });
 }
 
-function formatPhotoDate(value) {
-  if (!value) return "Uploaded";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Uploaded";
-  return date.toLocaleString();
-}
-
 function openPhotoLightbox(url) {
   const lightbox = document.getElementById("photoLightbox");
   const image = document.getElementById("lightboxImage");
   if (!lightbox || !image) return;
+
   image.src = url;
   lightbox.classList.remove("hidden");
 }
@@ -2045,19 +2099,9 @@ function closePhotoLightbox() {
   const lightbox = document.getElementById("photoLightbox");
   const image = document.getElementById("lightboxImage");
   if (!lightbox || !image) return;
+
   lightbox.classList.add("hidden");
   image.src = "";
-}
-
-function formatFileSize(bytes) {
-  if (!Number.isFinite(bytes)) return "0 KB";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-function cryptoRandomKey() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /* ================= SEARCH ================= */
@@ -2066,25 +2110,26 @@ function bindSearch() {
   const input = document.getElementById("storeSearch");
   if (!input || input.dataset.bound) return;
 
-  input.addEventListener("input", e => {
-    const val = e.target.value.trim();
-    const match = storeData.find(s => String(s.store_id) === val);
-    if (match) {
-      currentSelectedStoreId = String(match.store_id);
-      updateSelectedStorePanel(match.store_id);
+  input.addEventListener("input", (e) => {
+    const value = e.target.value.trim();
+    const match = storeData.find(store => String(store.store_id) === value);
 
-      activeWorkspaceView = "map";
-      localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
-      updateWorkspaceViewUI();
+    if (!match) return;
 
-      map.flyTo({
-        center: [match.lng, match.lat],
-        zoom: 14
-      });
+    currentSelectedStoreId = String(match.store_id);
+    updateSelectedStorePanel(match.store_id);
 
-      if (window.innerWidth <= 900) {
-        document.body.classList.remove("sidebar-open");
-      }
+    currentWorkspaceView = "map";
+    localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
+    updateWorkspaceViewUI();
+
+    map.flyTo({
+      center: [match.lng, match.lat],
+      zoom: 14
+    });
+
+    if (window.innerWidth <= 900) {
+      document.body.classList.remove("sidebar-open");
     }
   });
 
@@ -2101,18 +2146,18 @@ function updateActivityList() {
   container.innerHTML = "";
 
   const filteredIds = new Set(getFilteredStores().map(store => String(store.store_id)));
-  const recentItems = activityFeed
+  const items = activityFeed
     .filter(item => filteredIds.has(String(item.store_id)))
     .slice(0, 12);
 
-  if (countPill) countPill.textContent = recentItems.length;
+  if (countPill) countPill.textContent = items.length;
 
-  if (recentItems.length === 0) {
+  if (items.length === 0) {
     container.innerHTML = `<div class="activity-empty">No recent activity yet.</div>`;
     return;
   }
 
-  recentItems.forEach(item => {
+  items.forEach(item => {
     const div = document.createElement("div");
     div.className = "activityItem";
 
@@ -2138,23 +2183,23 @@ function updateActivityList() {
     div.appendChild(detail);
 
     div.onclick = () => {
-      const match = storeData.find(s => String(s.store_id) === String(item.store_id));
-      if (match) {
-        currentSelectedStoreId = String(match.store_id);
-        updateSelectedStorePanel(match.store_id);
+      const match = storeData.find(store => String(store.store_id) === String(item.store_id));
+      if (!match) return;
 
-        activeWorkspaceView = "map";
-        localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
-        updateWorkspaceViewUI();
+      currentSelectedStoreId = String(match.store_id);
+      updateSelectedStorePanel(match.store_id);
 
-        map.flyTo({
-          center: [match.lng, match.lat],
-          zoom: 14
-        });
+      currentWorkspaceView = "map";
+      localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
+      updateWorkspaceViewUI();
 
-        if (window.innerWidth <= 900) {
-          document.body.classList.remove("sidebar-open");
-        }
+      map.flyTo({
+        center: [match.lng, match.lat],
+        zoom: 14
+      });
+
+      if (window.innerWidth <= 900) {
+        document.body.classList.remove("sidebar-open");
       }
     };
 
@@ -2162,53 +2207,14 @@ function updateActivityList() {
   });
 }
 
-function prependActivity(event) {
-  activityFeed.unshift(event);
-  activityFeed = activityFeed
-    .sort((a, b) => getTimestampValue(b.timestamp) - getTimestampValue(a.timestamp))
-    .slice(0, 100);
-}
-
-function formatActivityTime(timestamp) {
-  if (!timestamp) return "Recent";
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return "Recent";
-  return date.toLocaleString();
-}
-
-function getTimestampValue(timestamp) {
-  if (!timestamp) return 0;
-  const date = new Date(timestamp);
-  const value = date.getTime();
-  return Number.isNaN(value) ? 0 : value;
-}
-
-function isToday(timestamp) {
-  if (!timestamp) return false;
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return false;
-
-  const now = new Date();
-  return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  );
-}
-
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = value;
-}
-
 /* ================= ROUTE BUILDER ================= */
 
 function restoreRouteState() {
   try {
     routeModeEnabled = localStorage.getItem(routeModeKey()) === "true";
-    const savedStops = JSON.parse(localStorage.getItem(routeStopsKey()) || "[]");
-    selectedRouteStops = savedStops.filter(stopId =>
-      storeData.some(store => String(store.store_id) === String(stopId))
+    const saved = JSON.parse(localStorage.getItem(routeStopsKey()) || "[]");
+    selectedRouteStops = saved.filter(storeId =>
+      storeData.some(store => String(store.store_id) === String(storeId))
     );
   } catch (error) {
     console.error("Route restore failed:", error);
@@ -2240,10 +2246,10 @@ function bindRouteBuilder() {
 
   if (addRouteStoreBtn && !addRouteStoreBtn.dataset.bound) {
     addRouteStoreBtn.addEventListener("click", () => {
-      const storeId = routeStoreInput.value.trim();
+      const storeId = routeStoreInput?.value.trim() || "";
       if (!storeId) return;
       addStoreToRoute(storeId);
-      routeStoreInput.value = "";
+      if (routeStoreInput) routeStoreInput.value = "";
     });
     addRouteStoreBtn.dataset.bound = "true";
   }
@@ -2252,7 +2258,7 @@ function bindRouteBuilder() {
     routeStoreInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        addRouteStoreBtn.click();
+        addRouteStoreBtn?.click();
       }
     });
     routeStoreInput.dataset.bound = "true";
@@ -2269,8 +2275,8 @@ function bindRouteBuilder() {
 
   if (openRouteBtn && !openRouteBtn.dataset.bound) {
     openRouteBtn.addEventListener("click", () => {
-      const routeUrl = buildGoogleMapsRouteUrl();
-      if (routeUrl) window.open(routeUrl, "_blank");
+      const url = buildGoogleMapsRouteUrl();
+      if (url) window.open(url, "_blank");
     });
     openRouteBtn.dataset.bound = "true";
   }
@@ -2298,15 +2304,15 @@ function addStoreToRoute(storeId) {
     return;
   }
 
-  const normalizedStoreId = String(storeId);
-  const store = storeData.find(item => String(item.store_id) === normalizedStoreId);
+  const normalized = String(storeId);
+  const store = storeData.find(item => String(item.store_id) === normalized);
 
   if (!store) {
     alert("Store ID not found in current project.");
     return;
   }
 
-  if (selectedRouteStops.includes(normalizedStoreId)) {
+  if (selectedRouteStops.includes(normalized)) {
     alert("That store is already in the route.");
     return;
   }
@@ -2316,7 +2322,7 @@ function addStoreToRoute(storeId) {
     return;
   }
 
-  selectedRouteStops.push(normalizedStoreId);
+  selectedRouteStops.push(normalized);
   persistRouteState();
   renderRouteStops();
 }
@@ -2340,6 +2346,15 @@ function moveRouteStop(storeId, direction) {
   selectedRouteStops = updated;
   persistRouteState();
   renderRouteStops();
+}
+
+function createRouteMiniButton(label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "routeMiniBtn";
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+  return button;
 }
 
 function renderRouteStops() {
@@ -2390,11 +2405,12 @@ function renderRouteStops() {
       currentSelectedStoreId = String(storeId);
       updateSelectedStorePanel(storeId);
 
-      activeWorkspaceView = "map";
-      localStorage.setItem(ACTIVE_VIEW_KEY, activeWorkspaceView);
+      currentWorkspaceView = "map";
+      localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
       updateWorkspaceViewUI();
 
       map.flyTo({ center: [store.lng, store.lat], zoom: 14 });
+
       if (window.innerWidth <= 900) {
         document.body.classList.remove("sidebar-open");
       }
@@ -2423,15 +2439,6 @@ function renderRouteStops() {
   updateRouteMetrics();
 }
 
-function createRouteMiniButton(label, onClick) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "routeMiniBtn";
-  button.textContent = label;
-  button.addEventListener("click", onClick);
-  return button;
-}
-
 function buildGoogleMapsRouteUrl() {
   if (selectedRouteStops.length === 0) {
     alert("Add at least one stop to build a route.");
@@ -2443,10 +2450,7 @@ function buildGoogleMapsRouteUrl() {
     .filter(Boolean)
     .map(store => `${store.lat},${store.lng}`);
 
-  if (coords.length === 0) {
-    alert("No valid route stops found.");
-    return "";
-  }
+  if (coords.length === 0) return "";
 
   if (coords.length === 1) {
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coords[0])}&travelmode=driving`;
@@ -2461,43 +2465,6 @@ function buildGoogleMapsRouteUrl() {
     url += `&waypoints=${encodeURIComponent(waypoints)}`;
   }
   return url;
-}
-
-function updateRouteMetrics() {
-  const routeStores = selectedRouteStops
-    .map(storeId => storeData.find(store => String(store.store_id) === String(storeId)))
-    .filter(Boolean);
-
-  const stops = routeStores.length;
-  let miles = 0;
-
-  for (let i = 1; i < routeStores.length; i++) {
-    miles += haversineMiles(
-      routeStores[i - 1].lat,
-      routeStores[i - 1].lng,
-      routeStores[i].lat,
-      routeStores[i].lng
-    );
-  }
-
-  const optimalMiles = estimateOptimalRouteMiles(routeStores);
-
-  let efficiency = "—";
-  let detail = "Add stops to calculate route efficiency.";
-
-  if (stops >= 2) {
-    const score = miles > 0 && optimalMiles > 0
-      ? Math.max(1, Math.min(100, Math.round((optimalMiles / miles) * 100)))
-      : 100;
-
-    efficiency = `${score}%`;
-    detail = "Approx route order efficiency based on straight-line stop sequencing.";
-  }
-
-  setText("routeMetricStops", stops.toString());
-  setText("routeMetricMiles", stops >= 2 ? miles.toFixed(1) : "0");
-  setText("routeMetricScore", efficiency);
-  setText("routeMetricDetail", detail);
 }
 
 function haversineMiles(lat1, lon1, lat2, lon2) {
@@ -2556,4 +2523,41 @@ function estimateOptimalRouteMiles(routeStores) {
   }
 
   return total;
+}
+
+function updateRouteMetrics() {
+  const routeStores = selectedRouteStops
+    .map(storeId => storeData.find(store => String(store.store_id) === String(storeId)))
+    .filter(Boolean);
+
+  const stops = routeStores.length;
+  let miles = 0;
+
+  for (let i = 1; i < routeStores.length; i++) {
+    miles += haversineMiles(
+      routeStores[i - 1].lat,
+      routeStores[i - 1].lng,
+      routeStores[i].lat,
+      routeStores[i].lng
+    );
+  }
+
+  const optimalMiles = estimateOptimalRouteMiles(routeStores);
+
+  let efficiency = "—";
+  let detail = "Add stops to calculate route efficiency.";
+
+  if (stops >= 2) {
+    const score = miles > 0 && optimalMiles > 0
+      ? Math.max(1, Math.min(100, Math.round((optimalMiles / miles) * 100)))
+      : 100;
+
+    efficiency = `${score}%`;
+    detail = "Approx route order efficiency based on straight-line stop sequencing.";
+  }
+
+  setText("routeMetricStops", String(stops));
+  setText("routeMetricMiles", stops >= 2 ? miles.toFixed(1) : "0");
+  setText("routeMetricScore", efficiency);
+  setText("routeMetricDetail", detail);
 }
