@@ -25,7 +25,7 @@
   --radius-lg: 16px;
   --radius-md: 12px;
   --radius-sm: 10px;
-  --header-h: 176px;
+  --header-h: 214px;
   --header-h-exec: 116px;
   --sidebar-w: 360px;
   --rail-w: 320px;
@@ -129,10 +129,10 @@ body {
 }
 
 .brandLogoWide {
-  height: 125px;
-  transform: scale(3.0);
-  padding: 0px 0px 10px 0px;
-  transform-origin: center;
+  height: 48px;
+  width: auto;
+  display: block;
+  object-fit: contain;
   pointer-events: none;
   filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25));
 }
@@ -173,6 +173,35 @@ body {
   border: 1px solid rgba(255,255,255,0.14);
   border-radius: 12px;
   font-weight: 600;
+}
+
+.headerViewBar {
+  display: flex;
+  align-items: center;
+}
+
+.viewSwitch {
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(8px);
+}
+
+.viewSwitchBtn {
+  margin-top: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: transparent;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.viewSwitchBtn.active {
+  background: rgba(255,255,255,0.16);
 }
 
 .headerMetricsStrip {
@@ -246,7 +275,8 @@ body.executive-mode .topHeader {
 body.executive-mode .headerEyebrow,
 body.executive-mode .headerProjectSubline,
 body.executive-mode .desktopOnlyStat,
-body.executive-mode .headerProgressRow {
+body.executive-mode .headerProgressRow,
+body.executive-mode .headerViewBar {
   display: none;
 }
 
@@ -310,10 +340,26 @@ body.executive-mode .appShell {
   background: var(--bg-deep);
 }
 
+.workspaceViews {
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.workspaceView {
+  height: 100%;
+  min-width: 0;
+}
+
+.workspaceView.active {
+  display: block;
+}
+
 .mapWrapper {
   position: relative;
   min-width: 0;
   background: #060b12;
+  height: 100%;
 }
 
 #map {
@@ -579,6 +625,226 @@ select option {
   font-size: 13px;
   line-height: 1.45;
   color: var(--muted);
+}
+
+/* ================= PHOTO LIBRARY ================= */
+
+.photoLibraryShell {
+  height: 100%;
+  padding: 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.photoLibraryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.photoLibraryTitle {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.photoLibrarySubline {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.photoLibraryToolbar {
+  margin-bottom: 0;
+}
+
+.photoLibraryToolbarGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.photoLibraryToolbarGrid select,
+.photoLibraryToolbarGrid input {
+  margin-top: 0;
+}
+
+.photoLibraryToolbarMeta {
+  margin-top: 12px;
+}
+
+.photoLibraryContent {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+}
+
+.photoLibraryGridWrap {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.photoLibraryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.photoLibraryCard {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.photoLibraryCard:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.065);
+}
+
+.photoLibraryCard.active {
+  border-color: rgba(100,181,246,0.65);
+  box-shadow: 0 0 0 1px rgba(100,181,246,0.28);
+}
+
+.photoLibraryImageWrap {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: rgba(255,255,255,0.04);
+  overflow: hidden;
+}
+
+.photoLibraryImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: rgba(255,255,255,0.04);
+}
+
+.photoLibraryCardBody {
+  padding: 12px;
+}
+
+.photoLibraryCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.photoLibraryStore {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.photoLibraryTypePill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.photoLibraryMeta {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.photoLibraryEmptyState {
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 14px;
+  border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 14px;
+}
+
+.photoLibraryDetailRail {
+  min-width: 0;
+}
+
+.photoLibraryDetailPanel {
+  height: 100%;
+  margin-bottom: 0;
+}
+
+.photoDetailEmptyState {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.photoDetailPreviewWrap {
+  margin-top: 12px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.04);
+}
+
+.photoDetailPreview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.photoDetailMetaList {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.photoDetailMetaItem {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.photoDetailMetaLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.62;
+  margin-bottom: 5px;
+}
+
+.photoDetailMetaValue {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.photoDetailActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.photoDetailActions button {
+  flex: 1;
 }
 
 /* ================= BUTTONS ================= */
@@ -1079,6 +1345,10 @@ button:disabled {
   .headerStatValue {
     font-size: 16px;
   }
+
+  .photoLibraryContent {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
 }
 
 /* ================= TABLET ================= */
@@ -1123,13 +1393,21 @@ button:disabled {
   .desktopOnlyStat {
     display: none;
   }
+
+  .photoLibraryContent {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .photoLibraryDetailRail {
+    display: none;
+  }
 }
 
 /* ================= MOBILE / IOS SAFARI ================= */
 
 @media (max-width: 900px) {
   :root {
-    --header-h: 164px;
+    --header-h: 202px;
     --header-h-exec: 96px;
   }
 
@@ -1203,6 +1481,15 @@ button:disabled {
   .executiveToggle {
     padding: 7px 10px;
     font-size: 11px;
+  }
+
+  .headerViewBar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .viewSwitch {
+    min-width: max-content;
   }
 
   .headerMetricsStrip {
@@ -1298,6 +1585,32 @@ button:disabled {
     grid-template-columns: repeat(3, 1fr);
   }
 
+  .photoLibraryShell {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .photoLibraryTitle {
+    font-size: 20px;
+  }
+
+  .photoLibrarySubline {
+    font-size: 12px;
+  }
+
+  .photoLibraryToolbarGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .photoLibraryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .photoLibraryCardBody {
+    padding: 10px;
+  }
+
   .modalContent {
     width: 100%;
     max-height: 90vh;
@@ -1307,7 +1620,7 @@ button:disabled {
 
 @media (max-width: 640px) {
   :root {
-    --header-h: 156px;
+    --header-h: 196px;
     --header-h-exec: 90px;
   }
 
@@ -1341,6 +1654,11 @@ button:disabled {
   .executiveToggle {
     padding: 6px 9px;
     font-size: 10px;
+  }
+
+  .viewSwitchBtn {
+    padding: 7px 12px;
+    font-size: 11px;
   }
 
   .headerMetricsStrip {
@@ -1387,11 +1705,15 @@ button:disabled {
     font-size: 11px;
     padding: 8px 10px;
   }
+
+  .photoLibraryGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 420px) {
   :root {
-    --header-h: 152px;
+    --header-h: 192px;
   }
 
   .headerModeToggles {
@@ -1409,6 +1731,7 @@ button:disabled {
     max-width: 180px;
   }
 }
+
 /* ================= EXECUTIVE MODE IOS MOBILE FIX ================= */
 
 @media (max-width: 900px) {
