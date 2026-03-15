@@ -129,10 +129,11 @@ body {
 }
 
 .brandLogoWide {
-  height: 130px;
-  transform: scale(3.0);
-  transform-origin: center;
-  pointer-events: none;
+  width: 420px;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  cursor: pointer;
   filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25));
 }
 
@@ -1862,5 +1863,230 @@ button:disabled {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+}
+/* ================= HEADER / LOGO / PROGRESS STABILITY FIX ================= */
+
+/* Desktop header heights need more room now that the logo is larger */
+:root {
+  --header-h: 246px;
+  --header-h-exec: 148px;
+}
+
+/* Give the command bar a more stable logo zone */
+.commandBar {
+  min-height: 82px;
+  grid-template-columns: minmax(260px, 1fr) auto minmax(260px, 1fr);
+}
+
+.commandBarCenter {
+  min-width: 280px;
+}
+
+/* Replace scale hacks with real sizing */
+.brandLogoWide {
+  display: block;
+  width: min(420px, 30vw);
+  min-width: 220px;
+  max-width: 100%;
+  height: auto;
+  transform: none !important;
+  transform-origin: center center;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25));
+}
+
+/* Give the view switch and progress bar a proper home */
+.headerViewBar {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+
+.headerMetricsStrip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+
+.headerProgressRow {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px 0;
+  margin-top: 2px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.headerProgressMeta {
+  min-height: 16px;
+}
+
+.headerProgressTrack {
+  height: 10px;
+  background: rgba(255,255,255,0.14);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+/* Executive header needs enough height so KPI cards stay inside it */
+body.executive-mode .topHeader {
+  height: var(--header-h-exec);
+  padding:
+    max(10px, env(safe-area-inset-top))
+    18px
+    12px;
+}
+
+body.executive-mode .commandBar {
+  min-height: 72px;
+  grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+}
+
+body.executive-mode .brandLogoWide {
+  width: min(320px, 24vw);
+  min-width: 180px;
+}
+
+body.executive-mode .headerMetricsStrip {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+body.executive-mode .headerStat {
+  min-height: 64px;
+}
+
+/* Make the workspace start exactly below the larger header */
+.appShell {
+  height: calc(100vh - var(--header-h));
+}
+
+body.executive-mode .appShell {
+  height: calc(100vh - var(--header-h-exec));
+}
+
+/* ================= DESKTOP / LAPTOP TUNING ================= */
+
+@media (max-width: 1400px) {
+  :root {
+    --header-h: 238px;
+    --header-h-exec: 144px;
+  }
+
+  .brandLogoWide {
+    width: min(360px, 28vw);
+    min-width: 200px;
+  }
+}
+
+/* ================= TABLET ================= */
+
+@media (max-width: 1100px) {
+  :root {
+    --header-h: 222px;
+    --header-h-exec: 132px;
+  }
+
+  .commandBar {
+    min-height: 68px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "left right"
+      "center center";
+    gap: 10px 14px;
+  }
+
+  .commandBarLeft {
+    grid-area: left;
+  }
+
+  .commandBarCenter {
+    grid-area: center;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .commandBarRight {
+    grid-area: right;
+  }
+
+  .brandLogoWide {
+    width: min(300px, 40vw);
+    min-width: 0;
+  }
+
+  body.executive-mode .topHeader {
+    height: var(--header-h-exec);
+  }
+
+  body.executive-mode .commandBar {
+    min-height: 60px;
+  }
+}
+
+/* ================= MOBILE ================= */
+
+@media (max-width: 900px) {
+  :root {
+    --header-h: 168px;
+    --header-h-exec: 104px;
+  }
+
+  .commandBar {
+    min-height: 52px;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "left right"
+      "center center";
+    gap: 8px;
+  }
+
+  .commandBarCenter {
+    justify-content: flex-start;
+  }
+
+  .brandLogoWide {
+    width: 160px;
+    min-width: 0;
+    height: auto;
+  }
+
+  .headerViewBar {
+    min-height: 34px;
+  }
+
+  .headerProgressRow {
+    padding: 6px 6px 0;
+    gap: 6px;
+  }
+
+  body.executive-mode .topHeader {
+    height: var(--header-h-exec);
+  }
+
+  body.executive-mode .brandLogoWide {
+    width: 132px;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --header-h: 160px;
+    --header-h-exec: 96px;
+  }
+
+  .brandLogoWide {
+    width: 132px;
+  }
+
+  body.executive-mode .brandLogoWide {
+    width: 118px;
+  }
+
+  .headerProgressTrack {
+    height: 8px;
   }
 }
