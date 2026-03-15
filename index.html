@@ -96,13 +96,72 @@
     </div>
 
     <div class="panel">
-      <h3>Updated Stores</h3>
+      <div class="timelineHeader">
+        <h3>Recent Activity</h3>
+        <div id="activityCountPill" class="activityCountPill">0</div>
+      </div>
       <div id="activityList" class="activityList"></div>
     </div>
 
   </aside>
 
   <div class="mapWrapper">
+
+    <section class="commandDashboard" id="commandDashboard">
+      <div class="dashboardTopRow">
+        <div>
+          <div class="dashboardEyebrow">Operations Command Dashboard</div>
+          <div id="dashboardProjectName" class="dashboardProjectName">Loading project…</div>
+        </div>
+        <div id="dashboardEta" class="dashboardEtaBadge">ETA —</div>
+      </div>
+
+      <div class="dashboardStatsGrid">
+        <div class="dashboardCard">
+          <div class="dashboardLabel">Total Stores</div>
+          <div id="dashboardTotalStores" class="dashboardValue">0</div>
+        </div>
+        <div class="dashboardCard">
+          <div class="dashboardLabel">Completed</div>
+          <div id="dashboardCompletedStores" class="dashboardValue">0</div>
+        </div>
+        <div class="dashboardCard">
+          <div class="dashboardLabel">Active</div>
+          <div id="dashboardActiveStores" class="dashboardValue">0</div>
+        </div>
+        <div class="dashboardCard">
+          <div class="dashboardLabel">Closed</div>
+          <div id="dashboardClosedStores" class="dashboardValue">0</div>
+        </div>
+        <div class="dashboardCard">
+          <div class="dashboardLabel">Stores Completed Today</div>
+          <div id="dashboardStoresToday" class="dashboardValue">0</div>
+        </div>
+        <div class="dashboardCard">
+          <div class="dashboardLabel">Average / Day</div>
+          <div id="dashboardAvgPerDay" class="dashboardValue">—</div>
+        </div>
+        <div class="dashboardCard">
+          <div class="dashboardLabel">Photos Uploaded</div>
+          <div id="dashboardPhotoCount" class="dashboardValue">0</div>
+        </div>
+        <div class="dashboardCard">
+          <div class="dashboardLabel">Completion</div>
+          <div id="dashboardCompletionPercent" class="dashboardValue">0%</div>
+        </div>
+      </div>
+
+      <div class="dashboardProgressBlock">
+        <div class="dashboardProgressHeader">
+          <span>Project Progress</span>
+          <span id="dashboardProgressLabel">0.0% complete</span>
+        </div>
+        <div class="dashboardProgressTrack">
+          <div id="dashboardProgressFill" class="dashboardProgressFill"></div>
+        </div>
+      </div>
+    </section>
+
     <div id="map"></div>
   </div>
 
