@@ -1409,3 +1409,136 @@ button:disabled {
     max-width: 180px;
   }
 }
+/* ================= EXECUTIVE MODE IOS MOBILE FIX ================= */
+
+@media (max-width: 900px) {
+  body.executive-mode .workspace {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.executive-mode .intelRail {
+    display: none !important;
+  }
+
+  body.executive-mode .mapWrapper {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body.executive-mode .floatingExecutiveExit {
+    top: auto;
+    right: 10px;
+    bottom: calc(92px + env(safe-area-inset-bottom));
+    padding: 9px 12px;
+    font-size: 12px;
+    z-index: 45;
+  }
+
+  body.executive-mode .mapTopOverlay {
+    top: 10px;
+    left: 10px;
+    max-width: calc(100% - 20px);
+  }
+
+  body.executive-mode .mapLegendCard {
+    bottom: calc(144px + env(safe-area-inset-bottom));
+  }
+
+  body.executive-mode .topHeader {
+    gap: 6px;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      10px
+      8px;
+  }
+
+  body.executive-mode .commandBar {
+    min-height: 44px;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "left right";
+    gap: 8px;
+  }
+
+  body.executive-mode .commandBarCenter {
+    display: none;
+  }
+
+  body.executive-mode .headerProjectName {
+    font-size: 14px;
+  }
+
+  body.executive-mode .headerModeToggles {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+
+  body.executive-mode .executiveToggle {
+    padding: 6px 9px;
+    font-size: 10px;
+    min-height: 28px;
+  }
+
+  body.executive-mode .headerMetricsStrip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  body.executive-mode .headerStat {
+    padding: 7px 7px 6px;
+  }
+
+  body.executive-mode .headerStatLabel {
+    font-size: 7px;
+    margin-bottom: 2px;
+  }
+
+  body.executive-mode .headerStatValue {
+    font-size: 11px;
+  }
+
+  body.executive-mode .headerStat:nth-child(5),
+  body.executive-mode .headerStat:nth-child(7) {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  body.executive-mode .topHeader {
+    padding:
+      max(8px, env(safe-area-inset-top))
+      8px
+      8px;
+  }
+
+  body.executive-mode .headerProjectName {
+    font-size: 13px;
+  }
+
+  body.executive-mode .executiveToggle {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+
+  body.executive-mode .headerMetricsStrip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  body.executive-mode .floatingExecutiveExit {
+    right: 8px;
+    bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 420px) {
+  body.executive-mode .headerModeToggles {
+    gap: 4px;
+  }
+
+  body.executive-mode .executiveToggle span {
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
