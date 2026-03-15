@@ -3,40 +3,44 @@
 <head>
   <meta charset="utf-8" />
   <title>Red Bull Rebels — Enterprise Operations Console</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
 <header class="topHeader">
-  <div class="headerMainRow">
-    <div class="headerInfoLeft">
-      <div class="headerEyebrow">Enterprise Operations Console</div>
-      <div id="dashboardProjectName" class="headerProjectName">Loading project…</div>
-      <div id="dashboardProjectSubline" class="headerProjectSubline">Operational visibility • Loading source…</div>
+  <div class="commandBar">
+    <div class="commandBarLeft">
+      <button id="mobileSidebarToggle" class="mobileSidebarToggle" type="button">Menu</button>
+
+      <div class="headerTitleBlock">
+        <div class="headerEyebrow">Enterprise Operations Console</div>
+        <div id="dashboardProjectName" class="headerProjectName">Loading project…</div>
+        <div id="dashboardProjectSubline" class="headerProjectSubline">Operational visibility • Loading source…</div>
+      </div>
     </div>
 
-    <div class="headerLogoCenter">
+    <div class="commandBarCenter">
       <img src="red-bull-rebels-logo.png" class="brandLogoWide" alt="Red Bull Rebels" />
     </div>
 
-    <div class="headerActions">
-      <label class="executiveToggle">
-        <input type="checkbox" id="nationalOverviewToggle" />
-        <span>National Overview</span>
-      </label>
+    <div class="commandBarRight">
+      <div class="headerModeToggles">
+        <label class="executiveToggle">
+          <input type="checkbox" id="nationalOverviewToggle" />
+          <span>National Overview</span>
+        </label>
 
-      <label class="executiveToggle">
-        <input type="checkbox" id="executiveModeToggle" />
-        <span>Executive Mode</span>
-      </label>
-
-      <button id="mobileSidebarToggle" class="mobileSidebarToggle" type="button">Menu</button>
+        <label class="executiveToggle">
+          <input type="checkbox" id="executiveModeToggle" />
+          <span>Executive Mode</span>
+        </label>
+      </div>
     </div>
   </div>
 
-  <div class="headerStatsRow">
+  <div class="headerMetricsStrip">
     <div class="headerStat">
       <div class="headerStatLabel">Total</div>
       <div id="dashboardTotalStores" class="headerStatValue">0</div>
@@ -89,11 +93,11 @@
   </div>
 </header>
 
-<main class="app">
+<main class="appShell">
   <aside class="sidebar" id="sidebar">
     <div class="sidebarInner">
 
-      <div class="panel">
+      <div class="panel panelAccess">
         <h3>Access</h3>
 
         <div id="authLoggedOut">
@@ -111,15 +115,18 @@
         <div id="authMessage" class="authMessage"></div>
       </div>
 
-      <div class="panel">
+      <div class="panel panelProject">
         <h3>Project</h3>
         <select id="projectSelect"></select>
         <div id="projectSourceTag" class="projectSourceTag">Loading project…</div>
         <a id="importProjectLink" class="importLink" href="import-project.html">Import Project Data</a>
       </div>
 
-      <div class="panel">
-        <h3>Scope Filters</h3>
+      <div class="panel panelFilters">
+        <div class="panelHeaderRow">
+          <h3>Scope Filters</h3>
+          <button id="clearFiltersBtn" class="panelInlineAction" type="button">Clear</button>
+        </div>
 
         <div class="filterGrid">
           <select id="regionFilter">
@@ -135,21 +142,17 @@
           </select>
         </div>
 
-        <div class="filterActions">
-          <button id="clearFiltersBtn" class="btnSecondary" type="button">Clear Filters</button>
-        </div>
-
         <div id="activeFilterSummary" class="projectSourceTag">Showing all stores</div>
       </div>
 
-      <div class="panel">
+      <div class="panel panelSearch">
         <h3>Search Store</h3>
         <input id="storeSearch" placeholder="Enter Store ID #" />
       </div>
 
-      <div class="panel">
-        <div class="timelineHeader">
-          <h3>National / Scope Summary</h3>
+      <div class="panel panelScope">
+        <div class="panelHeaderRow">
+          <h3>Scope Summary</h3>
           <div id="scopeStoreCountPill" class="activityCountPill">0</div>
         </div>
 
@@ -218,8 +221,8 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="timelineHeader">
+      <div class="panel panelActivity">
+        <div class="panelHeaderRow">
           <h3>Recent Activity</h3>
           <div id="activityCountPill" class="activityCountPill">0</div>
         </div>
@@ -229,22 +232,96 @@
     </div>
   </aside>
 
-  <section class="mapWrapper">
-    <button id="floatingExecutiveExit" class="floatingExecutiveExit hidden" type="button">Exit Executive Mode</button>
+  <section class="workspace">
+    <div class="mapWrapper">
+      <button id="floatingExecutiveExit" class="floatingExecutiveExit hidden" type="button">Exit Executive Mode</button>
 
-    <div class="mapTopOverlay">
-      <div class="mapModeTag" id="mapModeTag">Project View</div>
-      <div class="mapScopeTag" id="mapScopeTag">All stores</div>
+      <div class="mapTopOverlay">
+        <div class="mapModeTag" id="mapModeTag">Project View</div>
+        <div class="mapScopeTag" id="mapScopeTag">All stores</div>
+      </div>
+
+      <div class="mapLegendCard" id="mapLegendCard">
+        <div class="mapLegendTitle">Cluster Heat Key</div>
+        <div class="mapLegendRow"><span class="legendDot legendRed"></span><span>Low completion</span></div>
+        <div class="mapLegendRow"><span class="legendDot legendOrange"></span><span>Mid progress</span></div>
+        <div class="mapLegendRow"><span class="legendDot legendGreen"></span><span>Mostly complete</span></div>
+      </div>
+
+      <div id="map"></div>
     </div>
 
-    <div class="mapLegendCard" id="mapLegendCard">
-      <div class="mapLegendTitle">Cluster Heat Key</div>
-      <div class="mapLegendRow"><span class="legendDot legendRed"></span><span>Low completion</span></div>
-      <div class="mapLegendRow"><span class="legendDot legendOrange"></span><span>Mid progress</span></div>
-      <div class="mapLegendRow"><span class="legendDot legendGreen"></span><span>Mostly complete</span></div>
-    </div>
+    <aside class="intelRail" id="intelRail">
+      <div class="intelRailInner">
+        <div class="panel intelPanel">
+          <div class="panelHeaderRow">
+            <h3>Operational Scope</h3>
+            <div class="statusBadge" id="intelScopeMode">Project</div>
+          </div>
 
-    <div id="map"></div>
+          <div class="intelMetricGrid">
+            <div class="intelMetricCard">
+              <div class="intelMetricLabel">Visible Stores</div>
+              <div id="intelVisibleStores" class="intelMetricValue">0</div>
+            </div>
+
+            <div class="intelMetricCard">
+              <div class="intelMetricLabel">Completion</div>
+              <div id="intelCompletionRate" class="intelMetricValue">0%</div>
+            </div>
+
+            <div class="intelMetricCard">
+              <div class="intelMetricLabel">Photos</div>
+              <div id="intelPhotoCount" class="intelMetricValue">0</div>
+            </div>
+
+            <div class="intelMetricCard">
+              <div class="intelMetricLabel">ETA</div>
+              <div id="intelEtaValue" class="intelMetricValue">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel intelPanel">
+          <div class="panelHeaderRow">
+            <h3>Live Scope Status</h3>
+          </div>
+
+          <div class="scopeSummaryGrid scopeSummaryGridIntel">
+            <div class="scopeSummaryCard">
+              <div class="scopeSummaryLabel">Completed</div>
+              <div id="intelCompletedStores" class="scopeSummaryValue">0</div>
+            </div>
+
+            <div class="scopeSummaryCard">
+              <div class="scopeSummaryLabel">Active</div>
+              <div id="intelActiveStores" class="scopeSummaryValue">0</div>
+            </div>
+
+            <div class="scopeSummaryCard">
+              <div class="scopeSummaryLabel">Closed</div>
+              <div id="intelClosedStores" class="scopeSummaryValue">0</div>
+            </div>
+
+            <div class="scopeSummaryCard">
+              <div class="scopeSummaryLabel">Completed Today</div>
+              <div id="intelCompletedToday" class="scopeSummaryValue">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel intelPanel">
+          <div class="panelHeaderRow">
+            <h3>Selected Store</h3>
+          </div>
+
+          <div class="intelSelectedStore">
+            <div id="intelSelectedStoreId" class="intelSelectedPrimary">No store selected</div>
+            <div id="intelSelectedStoreAddress" class="intelSelectedSecondary">Tap a store marker to inspect status, notes, and photos.</div>
+          </div>
+        </div>
+      </div>
+    </aside>
   </section>
 </main>
 
