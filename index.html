@@ -40,6 +40,13 @@
     </div>
   </div>
 
+  <div class="headerViewBar">
+    <div class="viewSwitch" id="viewSwitch">
+      <button id="mapViewBtn" class="viewSwitchBtn active" type="button">Map View</button>
+      <button id="photoLibraryViewBtn" class="viewSwitchBtn" type="button">Photo Library</button>
+    </div>
+  </div>
+
   <div class="headerMetricsStrip">
     <div class="headerStat">
       <div class="headerStatLabel">Total</div>
@@ -233,22 +240,132 @@
   </aside>
 
   <section class="workspace">
-    <div class="mapWrapper">
-      <button id="floatingExecutiveExit" class="floatingExecutiveExit hidden" type="button">Exit Executive Mode</button>
+    <div class="workspaceViews">
 
-      <div class="mapTopOverlay">
-        <div class="mapModeTag" id="mapModeTag">Project View</div>
-        <div class="mapScopeTag" id="mapScopeTag">All stores</div>
-      </div>
+      <section id="mapWorkspaceView" class="workspaceView active">
+        <div class="mapWrapper">
+          <button id="floatingExecutiveExit" class="floatingExecutiveExit hidden" type="button">Exit Executive Mode</button>
 
-      <div class="mapLegendCard" id="mapLegendCard">
-        <div class="mapLegendTitle">Cluster Heat Key</div>
-        <div class="mapLegendRow"><span class="legendDot legendRed"></span><span>Low completion</span></div>
-        <div class="mapLegendRow"><span class="legendDot legendOrange"></span><span>Mid progress</span></div>
-        <div class="mapLegendRow"><span class="legendDot legendGreen"></span><span>Mostly complete</span></div>
-      </div>
+          <div class="mapTopOverlay">
+            <div class="mapModeTag" id="mapModeTag">Project View</div>
+            <div class="mapScopeTag" id="mapScopeTag">All stores</div>
+          </div>
 
-      <div id="map"></div>
+          <div class="mapLegendCard" id="mapLegendCard">
+            <div class="mapLegendTitle">Cluster Heat Key</div>
+            <div class="mapLegendRow"><span class="legendDot legendRed"></span><span>Low completion</span></div>
+            <div class="mapLegendRow"><span class="legendDot legendOrange"></span><span>Mid progress</span></div>
+            <div class="mapLegendRow"><span class="legendDot legendGreen"></span><span>Mostly complete</span></div>
+          </div>
+
+          <div id="map"></div>
+        </div>
+      </section>
+
+      <section id="photoLibraryWorkspaceView" class="workspaceView hidden">
+        <div class="photoLibraryShell">
+          <div class="photoLibraryHeader">
+            <div>
+              <div class="headerEyebrow">Visual Execution Evidence</div>
+              <div class="photoLibraryTitle">Photo Library</div>
+              <div class="photoLibrarySubline">Filter, review, and compare field photos across the project scope.</div>
+            </div>
+          </div>
+
+          <div class="photoLibraryToolbar panel">
+            <div class="photoLibraryToolbarGrid">
+              <select id="photoTypeFilter">
+                <option value="">All Photo Types</option>
+                <option value="before">Before</option>
+                <option value="after">After</option>
+                <option value="other">Other</option>
+              </select>
+
+              <select id="photoSortFilter">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="store_asc">Store ID ↑</option>
+                <option value="store_desc">Store ID ↓</option>
+              </select>
+
+              <select id="photoGroupFilter">
+                <option value="none">No Grouping</option>
+                <option value="store">Group by Store</option>
+                <option value="date">Group by Date</option>
+                <option value="territory">Group by Territory</option>
+              </select>
+
+              <input id="photoSearchInput" type="text" placeholder="Search store ID or address" />
+            </div>
+
+            <div class="photoLibraryToolbarMeta">
+              <div id="photoLibraryResultCount" class="projectSourceTag">0 photos in current scope</div>
+            </div>
+          </div>
+
+          <div class="photoLibraryContent">
+            <div class="photoLibraryGridWrap">
+              <div id="photoLibraryGrid" class="photoLibraryGrid"></div>
+            </div>
+
+            <aside class="photoLibraryDetailRail">
+              <div class="panel photoLibraryDetailPanel">
+                <div class="panelHeaderRow">
+                  <h3>Photo Detail</h3>
+                </div>
+
+                <div id="photoDetailEmptyState" class="photoDetailEmptyState">
+                  Select a photo to inspect its store, timestamp, and metadata.
+                </div>
+
+                <div id="photoDetailContent" class="hidden">
+                  <div class="photoDetailPreviewWrap">
+                    <img id="photoDetailPreview" class="photoDetailPreview" alt="Selected field photo" />
+                  </div>
+
+                  <div class="photoDetailMetaList">
+                    <div class="photoDetailMetaItem">
+                      <div class="photoDetailMetaLabel">Store</div>
+                      <div id="photoDetailStore" class="photoDetailMetaValue">—</div>
+                    </div>
+
+                    <div class="photoDetailMetaItem">
+                      <div class="photoDetailMetaLabel">Address</div>
+                      <div id="photoDetailAddress" class="photoDetailMetaValue">—</div>
+                    </div>
+
+                    <div class="photoDetailMetaItem">
+                      <div class="photoDetailMetaLabel">Type</div>
+                      <div id="photoDetailType" class="photoDetailMetaValue">—</div>
+                    </div>
+
+                    <div class="photoDetailMetaItem">
+                      <div class="photoDetailMetaLabel">Uploaded</div>
+                      <div id="photoDetailTimestamp" class="photoDetailMetaValue">—</div>
+                    </div>
+
+                    <div class="photoDetailMetaItem">
+                      <div class="photoDetailMetaLabel">Territory</div>
+                      <div id="photoDetailTerritory" class="photoDetailMetaValue">—</div>
+                    </div>
+
+                    <div class="photoDetailMetaItem">
+                      <div class="photoDetailMetaLabel">State</div>
+                      <div id="photoDetailState" class="photoDetailMetaValue">—</div>
+                    </div>
+                  </div>
+
+                  <div class="photoDetailActions">
+                    <button id="photoDetailOpenLightboxBtn" class="btnSecondary" type="button">Open Fullscreen</button>
+                    <button id="photoDetailJumpToStoreBtn" class="btnComplete" type="button">Jump to Store</button>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
     </div>
 
     <aside class="intelRail" id="intelRail">
