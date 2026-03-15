@@ -3,13 +3,15 @@ mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2Nyd
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 
 const DEFAULT_PROJECT_ID = "central-fl-dollar-tree";
 const PROJECTS_FILE = "data/projects.json";
 const ACTIVE_PROJECT_KEY = "activeProjectId";
 const EXECUTIVE_MODE_KEY = "executiveModeEnabled";
-const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
 
 const PHOTO_BUCKET_CANDIDATES = ["store-photos", "store_photos", "photos"];
 let resolvedPhotoBucket = null;
@@ -39,7 +41,6 @@ let activityFeed = [];
 let recentPhotoCount = 0;
 let statusRowsCache = [];
 let executiveModeEnabled = false;
-let sidebarCollapsed = false;
 
 function routeModeKey() {
   return `routeModeEnabled:${currentProjectId}`;
@@ -57,22 +58,18 @@ function isAdmin() {
   return currentRole === "admin";
 }
 
-/* ================= INIT ================= */
-
 map.on("load", async () => {
   currentProjectId = localStorage.getItem(ACTIVE_PROJECT_KEY) || DEFAULT_PROJECT_ID;
   executiveModeEnabled = localStorage.getItem(EXECUTIVE_MODE_KEY) === "true";
-  sidebarCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
 
   await initializeAuth();
   bindAuthUI();
   bindExecutiveModeUI();
-  bindSidebarToggleUI();
+  bindMobileSidebarUI();
 
   await loadProjects();
   bindProjectSelector();
   await loadActiveProject();
-
   bindSearch();
   bindRouteBuilder();
   bindPhotoUI();
@@ -81,31 +78,15 @@ map.on("load", async () => {
   updateAuthUI();
   updateRouteModeUI();
   updateExecutiveModeUI();
-  updateSidebarUI();
 });
-
-async function refreshProjectState() {
-  await hydrate();
-  await hydrateActivityFeed();
-
-  if (map.getSource("stores")) {
-    rebuildFullMap();
-  } else {
-    buildMap();
-  }
-
-  updateHeaderDashboard();
-  updateActivityList();
-  renderRouteStops();
-  updateRouteModeUI();
-  updateProjectSourceTag();
-}
 
 /* ================= AUTH ================= */
 
 async function initializeAuth() {
   const { data, error } = await supabaseClient.auth.getSession();
-  if (error) console.error("Auth session error:", error);
+  if (error) {
+    console.error("Auth session error:", error);
+  }
 
   currentSession = data?.session || null;
   currentUser = currentSession?.user || null;
@@ -178,7 +159,10 @@ async function signIn() {
     return;
   }
 
-  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
 
   if (error) {
     setAuthMessage(error.message || "Sign-in failed.", "error");
@@ -200,6 +184,7 @@ async function signOut() {
 function setAuthMessage(message, type = "") {
   const el = document.getElementById("authMessage");
   if (!el) return;
+
   el.className = "authMessage";
   if (type === "success") el.classList.add("authSuccess");
   if (type === "error") el.classList.add("authError");
@@ -265,7 +250,7 @@ function updateWriteAccessUI() {
   }
 }
 
-/* ================= EXECUTIVE MODE / SIDEBAR ================= */
+/* ================= EXECUTIVE MODE / MOBILE SIDEBAR ================= */
 
 function bindExecutiveModeUI() {
   const toggle = document.getElementById("executiveModeToggle");
@@ -290,40 +275,54 @@ function bindExecutiveModeUI() {
   }
 }
 
-function bindSidebarToggleUI() {
-  const toggleBtn = document.getElementById("sidebarToggleBtn");
-  if (!toggleBtn || toggleBtn.dataset.bound) return;
-
-  toggleBtn.addEventListener("click", () => {
-    sidebarCollapsed = !sidebarCollapsed;
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
-    updateSidebarUI();
-  });
-
-  toggleBtn.dataset.bound = "true";
-}
-
 function updateExecutiveModeUI() {
   document.body.classList.toggle("executive-mode", executiveModeEnabled);
 
   const toggle = document.getElementById("executiveModeToggle");
   const floatingExit = document.getElementById("floatingExecutiveExit");
 
-  if (toggle) toggle.checked = executiveModeEnabled;
-  if (floatingExit) floatingExit.classList.toggle("hidden", !executiveModeEnabled);
+  if (toggle) {
+    toggle.checked = executiveModeEnabled;
+  }
+
+  if (floatingExit) {
+    floatingExit.classList.toggle("hidden", !executiveModeEnabled);
+  }
+
+  if (executiveModeEnabled) {
+    document.body.classList.remove("sidebar-open");
+  }
 
   setTimeout(() => map.resize(), 180);
 }
 
-function updateSidebarUI() {
-  document.body.classList.toggle("sidebar-collapsed", sidebarCollapsed && !executiveModeEnabled);
+function bindMobileSidebarUI() {
+  const toggle = document.getElementById("mobileSidebarToggle");
+  const sidebar = document.getElementById("sidebar");
 
-  const toggleBtn = document.getElementById("sidebarToggleBtn");
-  if (toggleBtn) {
-    toggleBtn.textContent = sidebarCollapsed ? "Show Sidebar" : "Hide Sidebar";
+  if (toggle && !toggle.dataset.bound) {
+    toggle.addEventListener("click", () => {
+      document.body.classList.toggle("sidebar-open");
+      setTimeout(() => map.resize(), 180);
+    });
+    toggle.dataset.bound = "true";
   }
 
-  setTimeout(() => map.resize(), 180);
+  if (sidebar && !sidebar.dataset.bound) {
+    sidebar.addEventListener("click", (e) => {
+      if (window.innerWidth <= 900 && e.target.tagName === "A") {
+        document.body.classList.remove("sidebar-open");
+      }
+    });
+    sidebar.dataset.bound = "true";
+  }
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 900) {
+      document.body.classList.remove("sidebar-open");
+    }
+    setTimeout(() => map.resize(), 120);
+  });
 }
 
 /* ================= PROJECTS ================= */
@@ -354,6 +353,7 @@ async function loadProjects() {
       const res = await fetch(PROJECTS_FILE, { cache: "no-store" });
       if (!res.ok) throw new Error(`Failed to load ${PROJECTS_FILE}`);
       const fileProjects = await res.json();
+
       if (Array.isArray(fileProjects) && fileProjects.length > 0) {
         loadedProjects = fileProjects;
       }
@@ -411,7 +411,21 @@ async function loadActiveProject() {
     store_file: `data/${currentProjectId}/stores_with_coords.json`
   };
 
-  await refreshProjectState();
+  await hydrate();
+  await hydrateActivityFeed();
+  restoreRouteState();
+
+  if (map.getSource("stores")) {
+    rebuildFullMap();
+  } else {
+    buildMap();
+  }
+
+  updateHeaderDashboard();
+  updateActivityList();
+  renderRouteStops();
+  updateRouteModeUI();
+  updateProjectSourceTag();
 
   if (currentModalStoreId) {
     currentModalStoreId = null;
@@ -703,12 +717,11 @@ function updateHeaderDashboard() {
   setText("dashboardCompletedStores", completed.toLocaleString());
   setText("dashboardActiveStores", active.toLocaleString());
   setText("dashboardClosedStores", closed.toLocaleString());
-  setText("dashboardCompletionPercent", `${percent.toFixed(0)}%`);
   setText("dashboardStoresToday", completedToday.toLocaleString());
   setText("dashboardAvgPerDay", avgPerDay > 0 ? avgPerDay.toFixed(1) : "—");
   setText("dashboardPhotoCount", recentPhotoCount.toLocaleString());
+  setText("dashboardEta", etaDays !== null ? formatEta(etaDays) : "—");
   setText("dashboardProgressLabel", `${percent.toFixed(1)}% complete`);
-  setText("dashboardEta", etaDays !== null ? `ETA ${formatEta(etaDays)}` : "ETA —");
 
   const fill = document.getElementById("dashboardProgressFill");
   if (fill) fill.style.width = `${percent}%`;
@@ -1176,6 +1189,10 @@ function bindSearch() {
         center: [match.lng, match.lat],
         zoom: 14
       });
+
+      if (window.innerWidth <= 900) {
+        document.body.classList.remove("sidebar-open");
+      }
     }
   });
 
@@ -1231,6 +1248,10 @@ function updateActivityList() {
           center: [match.lng, match.lat],
           zoom: 14
         });
+
+        if (window.innerWidth <= 900) {
+          document.body.classList.remove("sidebar-open");
+        }
       }
     };
 
@@ -1275,6 +1296,17 @@ function isToday(timestamp) {
 function setText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value;
+}
+
+/* ================= REBUILD ================= */
+
+function rebuild() {
+  geojsonData.features.forEach(f => {
+    const key = f.properties.store_id;
+    f.properties.completed = statusMap[key].completed;
+    f.properties.closed = statusMap[key].closed;
+  });
+  map.getSource("stores").setData(geojsonData);
 }
 
 /* ================= ROUTE BUILDER ================= */
@@ -1464,6 +1496,9 @@ function renderRouteStops() {
 
     const flyBtn = createRouteMiniButton("View", () => {
       map.flyTo({ center: [store.lng, store.lat], zoom: 14 });
+      if (window.innerWidth <= 900) {
+        document.body.classList.remove("sidebar-open");
+      }
     });
 
     const upBtn = createRouteMiniButton("↑", () => moveRouteStop(String(storeId), -1));
