@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Red Bull Rebels — Central FL Dollar Tree Project</title>
+  <title>Red Bull Rebels — Enterprise Operations Console</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
@@ -12,7 +12,7 @@
 <header class="topHeader">
   <div class="headerMainRow">
     <div class="headerInfoLeft">
-      <div class="headerEyebrow">Operations Command Dashboard</div>
+      <div class="headerEyebrow">Enterprise Operations Console</div>
       <div id="dashboardProjectName" class="headerProjectName">Loading project…</div>
       <div id="dashboardProjectSubline" class="headerProjectSubline">Operational visibility • Loading source…</div>
     </div>
@@ -23,9 +23,15 @@
 
     <div class="headerActions">
       <label class="executiveToggle">
+        <input type="checkbox" id="nationalOverviewToggle" />
+        <span>National Overview</span>
+      </label>
+
+      <label class="executiveToggle">
         <input type="checkbox" id="executiveModeToggle" />
         <span>Executive Mode</span>
       </label>
+
       <button id="mobileSidebarToggle" class="mobileSidebarToggle" type="button">Menu</button>
     </div>
   </div>
@@ -113,8 +119,61 @@
       </div>
 
       <div class="panel">
+        <h3>Scope Filters</h3>
+
+        <div class="filterGrid">
+          <select id="regionFilter">
+            <option value="">All Regions</option>
+          </select>
+
+          <select id="territoryFilter">
+            <option value="">All Territories</option>
+          </select>
+
+          <select id="stateFilter">
+            <option value="">All States</option>
+          </select>
+        </div>
+
+        <div class="filterActions">
+          <button id="clearFiltersBtn" class="btnSecondary" type="button">Clear Filters</button>
+        </div>
+
+        <div id="activeFilterSummary" class="projectSourceTag">Showing all stores</div>
+      </div>
+
+      <div class="panel">
         <h3>Search Store</h3>
         <input id="storeSearch" placeholder="Enter Store ID #" />
+      </div>
+
+      <div class="panel">
+        <div class="timelineHeader">
+          <h3>National / Scope Summary</h3>
+          <div id="scopeStoreCountPill" class="activityCountPill">0</div>
+        </div>
+
+        <div class="scopeSummaryGrid">
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Visible Stores</div>
+            <div id="scopeVisibleStores" class="scopeSummaryValue">0</div>
+          </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Visible Completed</div>
+            <div id="scopeVisibleCompleted" class="scopeSummaryValue">0</div>
+          </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Visible Active</div>
+            <div id="scopeVisibleActive" class="scopeSummaryValue">0</div>
+          </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Visible Closed</div>
+            <div id="scopeVisibleClosed" class="scopeSummaryValue">0</div>
+          </div>
+        </div>
       </div>
 
       <div class="panel routePanel">
@@ -170,8 +229,13 @@
     </div>
   </aside>
 
-  <div class="mapWrapper">
+  <section class="mapWrapper">
     <button id="floatingExecutiveExit" class="floatingExecutiveExit hidden" type="button">Exit Executive Mode</button>
+
+    <div class="mapTopOverlay">
+      <div class="mapModeTag" id="mapModeTag">Project View</div>
+      <div class="mapScopeTag" id="mapScopeTag">All stores</div>
+    </div>
 
     <div class="mapLegendCard" id="mapLegendCard">
       <div class="mapLegendTitle">Cluster Heat Key</div>
@@ -181,7 +245,7 @@
     </div>
 
     <div id="map"></div>
-  </div>
+  </section>
 </main>
 
 <div id="confirmModal" class="modal hidden">
