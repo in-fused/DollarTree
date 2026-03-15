@@ -3,14 +3,13 @@ mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2Nyd
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
 
-const supabaseClient = supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const DEFAULT_PROJECT_ID = "central-fl-dollar-tree";
 const PROJECTS_FILE = "data/projects.json";
 const ACTIVE_PROJECT_KEY = "activeProjectId";
+const EXECUTIVE_MODE_KEY = "executiveModeEnabled";
+const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
 
 const PHOTO_BUCKET_CANDIDATES = ["store-photos", "store_photos", "photos"];
 let resolvedPhotoBucket = null;
@@ -39,6 +38,8 @@ let currentRole = "viewer";
 let activityFeed = [];
 let recentPhotoCount = 0;
 let statusRowsCache = [];
+let executiveModeEnabled = false;
+let sidebarCollapsed = false;
 
 function routeModeKey() {
   return `routeModeEnabled:${currentProjectId}`;
@@ -60,13 +61,18 @@ function isAdmin() {
 
 map.on("load", async () => {
   currentProjectId = localStorage.getItem(ACTIVE_PROJECT_KEY) || DEFAULT_PROJECT_ID;
+  executiveModeEnabled = localStorage.getItem(EXECUTIVE_MODE_KEY) === "true";
+  sidebarCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
 
   await initializeAuth();
   bindAuthUI();
+  bindExecutiveModeUI();
+  bindSidebarToggleUI();
 
   await loadProjects();
   bindProjectSelector();
   await loadActiveProject();
+
   bindSearch();
   bindRouteBuilder();
   bindPhotoUI();
@@ -74,15 +80,32 @@ map.on("load", async () => {
 
   updateAuthUI();
   updateRouteModeUI();
+  updateExecutiveModeUI();
+  updateSidebarUI();
 });
+
+async function refreshProjectState() {
+  await hydrate();
+  await hydrateActivityFeed();
+
+  if (map.getSource("stores")) {
+    rebuildFullMap();
+  } else {
+    buildMap();
+  }
+
+  updateHeaderDashboard();
+  updateActivityList();
+  renderRouteStops();
+  updateRouteModeUI();
+  updateProjectSourceTag();
+}
 
 /* ================= AUTH ================= */
 
 async function initializeAuth() {
   const { data, error } = await supabaseClient.auth.getSession();
-  if (error) {
-    console.error("Auth session error:", error);
-  }
+  if (error) console.error("Auth session error:", error);
 
   currentSession = data?.session || null;
   currentUser = currentSession?.user || null;
@@ -155,10 +178,7 @@ async function signIn() {
     return;
   }
 
-  const { error } = await supabaseClient.auth.signInWithPassword({
-    email,
-    password
-  });
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
   if (error) {
     setAuthMessage(error.message || "Sign-in failed.", "error");
@@ -180,7 +200,6 @@ async function signOut() {
 function setAuthMessage(message, type = "") {
   const el = document.getElementById("authMessage");
   if (!el) return;
-
   el.className = "authMessage";
   if (type === "success") el.classList.add("authSuccess");
   if (type === "error") el.classList.add("authError");
@@ -246,6 +265,67 @@ function updateWriteAccessUI() {
   }
 }
 
+/* ================= EXECUTIVE MODE / SIDEBAR ================= */
+
+function bindExecutiveModeUI() {
+  const toggle = document.getElementById("executiveModeToggle");
+  const floatingExit = document.getElementById("floatingExecutiveExit");
+
+  if (toggle && !toggle.dataset.bound) {
+    toggle.addEventListener("change", () => {
+      executiveModeEnabled = toggle.checked;
+      localStorage.setItem(EXECUTIVE_MODE_KEY, String(executiveModeEnabled));
+      updateExecutiveModeUI();
+    });
+    toggle.dataset.bound = "true";
+  }
+
+  if (floatingExit && !floatingExit.dataset.bound) {
+    floatingExit.addEventListener("click", () => {
+      executiveModeEnabled = false;
+      localStorage.setItem(EXECUTIVE_MODE_KEY, "false");
+      updateExecutiveModeUI();
+    });
+    floatingExit.dataset.bound = "true";
+  }
+}
+
+function bindSidebarToggleUI() {
+  const toggleBtn = document.getElementById("sidebarToggleBtn");
+  if (!toggleBtn || toggleBtn.dataset.bound) return;
+
+  toggleBtn.addEventListener("click", () => {
+    sidebarCollapsed = !sidebarCollapsed;
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
+    updateSidebarUI();
+  });
+
+  toggleBtn.dataset.bound = "true";
+}
+
+function updateExecutiveModeUI() {
+  document.body.classList.toggle("executive-mode", executiveModeEnabled);
+
+  const toggle = document.getElementById("executiveModeToggle");
+  const floatingExit = document.getElementById("floatingExecutiveExit");
+
+  if (toggle) toggle.checked = executiveModeEnabled;
+  if (floatingExit) floatingExit.classList.toggle("hidden", !executiveModeEnabled);
+
+  setTimeout(() => map.resize(), 180);
+}
+
+function updateSidebarUI() {
+  document.body.classList.toggle("sidebar-collapsed", sidebarCollapsed && !executiveModeEnabled);
+
+  const toggleBtn = document.getElementById("sidebarToggleBtn");
+  if (toggleBtn) {
+    toggleBtn.textContent = sidebarCollapsed ? "Show Sidebar" : "Hide Sidebar";
+  }
+
+  setTimeout(() => map.resize(), 180);
+}
+
 /* ================= PROJECTS ================= */
 
 async function loadProjects() {
@@ -274,7 +354,6 @@ async function loadProjects() {
       const res = await fetch(PROJECTS_FILE, { cache: "no-store" });
       if (!res.ok) throw new Error(`Failed to load ${PROJECTS_FILE}`);
       const fileProjects = await res.json();
-
       if (Array.isArray(fileProjects) && fileProjects.length > 0) {
         loadedProjects = fileProjects;
       }
@@ -332,22 +411,7 @@ async function loadActiveProject() {
     store_file: `data/${currentProjectId}/stores_with_coords.json`
   };
 
-  await hydrate();
-  await hydrateActivityFeed();
-  restoreRouteState();
-
-  if (map.getSource("stores")) {
-    rebuildFullMap();
-  } else {
-    buildMap();
-  }
-
-  updateProgress();
-  updateCommandDashboard();
-  updateActivityList();
-  renderRouteStops();
-  updateRouteModeUI();
-  updateProjectSourceTag();
+  await refreshProjectState();
 
   if (currentModalStoreId) {
     currentModalStoreId = null;
@@ -387,17 +451,13 @@ async function hydrate() {
 
   statusRowsCache = Array.isArray(data) ? data : [];
 
-  if (Array.isArray(data)) {
-    data.forEach(row => {
-      const key = String(row.store_id);
-      if (statusMap[key]) {
-        statusMap[key].completed = row.completed === true;
-        statusMap[key].closed = row.closed === true;
-      }
-    });
-  }
-
-  console.log("Hydrate complete. Project:", currentProjectId, "Total stores:", storeData.length);
+  statusRowsCache.forEach(row => {
+    const key = String(row.store_id);
+    if (statusMap[key]) {
+      statusMap[key].completed = row.completed === true;
+      statusMap[key].closed = row.closed === true;
+    }
+  });
 }
 
 async function hydrateActivityFeed() {
@@ -534,23 +594,16 @@ function buildMap() {
     source: "stores",
     filter: ["has", "point_count"],
     paint: {
-      "circle-radius": 26,
+      "circle-radius": 28,
       "circle-color": [
         "case",
-        [
-          ">=",
-          ["/", ["get", "completedCount"], ["get", "totalCount"]],
-          0.75
-        ],
-        "#2ecc71",
-        [
-          ">=",
-          ["/", ["get", "completedCount"], ["get", "totalCount"]],
-          0.4
-        ],
-        "#ff9900",
+        [">=", ["/", ["get", "completedCount"], ["get", "totalCount"]], 0.75], "#2ecc71",
+        [">=", ["/", ["get", "completedCount"], ["get", "totalCount"]], 0.4], "#ff9900",
         "#ff2d2d"
-      ]
+      ],
+      "circle-stroke-width": 2,
+      "circle-stroke-color": "rgba(255,255,255,0.18)",
+      "circle-opacity": 0.92
     }
   });
 
@@ -562,6 +615,9 @@ function buildMap() {
     layout: {
       "text-field": "{point_count}",
       "text-size": 14
+    },
+    paint: {
+      "text-color": "#ffffff"
     }
   });
 
@@ -574,12 +630,12 @@ function buildMap() {
       "circle-radius": 8,
       "circle-color": [
         "case",
-        ["==", ["get", "closed"], true],
-        "#ff9900",
-        ["==", ["get", "completed"], true],
-        "#2ecc71",
+        ["==", ["get", "closed"], true], "#ff9900",
+        ["==", ["get", "completed"], true], "#2ecc71",
         "#ff2d2d"
-      ]
+      ],
+      "circle-stroke-width": 1.5,
+      "circle-stroke-color": "rgba(255,255,255,0.35)"
     }
   });
 
@@ -612,7 +668,6 @@ function handleClusterClick(e) {
   const clusterId = features[0].properties.cluster_id;
   map.getSource("stores").getClusterExpansionZoom(clusterId, (err, zoom) => {
     if (err) return;
-
     map.easeTo({
       center: features[0].geometry.coordinates,
       zoom
@@ -625,9 +680,9 @@ function rebuildFullMap() {
   map.getSource("stores").setData(geojsonData);
 }
 
-/* ================= COMMAND DASHBOARD ================= */
+/* ================= HEADER DASHBOARD ================= */
 
-function updateCommandDashboard() {
+function updateHeaderDashboard() {
   const values = Object.values(statusMap);
   const totalStores = storeData.length;
   const completed = values.filter(v => v.completed).length;
@@ -637,13 +692,13 @@ function updateCommandDashboard() {
   const actionableTotal = totalStores - closed;
   const percent = actionableTotal > 0 ? (completed / actionableTotal) * 100 : 0;
 
-  const completedStatusEvents = activityFeed.filter(item => item.type === "status-completed");
-  const completedToday = completedStatusEvents.filter(item => isToday(item.timestamp)).length;
-
-  const avgPerDay = calculateAverageCompletedPerDay(completedStatusEvents);
+  const completedEvents = activityFeed.filter(item => item.type === "status-completed");
+  const completedToday = completedEvents.filter(item => isToday(item.timestamp)).length;
+  const avgPerDay = calculateAverageCompletedPerDay(completedEvents);
   const etaDays = avgPerDay > 0 ? active / avgPerDay : null;
 
   setText("dashboardProjectName", currentProjectMeta?.name || currentProjectId);
+  setText("dashboardProjectSubline", `Operational visibility • ${currentProjectMeta?.sourceLabel || "Project ready"}`);
   setText("dashboardTotalStores", totalStores.toLocaleString());
   setText("dashboardCompletedStores", completed.toLocaleString());
   setText("dashboardActiveStores", active.toLocaleString());
@@ -655,10 +710,8 @@ function updateCommandDashboard() {
   setText("dashboardProgressLabel", `${percent.toFixed(1)}% complete`);
   setText("dashboardEta", etaDays !== null ? `ETA ${formatEta(etaDays)}` : "ETA —");
 
-  const dashboardProgressFill = document.getElementById("dashboardProgressFill");
-  if (dashboardProgressFill) {
-    dashboardProgressFill.style.width = `${percent}%`;
-  }
+  const fill = document.getElementById("dashboardProgressFill");
+  if (fill) fill.style.width = `${percent}%`;
 }
 
 function calculateAverageCompletedPerDay(events) {
@@ -667,15 +720,12 @@ function calculateAverageCompletedPerDay(events) {
 
   const uniqueDays = new Set(
     dated.map(item => {
-      const date = new Date(item.timestamp);
-      return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+      const d = new Date(item.timestamp);
+      return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
     }).filter(Boolean)
   );
 
-  const dayCount = uniqueDays.size;
-  if (dayCount === 0) return 0;
-
-  return dated.length / dayCount;
+  return uniqueDays.size > 0 ? dated.length / uniqueDays.size : 0;
 }
 
 function formatEta(days) {
@@ -697,11 +747,11 @@ function handleClick(e) {
   const modal = document.getElementById("confirmModal");
   modal.classList.remove("hidden");
 
-  document.getElementById("confirmStoreId").innerText = `Store ID: ${key}`;
+  setText("confirmStoreId", `Store ID: ${key}`);
 
   const store = storeData.find(s => String(s.store_id) === key);
   if (store) {
-    document.getElementById("confirmAddress").innerText = store.full_address;
+    setText("confirmAddress", store.full_address);
   }
 
   loadNotes(key);
@@ -720,7 +770,7 @@ function handleClick(e) {
   clearPhotoMessage();
 }
 
-/* ================= UPDATE ================= */
+/* ================= STORE STATUS ================= */
 
 async function updateStore(key, completed, closed) {
   if (!isSignedIn()) {
@@ -745,10 +795,9 @@ async function updateStore(key, completed, closed) {
 
   statusMap[key] = { completed, closed };
 
-  const eventType = completed ? "status-completed" : closed ? "status-closed" : "status-active";
-  if (eventType !== "status-active") {
+  if (completed || closed) {
     prependActivity({
-      type: eventType,
+      type: completed ? "status-completed" : "status-closed",
       store_id: String(key),
       timestamp: new Date().toISOString(),
       title: completed ? `✔ Store ${key} completed` : `⚠ Store ${key} closed`,
@@ -757,8 +806,7 @@ async function updateStore(key, completed, closed) {
   }
 
   rebuild();
-  updateProgress();
-  updateCommandDashboard();
+  updateHeaderDashboard();
   updateActivityList();
 }
 
@@ -810,6 +858,8 @@ async function loadNotes(storeId) {
     .order("created_at", { ascending: false });
 
   const container = document.getElementById("notesList");
+  if (!container) return;
+
   container.innerHTML = "";
 
   if (!data || data.length === 0) {
@@ -832,8 +882,7 @@ function bindPhotoUI() {
   if (!uploadBtn || uploadBtn.dataset.bound) return;
 
   uploadBtn.addEventListener("click", () => {
-    if (!currentModalStoreId) return;
-    uploadPhoto(currentModalStoreId);
+    if (currentModalStoreId) uploadPhoto(currentModalStoreId);
   });
 
   uploadBtn.dataset.bound = "true";
@@ -850,15 +899,11 @@ function bindLightboxUI() {
 
   if (lightbox && !lightbox.dataset.bound) {
     lightbox.addEventListener("click", (e) => {
-      if (e.target.id === "photoLightbox") {
-        closePhotoLightbox();
-      }
+      if (e.target.id === "photoLightbox") closePhotoLightbox();
     });
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        closePhotoLightbox();
-      }
+      if (e.key === "Escape") closePhotoLightbox();
     });
 
     lightbox.dataset.bound = "true";
@@ -870,11 +915,7 @@ async function resolvePhotoBucketName() {
 
   for (const bucketName of PHOTO_BUCKET_CANDIDATES) {
     try {
-      const { error } = await supabaseClient
-        .storage
-        .from(bucketName)
-        .list("", { limit: 1 });
-
+      const { error } = await supabaseClient.storage.from(bucketName).list("", { limit: 1 });
       if (!error) {
         resolvedPhotoBucket = bucketName;
         return resolvedPhotoBucket;
@@ -923,8 +964,8 @@ function clearPhotoUI() {
 async function compressImageFile(file, maxDimension = 1600, quality = 0.82) {
   if (!file || !file.type.startsWith("image/")) return file;
 
-  const imageBitmap = await createImageBitmap(file);
-  const { width, height } = imageBitmap;
+  const bitmap = await createImageBitmap(file);
+  const { width, height } = bitmap;
 
   let targetWidth = width;
   let targetHeight = height;
@@ -942,7 +983,7 @@ async function compressImageFile(file, maxDimension = 1600, quality = 0.82) {
   canvas.height = targetHeight;
 
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
+  ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
 
   const blob = await new Promise(resolve => {
     canvas.toBlob(resolve, "image/jpeg", quality);
@@ -974,19 +1015,17 @@ async function uploadPhoto(storeId) {
   setPhotoMessage("Compressing and uploading photo...");
 
   let file = originalFile;
-
   try {
     file = await compressImageFile(originalFile);
   } catch (error) {
-    console.warn("Photo compression failed. Falling back to original file.", error);
+    console.warn("Compression failed, using original file.", error);
     file = originalFile;
   }
 
   const bucketName = await resolvePhotoBucketName();
   const path = buildPhotoPath(storeId, file);
 
-  const { error: uploadError } = await supabaseClient
-    .storage
+  const { error: uploadError } = await supabaseClient.storage
     .from(bucketName)
     .upload(path, file, {
       cacheControl: "3600",
@@ -999,11 +1038,7 @@ async function uploadPhoto(storeId) {
     return;
   }
 
-  const { data: publicData } = supabaseClient
-    .storage
-    .from(bucketName)
-    .getPublicUrl(path);
-
+  const { data: publicData } = supabaseClient.storage.from(bucketName).getPublicUrl(path);
   const imageUrl = publicData?.publicUrl || "";
 
   const { error: rowError } = await supabaseClient
@@ -1021,7 +1056,7 @@ async function uploadPhoto(storeId) {
     return;
   }
 
-  input.value = "";
+  if (input) input.value = "";
   recentPhotoCount += 1;
 
   prependActivity({
@@ -1032,7 +1067,7 @@ async function uploadPhoto(storeId) {
     detail: `${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}`
   });
 
-  updateCommandDashboard();
+  updateHeaderDashboard();
   updateActivityList();
   setPhotoMessage(`Photo uploaded successfully (${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}).`);
   await loadPhotos(storeId);
@@ -1069,11 +1104,7 @@ async function loadPhotos(storeId) {
     let imageUrl = row.image_url || "";
 
     if (!imageUrl && row.storage_path) {
-      const { data: publicData } = supabaseClient
-        .storage
-        .from(bucketName)
-        .getPublicUrl(row.storage_path);
-
+      const { data: publicData } = supabaseClient.storage.from(bucketName).getPublicUrl(row.storage_path);
       imageUrl = publicData?.publicUrl || "";
     }
 
@@ -1112,7 +1143,6 @@ function openPhotoLightbox(url) {
   const lightbox = document.getElementById("photoLightbox");
   const image = document.getElementById("lightboxImage");
   if (!lightbox || !image) return;
-
   image.src = url;
   lightbox.classList.remove("hidden");
 }
@@ -1121,7 +1151,6 @@ function closePhotoLightbox() {
   const lightbox = document.getElementById("photoLightbox");
   const image = document.getElementById("lightboxImage");
   if (!lightbox || !image) return;
-
   lightbox.classList.add("hidden");
   image.src = "";
 }
@@ -1137,52 +1166,20 @@ function formatFileSize(bytes) {
 
 function bindSearch() {
   const input = document.getElementById("storeSearch");
-  if (!input.dataset.bound) {
-    input.addEventListener("input", e => {
-      const val = e.target.value.trim();
-      const match = storeData.find(s => String(s.store_id) === val);
-      if (match) {
-        map.flyTo({
-          center: [match.lng, match.lat],
-          zoom: 14
-        });
-      }
-    });
-    input.dataset.bound = "true";
-  }
-}
+  if (!input || input.dataset.bound) return;
 
-/* ================= REBUILD ================= */
-
-function rebuild() {
-  geojsonData.features.forEach(f => {
-    const key = f.properties.store_id;
-    f.properties.completed = statusMap[key].completed;
-    f.properties.closed = statusMap[key].closed;
+  input.addEventListener("input", e => {
+    const val = e.target.value.trim();
+    const match = storeData.find(s => String(s.store_id) === val);
+    if (match) {
+      map.flyTo({
+        center: [match.lng, match.lat],
+        zoom: 14
+      });
+    }
   });
-  map.getSource("stores").setData(geojsonData);
-}
 
-/* ================= PROGRESS ================= */
-
-function updateProgress() {
-  const values = Object.values(statusMap);
-
-  const completed = values.filter(v => v.completed).length;
-  const closed = values.filter(v => v.closed).length;
-  const active = storeData.length - completed - closed;
-
-  document.getElementById("completedCount").innerText = completed;
-  document.getElementById("activeCount").innerText = active;
-  document.getElementById("closedCount").innerText = closed;
-
-  const actionableTotal = storeData.length - closed;
-  const percent = actionableTotal > 0
-    ? (completed / actionableTotal) * 100
-    : 0;
-
-  document.getElementById("progressFill").style.width = `${percent}%`;
-  document.getElementById("progressText").innerText = `${percent.toFixed(1)}% complete`;
+  input.dataset.bound = "true";
 }
 
 /* ================= ACTIVITY ================= */
@@ -1195,10 +1192,7 @@ function updateActivityList() {
   container.innerHTML = "";
 
   const recentItems = activityFeed.slice(0, 12);
-
-  if (countPill) {
-    countPill.textContent = recentItems.length;
-  }
+  if (countPill) countPill.textContent = recentItems.length;
 
   if (recentItems.length === 0) {
     container.innerHTML = `<div class="activity-empty">No recent activity yet.</div>`;
@@ -1209,15 +1203,10 @@ function updateActivityList() {
     const div = document.createElement("div");
     div.className = "activityItem";
 
-    if (item.type === "status-completed") {
-      div.style.borderLeftColor = "#2ecc71";
-    } else if (item.type === "status-closed") {
-      div.style.borderLeftColor = "#ff9900";
-    } else if (item.type === "photo") {
-      div.style.borderLeftColor = "#64b5f6";
-    } else if (item.type === "note") {
-      div.style.borderLeftColor = "#d4a5ff";
-    }
+    if (item.type === "status-completed") div.style.borderLeftColor = "#2ecc71";
+    else if (item.type === "status-closed") div.style.borderLeftColor = "#ff9900";
+    else if (item.type === "photo") div.style.borderLeftColor = "#64b5f6";
+    else if (item.type === "note") div.style.borderLeftColor = "#d4a5ff";
 
     const time = document.createElement("div");
     time.className = "activityTime";
@@ -1316,7 +1305,7 @@ function bindRouteBuilder() {
   const openRouteBtn = document.getElementById("openRouteBtn");
   const routeStoreInput = document.getElementById("routeStoreInput");
 
-  if (!routeModeToggle.dataset.bound) {
+  if (routeModeToggle && !routeModeToggle.dataset.bound) {
     routeModeToggle.addEventListener("change", () => {
       routeModeEnabled = routeModeToggle.checked;
       persistRouteState();
@@ -1325,7 +1314,7 @@ function bindRouteBuilder() {
     routeModeToggle.dataset.bound = "true";
   }
 
-  if (!addRouteStoreBtn.dataset.bound) {
+  if (addRouteStoreBtn && !addRouteStoreBtn.dataset.bound) {
     addRouteStoreBtn.addEventListener("click", () => {
       const storeId = routeStoreInput.value.trim();
       if (!storeId) return;
@@ -1335,7 +1324,7 @@ function bindRouteBuilder() {
     addRouteStoreBtn.dataset.bound = "true";
   }
 
-  if (!routeStoreInput.dataset.bound) {
+  if (routeStoreInput && !routeStoreInput.dataset.bound) {
     routeStoreInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -1345,7 +1334,7 @@ function bindRouteBuilder() {
     routeStoreInput.dataset.bound = "true";
   }
 
-  if (!clearRouteBtn.dataset.bound) {
+  if (clearRouteBtn && !clearRouteBtn.dataset.bound) {
     clearRouteBtn.addEventListener("click", () => {
       selectedRouteStops = [];
       persistRouteState();
@@ -1354,11 +1343,10 @@ function bindRouteBuilder() {
     clearRouteBtn.dataset.bound = "true";
   }
 
-  if (!openRouteBtn.dataset.bound) {
+  if (openRouteBtn && !openRouteBtn.dataset.bound) {
     openRouteBtn.addEventListener("click", () => {
       const routeUrl = buildGoogleMapsRouteUrl();
-      if (!routeUrl) return;
-      window.open(routeUrl, "_blank");
+      if (routeUrl) window.open(routeUrl, "_blank");
     });
     openRouteBtn.dataset.bound = "true";
   }
@@ -1444,6 +1432,7 @@ function renderRouteStops() {
     empty.style.display = "block";
     openRouteBtn.disabled = true;
     clearRouteBtn.disabled = true;
+    updateRouteMetrics();
     return;
   }
 
@@ -1496,6 +1485,8 @@ function renderRouteStops() {
 
     list.appendChild(item);
   });
+
+  updateRouteMetrics();
 }
 
 function createRouteMiniButton(label, onClick) {
@@ -1532,10 +1523,103 @@ function buildGoogleMapsRouteUrl() {
   const waypoints = coords.slice(1, -1).join("|");
 
   let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-
   if (waypoints.length > 0) {
     url += `&waypoints=${encodeURIComponent(waypoints)}`;
   }
-
   return url;
+}
+
+function updateRouteMetrics() {
+  const routeStores = selectedRouteStops
+    .map(storeId => storeData.find(store => String(store.store_id) === String(storeId)))
+    .filter(Boolean);
+
+  const stops = routeStores.length;
+  let miles = 0;
+
+  for (let i = 1; i < routeStores.length; i++) {
+    miles += haversineMiles(
+      routeStores[i - 1].lat,
+      routeStores[i - 1].lng,
+      routeStores[i].lat,
+      routeStores[i].lng
+    );
   }
+
+  const optimalMiles = estimateOptimalRouteMiles(routeStores);
+
+  let efficiency = "—";
+  let detail = "Add stops to calculate route efficiency.";
+
+  if (stops >= 2) {
+    const score = miles > 0 && optimalMiles > 0
+      ? Math.max(1, Math.min(100, Math.round((optimalMiles / miles) * 100)))
+      : 100;
+
+    efficiency = `${score}%`;
+    detail = "Approx route order efficiency based on straight-line stop sequencing.";
+  }
+
+  setText("routeMetricStops", stops.toString());
+  setText("routeMetricMiles", stops >= 2 ? miles.toFixed(1) : "0");
+  setText("routeMetricScore", efficiency);
+  setText("routeMetricDetail", detail);
+}
+
+function haversineMiles(lat1, lon1, lat2, lon2) {
+  const toRad = deg => deg * (Math.PI / 180);
+  const R = 3958.8;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function estimateOptimalRouteMiles(routeStores) {
+  if (routeStores.length < 2) return 0;
+  if (routeStores.length === 2) {
+    return haversineMiles(
+      routeStores[0].lat,
+      routeStores[0].lng,
+      routeStores[1].lat,
+      routeStores[1].lng
+    );
+  }
+
+  const remaining = routeStores.slice(1);
+  const ordered = [routeStores[0]];
+  let current = routeStores[0];
+
+  while (remaining.length > 0) {
+    let nearestIndex = 0;
+    let nearestDistance = Infinity;
+
+    remaining.forEach((candidate, index) => {
+      const distance = haversineMiles(current.lat, current.lng, candidate.lat, candidate.lng);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    });
+
+    const [nextStore] = remaining.splice(nearestIndex, 1);
+    ordered.push(nextStore);
+    current = nextStore;
+  }
+
+  let total = 0;
+  for (let i = 1; i < ordered.length; i++) {
+    total += haversineMiles(
+      ordered[i - 1].lat,
+      ordered[i - 1].lng,
+      ordered[i].lat,
+      ordered[i].lng
+    );
+  }
+
+  return total;
+}
