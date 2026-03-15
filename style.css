@@ -96,8 +96,9 @@ select option {
 #progressFill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #ff532d 0%, #9ccc2e 50%, #2ecc71 100%);
+  background: linear-gradient(90deg, #ff2d2d, #ff9900, #2ecc71);
   transition: width 0.25s ease;
+  border-radius: 6px;
 }
 
 .progressLabel {
@@ -280,22 +281,78 @@ button:disabled {
   flex: 1;
 }
 
-/* ================= ACTIVITY ================= */
+/* ================= ACTIVITY TIMELINE ================= */
+
+.timelineHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.timelineHeader h3 {
+  margin: 0;
+}
+
+.activityCountPill {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  opacity: 0.9;
+}
 
 .activityList {
   display: grid;
-  gap: 6px;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 340px;
+  overflow-y: auto;
 }
 
 .activityItem {
-  padding: 8px 10px;
-  border-radius: 6px;
-  margin-bottom: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border-left: 3px solid rgba(255,255,255,0.12);
   cursor: pointer;
-  font-size: 13px;
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
-/* ================= MAP ================= */
+.activityItem:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.06);
+}
+
+.activityTime {
+  font-size: 11px;
+  opacity: 0.65;
+  margin-bottom: 4px;
+}
+
+.activityTitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.activityDetail {
+  font-size: 12px;
+  opacity: 0.72;
+  margin-top: 2px;
+}
+
+.activity-empty {
+  opacity: 0.65;
+  font-size: 13px;
+  padding: 6px 0;
+}
+
+/* ================= MAP + COMMAND DASHBOARD ================= */
 
 .mapWrapper {
   flex: 1;
@@ -305,6 +362,106 @@ button:disabled {
 #map {
   position: absolute;
   inset: 0;
+}
+
+.commandDashboard {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  z-index: 20;
+  background: rgba(8, 12, 20, 0.9);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 16px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 14px 36px rgba(0,0,0,0.22);
+}
+
+.dashboardTopRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.dashboardEyebrow {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+
+.dashboardProjectName {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.dashboardEtaBadge {
+  background: rgba(255,255,255,0.08);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0.92;
+}
+
+.dashboardStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboardCard {
+  background: rgba(255,255,255,0.04);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.dashboardLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.65;
+  margin-bottom: 6px;
+}
+
+.dashboardValue {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.dashboardProgressBlock {
+  margin-top: 14px;
+}
+
+.dashboardProgressHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+.dashboardProgressTrack {
+  height: 12px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.dashboardProgressFill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ff2d2d, #ff9900, #2ecc71);
+  transition: width 0.25s ease;
+  border-radius: 999px;
 }
 
 /* ================= MODAL ================= */
@@ -456,10 +613,6 @@ button:disabled {
   display: flex;
 }
 
-.hidden {
-  display: none;
-}
-
 .lightboxImage {
   max-width: min(96vw, 1200px);
   max-height: 88vh;
@@ -485,6 +638,12 @@ button:disabled {
 
 /* ================= MOBILE ================= */
 
+@media (max-width: 1200px) {
+  .dashboardStatsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
   header {
     height: 100px;
@@ -502,14 +661,14 @@ button:disabled {
 
   aside {
     width: 100%;
-    max-height: 30vh;
+    max-height: 32vh;
     border-right: none;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     position: relative;
   }
 
   .mapWrapper {
-    height: 70vh;
+    height: 68vh;
   }
 
   .routeHeader {
@@ -533,5 +692,48 @@ button:disabled {
     width: 96%;
     max-height: 90vh;
     padding: 16px;
+  }
+
+  .commandDashboard {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    padding: 12px;
+  }
+
+  .dashboardTopRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .dashboardProjectName {
+    font-size: 16px;
+  }
+
+  .dashboardValue {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboardStatsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboardCard {
+    padding: 10px;
+  }
+
+  .dashboardLabel {
+    font-size: 10px;
+  }
+
+  .dashboardValue {
+    font-size: 18px;
+  }
+
+  .activityList {
+    max-height: 280px;
   }
 }
