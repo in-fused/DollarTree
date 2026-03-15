@@ -25,8 +25,8 @@
   --radius-lg: 16px;
   --radius-md: 12px;
   --radius-sm: 10px;
-  --header-h: 214px;
-  --header-h-exec: 116px;
+  --header-h: 170px;
+  --header-h-exec: 102px;
   --sidebar-w: 360px;
   --rail-w: 320px;
 }
@@ -55,51 +55,58 @@ body {
 .topHeader {
   height: var(--header-h);
   padding:
-    max(10px, env(safe-area-inset-top))
-    18px
-    12px;
+    max(8px, env(safe-area-inset-top))
+    16px
+    10px;
   background:
-    radial-gradient(circle at 50% 30%, rgba(255,255,255,0.05), transparent 34%),
+    radial-gradient(circle at 50% 28%, rgba(255,255,255,0.05), transparent 34%),
     linear-gradient(90deg, var(--header-a), var(--header-b));
   border-bottom: 4px solid var(--accent);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 8px;
   position: relative;
   z-index: 20;
   transition: height 0.22s ease, padding 0.22s ease;
 }
 
 .commandBar {
-  min-height: 64px;
+  min-height: 56px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 16px;
+  grid-template-columns: minmax(260px, 1fr) auto minmax(260px, 1fr);
+  align-items: start;
+  gap: 12px;
 }
 
 .commandBarLeft {
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
 }
 
 .commandBarCenter {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-width: 0;
+  display: flex;
+  align-self: start;
+  justify-content: center;
+  padding-top: 0;
 }
 
 .commandBarRight {
   min-width: 0;
   display: flex;
   justify-content: flex-end;
+  align-self: start;
 }
 
 .headerTitleBlock {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 0;
 }
 
 .headerEyebrow {
@@ -107,21 +114,23 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   opacity: 0.62;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .headerProjectName {
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 800;
-  line-height: 1.05;
+  line-height: 1.02;
+  margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .headerProjectSubline {
-  margin-top: 4px;
+  margin-top: 3px;
   font-size: 12px;
+  line-height: 1.2;
   opacity: 0.8;
   white-space: nowrap;
   overflow: hidden;
@@ -129,17 +138,20 @@ body {
 }
 
 .brandLogoWide {
-  width: 420px;
+  width: 300px;
+  min-width: 0;
   max-width: 100%;
   height: auto;
   display: block;
   cursor: pointer;
+  pointer-events: auto;
+  transform: none !important;
   filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25));
 }
 
 .headerModeToggles {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
@@ -178,6 +190,8 @@ body {
 .headerViewBar {
   display: flex;
   align-items: center;
+  min-height: 34px;
+  margin-top: -2px;
 }
 
 .viewSwitch {
@@ -213,10 +227,11 @@ body {
 
 .headerStat {
   min-width: 0;
+  min-height: 52px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.07);
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 9px 12px 8px;
 }
 
 .headerStatLabel {
@@ -224,42 +239,20 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.68;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .headerStatValue {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 1;
 }
 
-.headerProgressRow {
-  display: grid;
-  gap: 6px;
-}
-
-.headerProgressMeta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 12px;
-  opacity: 0.92;
-}
-
-.headerProgressTrack {
-  height: 8px;
-  background: rgba(255,255,255,0.16);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
+.headerProgressRow,
+.headerProgressMeta,
+.headerProgressTrack,
 .headerProgressFill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--red), var(--orange), var(--green));
-  transition: width 0.25s ease;
-  border-radius: 999px;
+  display: none !important;
 }
 
 /* ================= EXECUTIVE MODE ================= */
@@ -268,24 +261,38 @@ body.executive-mode .topHeader {
   height: var(--header-h-exec);
   padding:
     max(8px, env(safe-area-inset-top))
-    18px
-    10px;
+    16px
+    8px;
 }
 
 body.executive-mode .headerEyebrow,
 body.executive-mode .headerProjectSubline,
 body.executive-mode .desktopOnlyStat,
-body.executive-mode .headerProgressRow,
 body.executive-mode .headerViewBar {
-  display: none;
+  display: none !important;
+}
+
+body.executive-mode .commandBar {
+  min-height: 50px;
+  grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+}
+
+body.executive-mode .brandLogoWide {
+  width: 200px;
 }
 
 body.executive-mode .headerMetricsStrip {
   grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
 }
 
-body.executive-mode .brandLogoWide {
-  height: 38px;
+body.executive-mode .headerStat {
+  min-height: 48px;
+  padding: 8px 10px 7px;
+}
+
+body.executive-mode .headerStatValue {
+  font-size: 14px;
 }
 
 body.executive-mode .sidebar {
@@ -342,24 +349,64 @@ body.executive-mode .appShell {
 
 .workspaceViews {
   min-width: 0;
-  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
 .workspaceView {
-  height: 100%;
+  flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 
 .workspaceView.active {
-  display: block;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspaceProgressBar {
+  position: relative;
+  z-index: 26;
+  padding: 10px 14px 8px;
+  background: linear-gradient(180deg, rgba(5, 11, 18, 0.88), rgba(5, 11, 18, 0.58));
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  backdrop-filter: blur(6px);
+}
+
+.workspaceProgressMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.9);
+  margin-bottom: 8px;
+}
+
+.workspaceProgressTrack {
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.10);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+.workspaceProgressFill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--red), var(--orange), var(--green));
+  transition: width 0.25s ease;
 }
 
 .mapWrapper {
   position: relative;
   min-width: 0;
+  min-height: 0;
+  flex: 1;
   background: #060b12;
-  height: 100%;
 }
 
 #map {
@@ -630,8 +677,9 @@ select option {
 /* ================= PHOTO LIBRARY ================= */
 
 .photoLibraryShell {
-  height: 100%;
-  padding: 18px;
+  flex: 1;
+  min-height: 0;
+  padding: 14px 18px 18px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -640,19 +688,20 @@ select option {
 
 .photoLibraryHeader {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
 }
 
 .photoLibraryTitle {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1.05;
+  margin: 0;
 }
 
 .photoLibrarySubline {
-  margin-top: 4px;
+  margin-top: 6px;
   font-size: 13px;
   color: var(--muted);
 }
@@ -1337,21 +1386,10 @@ button:disabled {
     grid-template-columns: minmax(0, 1fr) 290px;
   }
 
-  .headerMetricsStrip {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-    gap: 6px;
-  }
-
-  .headerStatValue {
-    font-size: 16px;
-  }
-
   .photoLibraryContent {
     grid-template-columns: minmax(0, 1fr) 280px;
   }
 }
-
-/* ================= TABLET ================= */
 
 @media (max-width: 1100px) {
   .commandBar {
@@ -1368,6 +1406,8 @@ button:disabled {
 
   .commandBarCenter {
     grid-area: center;
+    min-width: 0;
+    justify-content: center;
   }
 
   .commandBarRight {
@@ -1375,7 +1415,7 @@ button:disabled {
   }
 
   .brandLogoWide {
-    height: 34px;
+    width: 240px;
   }
 
   .workspace {
@@ -1407,25 +1447,27 @@ button:disabled {
 
 @media (max-width: 900px) {
   :root {
-    --header-h: 202px;
-    --header-h-exec: 96px;
+    --header-h: 146px;
+    --header-h-exec: 82px;
   }
 
   .topHeader {
     padding:
       max(8px, env(safe-area-inset-top))
       12px
-      10px;
-    gap: 8px;
+      8px;
+    gap: 6px;
   }
 
   .commandBar {
-    min-height: 52px;
+    min-height: 48px;
     grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "left right"
-      "center center";
+    grid-template-areas: "left right";
     gap: 8px;
+  }
+
+  .commandBarCenter {
+    display: none;
   }
 
   .commandBarLeft {
@@ -1434,14 +1476,10 @@ button:disabled {
     gap: 10px;
   }
 
-  .commandBarCenter {
-    grid-area: center;
-    justify-content: flex-start;
-  }
-
   .commandBarRight {
     grid-area: right;
     justify-content: flex-end;
+    align-items: flex-start;
   }
 
   .mobileSidebarToggle {
@@ -1451,39 +1489,32 @@ button:disabled {
     flex-shrink: 0;
   }
 
-  .headerTitleBlock {
-    min-width: 0;
-  }
-
-  .headerEyebrow {
-    display: none;
-  }
-
   .headerProjectName {
-    font-size: 16px;
-    line-height: 1.05;
+    font-size: 14px;
+    max-width: 190px;
   }
 
   .headerProjectSubline {
-    font-size: 10px;
-    margin-top: 2px;
-    max-width: 100%;
-  }
-
-  .brandLogoWide {
-    height: 18px;
+    font-size: 9px;
+    max-width: 190px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .headerModeToggles {
+    flex-direction: column;
+    align-items: flex-end;
     gap: 6px;
   }
 
   .executiveToggle {
-    padding: 7px 10px;
-    font-size: 11px;
+    padding: 6px 10px;
+    font-size: 10px;
   }
 
   .headerViewBar {
+    min-height: 32px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -1493,26 +1524,27 @@ button:disabled {
   }
 
   .headerMetricsStrip {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 4px;
   }
 
   .headerStat {
-    padding: 8px 8px 7px;
-    border-radius: 10px;
+    min-height: 46px;
+    padding: 7px 8px 6px;
   }
 
   .headerStatLabel {
     font-size: 7px;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
   }
 
   .headerStatValue {
-    font-size: 12px;
+    font-size: 11px;
   }
 
-  .headerProgressMeta {
-    font-size: 11px;
+  .headerStat:nth-child(5),
+  .headerStat:nth-child(7) {
+    display: none;
   }
 
   .appShell {
@@ -1551,6 +1583,19 @@ button:disabled {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .workspaceProgressBar {
+    padding: 8px 12px 8px;
+  }
+
+  .workspaceProgressMeta {
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+
+  .workspaceProgressTrack {
+    height: 10px;
+  }
+
   .mapTopOverlay {
     top: 10px;
     left: 10px;
@@ -1586,16 +1631,16 @@ button:disabled {
   }
 
   .photoLibraryShell {
-    padding: 12px;
+    padding: 10px 12px 12px;
     gap: 12px;
   }
 
   .photoLibraryTitle {
-    font-size: 20px;
+    font-size: 18px;
   }
 
   .photoLibrarySubline {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .photoLibraryToolbarGrid {
@@ -1618,60 +1663,108 @@ button:disabled {
   }
 }
 
-@media (max-width: 640px) {
-  :root {
-    --header-h: 196px;
-    --header-h-exec: 90px;
-  }
+/* ================= MOBILE EXECUTIVE MODE ================= */
 
-  .topHeader {
+@media (max-width: 900px) {
+  body.executive-mode .topHeader {
     padding:
       max(8px, env(safe-area-inset-top))
       10px
-      10px;
+      8px;
+    gap: 4px;
   }
 
-  .commandBar {
-    gap: 6px;
-  }
-
-  .commandBarLeft {
+  body.executive-mode .commandBar {
+    min-height: 42px;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "left right";
     gap: 8px;
   }
 
-  .headerProjectName {
-    font-size: 14px;
+  body.executive-mode .commandBarCenter {
+    display: none;
   }
 
-  .headerProjectSubline {
-    font-size: 9px;
+  body.executive-mode .headerProjectName {
+    font-size: 13px;
+    max-width: 120px;
   }
 
-  .brandLogoWide {
-    height: 16px;
+  body.executive-mode .headerProjectSubline,
+  body.executive-mode .headerEyebrow,
+  body.executive-mode .headerViewBar {
+    display: none !important;
   }
 
-  .executiveToggle {
-    padding: 6px 9px;
+  body.executive-mode .headerModeToggles {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+  }
+
+  body.executive-mode .executiveToggle {
+    padding: 5px 8px;
     font-size: 10px;
+  }
+
+  body.executive-mode .headerMetricsStrip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  body.executive-mode .headerStat {
+    min-height: 42px;
+    padding: 6px 7px 5px;
+  }
+
+  body.executive-mode .headerStatLabel {
+    font-size: 7px;
+    margin-bottom: 2px;
+  }
+
+  body.executive-mode .headerStatValue {
+    font-size: 10px;
+  }
+
+  body.executive-mode .workspace {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.executive-mode .intelRail {
+    display: none !important;
+  }
+
+  body.executive-mode .mapWrapper {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body.executive-mode .workspaceProgressBar {
+    padding-right: 110px;
+  }
+
+  body.executive-mode .floatingExecutiveExit {
+    right: 10px;
+    bottom: calc(92px + env(safe-area-inset-bottom));
+    top: auto;
+    padding: 9px 12px;
+    font-size: 12px;
+    z-index: 45;
+  }
+
+  body.executive-mode .mapLegendCard {
+    bottom: calc(144px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 640px) {
+  .brandLogoWide {
+    width: 132px;
   }
 
   .viewSwitchBtn {
     padding: 7px 12px;
     font-size: 11px;
-  }
-
-  .headerMetricsStrip {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 4px;
-  }
-
-  .headerStatValue {
-    font-size: 11px;
-  }
-
-  .headerStatLabel {
-    font-size: 7px;
   }
 
   .scopeSummaryGrid {
@@ -1709,143 +1802,6 @@ button:disabled {
   .photoLibraryGrid {
     grid-template-columns: 1fr;
   }
-}
-
-@media (max-width: 420px) {
-  :root {
-    --header-h: 192px;
-  }
-
-  .headerModeToggles {
-    justify-content: flex-end;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 5px;
-  }
-
-  .executiveToggle {
-    min-height: 28px;
-  }
-
-  .headerProjectSubline {
-    max-width: 180px;
-  }
-}
-
-/* ================= EXECUTIVE MODE IOS MOBILE FIX ================= */
-
-@media (max-width: 900px) {
-  body.executive-mode .workspace {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-
-  body.executive-mode .intelRail {
-    display: none !important;
-  }
-
-  body.executive-mode .mapWrapper {
-    width: 100%;
-    min-width: 0;
-  }
-
-  body.executive-mode .floatingExecutiveExit {
-    top: auto;
-    right: 10px;
-    bottom: calc(92px + env(safe-area-inset-bottom));
-    padding: 9px 12px;
-    font-size: 12px;
-    z-index: 45;
-  }
-
-  body.executive-mode .mapTopOverlay {
-    top: 10px;
-    left: 10px;
-    max-width: calc(100% - 20px);
-  }
-
-  body.executive-mode .mapLegendCard {
-    bottom: calc(144px + env(safe-area-inset-bottom));
-  }
-
-  body.executive-mode .topHeader {
-    gap: 6px;
-    padding:
-      max(8px, env(safe-area-inset-top))
-      10px
-      8px;
-  }
-
-  body.executive-mode .commandBar {
-    min-height: 44px;
-    grid-template-columns: 1fr auto;
-    grid-template-areas: "left right";
-    gap: 8px;
-  }
-
-  body.executive-mode .commandBarCenter {
-    display: none;
-  }
-
-  body.executive-mode .headerProjectName {
-    font-size: 14px;
-  }
-
-  body.executive-mode .headerModeToggles {
-    flex-direction: row;
-    align-items: center;
-    gap: 6px;
-  }
-
-  body.executive-mode .executiveToggle {
-    padding: 6px 9px;
-    font-size: 10px;
-    min-height: 28px;
-  }
-
-  body.executive-mode .headerMetricsStrip {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 4px;
-  }
-
-  body.executive-mode .headerStat {
-    padding: 7px 7px 6px;
-  }
-
-  body.executive-mode .headerStatLabel {
-    font-size: 7px;
-    margin-bottom: 2px;
-  }
-
-  body.executive-mode .headerStatValue {
-    font-size: 11px;
-  }
-
-  body.executive-mode .headerStat:nth-child(5),
-  body.executive-mode .headerStat:nth-child(7) {
-    display: none;
-  }
-}
-
-@media (max-width: 640px) {
-  body.executive-mode .topHeader {
-    padding:
-      max(8px, env(safe-area-inset-top))
-      8px
-      8px;
-  }
-
-  body.executive-mode .headerProjectName {
-    font-size: 13px;
-  }
-
-  body.executive-mode .executiveToggle {
-    padding: 5px 8px;
-    font-size: 10px;
-  }
-
-  body.executive-mode .headerMetricsStrip {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
 
   body.executive-mode .floatingExecutiveExit {
     right: 8px;
@@ -1854,239 +1810,19 @@ button:disabled {
 }
 
 @media (max-width: 420px) {
-  body.executive-mode .headerModeToggles {
-    gap: 4px;
+  .headerProjectName {
+    max-width: 150px;
   }
 
-  body.executive-mode .executiveToggle span {
-    max-width: 92px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-/* ================= HEADER / LOGO / PROGRESS STABILITY FIX ================= */
-
-/* Desktop header heights need more room now that the logo is larger */
-:root {
-  --header-h: 246px;
-  --header-h-exec: 148px;
-}
-
-/* Give the command bar a more stable logo zone */
-.commandBar {
-  min-height: 82px;
-  grid-template-columns: minmax(260px, 1fr) auto minmax(260px, 1fr);
-}
-
-.commandBarCenter {
-  min-width: 280px;
-}
-
-/* Replace scale hacks with real sizing */
-.brandLogoWide {
-  display: block;
-  width: min(420px, 30vw);
-  min-width: 220px;
-  max-width: 100%;
-  height: auto;
-  transform: none !important;
-  transform-origin: center center;
-  object-fit: contain;
-  pointer-events: none;
-  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25));
-}
-
-/* Give the view switch and progress bar a proper home */
-.headerViewBar {
-  display: flex;
-  align-items: center;
-  min-height: 40px;
-}
-
-.headerMetricsStrip {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 8px;
-  align-items: stretch;
-}
-
-.headerProgressRow {
-  display: grid;
-  gap: 8px;
-  padding: 10px 12px 0;
-  margin-top: 2px;
-  border-top: 1px solid rgba(255,255,255,0.08);
-}
-
-.headerProgressMeta {
-  min-height: 16px;
-}
-
-.headerProgressTrack {
-  height: 10px;
-  background: rgba(255,255,255,0.14);
-  border-radius: 999px;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
-}
-
-/* Executive header needs enough height so KPI cards stay inside it */
-body.executive-mode .topHeader {
-  height: var(--header-h-exec);
-  padding:
-    max(10px, env(safe-area-inset-top))
-    18px
-    12px;
-}
-
-body.executive-mode .commandBar {
-  min-height: 72px;
-  grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
-}
-
-body.executive-mode .brandLogoWide {
-  width: min(320px, 24vw);
-  min-width: 180px;
-}
-
-body.executive-mode .headerMetricsStrip {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
-}
-
-body.executive-mode .headerStat {
-  min-height: 64px;
-}
-
-/* Make the workspace start exactly below the larger header */
-.appShell {
-  height: calc(100vh - var(--header-h));
-}
-
-body.executive-mode .appShell {
-  height: calc(100vh - var(--header-h-exec));
-}
-
-/* ================= DESKTOP / LAPTOP TUNING ================= */
-
-@media (max-width: 1400px) {
-  :root {
-    --header-h: 238px;
-    --header-h-exec: 144px;
+  .headerProjectSubline {
+    max-width: 150px;
   }
 
-  .brandLogoWide {
-    width: min(360px, 28vw);
-    min-width: 200px;
-  }
-}
-
-/* ================= TABLET ================= */
-
-@media (max-width: 1100px) {
-  :root {
-    --header-h: 222px;
-    --header-h-exec: 132px;
+  body.executive-mode .headerProjectName {
+    max-width: 96px;
   }
 
-  .commandBar {
-    min-height: 68px;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "left right"
-      "center center";
-    gap: 10px 14px;
-  }
-
-  .commandBarLeft {
-    grid-area: left;
-  }
-
-  .commandBarCenter {
-    grid-area: center;
-    min-width: 0;
-    justify-content: center;
-  }
-
-  .commandBarRight {
-    grid-area: right;
-  }
-
-  .brandLogoWide {
-    width: min(300px, 40vw);
-    min-width: 0;
-  }
-
-  body.executive-mode .topHeader {
-    height: var(--header-h-exec);
-  }
-
-  body.executive-mode .commandBar {
-    min-height: 60px;
-  }
-}
-
-/* ================= MOBILE ================= */
-
-@media (max-width: 900px) {
-  :root {
-    --header-h: 168px;
-    --header-h-exec: 104px;
-  }
-
-  .commandBar {
-    min-height: 52px;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "left right"
-      "center center";
-    gap: 8px;
-  }
-
-  .commandBarCenter {
-    justify-content: flex-start;
-  }
-
-  .brandLogoWide {
-    width: 160px;
-    min-width: 0;
-    height: auto;
-  }
-
-  .headerViewBar {
-    min-height: 34px;
-  }
-
-  .headerProgressRow {
-    padding: 6px 6px 0;
-    gap: 6px;
-  }
-
-  body.executive-mode .topHeader {
-    height: var(--header-h-exec);
-  }
-
-  body.executive-mode .brandLogoWide {
-    width: 132px;
-  }
-}
-
-@media (max-width: 640px) {
-  :root {
-    --header-h: 160px;
-    --header-h-exec: 96px;
-  }
-
-  .brandLogoWide {
-    width: 132px;
-  }
-
-  body.executive-mode .brandLogoWide {
-    width: 118px;
-  }
-
-  .headerProgressTrack {
-    height: 8px;
+  body.executive-mode .workspaceProgressBar {
+    padding-right: 96px;
   }
 }
