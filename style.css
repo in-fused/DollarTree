@@ -584,6 +584,34 @@ body.executive-mode .workspace {
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
+body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveCalloutEyebrow {
+  margin-bottom: 0;
+}
+
+body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveSummaryLine.collapsed {
+  display: none;
+}
+
+body.executive-mode .mapExecutiveCallout.mobile-collapsible::after {
+  content: "Tap to expand";
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.58;
+}
+
+body.executive-mode .mapExecutiveCallout.mobile-collapsible.expanded::after {
+  content: "Tap to collapse";
+}
+
+body.executive-mode .mapExecutiveCallout.mobile-collapsible.expanded .mapExecutiveSummaryLine {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+}
 
 .floatingExecutiveExit {
   position: absolute;
