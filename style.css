@@ -2050,3 +2050,40 @@ body.executive-mode .mapLegendCard {
     min-width: 124px;
   }
 }
+
+body.executive-mode .mapExecutiveCallout,
+body.executive-mode .mapLegendCard,
+body.executive-mode .floatingExecutiveExit {
+  background: linear-gradient(180deg, rgba(6, 10, 18, 0.92), rgba(4, 8, 14, 0.88));
+  border: 1px solid rgba(120, 170, 255, 0.12);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(10px);
+}
+
+body.executive-mode .mapExecutiveCalloutEyebrow,
+body.executive-mode .mapLegendTitle {
+  color: rgba(190, 215, 255, 0.88);
+  letter-spacing: 0.12em;
+}
+
+body.executive-mode .mapLegendRow,
+body.executive-mode .mapExecutiveSummaryLine,
+body.executive-mode .floatingExecutiveExit {
+  color: rgba(255, 255, 255, 0.96);
+}
+
+body.executive-mode .mapExecutiveCallout.mobile-collapsible {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+body.executive-mode .mapExecutiveCallout.mobile-collapsible:active {
+  transform: scale(0.985);
+  border-color: rgba(120, 170, 255, 0.2);
+}
+
+body.executive-mode .floatingExecutiveExit {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
