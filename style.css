@@ -1694,8 +1694,8 @@ button:disabled {
 
 @media (max-width: 900px) {
   :root {
-    --header-h: 210px;
-    --header-h-exec: 88px;
+    --header-h: 236px;
+    --header-h-exec: 108px;
   }
 
   .topHeader {
@@ -1708,7 +1708,7 @@ button:disabled {
 
   .commandBar {
     min-height: 52px;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas: "left right";
     gap: 8px;
   }
@@ -1721,6 +1721,7 @@ button:disabled {
     grid-area: left;
     align-items: flex-start;
     gap: 10px;
+    min-width: 0;
   }
 
   .commandBarRight {
@@ -1737,31 +1738,21 @@ button:disabled {
   }
 
   .headerProjectName {
-    font-size: 16px;
-    max-width: 190px;
+    font-size: 15px;
+    max-width: 185px;
   }
 
   .headerProjectSubline {
     font-size: 10px;
-    max-width: 190px;
+    max-width: 185px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
+  /* mobile header summary pills were causing the break */
   .headerSummaryRow {
-    gap: 6px;
-    margin-top: 8px;
-  }
-
-  .headerSummaryPill {
-    min-height: 24px;
-    padding: 0 8px;
-    font-size: 11px;
-  }
-
-  .headerSummaryLabel {
-    font-size: 9px;
+    display: none;
   }
 
   .headerModeToggles {
@@ -1773,10 +1764,12 @@ button:disabled {
   .executiveToggle {
     padding: 6px 10px;
     font-size: 10px;
+    min-width: 164px;
+    justify-content: flex-start;
   }
 
   .headerViewBar {
-    min-height: 32px;
+    min-height: 34px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     justify-content: flex-start;
@@ -1790,19 +1783,20 @@ button:disabled {
     display: none;
   }
 
+  /* mobile KPI strip becomes a clean 3x2 grid */
   .headerMetricsStrip {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 4px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .headerStat {
-    min-height: 46px;
-    padding: 7px 8px 6px;
+    min-height: 50px;
+    padding: 8px 8px 7px;
   }
 
   .headerStatLabel {
-    font-size: 7px;
-    margin-bottom: 2px;
+    font-size: 8px;
+    margin-bottom: 3px;
   }
 
   .headerStatValue {
@@ -1880,13 +1874,29 @@ button:disabled {
     padding: 8px 10px;
   }
 
+  /* hide oversized operational summary in standard mobile mode */
   .mapExecutiveCallout {
+    display: none;
+  }
+
+  /* show only in mobile executive mode, smaller and clamped */
+  body.executive-mode .mapExecutiveCallout {
+    display: block;
     right: 10px;
     left: 10px;
     top: auto;
-    bottom: calc(140px + env(safe-area-inset-bottom));
+    bottom: calc(146px + env(safe-area-inset-bottom));
     max-width: none;
     padding: 10px 12px;
+  }
+
+  body.executive-mode .mapExecutiveSummaryLine {
+    font-size: 12px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .scopeSummaryGrid {
@@ -2016,6 +2026,7 @@ button:disabled {
   body.executive-mode .executiveToggle {
     padding: 5px 8px;
     font-size: 10px;
+    min-width: 150px;
   }
 
   body.executive-mode .headerMetricsStrip {
@@ -2051,11 +2062,7 @@ button:disabled {
   }
 
   body.executive-mode .workspaceProgressBar {
-    padding-right: 110px;
-  }
-
-  body.executive-mode .mapExecutiveCallout {
-    bottom: calc(148px + env(safe-area-inset-bottom));
+    padding-right: 12px;
   }
 
   body.executive-mode .floatingExecutiveExit {
@@ -2074,8 +2081,8 @@ button:disabled {
 
 @media (max-width: 640px) {
   :root {
-    --header-h: 202px;
-    --header-h-exec: 84px;
+    --header-h: 230px;
+    --header-h-exec: 100px;
   }
 
   .brandLogoWide {
@@ -2140,9 +2147,5 @@ button:disabled {
 
   body.executive-mode .headerProjectName {
     max-width: 96px;
-  }
-
-  body.executive-mode .workspaceProgressBar {
-    padding-right: 96px;
   }
 }
