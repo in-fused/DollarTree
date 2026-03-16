@@ -455,8 +455,10 @@ await supabaseClient
 .upsert({project_id:projectId,name:projectName||projectId})
 
 await insertStores(projectId,result.normalized)
-
 log("Import complete","success")
+
+await seedStoreStatus(projectId,result.normalized)
+log("Status rows seeded","success")
 
 document.getElementById("summaryImported").textContent=result.normalized.length
 document.getElementById("summarySkipped").textContent=result.skipped
