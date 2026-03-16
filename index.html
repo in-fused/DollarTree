@@ -56,11 +56,6 @@
   </div>
 
   <div class="headerViewBar">
-    <div class="viewSwitch" id="viewSwitch">
-      <button id="mapViewBtn" class="viewSwitchBtn active" type="button">Map View</button>
-      <button id="photoLibraryViewBtn" class="viewSwitchBtn" type="button">Photo Library</button>
-    </div>
-
     <div class="headerViewMeta">
       <div class="headerViewMetaItem">
         <span class="headerViewMetaLabel">Mode</span>
@@ -277,12 +272,22 @@
 
       <div class="workspaceProgressBar">
         <div class="workspaceProgressMeta">
-          <div class="workspaceProgressMetaLeft">
-            <span class="workspaceProgressLabel">Project Progress</span>
-            <span id="workspaceProgressContext" class="workspaceProgressContext">Execution pace and completion trend</span>
-          </div>
-          <span id="dashboardProgressLabel">0.0% complete</span>
-        </div>
+  <div class="workspaceProgressMetaLeft">
+    <div class="workspaceProgressTopline">
+      <div class="viewSwitch workspaceViewSwitch" id="viewSwitch">
+        <button id="mapViewBtn" class="viewSwitchBtn active" type="button">Map View</button>
+        <button id="photoLibraryViewBtn" class="viewSwitchBtn" type="button">Photo Library</button>
+      </div>
+
+      <div class="workspaceProgressTitleGroup">
+        <span class="workspaceProgressLabel">Project Progress</span>
+        <span id="workspaceProgressContext" class="workspaceProgressContext">Execution pace and completion trend</span>
+      </div>
+    </div>
+  </div>
+
+  <span id="dashboardProgressLabel">0.0% complete</span>
+</div>
         <div class="workspaceProgressTrack">
           <div id="dashboardProgressFill" class="workspaceProgressFill"></div>
         </div>
