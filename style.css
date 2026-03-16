@@ -1760,19 +1760,21 @@ button:disabled {
   }
 
   body.executive-mode .mapExecutiveCallout {
-    display: block;
-    left: 10px;
-    right: auto;
-    bottom: calc(226px + env(safe-area-inset-bottom));
-    top: auto;
-    max-width: min(300px, calc(100vw - 20px));
-    padding: 10px 12px;
-  }
+  display: block;
+  left: 10px;
+  right: auto;
+  top: auto;
+  bottom: calc(150px + env(safe-area-inset-bottom));
+  width: 150px;
+  max-width: 150px;
+  min-height: 0;
+  padding: 10px 12px 8px;
+}
 
-  body.executive-mode .mapLegendCard {
-    left: 10px;
-    bottom: calc(144px + env(safe-area-inset-bottom));
-  }
+body.executive-mode .mapLegendCard {
+  left: 10px;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+}
 
   .mapLegendCard {
     left: 10px;
