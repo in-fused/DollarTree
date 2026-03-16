@@ -131,11 +131,13 @@ font-weight:800
 This importer supports the full store data model used by the operations console.
 </p>
 
-<pre>
+<pre<pre>
 Required:
 store_id
 
 Optional but recommended:
+store_name
+customer_id
 full_address
 lat,lng
 
@@ -164,7 +166,7 @@ store_id,address,city,state,zip
 
 store_id,lat,lng
 
-store_id,full_address,lat,lng,region,territory,state,city,district,division,market
+store_id,store_name,customer_id,full_address,lat,lng,region,territory,state,city,district,division,market
 </pre>
 
 </div>
@@ -334,6 +336,8 @@ coordsProvided++
 normalized.push({
 
 store_id:storeId,
+store_name: row.store_name ? String(row.store_name).trim() : null,
+customer_id: row.customer_id ? String(row.customer_id).trim() : null,
 lat,
 lng,
 full_address:fullAddress,
@@ -366,6 +370,8 @@ const payload=rows.map(r=>({
 project_id:projectId,
 
 store_id:r.store_id,
+store_name:r.store_name,
+customer_id:r.customer_id,
 lat:r.lat,
 lng:r.lng,
 full_address:r.full_address,
