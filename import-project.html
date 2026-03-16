@@ -1,736 +1,454 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Import Project Data</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <style>
-    * {
-      box-sizing: border-box;
-      font-family: Inter, system-ui, -apple-system, sans-serif;
-    }
+<meta charset="utf-8" />
+<title>Import Project Data</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    body {
-      margin: 0;
-      background: #0a0f18;
-      color: white;
-      padding: 24px;
-    }
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-    .wrap {
-      max-width: 980px;
-      margin: 0 auto;
-    }
+<style>
+*{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,sans-serif}
 
-    .card {
-      background: rgba(255,255,255,0.05);
-      border-radius: 14px;
-      padding: 20px;
-      margin-bottom: 18px;
-    }
+body{
+margin:0;
+background:#0a0f18;
+color:white;
+padding:24px
+}
 
-    h1, h2 {
-      margin-top: 0;
-    }
+.wrap{
+max-width:980px;
+margin:auto
+}
 
-    input,
-    button {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.08);
-      color: white;
-      margin-top: 10px;
-      font: inherit;
-    }
+.card{
+background:rgba(255,255,255,0.05);
+border-radius:14px;
+padding:20px;
+margin-bottom:18px
+}
 
-    button {
-      cursor: pointer;
-      font-weight: 600;
-    }
+h1,h2{margin-top:0}
 
-    button:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
+input,button{
+width:100%;
+padding:10px 12px;
+border-radius:10px;
+border:1px solid rgba(255,255,255,0.12);
+background:rgba(255,255,255,0.08);
+color:white;
+margin-top:10px
+}
 
-    .primaryBtn {
-      background: #2ecc71;
-      color: #062b14;
-      border: none;
-    }
+button{
+cursor:pointer;
+font-weight:600
+}
 
-    .secondaryBtn {
-      background: rgba(255,255,255,0.12);
-      color: white;
-      border: none;
-    }
+.primaryBtn{
+background:#2ecc71;
+border:none;
+color:#062b14
+}
 
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
+.secondaryBtn{
+background:rgba(255,255,255,0.15);
+border:none
+}
 
-    .muted {
-      opacity: 0.75;
-      font-size: 14px;
-      line-height: 1.5;
-    }
+.row{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:12px
+}
 
-    .log {
-      background: #111827;
-      border-radius: 10px;
-      padding: 12px;
-      min-height: 180px;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      font-size: 13px;
-      line-height: 1.45;
-    }
+.muted{
+opacity:.75;
+font-size:14px;
+line-height:1.5
+}
 
-    .success { color: #2ecc71; }
-    .warn { color: #ffcc66; }
-    .error { color: #ff6b6b; }
+.log{
+background:#111827;
+border-radius:10px;
+padding:12px;
+min-height:180px;
+white-space:pre-wrap;
+font-size:13px
+}
 
-    .downloadArea {
-      margin-top: 14px;
-    }
+.success{color:#2ecc71}
+.warn{color:#ffcc66}
+.error{color:#ff6b6b}
 
-    a.buttonLink {
-      display: inline-block;
-      margin-top: 10px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: #2ecc71;
-      color: #062b14;
-      text-decoration: none;
-      font-weight: 700;
-    }
+.summaryGrid{
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:12px;
+margin-top:14px
+}
 
-    a.subtleLink {
-      display: inline-block;
-      margin-top: 10px;
-      color: #9fd1ff;
-      text-decoration: none;
-      font-size: 14px;
-    }
+.summaryStat{
+background:rgba(255,255,255,0.06);
+border-radius:12px;
+padding:14px
+}
 
-    code, pre {
-      white-space: pre-wrap;
-    }
+.summaryLabel{
+font-size:12px;
+opacity:.7;
+margin-bottom:6px
+}
 
-    label.inlineCheck {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      margin-top: 12px;
-      line-height: 1.35;
-    }
+.summaryValue{
+font-size:24px;
+font-weight:800
+}
 
-    label.inlineCheck input {
-      width: auto;
-      margin: 2px 0 0 0;
-    }
+.hidden{display:none}
 
-    .summaryGrid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-top: 14px;
-    }
+@media(max-width:900px){
+.row{grid-template-columns:1fr}
+.summaryGrid{grid-template-columns:1fr 1fr}
+}
 
-    .summaryStat {
-      background: rgba(255,255,255,0.06);
-      border-radius: 12px;
-      padding: 14px;
-    }
-
-    .summaryLabel {
-      font-size: 12px;
-      opacity: 0.7;
-      margin-bottom: 6px;
-    }
-
-    .summaryValue {
-      font-size: 24px;
-      font-weight: 800;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .actionRow {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-top: 12px;
-    }
-
-    .actionRow > * {
-      flex: 1;
-      min-width: 200px;
-    }
-
-    .authUser {
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
-
-    .authRole {
-      opacity: 0.8;
-      font-size: 13px;
-    }
-
-    .accessBanner {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #ffcc66;
-    }
-
-    @media (max-width: 900px) {
-      .row {
-        grid-template-columns: 1fr;
-      }
-
-      .summaryGrid {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    @media (max-width: 560px) {
-      .summaryGrid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+@media(max-width:560px){
+.summaryGrid{grid-template-columns:1fr}
+}
+</style>
 </head>
+
 <body>
-  <div class="wrap">
-
-    <div class="card">
-      <h1>Import Project Data</h1>
-      <p class="muted">
-        This importer preserves the exact store object shape used by the app:
-      </p>
-      <pre>[
-  {
-    "store_id": "143",
-    "lat": 28.451191,
-    "lng": -81.39698,
-    "full_address": "1431 Sand Lake Rd , FL 32809"
-  }
-]</pre>
-      <p class="muted">
-        Supported CSV headers:
-        <br />
-        <strong>Option A:</strong> store_id, full_address
-        <br />
-        <strong>Option B:</strong> store_id, address, city, state, zip
-        <br />
-        <strong>Optional bypass:</strong> include lat and lng to skip geocoding for rows that already have coordinates.
-      </p>
-      <a class="subtleLink" href="demo-project-import-template.csv">Use demo CSV template</a>
-      <br />
-      <a class="subtleLink" href="/">Return to main app</a>
-    </div>
-
-    <div class="card">
-      <h2>Admin Access</h2>
-
-      <div id="authLoggedOut">
-        <input id="authEmail" type="email" placeholder="Admin email" />
-        <input id="authPassword" type="password" placeholder="Password" />
-        <button id="signInBtn" class="primaryBtn" type="button">Sign In</button>
-      </div>
-
-      <div id="authLoggedIn" class="hidden">
-        <div id="authUserDisplay" class="authUser"></div>
-        <div id="authRoleDisplay" class="authRole"></div>
-        <button id="signOutBtn" class="secondaryBtn" type="button">Sign Out</button>
-      </div>
-
-      <div id="authMessage" class="accessBanner"></div>
-    </div>
-
-    <div class="card">
-      <h2>Project Details</h2>
-
-      <div class="row">
-        <div>
-          <label>Project ID</label>
-          <input id="projectId" placeholder="example: tampa-reset-2026" />
-        </div>
-        <div>
-          <label>Project Name</label>
-          <input id="projectName" placeholder="example: Tampa Reset 2026" />
-        </div>
-      </div>
-
-      <label class="inlineCheck">
-        <input id="replaceExisting" type="checkbox" />
-        <span>Replace all existing project data before import</span>
-      </label>
-
-      <input id="csvFile" type="file" accept=".csv" />
-      <div class="actionRow">
-        <button id="runImportBtn" class="primaryBtn" type="button">Run Import</button>
-      </div>
-    </div>
-
-    <div id="summaryCard" class="card hidden">
-      <h2>Import Summary</h2>
-      <div class="summaryGrid">
-        <div class="summaryStat">
-          <div class="summaryLabel">Imported Stores</div>
-          <div id="summaryImported" class="summaryValue">0</div>
-        </div>
-        <div class="summaryStat">
-          <div class="summaryLabel">Skipped Rows</div>
-          <div id="summarySkipped" class="summaryValue">0</div>
-        </div>
-        <div class="summaryStat">
-          <div class="summaryLabel">Geocoded Rows</div>
-          <div id="summaryGeocoded" class="summaryValue">0</div>
-        </div>
-        <div class="summaryStat">
-          <div class="summaryLabel">Used Existing Coordinates</div>
-          <div id="summaryProvidedCoords" class="summaryValue">0</div>
-        </div>
-      </div>
-
-      <div class="actionRow">
-        <a href="/" class="buttonLink">Open Main App</a>
-      </div>
-
-      <div id="downloadArea" class="downloadArea"></div>
-    </div>
-
-    <div class="card">
-      <h2>Import Log</h2>
-      <div id="log" class="log">Waiting for import…</div>
-    </div>
-
-  </div>
-
-  <script>
-    const MAPBOX_TOKEN = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
-    const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
-
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    let currentUser = null;
-    let currentRole = "viewer";
-
-    const logEl = document.getElementById("log");
-    const downloadArea = document.getElementById("downloadArea");
-    const summaryCard = document.getElementById("summaryCard");
-
-    const summaryImported = document.getElementById("summaryImported");
-    const summarySkipped = document.getElementById("summarySkipped");
-    const summaryGeocoded = document.getElementById("summaryGeocoded");
-    const summaryProvidedCoords = document.getElementById("summaryProvidedCoords");
-
-    const importStats = {
-      imported: 0,
-      skipped: 0,
-      geocoded: 0,
-      providedCoords: 0
-    };
-
-    function resetStats() {
-      importStats.imported = 0;
-      importStats.skipped = 0;
-      importStats.geocoded = 0;
-      importStats.providedCoords = 0;
-    }
-
-    function renderSummary() {
-      summaryImported.textContent = importStats.imported;
-      summarySkipped.textContent = importStats.skipped;
-      summaryGeocoded.textContent = importStats.geocoded;
-      summaryProvidedCoords.textContent = importStats.providedCoords;
-      summaryCard.classList.remove("hidden");
-    }
-
-    function log(message, type = "") {
-      const span = document.createElement("div");
-      if (type) span.className = type;
-      span.textContent = message;
-      logEl.appendChild(span);
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-
-    function clearLog() {
-      logEl.innerHTML = "";
-      downloadArea.innerHTML = "";
-      summaryCard.classList.add("hidden");
-      resetStats();
-    }
-
-    function setAuthMessage(message, type = "") {
-      const el = document.getElementById("authMessage");
-      el.textContent = message;
-      el.className = "accessBanner";
-      if (type === "success") el.classList.add("success");
-      if (type === "error") el.classList.add("error");
-    }
-
-    function normalizeProjectId(value) {
-      return String(value || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9-]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-    }
-
-    function buildFullAddress(row) {
-      if (row.full_address && String(row.full_address).trim()) {
-        return String(row.full_address).trim();
-      }
-
-      const address = String(row.address || "").trim();
-      const city = String(row.city || "").trim();
-      const state = String(row.state || "").trim();
-      const zip = String(row.zip || row.postcode || row.postal_code || "").trim();
-
-      return [address, city, state, zip].filter(Boolean).join(", ");
-    }
-
-    async function geocodeAddress(fullAddress) {
-      const url =
-        "https://api.mapbox.com/search/geocode/v6/forward?" +
-        new URLSearchParams({
-          q: fullAddress,
-          access_token: MAPBOX_TOKEN,
-          limit: "1",
-          autocomplete: "false",
-          country: "US",
-          permanent: "true"
-        }).toString();
-
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`Geocoding failed (${res.status}) for: ${fullAddress}`);
-      }
-
-      const json = await res.json();
-      if (!json.features || json.features.length === 0) {
-        throw new Error(`No geocoding result for: ${fullAddress}`);
-      }
-
-      const feature = json.features[0];
-      const coords = feature.geometry?.coordinates;
-
-      if (!coords || coords.length < 2) {
-        throw new Error(`Invalid coordinates returned for: ${fullAddress}`);
-      }
-
-      return {
-        lng: Number(coords[0]),
-        lat: Number(coords[1])
-      };
-    }
-
-    async function processRows(rows) {
-      const normalizedRows = [];
-      const exactShapeRows = [];
-
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const storeId = String(row.store_id || "").trim();
-
-        if (!storeId) {
-          importStats.skipped++;
-          log(`Skipping row ${i + 1}: missing store_id`, "warn");
-          continue;
-        }
-
-        const fullAddress = buildFullAddress(row);
-        if (!fullAddress) {
-          importStats.skipped++;
-          log(`Skipping store ${storeId}: missing address data`, "warn");
-          continue;
-        }
-
-        let lat = row.lat !== undefined && row.lat !== "" ? Number(row.lat) : null;
-        let lng = row.lng !== undefined && row.lng !== "" ? Number(row.lng) : null;
-
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-          log(`Geocoding store ${storeId}...`);
-          const coords = await geocodeAddress(fullAddress);
-          lat = coords.lat;
-          lng = coords.lng;
-          importStats.geocoded++;
-        } else {
-          log(`Using provided coordinates for store ${storeId}`);
-          importStats.providedCoords++;
-        }
-
-        const normalized = {
-          store_id: storeId,
-          lat,
-          lng,
-          full_address: fullAddress
-        };
-
-        normalizedRows.push(normalized);
-        exactShapeRows.push({
-          store_id: storeId,
-          lat,
-          lng,
-          full_address: fullAddress
-        });
-      }
-
-      return { normalizedRows, exactShapeRows };
-    }
-
-    async function insertProject(projectId, projectName) {
-      const { error } = await supabaseClient
-        .from("projects")
-        .upsert({
-          project_id: projectId,
-          name: projectName
-        });
-
-      if (error) throw error;
-    }
-
-    async function replaceProjectData(projectId) {
-      log("Replacing all existing project data...", "warn");
-
-      const steps = [
-        { table: "routes", label: "routes" },
-        { table: "store_photos", label: "store_photos" },
-        { table: "store_notes", label: "store_notes" },
-        { table: "store_status", label: "store_status" },
-        { table: "stores", label: "stores" }
-      ];
-
-      for (const step of steps) {
-        const { error } = await supabaseClient
-          .from(step.table)
-          .delete()
-          .eq("project_id", projectId);
-
-        if (error) {
-          throw new Error(`Failed clearing ${step.label}: ${error.message}`);
-        }
-
-        log(`Cleared ${step.label}`, "warn");
-      }
-    }
-
-    async function insertStores(projectId, rows) {
-      const payload = rows.map(row => ({
-        project_id: projectId,
-        store_id: row.store_id,
-        lat: row.lat,
-        lng: row.lng,
-        full_address: row.full_address
-      }));
-
-      const chunkSize = 200;
-      for (let i = 0; i < payload.length; i += chunkSize) {
-        const chunk = payload.slice(i, i + chunkSize);
-        const { error } = await supabaseClient
-          .from("stores")
-          .upsert(chunk, { onConflict: "project_id,store_id" });
-
-        if (error) throw error;
-      }
-    }
-
-    function makeJsonDownload(projectId, rows) {
-      const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${projectId}-stores_with_coords.json`;
-      link.className = "buttonLink";
-      link.textContent = "Download Generated JSON";
-
-      downloadArea.innerHTML = "";
-      downloadArea.appendChild(link);
-    }
-
-    async function loadRole() {
-      const { data: sessionData } = await supabaseClient.auth.getSession();
-      currentUser = sessionData?.session?.user || null;
-
-      if (!currentUser) {
-        currentRole = "viewer";
-        updateAuthUI();
-        return;
-      }
-
-      const { data, error } = await supabaseClient
-        .from("profiles")
-        .select("role")
-        .eq("user_id", currentUser.id)
-        .single();
-
-      if (error) {
-        console.error(error);
-        currentRole = "viewer";
-      } else {
-        currentRole = data?.role || "viewer";
-      }
-
-      updateAuthUI();
-    }
-
-    function updateAuthUI() {
-      const loggedOut = document.getElementById("authLoggedOut");
-      const loggedIn = document.getElementById("authLoggedIn");
-      const authUserDisplay = document.getElementById("authUserDisplay");
-      const authRoleDisplay = document.getElementById("authRoleDisplay");
-      const runImportBtn = document.getElementById("runImportBtn");
-
-      if (currentUser) {
-        loggedOut.classList.add("hidden");
-        loggedIn.classList.remove("hidden");
-        authUserDisplay.textContent = currentUser.email || "Signed in";
-        authRoleDisplay.textContent = `Role: ${currentRole}`;
-      } else {
-        loggedOut.classList.remove("hidden");
-        loggedIn.classList.add("hidden");
-        authUserDisplay.textContent = "";
-        authRoleDisplay.textContent = "";
-      }
-
-      const canImport = currentUser && currentRole === "admin";
-      runImportBtn.disabled = !canImport;
-
-      if (!currentUser) {
-        setAuthMessage("Sign in as admin to import projects.");
-      } else if (currentRole !== "admin") {
-        setAuthMessage("Your account is signed in but not authorized for imports.", "error");
-      } else {
-        setAuthMessage("Admin access verified.", "success");
-      }
-    }
-
-    document.getElementById("signInBtn").addEventListener("click", async () => {
-      const email = document.getElementById("authEmail").value.trim();
-      const password = document.getElementById("authPassword").value;
-
-      if (!email || !password) {
-        setAuthMessage("Email and password are required.", "error");
-        return;
-      }
-
-      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-
-      if (error) {
-        setAuthMessage(error.message || "Sign-in failed.", "error");
-        return;
-      }
-
-      await loadRole();
-    });
-
-    document.getElementById("signOutBtn").addEventListener("click", async () => {
-      const { error } = await supabaseClient.auth.signOut();
-      if (error) {
-        setAuthMessage(error.message || "Sign-out failed.", "error");
-        return;
-      }
-
-      currentUser = null;
-      currentRole = "viewer";
-      updateAuthUI();
-    });
-
-    supabaseClient.auth.onAuthStateChange(async () => {
-      await loadRole();
-    });
-
-    document.getElementById("runImportBtn").addEventListener("click", async () => {
-      clearLog();
-
-      if (!currentUser || currentRole !== "admin") {
-        log("Admin sign-in is required before import.", "error");
-        return;
-      }
-
-      const projectIdRaw = document.getElementById("projectId").value;
-      const projectNameRaw = document.getElementById("projectName").value;
-      const replaceExisting = document.getElementById("replaceExisting").checked;
-      const file = document.getElementById("csvFile").files[0];
-
-      const projectId = normalizeProjectId(projectIdRaw);
-      const projectName = String(projectNameRaw || "").trim() || projectId;
-
-      if (!projectId) {
-        log("Project ID is required.", "error");
-        return;
-      }
-
-      if (!file) {
-        log("Please choose a CSV file first.", "error");
-        return;
-      }
-
-      log(`Starting import for project: ${projectId}`);
-      log(`Project name: ${projectName}`);
-
-      try {
-        const parsed = await new Promise((resolve, reject) => {
-          Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: results => resolve(results),
-            error: err => reject(err)
-          });
-        });
-
-        const rows = parsed.data || [];
-        if (!rows.length) {
-          log("CSV contained no data rows.", "error");
-          return;
-        }
-
-        log(`Parsed ${rows.length} CSV rows`);
-
-        const { normalizedRows, exactShapeRows } = await processRows(rows);
-
-        if (!normalizedRows.length) {
-          log("No valid stores were produced from this CSV.", "error");
-          return;
-        }
-
-        await insertProject(projectId, projectName);
-        log("Project upserted successfully", "success");
-
-        if (replaceExisting) {
-          await replaceProjectData(projectId);
-        }
-
-        await insertStores(projectId, normalizedRows);
-        importStats.imported = normalizedRows.length;
-        log(`Inserted/upserted ${normalizedRows.length} stores`, "success");
-
-        makeJsonDownload(projectId, exactShapeRows);
-        log("Generated JSON is ready for download", "success");
-        log("Import complete.", "success");
-
-        renderSummary();
-
-      } catch (error) {
-        console.error(error);
-        log(error.message || "Import failed.", "error");
-      }
-    });
-
-    loadRole();
-  </script>
+
+<div class="wrap">
+
+<div class="card">
+<h1>Import Project Data</h1>
+
+<p class="muted">
+This importer supports the full store data model used by the operations console.
+</p>
+
+<pre>
+Required:
+store_id
+
+Optional but recommended:
+full_address
+lat,lng
+
+Filter metadata fields:
+region
+territory
+state
+city
+district
+division
+market
+</pre>
+
+<p class="muted">
+If filter fields are included, the app will automatically populate Region, Territory, and State filters.
+</p>
+
+<p class="muted">
+Supported CSV formats:
+</p>
+
+<pre>
+store_id,full_address
+
+store_id,address,city,state,zip
+
+store_id,lat,lng
+
+store_id,full_address,lat,lng,region,territory,state,city,district,division,market
+</pre>
+
+</div>
+
+
+<div class="card">
+
+<h2>Project Details</h2>
+
+<div class="row">
+
+<div>
+<label>Project ID</label>
+<input id="projectId" placeholder="example: tampa-reset-2026">
+</div>
+
+<div>
+<label>Project Name</label>
+<input id="projectName" placeholder="example: Tampa Reset 2026">
+</div>
+
+</div>
+
+<input id="csvFile" type="file" accept=".csv">
+
+<button id="runImportBtn" class="primaryBtn">Run Import</button>
+
+</div>
+
+
+<div class="card hidden" id="summaryCard">
+
+<h2>Import Summary</h2>
+
+<div class="summaryGrid">
+
+<div class="summaryStat">
+<div class="summaryLabel">Imported</div>
+<div id="summaryImported" class="summaryValue">0</div>
+</div>
+
+<div class="summaryStat">
+<div class="summaryLabel">Skipped</div>
+<div id="summarySkipped" class="summaryValue">0</div>
+</div>
+
+<div class="summaryStat">
+<div class="summaryLabel">Geocoded</div>
+<div id="summaryGeocoded" class="summaryValue">0</div>
+</div>
+
+<div class="summaryStat">
+<div class="summaryLabel">Coords Provided</div>
+<div id="summaryCoords" class="summaryValue">0</div>
+</div>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>Import Log</h2>
+<div id="log" class="log">Waiting for import…</div>
+
+</div>
+
+</div>
+
+
+<script>
+
+const SUPABASE_URL="https://dapjhrbfqtsgdlasuuam.supabase.co"
+const SUPABASE_KEY="sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS"
+const MAPBOX_TOKEN="pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA"
+
+const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)
+
+const logEl=document.getElementById("log")
+
+function log(msg,type=""){
+const el=document.createElement("div")
+if(type)el.className=type
+el.textContent=msg
+logEl.appendChild(el)
+logEl.scrollTop=logEl.scrollHeight
+}
+
+function buildFullAddress(row){
+
+if(row.full_address)return row.full_address
+
+const address=row.address||""
+const city=row.city||""
+const state=row.state||""
+const zip=row.zip||row.postcode||""
+
+return [address,city,state,zip].filter(Boolean).join(", ")
+
+}
+
+async function geocodeAddress(fullAddress){
+
+const url="https://api.mapbox.com/search/geocode/v6/forward?"+
+new URLSearchParams({
+q:fullAddress,
+access_token:MAPBOX_TOKEN,
+limit:"1",
+country:"US"
+})
+
+const res=await fetch(url)
+const json=await res.json()
+
+const coords=json.features?.[0]?.geometry?.coordinates
+
+if(!coords)throw new Error("Geocode failed")
+
+return{
+lng:Number(coords[0]),
+lat:Number(coords[1])
+}
+
+}
+
+async function processRows(rows){
+
+const normalized=[]
+let geocoded=0
+let coordsProvided=0
+let skipped=0
+
+for(const row of rows){
+
+const storeId=String(row.store_id||"").trim()
+
+if(!storeId){
+skipped++
+continue
+}
+
+let fullAddress=buildFullAddress(row)
+
+let lat=row.lat?Number(row.lat):null
+let lng=row.lng?Number(row.lng):null
+
+if(!lat||!lng){
+if(!fullAddress){
+skipped++
+continue
+}
+
+const geo=await geocodeAddress(fullAddress)
+
+lat=geo.lat
+lng=geo.lng
+
+geocoded++
+
+}else{
+
+coordsProvided++
+
+}
+
+normalized.push({
+
+store_id:storeId,
+lat,
+lng,
+full_address:fullAddress,
+
+region:row.region||null,
+territory:row.territory||null,
+state:row.state||null,
+city:row.city||null,
+district:row.district||null,
+division:row.division||null,
+market:row.market||null
+
+})
+
+}
+
+return{
+normalized,
+geocoded,
+coordsProvided,
+skipped
+}
+
+}
+
+async function insertStores(projectId,rows){
+
+const payload=rows.map(r=>({
+
+project_id:projectId,
+
+store_id:r.store_id,
+lat:r.lat,
+lng:r.lng,
+full_address:r.full_address,
+
+region:r.region,
+territory:r.territory,
+state:r.state,
+city:r.city,
+district:r.district,
+division:r.division,
+market:r.market
+
+}))
+
+const chunkSize=200
+
+for(let i=0;i<payload.length;i+=chunkSize){
+
+const chunk=payload.slice(i,i+chunkSize)
+
+const {error}=await supabaseClient
+.from("stores")
+.upsert(chunk,{onConflict:"project_id,store_id"})
+
+if(error)throw error
+
+}
+
+}
+
+document.getElementById("runImportBtn").addEventListener("click",async()=>{
+
+logEl.innerHTML=""
+
+const projectId=document.getElementById("projectId").value.trim()
+const projectName=document.getElementById("projectName").value.trim()
+const file=document.getElementById("csvFile").files[0]
+
+if(!projectId)return log("Project ID required","error")
+if(!file)return log("Select CSV file","error")
+
+log("Parsing CSV…")
+
+const parsed=await new Promise((resolve,reject)=>{
+
+Papa.parse(file,{
+header:true,
+skipEmptyLines:true,
+complete:r=>resolve(r),
+error:e=>reject(e)
+})
+
+})
+
+const rows=parsed.data
+
+log(`Parsed ${rows.length} rows`)
+
+const result=await processRows(rows)
+
+log(`Valid stores: ${result.normalized.length}`)
+log(`Geocoded: ${result.geocoded}`)
+log(`Coords provided: ${result.coordsProvided}`)
+log(`Skipped: ${result.skipped}`)
+
+await supabaseClient
+.from("projects")
+.upsert({project_id:projectId,name:projectName||projectId})
+
+await insertStores(projectId,result.normalized)
+
+log("Import complete","success")
+
+document.getElementById("summaryImported").textContent=result.normalized.length
+document.getElementById("summarySkipped").textContent=result.skipped
+document.getElementById("summaryGeocoded").textContent=result.geocoded
+document.getElementById("summaryCoords").textContent=result.coordsProvided
+
+document.getElementById("summaryCard").classList.remove("hidden")
+
+})
+
+</script>
+
 </body>
 </html>
