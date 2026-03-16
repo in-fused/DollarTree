@@ -165,7 +165,7 @@ body {
 .brandLogoWide {
   width: 320px;
   max-width: 100%;
-  height: auto;
+  height: 150px;
   display: block;
   cursor: pointer;
   pointer-events: auto;
