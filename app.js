@@ -52,6 +52,7 @@ let executiveModeEnabled = false;
 let nationalOverviewEnabled = false;
 let currentPhotoLibrarySelection = null;
 let lastDataRefreshAt = null;
+let mobileExecutiveSummaryExpanded = false;
 
 let activeFilters = {
   region: "",
@@ -86,6 +87,10 @@ function isAdmin() {
   return currentRole === "admin";
 }
 
+function isMobileViewport() {
+  return window.innerWidth <= 900;
+}
+
 map.on("load", async () => {
   currentProjectId = localStorage.getItem(ACTIVE_PROJECT_KEY) || DEFAULT_PROJECT_ID;
   executiveModeEnabled = localStorage.getItem(EXECUTIVE_MODE_KEY) === "true";
@@ -105,6 +110,7 @@ map.on("load", async () => {
   bindRouteBuilder();
   bindPhotoUI();
   bindLightboxUI();
+  bindMobileExecutiveSummary();
 
   await loadProjects();
   await loadActiveProject();
@@ -400,6 +406,33 @@ function bindLogoHome() {
   logo.dataset.bound = "true";
 }
 
+/* ================= MOBILE EXEC SUMMARY ================= */
+
+function bindMobileExecutiveSummary() {
+  const card = document.getElementById("mapExecutiveCallout");
+  if (!card || card.dataset.bound) return;
+
+  card.addEventListener("click", () => {
+    if (!isMobileViewport() || !executiveModeEnabled) return;
+    mobileExecutiveSummaryExpanded = !mobileExecutiveSummaryExpanded;
+    updateMobileExecutiveSummaryUI();
+  });
+
+  card.dataset.bound = "true";
+}
+
+function updateMobileExecutiveSummaryUI() {
+  const card = document.getElementById("mapExecutiveCallout");
+  const line = document.getElementById("mapExecutiveSummaryLine");
+  if (!card || !line) return;
+
+  const shouldCollapse = isMobileViewport() && executiveModeEnabled;
+
+  card.classList.toggle("mobile-collapsible", shouldCollapse);
+  card.classList.toggle("expanded", shouldCollapse && mobileExecutiveSummaryExpanded);
+  line.classList.toggle("collapsed", shouldCollapse && !mobileExecutiveSummaryExpanded);
+}
+
 /* ================= EXECUTIVE / NATIONAL / MOBILE ================= */
 
 function bindExecutiveModeUI() {
@@ -410,6 +443,7 @@ function bindExecutiveModeUI() {
     toggle.addEventListener("change", () => {
       executiveModeEnabled = toggle.checked;
       localStorage.setItem(EXECUTIVE_MODE_KEY, String(executiveModeEnabled));
+      mobileExecutiveSummaryExpanded = false;
       updateExecutiveModeUI();
     });
     toggle.dataset.bound = "true";
@@ -419,6 +453,7 @@ function bindExecutiveModeUI() {
     floatingExit.addEventListener("click", () => {
       executiveModeEnabled = false;
       localStorage.setItem(EXECUTIVE_MODE_KEY, "false");
+      mobileExecutiveSummaryExpanded = false;
       updateExecutiveModeUI();
     });
     floatingExit.dataset.bound = "true";
@@ -439,6 +474,7 @@ function updateExecutiveModeUI() {
   }
 
   updateHeaderMetaAndSummaries();
+  updateMobileExecutiveSummaryUI();
   setTimeout(() => map.resize(), 180);
 }
 
@@ -492,6 +528,7 @@ function bindMobileSidebarUI() {
     if (window.innerWidth > 900) {
       document.body.classList.remove("sidebar-open");
     }
+    updateMobileExecutiveSummaryUI();
     setTimeout(() => map.resize(), 120);
   });
 }
@@ -539,7 +576,9 @@ function updateWorkspaceViewUI() {
   photoView?.classList.toggle("hidden", showingMap);
   photoView?.classList.toggle("active", !showingMap);
 
+  mobileExecutiveSummaryExpanded = false;
   updateHeaderMetaAndSummaries();
+  updateMobileExecutiveSummaryUI();
 
   if (showingMap) {
     setTimeout(() => map.resize(), 120);
@@ -621,6 +660,7 @@ function bindProjectSelector() {
   select.addEventListener("change", async (e) => {
     currentProjectId = e.target.value;
     localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
+    mobileExecutiveSummaryExpanded = false;
     await loadActiveProject();
   });
 
@@ -636,6 +676,7 @@ async function loadActiveProject() {
 
   currentSelectedStoreId = null;
   currentPhotoLibrarySelection = null;
+  mobileExecutiveSummaryExpanded = false;
 
   restoreFilterState();
   await hydrate();
@@ -1311,6 +1352,7 @@ function updateHeaderMetaAndSummaries() {
   setText("mapExecutiveSummaryLine", buildExecutiveSummary(metrics));
   setText("photoLibraryScopeBadge", metrics.totalStores > 0 ? `${metrics.totalStores.toLocaleString()} in scope` : "No Stores");
   setText("photoLibraryModeBadge", currentPhotoLibrarySelection ? "Inspection" : "Review");
+  updateMobileExecutiveSummaryUI();
 }
 
 function updateHeaderDashboard() {
@@ -1561,9 +1603,14 @@ function groupPhotoLibraryRows(rows) {
 function renderPhotoLibrary() {
   const grid = document.getElementById("photoLibraryGrid");
   const emptyShell = document.getElementById("photoLibraryEmptyShell");
-  const resultCount = document.getElementById("photoLibraryResultCount");
+  const photoView = document.getElementById("photoLibraryWorkspaceView");
 
   if (!grid || currentWorkspaceView !== "photos") return;
+
+  if (photoView) {
+    photoView.style.overflowY = "auto";
+    photoView.style.webkitOverflowScrolling = "touch";
+  }
 
   const rows = sortPhotoLibraryRows(getFilteredPhotoLibraryRows());
 
