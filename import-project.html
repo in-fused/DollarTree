@@ -364,7 +364,20 @@ skipped
 }
 
 async function insertStores(projectId,rows){
+async function seedStoreStatus(projectId, rows){
 
+const payload = rows.map(r => ({
+project_id: projectId,
+store_id: r.store_id,
+completed: false,
+closed: false,
+status: "active"
+}))
+
+await supabaseClient.from("store_status")
+.upsert(payload,{ onConflict:"project_id,store_id" })
+
+}
 const payload=rows.map(r=>({
 
 project_id:projectId,
