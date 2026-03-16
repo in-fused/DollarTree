@@ -203,10 +203,9 @@ body {
 .headerViewBar {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex-end;
   gap: 14px;
-  min-height: 38px;
-  flex-wrap: wrap;
+  min-height: 30px;
 }
 
 .viewSwitch {
@@ -214,11 +213,10 @@ body {
 }
 
 .headerViewMeta {
-  flex: 1 1 420px;
-  min-width: 280px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
@@ -434,6 +432,24 @@ body.executive-mode .workspace {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+.workspaceProgressTopline {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.workspaceViewSwitch {
+  flex: 0 0 auto;
+  margin-right: 2px;
+}
+
+.workspaceProgressTitleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .workspaceProgressLabel {
@@ -1618,7 +1634,11 @@ button:disabled {
   .headerMetricsStrip {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
-
+@media (min-width: 901px) {
+  .topHeader .viewSwitch {
+    display: none !important;
+  }
+}
   .desktopOnlyStat {
     display: none;
   }
@@ -1663,6 +1683,24 @@ button:disabled {
   .commandBarRight {
     grid-area: right;
     align-items: flex-start;
+  }
+  
+    .workspaceViewSwitch {
+    display: none;
+  }
+
+  .headerViewBar .viewSwitch {
+    display: inline-flex;
+  }
+
+  .workspaceProgressTopline {
+    display: block;
+  }
+
+  .workspaceProgressTitleGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
   .mobileSidebarToggle {
