@@ -163,13 +163,14 @@ body {
 }
 
 .brandLogoWide {
-  width: 320px;
-  max-width: 200%;
-  height: 150px;
+  width: auto;
+  max-width: none;
+  height: 130px;
   display: block;
   cursor: pointer;
   pointer-events: auto;
-  transform: none !important;
+  transform: scale(2.75);
+  transform-origin: center;
   filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25));
 }
 
@@ -208,10 +209,6 @@ body {
   min-height: 30px;
 }
 
-.viewSwitch {
-  flex: 0 0 auto;
-}
-
 .headerViewMeta {
   display: flex;
   align-items: center;
@@ -244,12 +241,6 @@ body {
 
 .viewSwitchBtn.active {
   background: rgba(255,255,255,0.16);
-}
-
-.headerViewMeta {
-  display: flex;
-  align-items: center;
-  gap: 14px;
 }
 
 .headerViewMetaItem {
@@ -438,11 +429,14 @@ body.executive-mode .workspace {
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .workspaceViewSwitch {
+  display: inline-flex;
   flex: 0 0 auto;
   margin-right: 2px;
+  max-width: 100%;
 }
 
 .workspaceProgressTitleGroup {
@@ -450,6 +444,7 @@ body.executive-mode .workspace {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1 1 240px;
 }
 
 .workspaceProgressLabel {
@@ -1634,11 +1629,7 @@ button:disabled {
   .headerMetricsStrip {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
-@media (min-width: 901px) {
-  .topHeader .viewSwitch {
-    display: none !important;
-  }
-}
+
   .desktopOnlyStat {
     display: none;
   }
@@ -1685,23 +1676,47 @@ button:disabled {
     align-items: flex-start;
   }
   
-    .workspaceViewSwitch {
-    display: none;
-  }
+    .workspaceProgressMeta {
+  flex-direction: column;
+  align-items: stretch;
+}
 
-  .headerViewBar .viewSwitch {
-    display: inline-flex;
-  }
+.workspaceProgressMetaLeft {
+  width: 100%;
+}
 
-  .workspaceProgressTopline {
-    display: block;
-  }
+.workspaceProgressTopline {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
 
-  .workspaceProgressTitleGroup {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
+.workspaceViewSwitch {
+  display: inline-flex;
+  align-self: flex-start;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.workspaceViewSwitch .viewSwitchBtn {
+  flex: 1 1 auto;
+}
+
+.workspaceProgressTitleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+#dashboardProgressLabel {
+  align-self: flex-start;
+}
+
+.headerViewBar .viewSwitch {
+  display: none !important;
+}
 
   .mobileSidebarToggle {
     display: inline-flex;
@@ -2038,8 +2053,11 @@ body.executive-mode .mapLegendCard {
   }
 
   .brandLogoWide {
-    width: 132px;
-  }
+  width: 132px;
+  height: auto;
+  max-width: 100%;
+  transform: none;
+}
 
   .scopeSummaryGrid,
   .scopeSummaryGridIntel,
