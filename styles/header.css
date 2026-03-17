@@ -1,0 +1,251 @@
+/* ================= HEADER ================= */
+
+.topHeader {
+  height: var(--header-h);
+  padding: max(10px, env(safe-area-inset-top)) 16px 10px;
+  background:
+    radial-gradient(circle at 50% 26%, rgba(255,255,255,0.06), transparent 34%),
+    linear-gradient(90deg, var(--header-a), var(--header-b));
+  border-bottom: 3px solid rgba(200, 16, 46, 0.82);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  z-index: 20;
+  transition: height 0.22s ease, padding 0.22s ease;
+}
+
+.commandBar {
+  min-height: 74px;
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto minmax(220px, 1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.commandBarLeft,
+.commandBarCenter,
+.commandBarRight {
+  min-width: 0;
+}
+
+.commandBarLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.commandBarCenter {
+  display: flex;
+  justify-content: center;
+  overflow: visible;
+}
+
+.commandBarRight {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mobileSidebarToggle {
+  display: none;
+  margin-top: 0;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.headerTitleBlock {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.headerEyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  opacity: 0.64;
+  margin-bottom: 4px;
+}
+
+.headerProjectName {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.04;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerProjectSubline {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.2;
+  opacity: 0.82;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerSummaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.headerSummaryPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  font-size: 12px;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+
+.headerSummaryLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.64;
+}
+
+.brandLogoWide {
+  width: auto;
+  max-width: none;
+  height: 130px;
+  display: block;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: scale(3);
+  transform-origin: center;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25));
+}
+
+.headerModeToggles {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.executiveToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+
+.executiveToggle input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--green);
+}
+
+.headerViewBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  min-height: 30px;
+}
+
+.headerViewMeta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.viewSwitch {
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(8px);
+}
+
+.viewSwitchBtn {
+  margin-top: 0;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: transparent;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.viewSwitchBtn.active {
+  background: rgba(255,255,255,0.16);
+}
+
+.headerViewMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.headerViewMetaLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+
+.headerMetricsStrip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+
+.headerStat {
+  min-width: 0;
+  min-height: 56px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 10px 12px 8px;
+}
+
+.headerStatLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.66;
+  margin-bottom: 4px;
+}
+
+.headerStatValue {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1;
+}

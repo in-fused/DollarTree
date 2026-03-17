@@ -1,0 +1,41 @@
+/* ================= EXECUTIVE MODE ================= */
+
+body.executive-mode .topHeader {
+  height: var(--header-h-exec);
+  padding: max(8px, env(safe-area-inset-top)) 16px 8px;
+}
+
+body.executive-mode .headerEyebrow,
+body.executive-mode .headerProjectSubline,
+body.executive-mode .headerSummaryRow,
+body.executive-mode .desktopOnlyStat,
+body.executive-mode .headerViewMeta {
+  display: none !important;
+}
+
+body.executive-mode .commandBar {
+  min-height: 52px;
+  grid-template-columns: minmax(220px, 1fr) auto minmax(180px, 1fr);
+}
+
+body.executive-mode .brandLogoWide {
+  width: 210px;
+}
+
+body.executive-mode .headerViewBar {
+  min-height: 0;
+}
+
+body.executive-mode .headerMetricsStrip {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+body.executive-mode .headerStat {
+  min-height: 46px;
+  padding: 8px 10px 7px;
+}
+
+body.executive-mode .headerStatValue {
+  font-size: 14px;
+}
