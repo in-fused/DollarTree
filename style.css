@@ -82,6 +82,7 @@ body {
 .commandBarCenter {
   display: flex;
   justify-content: center;
+  overflow: visible;
 }
 
 .commandBarRight {
@@ -424,6 +425,7 @@ body.executive-mode .workspace {
   flex-direction: column;
   gap: 2px;
 }
+
 .workspaceProgressTopline {
   display: flex;
   align-items: center;
@@ -609,6 +611,7 @@ body.executive-mode .workspace {
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
+
 body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveCalloutEyebrow {
   margin-bottom: 0;
 }
@@ -1675,61 +1678,6 @@ button:disabled {
     grid-area: right;
     align-items: flex-start;
   }
-  
-    .workspaceProgressMeta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 6px;
-}
-
-.workspaceProgressMetaLeft {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: auto;
-  min-width: 0;
-}
-
-.workspaceProgressTopline {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  width: 100%;
-}
-
-.workspaceViewSwitch {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-self: auto;
-  flex-wrap: nowrap;
-  max-width: 100%;
-  margin-right: 0;
-}
-
-.workspaceViewSwitch .viewSwitchBtn {
-  flex: 0 0 auto;
-  padding: 8px 12px;
-}
-
-.workspaceProgressTitleGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: auto;
-  min-width: 0;
-  flex: 1 1 220px;
-}
-
-#dashboardProgressLabel {
-  align-self: auto;
-}
-
-.headerViewBar .viewSwitch {
-  display: none !important;
-}
 
   .mobileSidebarToggle {
     display: inline-flex;
@@ -1849,12 +1797,63 @@ button:disabled {
   }
 
   .workspaceProgressMeta {
-    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     margin-bottom: 6px;
+    font-size: 11px;
+  }
+
+  .workspaceProgressMetaLeft {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: auto;
+    min-width: 0;
+  }
+
+  .workspaceProgressTopline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .workspaceViewSwitch {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-self: auto;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    margin-right: 0;
+  }
+
+  .workspaceViewSwitch .viewSwitchBtn {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+  }
+
+  .workspaceProgressTitleGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: auto;
+    min-width: 0;
+    flex: 1 1 220px;
   }
 
   .workspaceProgressContext {
     font-size: 10px;
+  }
+
+  #dashboardProgressLabel {
+    align-self: auto;
+  }
+
+  .headerViewBar .viewSwitch {
+    display: none !important;
   }
 
   .workspaceProgressTrack {
@@ -1867,23 +1866,6 @@ button:disabled {
     max-width: calc(100% - 20px);
   }
 
-  body.executive-mode .mapExecutiveCallout {
-  display: block;
-  left: 10px;
-  right: auto;
-  top: auto;
-  bottom: calc(150px + env(safe-area-inset-bottom));
-  width: 150px;
-  max-width: 150px;
-  min-height: 0;
-  padding: 10px 12px 8px;
-}
-
-body.executive-mode .mapLegendCard {
-  left: 10px;
-  bottom: calc(84px + env(safe-area-inset-bottom));
-}
-
   .mapLegendCard {
     left: 10px;
     bottom: calc(84px + env(safe-area-inset-bottom));
@@ -1893,6 +1875,23 @@ body.executive-mode .mapLegendCard {
 
   .mapExecutiveCallout {
     display: none;
+  }
+
+  body.executive-mode .mapExecutiveCallout {
+    display: block;
+    left: 10px;
+    right: auto;
+    top: auto;
+    bottom: calc(150px + env(safe-area-inset-bottom));
+    width: 150px;
+    max-width: 150px;
+    min-height: 0;
+    padding: 10px 12px 8px;
+  }
+
+  body.executive-mode .mapLegendCard {
+    left: 10px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
   }
 
   .scopeSummaryGrid,
@@ -2066,11 +2065,11 @@ body.executive-mode .mapLegendCard {
   }
 
   .brandLogoWide {
-  width: 132px;
-  height: auto;
-  max-width: 100%;
-  transform: none;
-}
+    width: 132px;
+    height: auto;
+    max-width: 100%;
+    transform: none;
+  }
 
   .scopeSummaryGrid,
   .scopeSummaryGridIntel,
