@@ -1,0 +1,155 @@
+/* ================= APP SHELL ================= */
+
+.appShell {
+  height: calc(100vh - var(--header-h));
+  display: flex;
+  transition: height 0.22s ease;
+}
+
+body.executive-mode .appShell {
+  height: calc(100vh - var(--header-h-exec));
+}
+
+.sidebar {
+  width: var(--sidebar-w);
+  flex: 0 0 var(--sidebar-w);
+  background: linear-gradient(180deg, rgba(15,20,30,0.985), rgba(8,12,20,0.985));
+  border-right: 1px solid rgba(255,255,255,0.06);
+  overflow: hidden;
+  transition: width 0.28s ease, transform 0.28s ease;
+}
+
+body.executive-mode .sidebar {
+  width: 0;
+  flex-basis: 0;
+  border-right: none;
+}
+
+.sidebarInner {
+  height: 100%;
+  overflow-y: auto;
+  padding: 18px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.workspace {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--rail-w);
+  background: var(--bg-deep);
+}
+
+.workspaceViews {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspaceView {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workspaceView.active {
+  display: flex;
+  flex-direction: column;
+}
+
+body.executive-mode .workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspaceProgressBar {
+  position: relative;
+  z-index: 26;
+  padding: 12px 14px 10px;
+  background: linear-gradient(180deg, rgba(5,11,18,0.92), rgba(5,11,18,0.68));
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  backdrop-filter: blur(6px);
+}
+
+.workspaceProgressMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.92);
+  margin-bottom: 8px;
+}
+
+.workspaceProgressMetaLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workspaceProgressTopline {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.workspaceViewSwitch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  margin-right: 2px;
+  max-width: 100%;
+}
+
+.workspaceProgressTitleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 240px;
+}
+
+.workspaceProgressLabel {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workspaceProgressContext {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.workspaceProgressTrack {
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.10);
+}
+
+.workspaceProgressFill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--red), var(--orange), var(--green));
+  transition: width 0.25s ease;
+}
+/* ================= INTEL RAIL ================= */
+
+.intelRail {
+  border-left: 1px solid rgba(255,255,255,0.06);
+  background: linear-gradient(180deg, rgba(11,16,25,0.98), rgba(7,11,18,0.98));
+  overflow: hidden;
+}
+
+.intelRailInner {
+  height: 100%;
+  overflow-y: auto;
+  padding: 18px 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.executive-mode .intelRail {
+  display: none;
+}

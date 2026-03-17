@@ -1,0 +1,392 @@
+/* ================= PANELS ================= */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 18px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.16);
+}
+
+.panel h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.panelHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.panelHeaderTag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+}
+
+.panelInlineAction {
+  margin-top: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: transparent;
+  color: #9fd1ff;
+  border: 1px solid rgba(159,209,255,0.2);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* ================= FORMS / BUTTONS ================= */
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: white;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(255,255,255,0.55);
+}
+
+textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+select option {
+  color: #111827;
+}
+
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  background: rgba(255,255,255,0.12);
+  color: white;
+}
+
+.btnComplete {
+  background: var(--green);
+  color: #062b14;
+  font-weight: 700;
+}
+
+.btnClosed {
+  background: var(--orange);
+  color: #2d1a00;
+  font-weight: 700;
+}
+
+/* ================= AUTH / PROJECT / FILTERS ================= */
+
+.authUserDisplay {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.authRoleDisplay {
+  font-size: 13px;
+  opacity: 0.8;
+  margin-bottom: 8px;
+}
+
+.authMessage {
+  margin-top: 10px;
+  font-size: 13px;
+  min-height: 18px;
+}
+
+.authSuccess { color: var(--green); }
+.authError { color: #ff6b6b; }
+
+.importLink {
+  display: inline-block;
+  margin-top: 10px;
+  color: #9fd1ff;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.importLink.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  text-decoration: none;
+}
+
+.projectSourceTag {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.8;
+  line-height: 1.4;
+}
+
+.filterGrid {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.filterGrid select {
+  margin-top: 0;
+}
+
+/* ================= SUMMARY CARDS ================= */
+
+.scopeSummaryGrid,
+.scopeSummaryGridIntel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.scopeSummaryCard,
+.intelMetricCard,
+.routeMetricCard {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.scopeSummaryLabel,
+.intelMetricLabel,
+.routeMetricLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.65;
+  margin-bottom: 6px;
+}
+
+.scopeSummaryValue,
+.intelMetricValue,
+.routeMetricValue {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.statusBadge,
+.activityCountPill {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+/* ================= ROUTE BUILDER ================= */
+
+.routeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.routeToggleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.routeToggleLabel input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--green);
+}
+
+.routeControls {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.routeControls input,
+.routeControls button {
+  margin-top: 0;
+}
+
+.routeEmpty {
+  font-size: 13px;
+}
+
+.selectedStopsList {
+  display: grid;
+  gap: 8px;
+}
+
+.routeStopItem {
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.routeStopTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.routeStopTitle {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.routeStopAddress {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: 4px;
+}
+
+.routeStopActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.routeMiniBtn {
+  padding: 6px 8px;
+  font-size: 12px;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  margin-top: 0;
+}
+
+.routeActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.routeActions button {
+  flex: 1;
+}
+
+.routeMetricsPanel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.routeMetricsHeader {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.routeMetricsGrid,
+.intelMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.routeMetricDetail {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.72;
+}
+
+/* ================= ACTIVITY ================= */
+
+.activityList {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 340px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.activityItem {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border-left: 3px solid rgba(255,255,255,0.12);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.activityItem:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.06);
+}
+
+.activityTime {
+  font-size: 11px;
+  opacity: 0.65;
+  margin-bottom: 4px;
+}
+
+.activityTitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.activityDetail,
+.activity-empty {
+  font-size: 12px;
+  opacity: 0.72;
+}
+
+/* ================= INTEL SELECTED ================= */
+
+.intelSelectedPrimary {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.intelSelectedSecondary {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}

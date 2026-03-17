@@ -1,0 +1,180 @@
+/* ================= MAP ================= */
+
+.mapWrapper {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  background: #060b12;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+}
+
+.mapTopOverlay {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 35;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: calc(100% - 154px);
+}
+
+.mapModeTag,
+.mapScopeTag {
+  background: rgba(8,12,20,0.78);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+  backdrop-filter: blur(8px);
+}
+
+.mapLegendCard {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 30;
+  background: rgba(10,15,24,0.88);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-width: 160px;
+  box-shadow: 0 14px 30px rgba(0,0,0,0.24);
+  backdrop-filter: blur(8px);
+}
+
+.mapLegendTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+  margin-bottom: 8px;
+}
+
+.mapLegendRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.mapLegendRow:last-child {
+  margin-bottom: 0;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.legendRed { background: var(--red); }
+.legendOrange { background: var(--orange); }
+.legendGreen { background: var(--green); }
+
+.mapExecutiveCallout {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 34;
+  max-width: 360px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(8,12,20,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.22);
+  backdrop-filter: blur(8px);
+}
+
+.mapExecutiveCalloutEyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.62;
+  margin-bottom: 4px;
+}
+
+.mapExecutiveSummaryLine {
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.94);
+}
+
+.mapExecutiveCallout.mobile-collapsible {
+  cursor: pointer;
+}
+
+.mapExecutiveCallout.mobile-collapsible::after {
+  content: "Tap to expand";
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.58;
+}
+
+.mapExecutiveCallout.mobile-collapsible.expanded::after {
+  content: "Tap to collapse";
+}
+
+.mapExecutiveSummaryLine.collapsed {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveCalloutEyebrow {
+  margin-bottom: 0;
+}
+
+body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveSummaryLine.collapsed {
+  display: none;
+}
+
+body.executive-mode .mapExecutiveCallout.mobile-collapsible::after {
+  content: "Tap to expand";
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.58;
+}
+
+body.executive-mode .mapExecutiveCallout.mobile-collapsible.expanded::after {
+  content: "Tap to collapse";
+}
+
+body.executive-mode .mapExecutiveCallout.mobile-collapsible.expanded .mapExecutiveSummaryLine {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+}
+
+.floatingExecutiveExit {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 40;
+  background: rgba(8,12,20,0.9);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 999px;
+  padding: 10px 14px;
+  margin-top: 0;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.22);
+}
