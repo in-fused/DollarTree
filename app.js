@@ -26,6 +26,8 @@ const map = new mapboxgl.Map({
   zoom: DEFAULT_LOCAL_ZOOM
 });
 
+/* ================= APP STATE ================= */
+
 let resolvedPhotoBucket = null;
 
 let storeData = [];
@@ -44,8 +46,11 @@ let currentRole = "viewer";
 
 let projectList = [];
 let statusRowsCache = [];
+let noteRowsCache = [];
 let photoRowsCache = [];
+let activityEventRowsCache = [];
 let activityFeed = [];
+
 let routeModeEnabled = false;
 let selectedRouteStops = [];
 let executiveModeEnabled = false;
@@ -66,6 +71,250 @@ let photoLibraryFilters = {
   group: "none",
   search: ""
 };
+
+/* ================= DATA LAYER ================= */
+
+const dataLayer = {
+  async getSession() {
+    return await supabaseClient.auth.getSession();
+  },
+
+  onAuthStateChange(callback) {
+    return supabaseClient.auth.onAuthStateChange(callback);
+  },
+
+  async signIn(email, password) {
+    return await supabaseClient.auth.signInWithPassword({ email, password });
+  },
+
+  async signOut() {
+    return await supabaseClient.auth.signOut();
+  },
+
+  async getProfileRole(userId) {
+    const { data, error } = await supabaseClient
+      .from("profiles")
+      .select("role, email")
+      .eq("user_id", userId)
+      .single();
+
+    return { data, error };
+  },
+
+  async loadProjects() {
+    try {
+      const { data, error } = await supabaseClient
+        .from("projects")
+        .select("project_id, name, created_at")
+        .order("created_at", { ascending: true });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data.map(project => ({
+          project_id: project.project_id,
+          name: project.name,
+          created_at: project.created_at,
+          store_file: `data/${project.project_id}/stores_with_coords.json`
+        }));
+      }
+    } catch (error) {
+      console.warn("Supabase project load failed:", error);
+    }
+
+    try {
+      const res = await fetch(PROJECTS_FILE, { cache: "no-store" });
+      if (!res.ok) throw new Error(`Failed to load ${PROJECTS_FILE}`);
+      const fileProjects = await res.json();
+
+      if (Array.isArray(fileProjects) && fileProjects.length > 0) {
+        return fileProjects;
+      }
+    } catch (error) {
+      console.warn("Using default project list fallback:", error);
+    }
+
+    return [{
+      project_id: DEFAULT_PROJECT_ID,
+      name: "Central FL Dollar Tree",
+      store_file: "data/central-fl-dollar-tree/stores_with_coords.json"
+    }];
+  },
+
+  async loadStoresForProject(projectId, projectMeta) {
+    const { data, error } = await supabaseClient
+      .from("stores")
+      .select("store_id, store_name, customer_id, lat, lng, full_address, region, territory, state, city, district, division, market")
+      .eq("project_id", projectId);
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      projectMeta.sourceLabel = "Supabase";
+      return data.map(normalizeStoreRecord);
+    }
+
+    const fallbackPaths = [
+      projectMeta?.store_file,
+      `data/${projectId}/stores_with_coords.json`,
+      "stores_with_coords.json"
+    ].filter(Boolean);
+
+    for (const path of fallbackPaths) {
+      try {
+        const res = await fetch(path, { cache: "no-store" });
+        if (!res.ok) continue;
+        const json = await res.json();
+        if (Array.isArray(json) && json.length > 0) {
+          projectMeta.sourceLabel = "JSON fallback";
+          return json.map(normalizeStoreRecord);
+        }
+      } catch (err) {
+        console.warn("Store file fallback failed:", path, err);
+      }
+    }
+
+    projectMeta.sourceLabel = "No stores found";
+    return [];
+  },
+
+  async loadStoreStatus(projectId) {
+    return await supabaseClient
+      .from("store_status")
+      .select("*")
+      .eq("project_id", projectId);
+  },
+
+  async loadStoreNotes(projectId, limit = 50) {
+    return await supabaseClient
+      .from("store_notes")
+      .select("store_id, note, created_at")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+  },
+
+  async loadNotesForStore(projectId, storeId) {
+    return await supabaseClient
+      .from("store_notes")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("store_id", storeId)
+      .order("created_at", { ascending: false });
+  },
+
+  async insertNote(projectId, storeId, note) {
+    return await supabaseClient
+      .from("store_notes")
+      .insert({
+        project_id: projectId,
+        store_id: storeId,
+        note
+      });
+  },
+
+  async loadStorePhotos(projectId) {
+    return await supabaseClient
+      .from("store_photos")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false });
+  },
+
+  async loadPhotosForStore(projectId, storeId) {
+    return await supabaseClient
+      .from("store_photos")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("store_id", storeId)
+      .order("created_at", { ascending: false });
+  },
+
+  async insertPhotoRow(projectId, storeId, imageUrl, storagePath) {
+    return await supabaseClient
+      .from("store_photos")
+      .insert({
+        project_id: projectId,
+        store_id: storeId,
+        image_url: imageUrl,
+        storage_path: storagePath
+      });
+  },
+
+  async updateStoreStatus(projectId, storeId, completed, closed) {
+    return await supabaseClient
+      .from("store_status")
+      .upsert({
+        project_id: projectId,
+        store_id: storeId,
+        completed,
+        closed
+      });
+  },
+
+  async loadActivityEvents(projectId, limit = 200) {
+    return await supabaseClient
+      .from("activity_events")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+  },
+
+  async resolvePhotoBucketName() {
+    if (resolvedPhotoBucket) return resolvedPhotoBucket;
+
+    for (const bucketName of PHOTO_BUCKET_CANDIDATES) {
+      try {
+        const { error } = await supabaseClient.storage.from(bucketName).list("", { limit: 1 });
+        if (!error) {
+          resolvedPhotoBucket = bucketName;
+          return resolvedPhotoBucket;
+        }
+      } catch (error) {
+        console.warn("Bucket probe failed:", bucketName, error);
+      }
+    }
+
+    resolvedPhotoBucket = PHOTO_BUCKET_CANDIDATES[0];
+    return resolvedPhotoBucket;
+  },
+
+  async uploadPhotoFile(bucketName, path, file) {
+    return await supabaseClient.storage
+      .from(bucketName)
+      .upload(path, file, {
+        cacheControl: "3600",
+        upsert: false
+      });
+  },
+
+  getPublicPhotoUrl(bucketName, path) {
+    const { data } = supabaseClient.storage.from(bucketName).getPublicUrl(path);
+    return data?.publicUrl || "";
+  },
+
+  async hydrateProject(projectId, projectMeta) {
+    const stores = await this.loadStoresForProject(projectId, projectMeta);
+
+    const [statusResult, notesResult, photosResult, activityEventsResult] = await Promise.all([
+      this.loadStoreStatus(projectId),
+      this.loadStoreNotes(projectId),
+      this.loadStorePhotos(projectId),
+      this.loadActivityEvents(projectId)
+    ]);
+
+    return {
+      stores,
+      statusRows: Array.isArray(statusResult.data) ? statusResult.data : [],
+      statusError: statusResult.error || null,
+      noteRows: Array.isArray(notesResult.data) ? notesResult.data : [],
+      noteError: notesResult.error || null,
+      photoRows: Array.isArray(photosResult.data) ? photosResult.data : [],
+      photoError: photosResult.error || null,
+      activityEventRows: Array.isArray(activityEventsResult.data) ? activityEventsResult.data : [],
+      activityEventError: activityEventsResult.error || null
+    };
+  }
+};
+
+/* ================= KEYS / HELPERS ================= */
 
 function routeModeKey() {
   return `routeModeEnabled:${currentProjectId}`;
@@ -90,39 +339,6 @@ function isAdmin() {
 function isMobileViewport() {
   return window.innerWidth <= 900;
 }
-
-map.on("load", async () => {
-  currentProjectId = localStorage.getItem(ACTIVE_PROJECT_KEY) || DEFAULT_PROJECT_ID;
-  executiveModeEnabled = localStorage.getItem(EXECUTIVE_MODE_KEY) === "true";
-  nationalOverviewEnabled = localStorage.getItem(NATIONAL_OVERVIEW_KEY) === "true";
-
-  bindLogoHome();
-  await initializeAuth();
-  bindAuthUI();
-  bindExecutiveModeUI();
-  bindNationalOverviewUI();
-  bindMobileSidebarUI();
-  bindFilters();
-  bindWorkspaceViews();
-  bindPhotoLibraryUI();
-  bindProjectSelector();
-  bindSearch();
-  bindRouteBuilder();
-  bindPhotoUI();
-  bindLightboxUI();
-  bindMobileExecutiveSummary();
-
-  await loadProjects();
-  await loadActiveProject();
-
-  updateAuthUI();
-  updateRouteModeUI();
-  updateExecutiveModeUI();
-  updateNationalOverviewUI();
-  updateWorkspaceViewUI();
-});
-
-/* ================= BASIC HELPERS ================= */
 
 function setText(id, value) {
   const el = document.getElementById(id);
@@ -227,10 +443,51 @@ function getPhotoSelectionKey(row) {
   return String(row.id || row.storage_path || row.url || `${row.store_id}-${row.created_at}`);
 }
 
+function normalizeStoreRecord(store) {
+  return {
+    store_id: String(store.store_id),
+    store_name: String(store.store_name || "").trim(),
+    customer_id: String(store.customer_id || "").trim(),
+    lat: Number(store.lat),
+    lng: Number(store.lng),
+    full_address: String(store.full_address || "").trim(),
+    region: String(store.region || "").trim(),
+    territory: String(store.territory || "").trim(),
+    state: String(store.state || "").trim(),
+    city: String(store.city || "").trim(),
+    district: String(store.district || "").trim(),
+    division: String(store.division || "").trim(),
+    market: String(store.market || "").trim()
+  };
+}
+
+function buildPhotoPath(storeId, file) {
+  const safeName = sanitizeFileName(file.name);
+  return `${currentProjectId}/${storeId}/${Date.now()}-${safeName}`;
+}
+
+function mapActivityEventRow(row) {
+  const storeId = String(row.store_id || "");
+  const payload = row.payload || {};
+  const timestamp = row.created_at || row.updated_at || null;
+
+  if (row.event_type === "store_created") {
+    return {
+      type: "store-created",
+      store_id: storeId,
+      timestamp,
+      title: `➕ Store ${storeId} added to project`,
+      detail: payload.store_name || payload.customer_id || "Imported into project"
+    };
+  }
+
+  return null;
+}
+
 /* ================= AUTH ================= */
 
 async function initializeAuth() {
-  const { data, error } = await supabaseClient.auth.getSession();
+  const { data, error } = await dataLayer.getSession();
 
   if (error) {
     console.error("Auth session error:", error);
@@ -245,7 +502,7 @@ async function initializeAuth() {
     currentRole = "viewer";
   }
 
-  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+  dataLayer.onAuthStateChange(async (_event, session) => {
     currentSession = session || null;
     currentUser = currentSession?.user || null;
 
@@ -266,11 +523,7 @@ async function loadCurrentUserRole() {
     return;
   }
 
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("role, email")
-    .eq("user_id", currentUser.id)
-    .single();
+  const { data, error } = await dataLayer.getProfileRole(currentUser.id);
 
   if (error) {
     console.error("Profile lookup failed:", error);
@@ -307,7 +560,7 @@ async function signIn() {
     return;
   }
 
-  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  const { error } = await dataLayer.signIn(email, password);
 
   if (error) {
     setAuthMessage(error.message || "Sign-in failed.", "error");
@@ -318,7 +571,7 @@ async function signIn() {
 }
 
 async function signOut() {
-  const { error } = await supabaseClient.auth.signOut();
+  const { error } = await dataLayer.signOut();
 
   if (error) {
     setAuthMessage(error.message || "Sign-out failed.", "error");
@@ -390,7 +643,7 @@ function updateWriteAccessUI() {
   );
 }
 
-/* ================= LOGO / HOME ================= */
+/* ================= LOGO / MOBILE ================= */
 
 function bindLogoHome() {
   const logo = document.querySelector(".brandLogoWide");
@@ -405,8 +658,6 @@ function bindLogoHome() {
 
   logo.dataset.bound = "true";
 }
-
-/* ================= MOBILE EXEC SUMMARY ================= */
 
 function bindMobileExecutiveSummary() {
   const card = document.getElementById("mapExecutiveCallout");
@@ -433,7 +684,7 @@ function updateMobileExecutiveSummaryUI() {
   line.classList.toggle("collapsed", shouldCollapse && !mobileExecutiveSummaryExpanded);
 }
 
-/* ================= EXECUTIVE / NATIONAL / MOBILE ================= */
+/* ================= EXEC / NATIONAL / SIDEBAR ================= */
 
 function bindExecutiveModeUI() {
   const toggle = document.getElementById("executiveModeToggle");
@@ -587,52 +838,10 @@ function updateWorkspaceViewUI() {
   }
 }
 
-/* ================= PROJECTS ================= */
+/* ================= PROJECTS / HYDRATION ================= */
 
 async function loadProjects() {
-  let loadedProjects = [];
-
-  try {
-    const { data, error } = await supabaseClient
-      .from("projects")
-      .select("project_id, name, created_at")
-      .order("created_at", { ascending: true });
-
-    if (!error && Array.isArray(data) && data.length > 0) {
-      loadedProjects = data.map(project => ({
-        project_id: project.project_id,
-        name: project.name,
-        created_at: project.created_at,
-        store_file: `data/${project.project_id}/stores_with_coords.json`
-      }));
-    }
-  } catch (error) {
-    console.warn("Supabase project load failed:", error);
-  }
-
-  if (loadedProjects.length === 0) {
-    try {
-      const res = await fetch(PROJECTS_FILE, { cache: "no-store" });
-      if (!res.ok) throw new Error(`Failed to load ${PROJECTS_FILE}`);
-      const fileProjects = await res.json();
-
-      if (Array.isArray(fileProjects) && fileProjects.length > 0) {
-        loadedProjects = fileProjects;
-      }
-    } catch (error) {
-      console.warn("Using default project list fallback:", error);
-    }
-  }
-
-  if (loadedProjects.length === 0) {
-    loadedProjects = [{
-      project_id: DEFAULT_PROJECT_ID,
-      name: "Central FL Dollar Tree",
-      store_file: "data/central-fl-dollar-tree/stores_with_coords.json"
-    }];
-  }
-
-  projectList = loadedProjects;
+  projectList = await dataLayer.loadProjects();
 
   if (!projectList.some(project => project.project_id === currentProjectId)) {
     currentProjectId = projectList[0].project_id;
@@ -665,6 +874,106 @@ function bindProjectSelector() {
   });
 
   select.dataset.bound = "true";
+}
+
+async function hydrate() {
+  const hydrated = await dataLayer.hydrateProject(currentProjectId, currentProjectMeta);
+
+  storeData = hydrated.stores;
+  statusRowsCache = hydrated.statusRows;
+  noteRowsCache = hydrated.noteRows;
+  photoRowsCache = hydrated.photoRows;
+  activityEventRowsCache = hydrated.activityEventRows;
+
+  statusMap = {};
+  storeData.forEach(store => {
+    statusMap[String(store.store_id)] = {
+      completed: false,
+      closed: false
+    };
+  });
+
+  if (hydrated.statusError) {
+    console.error("Supabase store_status error:", hydrated.statusError);
+  }
+
+  statusRowsCache.forEach(row => {
+    const key = String(row.store_id);
+    if (statusMap[key]) {
+      statusMap[key].completed = row.completed === true;
+      statusMap[key].closed = row.closed === true;
+    }
+  });
+
+  if (hydrated.noteError) {
+    console.error("Supabase store_notes error:", hydrated.noteError);
+  }
+
+  if (hydrated.photoError) {
+    console.error("Supabase store_photos error:", hydrated.photoError);
+  }
+
+  if (hydrated.activityEventError) {
+    console.error("Supabase activity_events error:", hydrated.activityEventError);
+  }
+}
+
+async function hydrateActivityFeed() {
+  const events = [];
+
+  const importedEvents = (activityEventRowsCache || [])
+    .map(mapActivityEventRow)
+    .filter(Boolean);
+
+  events.push(...importedEvents);
+
+  statusRowsCache.forEach(row => {
+    const eventTime = row.updated_at || row.created_at || null;
+
+    if (row.completed === true) {
+      events.push({
+        type: "status-completed",
+        store_id: String(row.store_id),
+        timestamp: eventTime,
+        title: `✔ Store ${row.store_id} completed`,
+        detail: "Status updated"
+      });
+    } else if (row.closed === true) {
+      events.push({
+        type: "status-closed",
+        store_id: String(row.store_id),
+        timestamp: eventTime,
+        title: `⚠ Store ${row.store_id} closed`,
+        detail: "Status updated"
+      });
+    }
+  });
+
+  noteRowsCache.forEach(row => {
+    events.push({
+      type: "note",
+      store_id: String(row.store_id),
+      timestamp: row.created_at || null,
+      title: `📝 Note added to Store ${row.store_id}`,
+      detail: row.note || "Note saved"
+    });
+  });
+
+  photoRowsCache.forEach(row => {
+    events.push({
+      type: "photo",
+      store_id: String(row.store_id),
+      timestamp: row.created_at || null,
+      title: `📷 Photo uploaded for Store ${row.store_id}`,
+      detail: "Field photo evidence captured"
+    });
+  });
+
+  activityFeed = events
+    .sort((a, b) => getTimestampValue(b.timestamp) - getTimestampValue(a.timestamp))
+    .slice(0, 100);
+
+  touchDataRefresh();
 }
 
 async function loadActiveProject() {
@@ -883,160 +1192,6 @@ function handleFilterChange() {
   }
 }
 
-/* ================= DATA HYDRATION ================= */
-
-async function loadStoresForProject(projectId) {
-  const { data, error } = await supabaseClient
-    .from("stores")
-    .select("store_id, lat, lng, full_address, region, territory, state, city, district, division, market")
-    .eq("project_id", projectId);
-
-  if (!error && Array.isArray(data) && data.length > 0) {
-    currentProjectMeta.sourceLabel = "Supabase";
-    return data.map(normalizeStoreRecord);
-  }
-
-  const fallbackPaths = [
-    currentProjectMeta?.store_file,
-    `data/${projectId}/stores_with_coords.json`,
-    "stores_with_coords.json"
-  ].filter(Boolean);
-
-  for (const path of fallbackPaths) {
-    try {
-      const res = await fetch(path, { cache: "no-store" });
-      if (!res.ok) continue;
-      const json = await res.json();
-      if (Array.isArray(json) && json.length > 0) {
-        currentProjectMeta.sourceLabel = "JSON fallback";
-        return json.map(normalizeStoreRecord);
-      }
-    } catch (err) {
-      console.warn("Store file fallback failed:", path, err);
-    }
-  }
-
-  currentProjectMeta.sourceLabel = "No stores found";
-  return [];
-}
-
-function normalizeStoreRecord(store) {
-  return {
-    store_id: String(store.store_id),
-    lat: Number(store.lat),
-    lng: Number(store.lng),
-    full_address: String(store.full_address || "").trim(),
-    region: String(store.region || "").trim(),
-    territory: String(store.territory || "").trim(),
-    state: String(store.state || "").trim(),
-    city: String(store.city || "").trim(),
-    district: String(store.district || "").trim(),
-    division: String(store.division || "").trim(),
-    market: String(store.market || "").trim()
-  };
-}
-
-async function hydrate() {
-  storeData = await loadStoresForProject(currentProjectId);
-
-  statusMap = {};
-  storeData.forEach(store => {
-    statusMap[String(store.store_id)] = {
-      completed: false,
-      closed: false
-    };
-  });
-
-  const { data, error } = await supabaseClient
-    .from("store_status")
-    .select("*")
-    .eq("project_id", currentProjectId);
-
-  if (error) {
-    console.error("Supabase store_status error:", error);
-    statusRowsCache = [];
-    return;
-  }
-
-  statusRowsCache = Array.isArray(data) ? data : [];
-
-  statusRowsCache.forEach(row => {
-    const key = String(row.store_id);
-    if (statusMap[key]) {
-      statusMap[key].completed = row.completed === true;
-      statusMap[key].closed = row.closed === true;
-    }
-  });
-}
-
-async function hydrateActivityFeed() {
-  const events = [];
-  photoRowsCache = [];
-
-  statusRowsCache.forEach(row => {
-    const eventTime = row.updated_at || row.created_at || null;
-
-    if (row.completed === true) {
-      events.push({
-        type: "status-completed",
-        store_id: String(row.store_id),
-        timestamp: eventTime,
-        title: `✔ Store ${row.store_id} completed`,
-        detail: "Status updated"
-      });
-    } else if (row.closed === true) {
-      events.push({
-        type: "status-closed",
-        store_id: String(row.store_id),
-        timestamp: eventTime,
-        title: `⚠ Store ${row.store_id} closed`,
-        detail: "Status updated"
-      });
-    }
-  });
-
-  const { data: noteRows } = await supabaseClient
-    .from("store_notes")
-    .select("store_id, note, created_at")
-    .eq("project_id", currentProjectId)
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  (noteRows || []).forEach(row => {
-    events.push({
-      type: "note",
-      store_id: String(row.store_id),
-      timestamp: row.created_at || null,
-      title: `📝 Note added to Store ${row.store_id}`,
-      detail: row.note || "Note saved"
-    });
-  });
-
-  const { data: photoRows } = await supabaseClient
-    .from("store_photos")
-    .select("*")
-    .eq("project_id", currentProjectId)
-    .order("created_at", { ascending: false });
-
-  photoRowsCache = Array.isArray(photoRows) ? photoRows : [];
-
-  photoRowsCache.forEach(row => {
-    events.push({
-      type: "photo",
-      store_id: String(row.store_id),
-      timestamp: row.created_at || null,
-      title: `📷 Photo uploaded for Store ${row.store_id}`,
-      detail: "Field photo evidence captured"
-    });
-  });
-
-  activityFeed = events
-    .sort((a, b) => getTimestampValue(b.timestamp) - getTimestampValue(a.timestamp))
-    .slice(0, 100);
-
-  touchDataRefresh();
-}
-
 /* ================= MAP ================= */
 
 function createGeoJson(stores) {
@@ -1247,7 +1402,7 @@ function setMapModeTags() {
   );
 }
 
-/* ================= DASHBOARD / INTEL / SUMMARIES ================= */
+/* ================= DASHBOARD / INTEL ================= */
 
 function calculateAverageCompletedPerDay(events) {
   const dated = events.filter(item => !!item.timestamp);
@@ -1317,19 +1472,12 @@ function buildExecutiveSummary(metrics) {
 
 function getCurrentScopeLabel(metrics) {
   const parts = [];
-  if (nationalOverviewEnabled) {
-    parts.push("National View");
-  } else {
-    parts.push("Project View");
-  }
+  parts.push(nationalOverviewEnabled ? "National View" : "Project View");
 
   if (activeFilters.region) parts.push(activeFilters.region);
   if (activeFilters.territory) parts.push(activeFilters.territory);
   if (activeFilters.state) parts.push(activeFilters.state);
-
-  if (metrics.totalStores > 0) {
-    parts.push(`${metrics.totalStores.toLocaleString()} stores`);
-  }
+  if (metrics.totalStores > 0) parts.push(`${metrics.totalStores.toLocaleString()} stores`);
 
   return parts.join(" • ");
 }
@@ -1502,8 +1650,7 @@ function getPhotoUrlFromRow(row) {
   if (row.public_url) return row.public_url;
 
   if (row.storage_path && resolvedPhotoBucket) {
-    const { data } = supabaseClient.storage.from(resolvedPhotoBucket).getPublicUrl(row.storage_path);
-    return data?.publicUrl || "";
+    return dataLayer.getPublicPhotoUrl(resolvedPhotoBucket, row.storage_path);
   }
 
   return "";
@@ -1835,14 +1982,7 @@ async function updateStore(storeId, completed, closed) {
     return;
   }
 
-  const { error } = await supabaseClient
-    .from("store_status")
-    .upsert({
-      project_id: currentProjectId,
-      store_id: storeId,
-      completed,
-      closed
-    });
+  const { error } = await dataLayer.updateStoreStatus(currentProjectId, storeId, completed, closed);
 
   if (error) {
     console.error(error);
@@ -1883,13 +2023,7 @@ async function addNote(storeId) {
   const note = document.getElementById("noteBox")?.value.trim() || "";
   if (!note) return;
 
-  const { error } = await supabaseClient
-    .from("store_notes")
-    .insert({
-      project_id: currentProjectId,
-      store_id: storeId,
-      note
-    });
+  const { error } = await dataLayer.insertNote(currentProjectId, storeId, note);
 
   if (error) {
     console.error(error);
@@ -1899,6 +2033,13 @@ async function addNote(storeId) {
 
   const noteBox = document.getElementById("noteBox");
   if (noteBox) noteBox.value = "";
+
+  noteRowsCache.unshift({
+    project_id: currentProjectId,
+    store_id: String(storeId),
+    note,
+    created_at: new Date().toISOString()
+  });
 
   touchDataRefresh();
 
@@ -1917,12 +2058,7 @@ async function addNote(storeId) {
 }
 
 async function loadNotes(storeId) {
-  const { data, error } = await supabaseClient
-    .from("store_notes")
-    .select("*")
-    .eq("project_id", currentProjectId)
-    .eq("store_id", storeId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await dataLayer.loadNotesForStore(currentProjectId, storeId);
 
   const container = document.getElementById("notesList");
   if (!container) return;
@@ -1981,30 +2117,6 @@ function bindLightboxUI() {
 
     lightbox.dataset.bound = "true";
   }
-}
-
-async function resolvePhotoBucketName() {
-  if (resolvedPhotoBucket) return resolvedPhotoBucket;
-
-  for (const bucketName of PHOTO_BUCKET_CANDIDATES) {
-    try {
-      const { error } = await supabaseClient.storage.from(bucketName).list("", { limit: 1 });
-      if (!error) {
-        resolvedPhotoBucket = bucketName;
-        return resolvedPhotoBucket;
-      }
-    } catch (error) {
-      console.warn("Bucket probe failed:", bucketName, error);
-    }
-  }
-
-  resolvedPhotoBucket = PHOTO_BUCKET_CANDIDATES[0];
-  return resolvedPhotoBucket;
-}
-
-function buildPhotoPath(storeId, file) {
-  const safeName = sanitizeFileName(file.name);
-  return `${currentProjectId}/${storeId}/${Date.now()}-${safeName}`;
 }
 
 function setPhotoMessage(message = "", isError = false) {
@@ -2089,15 +2201,10 @@ async function uploadPhoto(storeId) {
     file = originalFile;
   }
 
-  const bucketName = await resolvePhotoBucketName();
+  const bucketName = await dataLayer.resolvePhotoBucketName();
   const path = buildPhotoPath(storeId, file);
 
-  const { error: uploadError } = await supabaseClient.storage
-    .from(bucketName)
-    .upload(path, file, {
-      cacheControl: "3600",
-      upsert: false
-    });
+  const { error: uploadError } = await dataLayer.uploadPhotoFile(bucketName, path, file);
 
   if (uploadError) {
     console.error(uploadError);
@@ -2105,17 +2212,9 @@ async function uploadPhoto(storeId) {
     return;
   }
 
-  const { data: publicData } = supabaseClient.storage.from(bucketName).getPublicUrl(path);
-  const imageUrl = publicData?.publicUrl || "";
+  const imageUrl = dataLayer.getPublicPhotoUrl(bucketName, path);
 
-  const { error: rowError } = await supabaseClient
-    .from("store_photos")
-    .insert({
-      project_id: currentProjectId,
-      store_id: storeId,
-      image_url: imageUrl,
-      storage_path: path
-    });
+  const { error: rowError } = await dataLayer.insertPhotoRow(currentProjectId, storeId, imageUrl, path);
 
   if (rowError) {
     console.error(rowError);
@@ -2161,12 +2260,7 @@ async function loadPhotos(storeId) {
 
   gallery.innerHTML = `<div class="photoEmptyState">Loading photos…</div>`;
 
-  const { data, error } = await supabaseClient
-    .from("store_photos")
-    .select("*")
-    .eq("project_id", currentProjectId)
-    .eq("store_id", storeId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await dataLayer.loadPhotosForStore(currentProjectId, storeId);
 
   if (error) {
     console.error(error);
@@ -2179,15 +2273,14 @@ async function loadPhotos(storeId) {
     return;
   }
 
-  const bucketName = await resolvePhotoBucketName();
+  const bucketName = await dataLayer.resolvePhotoBucketName();
   gallery.innerHTML = "";
 
   data.forEach(row => {
     let imageUrl = row.image_url || "";
 
     if (!imageUrl && row.storage_path) {
-      const { data: publicData } = supabaseClient.storage.from(bucketName).getPublicUrl(row.storage_path);
-      imageUrl = publicData?.publicUrl || "";
+      imageUrl = dataLayer.getPublicPhotoUrl(bucketName, row.storage_path);
     }
 
     const card = document.createElement("div");
@@ -2293,6 +2386,7 @@ function updateActivityList() {
     else if (item.type === "status-closed") div.style.borderLeftColor = "#ff9900";
     else if (item.type === "photo") div.style.borderLeftColor = "#64b5f6";
     else if (item.type === "note") div.style.borderLeftColor = "#d4a5ff";
+    else if (item.type === "store-created") div.style.borderLeftColor = "#9fd1ff";
 
     const time = document.createElement("div");
     time.className = "activityTime";
@@ -2689,3 +2783,36 @@ function updateRouteMetrics() {
   setText("routeMetricScore", efficiency);
   setText("routeMetricDetail", detail);
 }
+
+/* ================= APP INIT ================= */
+
+map.on("load", async () => {
+  currentProjectId = localStorage.getItem(ACTIVE_PROJECT_KEY) || DEFAULT_PROJECT_ID;
+  executiveModeEnabled = localStorage.getItem(EXECUTIVE_MODE_KEY) === "true";
+  nationalOverviewEnabled = localStorage.getItem(NATIONAL_OVERVIEW_KEY) === "true";
+
+  bindLogoHome();
+  await initializeAuth();
+  bindAuthUI();
+  bindExecutiveModeUI();
+  bindNationalOverviewUI();
+  bindMobileSidebarUI();
+  bindFilters();
+  bindWorkspaceViews();
+  bindPhotoLibraryUI();
+  bindProjectSelector();
+  bindSearch();
+  bindRouteBuilder();
+  bindPhotoUI();
+  bindLightboxUI();
+  bindMobileExecutiveSummary();
+
+  await loadProjects();
+  await loadActiveProject();
+
+  updateAuthUI();
+  updateRouteModeUI();
+  updateExecutiveModeUI();
+  updateNationalOverviewUI();
+  updateWorkspaceViewUI();
+});
