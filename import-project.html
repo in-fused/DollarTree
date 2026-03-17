@@ -39,12 +39,18 @@ border-radius:10px;
 border:1px solid rgba(255,255,255,0.12);
 background:rgba(255,255,255,0.08);
 color:white;
-margin-top:10px
+margin-top:10px;
+font:inherit
 }
 
 button{
 cursor:pointer;
 font-weight:600
+}
+
+button:disabled{
+opacity:.45;
+cursor:not-allowed
 }
 
 .primaryBtn{
@@ -76,7 +82,9 @@ border-radius:10px;
 padding:12px;
 min-height:180px;
 white-space:pre-wrap;
-font-size:13px
+overflow-wrap:anywhere;
+font-size:13px;
+line-height:1.45
 }
 
 .success{color:#2ecc71}
@@ -131,7 +139,7 @@ font-weight:800
 This importer supports the full store data model used by the operations console.
 </p>
 
-<pre<pre>
+<pre>
 Required:
 store_id
 
@@ -171,7 +179,6 @@ store_id,store_name,customer_id,full_address,lat,lng,region,territory,state,city
 
 </div>
 
-
 <div class="card">
 
 <h2>Project Details</h2>
@@ -195,7 +202,6 @@ store_id,store_name,customer_id,full_address,lat,lng,region,territory,state,city
 <button id="runImportBtn" class="primaryBtn">Run Import</button>
 
 </div>
-
 
 <div class="card hidden" id="summaryCard">
 
@@ -227,7 +233,6 @@ store_id,store_name,customer_id,full_address,lat,lng,region,territory,state,city
 
 </div>
 
-
 <div class="card">
 
 <h2>Import Log</h2>
@@ -236,7 +241,6 @@ store_id,store_name,customer_id,full_address,lat,lng,region,territory,state,city
 </div>
 
 </div>
-
 
 <script>
 
@@ -258,12 +262,14 @@ logEl.scrollTop=logEl.scrollHeight
 
 function buildFullAddress(row){
 
-if(row.full_address)return row.full_address
+if(row.full_address && String(row.full_address).trim()){
+return String(row.full_address).trim()
+}
 
-const address=row.address||""
-const city=row.city||""
-const state=row.state||""
-const zip=row.zip||row.postcode||""
+const address=String(row.address||"").trim()
+const city=String(row.city||"").trim()
+const state=String(row.state||"").trim()
+const zip=String(row.zip||row.postcode||row.postal_code||"").trim()
 
 return [address,city,state,zip].filter(Boolean).join(", ")
 
@@ -276,15 +282,18 @@ new URLSearchParams({
 q:fullAddress,
 access_token:MAPBOX_TOKEN,
 limit:"1",
-country:"US"
-})
+autocomplete:"false",
+country:"US",
+permanent:"true"
+}).toString()
 
 const res=await fetch(url)
-const json=await res.json()
+if(!res.ok) throw new Error(`Geocode failed (${res.status}) for: ${fullAddress}`)
 
+const json=await res.json()
 const coords=json.features?.[0]?.geometry?.coordinates
 
-if(!coords)throw new Error("Geocode failed")
+if(!coords || coords.length<2) throw new Error(`No geocode result for: ${fullAddress}`)
 
 return{
 lng:Number(coords[0]),
@@ -306,50 +315,45 @@ const storeId=String(row.store_id||"").trim()
 
 if(!storeId){
 skipped++
+log("Skipping row: missing store_id","warn")
 continue
 }
 
-let fullAddress=buildFullAddress(row)
+const fullAddress=buildFullAddress(row)
 
-let lat=row.lat?Number(row.lat):null
-let lng=row.lng?Number(row.lng):null
+let lat=row.lat!==undefined && row.lat!=="" ? Number(row.lat) : null
+let lng=row.lng!==undefined && row.lng!=="" ? Number(row.lng) : null
 
-if(!lat||!lng){
+if(!Number.isFinite(lat) || !Number.isFinite(lng)){
 if(!fullAddress){
 skipped++
+log(`Skipping store ${storeId}: missing address and coordinates`,"warn")
 continue
 }
 
+log(`Geocoding store ${storeId}...`)
 const geo=await geocodeAddress(fullAddress)
-
 lat=geo.lat
 lng=geo.lng
-
 geocoded++
-
 }else{
-
 coordsProvided++
-
 }
 
 normalized.push({
-
 store_id:storeId,
-store_name: row.store_name ? String(row.store_name).trim() : null,
-customer_id: row.customer_id ? String(row.customer_id).trim() : null,
+store_name:row.store_name ? String(row.store_name).trim() : null,
+customer_id:row.customer_id ? String(row.customer_id).trim() : null,
 lat,
 lng,
-full_address:fullAddress,
-
-region:row.region||null,
-territory:row.territory||null,
-state:row.state||null,
-city:row.city||null,
-district:row.district||null,
-division:row.division||null,
-market:row.market||null
-
+full_address:fullAddress || null,
+region:row.region ? String(row.region).trim() : null,
+territory:row.territory ? String(row.territory).trim() : null,
+state:row.state ? String(row.state).trim() : null,
+city:row.city ? String(row.city).trim() : null,
+district:row.district ? String(row.district).trim() : null,
+division:row.division ? String(row.division).trim() : null,
+market:row.market ? String(row.market).trim() : null
 })
 
 }
@@ -364,35 +368,7 @@ skipped
 }
 
 async function insertStores(projectId,rows){
-async function seedStoreStatus(projectId, rows){
-async function seedActivityEvents(projectId, rows){
 
-const payload = rows.map(r => ({
-project_id: projectId,
-store_id: r.store_id,
-event_type: "store_created",
-message: "Store added to project",
-created_at: new Date().toISOString()
-}))
-
-await supabaseClient
-.from("activity_events")
-.insert(payload)
-
-}
-
-const payload = rows.map(r => ({
-project_id: projectId,
-store_id: r.store_id,
-completed: false,
-closed: false,
-status: "active"
-}))
-
-await supabaseClient.from("store_status")
-.upsert(payload,{ onConflict:"project_id,store_id" })
-
-}
 const payload=rows.map(r=>({
 
 project_id:projectId,
@@ -430,6 +406,47 @@ if(error)throw error
 
 }
 
+async function seedStoreStatus(projectId,rows){
+
+const payload=rows.map(r=>({
+project_id:projectId,
+store_id:r.store_id,
+completed:false,
+closed:false,
+status:"active"
+}))
+
+const {error}=await supabaseClient
+.from("store_status")
+.upsert(payload,{onConflict:"project_id,store_id"})
+
+if(error)throw error
+
+}
+
+async function seedActivityEvents(projectId,rows){
+
+const payload=rows.map(r=>({
+project_id:projectId,
+store_id:r.store_id,
+event_type:"store_created",
+payload:{
+source:"import-project",
+store_id:r.store_id,
+store_name:r.store_name || null,
+customer_id:r.customer_id || null
+},
+created_at:new Date().toISOString()
+}))
+
+const {error}=await supabaseClient
+.from("activity_events")
+.insert(payload)
+
+if(error)throw error
+
+}
+
 document.getElementById("runImportBtn").addEventListener("click",async()=>{
 
 logEl.innerHTML=""
@@ -438,8 +455,17 @@ const projectId=document.getElementById("projectId").value.trim()
 const projectName=document.getElementById("projectName").value.trim()
 const file=document.getElementById("csvFile").files[0]
 
-if(!projectId)return log("Project ID required","error")
-if(!file)return log("Select CSV file","error")
+if(!projectId){
+log("Project ID required","error")
+return
+}
+
+if(!file){
+log("Select CSV file","error")
+return
+}
+
+try{
 
 log("Parsing CSV…")
 
@@ -454,7 +480,7 @@ error:e=>reject(e)
 
 })
 
-const rows=parsed.data
+const rows=parsed.data || []
 
 log(`Parsed ${rows.length} rows`)
 
@@ -470,7 +496,7 @@ await supabaseClient
 .upsert({project_id:projectId,name:projectName||projectId})
 
 await insertStores(projectId,result.normalized)
-log("Import complete","success")
+log("Stores imported","success")
 
 await seedStoreStatus(projectId,result.normalized)
 log("Status rows seeded","success")
@@ -478,12 +504,19 @@ log("Status rows seeded","success")
 await seedActivityEvents(projectId,result.normalized)
 log("Activity events seeded","success")
 
+log("Import complete","success")
+
 document.getElementById("summaryImported").textContent=result.normalized.length
 document.getElementById("summarySkipped").textContent=result.skipped
 document.getElementById("summaryGeocoded").textContent=result.geocoded
 document.getElementById("summaryCoords").textContent=result.coordsProvided
 
 document.getElementById("summaryCard").classList.remove("hidden")
+
+}catch(error){
+console.error(error)
+log(error.message || "Import failed","error")
+}
 
 })
 
