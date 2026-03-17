@@ -365,6 +365,21 @@ skipped
 
 async function insertStores(projectId,rows){
 async function seedStoreStatus(projectId, rows){
+async function seedActivityEvents(projectId, rows){
+
+const payload = rows.map(r => ({
+project_id: projectId,
+store_id: r.store_id,
+event_type: "store_created",
+message: "Store added to project",
+created_at: new Date().toISOString()
+}))
+
+await supabaseClient
+.from("activity_events")
+.insert(payload)
+
+}
 
 const payload = rows.map(r => ({
 project_id: projectId,
@@ -459,6 +474,9 @@ log("Import complete","success")
 
 await seedStoreStatus(projectId,result.normalized)
 log("Status rows seeded","success")
+
+await seedActivityEvents(projectId,result.normalized)
+log("Activity events seeded","success")
 
 document.getElementById("summaryImported").textContent=result.normalized.length
 document.getElementById("summarySkipped").textContent=result.skipped
