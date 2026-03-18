@@ -152,6 +152,7 @@ function handleFilterChange() {
   updateHeaderDashboard();
   updateScopeSummary();
   updateFilterSummary();
+  updateDataHealthPanel();
   setMapModeTags();
   updateMapViewportForMode();
   updateIntelRail();

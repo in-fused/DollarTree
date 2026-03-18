@@ -72,6 +72,7 @@ async function updateStore(storeId, completed, closed) {
   rebuild();
   updateHeaderDashboard();
   updateScopeSummary();
+  updateDataHealthPanel();
   updateActivityList();
   updateIntelRail();
   updateSelectedStorePanel(storeId);
