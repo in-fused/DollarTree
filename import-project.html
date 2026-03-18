@@ -665,41 +665,25 @@ function normalizeRow(row) {
 }
 
 
-
 function validateRequiredFields(row) {
+const errors = [];
 
-  const errors = [];
-
-
-
-  if (!row.store_id) {
-
-    errors.push("Missing store_id");
-
-  }
-
-
-
-  if (!Number.isFinite(row.lat)) {
-
-    errors.push(`Store ${row.store_id || "(missing)"}: missing or invalid lat`);
-
-  }
-
-
-
-  if (!Number.isFinite(row.lng)) {
-
-    errors.push(`Store ${row.store_id || "(missing)"}: missing or invalid lng`);
-
-  }
-
-
-
-  return errors;
-
+if (!row.store_id) {
+errors.push("Missing store_id");
 }
 
+const hasCoords = Number.isFinite(row.lat) && Number.isFinite(row.lng);
+
+const hasAddress =
+(row.full_address && row.full_address.trim()) ||
+(row.address && row.city && row.state);
+
+if (!hasCoords && !hasAddress) {
+errors.push(`Store ${row.store_id || "(missing)"}: requires either coordinates OR address`);
+}
+
+return errors;
+}
 
 
 function validateCoordinates(row) {
