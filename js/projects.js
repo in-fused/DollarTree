@@ -46,12 +46,6 @@ async function hydrate() {
   activityEventRowsCache = hydrated.activityEventRows;
 
   statusMap = {};
-  storeData.forEach(store => {
-    statusMap[String(store.store_id)] = {
-      completed: false,
-      closed: false
-    };
-  });
 
   if (hydrated.statusError) {
     console.error("Supabase store_status error:", hydrated.statusError);
@@ -59,11 +53,13 @@ async function hydrate() {
 
   statusRowsCache.forEach(row => {
     const key = String(row.store_id);
-    if (statusMap[key]) {
-      statusMap[key].completed = row.completed === true;
-      statusMap[key].closed = row.closed === true;
-    }
+    statusMap[key] = {
+      completed: row.completed === true,
+      closed: row.closed === true
+    };
   });
+
+  statusMap = ensureStatusIntegrity(storeData, statusMap);
 
   if (hydrated.noteError) {
     console.error("Supabase store_notes error:", hydrated.noteError);
@@ -163,6 +159,7 @@ async function loadActiveProject() {
   updateHeaderDashboard();
   updateScopeSummary();
   updateFilterSummary();
+  updateDataHealthPanel();
   setMapModeTags();
   updateIntelRail();
   resetSelectedStorePanel();

@@ -264,6 +264,40 @@
         </div>
       </div>
 
+      <div id="adminDataHealthPanel" class="panel panelAdminHealth hidden">
+        <div class="panelHeaderRow">
+          <h3>Admin Data Health</h3>
+          <div class="panelHeaderTag">Audit</div>
+        </div>
+
+        <div class="scopeSummaryGrid adminHealthGrid">
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Missing Region</div>
+            <div id="healthMissingRegion" class="scopeSummaryValue">0</div>
+          </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Missing Territory</div>
+            <div id="healthMissingTerritory" class="scopeSummaryValue">0</div>
+          </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Missing State</div>
+            <div id="healthMissingState" class="scopeSummaryValue">0</div>
+          </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Missing Coordinates</div>
+            <div id="healthMissingCoords" class="scopeSummaryValue">0</div>
+          </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Missing Status</div>
+            <div id="healthMissingStatus" class="scopeSummaryValue">0</div>
+          </div>
+        </div>
+      </div>
+
       <div class="panel panelActivity">
         <div class="panelHeaderRow">
           <h3>Recent Activity</h3>
@@ -595,6 +629,7 @@
 <script src="js/state.js"></script>
 <script src="js/helpers.js"></script>
 <script src="js/data-layer.js"></script>
+<script src="js/data-integrity.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/filters.js"></script>
