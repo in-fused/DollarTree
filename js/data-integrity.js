@@ -19,7 +19,7 @@ function hasPersistedStatusRow(storeId) {
     : false;
 }
 
-function getDataIntegrityReport(storeData, statusMap) {
+function getDataIntegrityReport(storeData, statusMap, auditGeoMetadata = shouldAuditGeoMetadataForStores(storeData)) {
   const report = {
     missingRegion: [],
     missingTerritory: [],
@@ -27,8 +27,6 @@ function getDataIntegrityReport(storeData, statusMap) {
     missingCoords: [],
     missingStatus: []
   };
-
-  const auditGeoMetadata = shouldAuditGeoMetadataForStores();
 
   (Array.isArray(storeData) ? storeData : []).forEach(store => {
     const storeId = String(store?.store_id || "");
@@ -80,10 +78,11 @@ function updateDataHealthPanel() {
   if (!panel) return;
 
   const scopedStores = typeof getFilteredStores === "function" ? getFilteredStores() : storeData;
-  const report = getDataIntegrityReport(scopedStores, statusMap);
+  const auditGeoMetadata = shouldAuditGeoMetadataForStores(scopedStores);
+  const report = getDataIntegrityReport(scopedStores, statusMap, auditGeoMetadata);
 
   const plottedIssueStores = typeof getPlottedIntegrityIssueStores === "function"
-    ? getPlottedIntegrityIssueStores(scopedStores, statusMap)
+    ? getPlottedIntegrityIssueStores(scopedStores, statusMap, auditGeoMetadata)
     : [];
 
   const counts = {
