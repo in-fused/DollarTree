@@ -197,18 +197,21 @@ function updateWorkspaceViewUI() {
 function createGeoJson(stores) {
   return {
     type: "FeatureCollection",
-    features: stores.map(store => ({
-      type: "Feature",
-      properties: {
-        store_id: String(store.store_id),
-        completed: statusMap[String(store.store_id)]?.completed === true,
-        closed: statusMap[String(store.store_id)]?.closed === true
-      },
-      geometry: {
-        type: "Point",
-        coordinates: [store.lng, store.lat]
-      }
-    }))
+    features: stores
+      .filter(store => hasValidCoordinate(store?.lat) && hasValidCoordinate(store?.lng))
+      .map(store => ({
+        type: "Feature",
+        properties: {
+          store_id: String(store.store_id),
+          completed: statusMap[String(store.store_id)]?.completed === true,
+          closed: statusMap[String(store.store_id)]?.closed === true,
+          ...getMappedStoreIntegrityProperties(store, statusMap)
+        },
+        geometry: {
+          type: "Point",
+          coordinates: [store.lng, store.lat]
+        }
+      }))
   };
 }
 
@@ -259,6 +262,23 @@ function buildMap() {
     },
     paint: {
       "text-color": "#ffffff"
+    }
+  });
+
+  map.addLayer({
+    id: "point-issue-halo",
+    type: "circle",
+    source: "stores",
+    filter: [
+      "all",
+      ["!", ["has", "point_count"]],
+      ["==", ["get", "has_integrity_issue"], true]
+    ],
+    paint: {
+      "circle-radius": 12,
+      "circle-color": "rgba(255, 179, 71, 0.18)",
+      "circle-stroke-width": 2,
+      "circle-stroke-color": "rgba(255, 196, 92, 0.82)"
     }
   });
 
