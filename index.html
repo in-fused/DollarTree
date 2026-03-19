@@ -295,6 +295,11 @@
             <div class="scopeSummaryLabel">Missing Status</div>
             <div id="healthMissingStatus" class="scopeSummaryValue">0</div>
           </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Plotted Issue Stores</div>
+            <div id="healthPlottedIssues" class="scopeSummaryValue">0</div>
+          </div>
         </div>
       </div>
 
@@ -342,6 +347,7 @@
           <div class="mapTopOverlay">
             <div class="mapModeTag" id="mapModeTag">Project View</div>
             <div class="mapScopeTag" id="mapScopeTag">All stores</div>
+            <div class="mapIntegrityTag" id="mapIntegrityTag">Data health flags visible</div>
           </div>
 
           <div class="mapLegendCard" id="mapLegendCard">
@@ -575,6 +581,7 @@
           <div class="intelSelectedStore">
             <div id="intelSelectedStoreId" class="intelSelectedPrimary">No store selected</div>
             <div id="intelSelectedStoreAddress" class="intelSelectedSecondary">Tap a store marker to inspect status, notes, and photos.</div>
+            <div id="intelSelectedStoreIssues" class="intelSelectedTertiary hidden">Data Issues: None</div>
           </div>
         </div>
       </div>
@@ -630,6 +637,7 @@
 <script src="js/helpers.js"></script>
 <script src="js/data-layer.js"></script>
 <script src="js/data-integrity.js"></script>
+<script src="js/map-integrity.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/filters.js"></script>
