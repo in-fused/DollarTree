@@ -164,17 +164,3 @@ body.executive-mode .mapExecutiveCallout.mobile-collapsible.expanded .mapExecuti
   -webkit-line-clamp: 6;
   overflow: hidden;
 }
-
-.floatingExecutiveExit {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 40;
-  background: rgba(8,12,20,0.9);
-  color: white;
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 999px;
-  padding: 10px 14px;
-  margin-top: 0;
-  box-shadow: 0 12px 24px rgba(0,0,0,0.22);
-}
