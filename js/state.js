@@ -30,6 +30,7 @@ const map = new mapboxgl.Map({
 
 let resolvedPhotoBucket = null;
 
+let allStoreData = [];
 let storeData = [];
 let statusMap = {};
 let geojsonData = { type: "FeatureCollection", features: [] };
@@ -44,6 +45,7 @@ let currentSession = null;
 let currentUser = null;
 let currentRole = "viewer";
 
+let allProjectList = [];
 let projectList = [];
 let statusRowsCache = [];
 let persistedStatusStoreIds = new Set();
@@ -59,6 +61,9 @@ let nationalOverviewEnabled = false;
 let currentPhotoLibrarySelection = null;
 let lastDataRefreshAt = null;
 let mobileExecutiveSummaryExpanded = false;
+
+let showArchivedProjects = false;
+let showRemovedStores = false;
 
 let activeFilters = {
   region: "",

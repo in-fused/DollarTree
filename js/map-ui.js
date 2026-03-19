@@ -415,6 +415,7 @@ function setMapModeTags() {
   if (activeFilters.region) parts.push(activeFilters.region);
   if (activeFilters.territory) parts.push(activeFilters.territory);
   if (activeFilters.state) parts.push(activeFilters.state);
+  if (showRemovedStores) parts.push("Removed Visible");
 
   setText(
     "mapScopeTag",

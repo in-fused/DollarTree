@@ -1,5 +1,131 @@
 /* ================= MODAL / STORE DETAILS ================= */
 
+function ensureStoreLifecycleControls() {
+  const modal = document.querySelector("#confirmModal .modalContent");
+  if (!modal) return;
+
+  if (document.getElementById("removeStoreBtn") && document.getElementById("restoreStoreBtn")) {
+    return;
+  }
+
+  const removeBtn = document.createElement("button");
+  removeBtn.id = "removeStoreBtn";
+  removeBtn.type = "button";
+  removeBtn.className = "btnClosed";
+  removeBtn.textContent = "Remove from Project";
+
+  const restoreBtn = document.createElement("button");
+  restoreBtn.id = "restoreStoreBtn";
+  restoreBtn.type = "button";
+  restoreBtn.className = "btnSecondary";
+  restoreBtn.textContent = "Restore Store";
+
+  const cancelBtn = document.getElementById("confirmCancel");
+  if (cancelBtn) {
+    modal.insertBefore(removeBtn, cancelBtn);
+    modal.insertBefore(restoreBtn, cancelBtn);
+  } else {
+    modal.appendChild(removeBtn);
+    modal.appendChild(restoreBtn);
+  }
+}
+
+function updateStoreLifecycleControls(storeId) {
+  ensureStoreLifecycleControls();
+
+  const removeBtn = document.getElementById("removeStoreBtn");
+  const restoreBtn = document.getElementById("restoreStoreBtn");
+  const store = getStoreById(storeId, { includeRemoved: true });
+
+  if (!removeBtn || !restoreBtn || !store) return;
+
+  const disabled = !canManageStoreLifecycle();
+
+  removeBtn.disabled = disabled;
+  restoreBtn.disabled = disabled;
+
+  removeBtn.classList.toggle("hidden", isStoreRemoved(store));
+  restoreBtn.classList.toggle("hidden", !isStoreRemoved(store));
+
+  removeBtn.onclick = () => removeStoreFromProject(storeId);
+  restoreBtn.onclick = () => restoreRemovedStore(storeId);
+}
+
+async function setStoreRemovedState(storeId, nextRemoved) {
+  if (!canManageStoreLifecycle()) {
+    alert("Store removal controls are only available for admin users on Supabase-backed projects.");
+    return;
+  }
+
+  try {
+    const { error } = await supabaseClient
+      .from("stores")
+      .update({
+        is_removed: nextRemoved,
+        removed_at: nextRemoved ? new Date().toISOString() : null
+      })
+      .eq("project_id", currentProjectId)
+      .eq("store_id", String(storeId));
+
+    if (error) throw error;
+  } catch (error) {
+    console.error(error);
+    alert(error.message || "Store removal update failed.");
+    return;
+  }
+
+  allStoreData = allStoreData.map(store =>
+    String(store.store_id) === String(storeId)
+      ? {
+          ...store,
+          is_removed: nextRemoved,
+          removed_at: nextRemoved ? new Date().toISOString() : null
+        }
+      : store
+  );
+
+  applyStoreVisibility();
+  restoreRouteState();
+  touchDataRefresh();
+
+  prependActivity({
+    type: nextRemoved ? "store-removed" : "store-restored",
+    project_id: currentProjectId,
+    store_id: String(storeId),
+    timestamp: new Date().toISOString(),
+    title: nextRemoved
+      ? `🧹 Store ${storeId} removed from project`
+      : `↩ Store ${storeId} restored to project`,
+    detail: nextRemoved ? "Store hidden from default operational scope." : "Store returned to operational scope."
+  });
+
+  if (nextRemoved && !showRemovedStores) {
+    currentSelectedStoreId = null;
+    resetSelectedStorePanel();
+  } else {
+    updateSelectedStorePanel(storeId);
+  }
+
+  refreshOperationalViews();
+  updateStoreLifecycleControls(storeId);
+}
+
+async function removeStoreFromProject(storeId) {
+  if (!confirm(`Remove Store ${storeId} from the active project? This is a soft remove and can be restored later.`)) {
+    return;
+  }
+
+  await setStoreRemovedState(storeId, true);
+}
+
+async function restoreRemovedStore(storeId) {
+  if (!confirm(`Restore Store ${storeId} to the active project?`)) {
+    return;
+  }
+
+  await setStoreRemovedState(storeId, false);
+}
+
 function openStoreModal(storeId) {
   currentModalStoreId = storeId;
   updateSelectedStorePanel(storeId);
@@ -10,7 +136,7 @@ function openStoreModal(storeId) {
   modal.classList.remove("hidden");
   setText("confirmStoreId", `Store ID: ${storeId}`);
 
-  const store = storeData.find(item => String(item.store_id) === String(storeId));
+  const store = getStoreById(storeId, { includeRemoved: true });
   setText("confirmAddress", store?.full_address || "");
 
   const markActive = document.getElementById("markActive");
@@ -33,6 +159,8 @@ function openStoreModal(storeId) {
     };
   }
 
+  ensureStoreLifecycleControls();
+  updateStoreLifecycleControls(storeId);
   loadNotes(storeId);
   loadPhotos(storeId);
   updateWriteAccessUI();
@@ -60,6 +188,7 @@ async function updateStore(storeId, completed, closed) {
 
   prependActivity({
     type: completed ? "status-completed" : closed ? "status-closed" : "status-active",
+    project_id: currentProjectId,
     store_id: String(storeId),
     timestamp: new Date().toISOString(),
     title: completed
@@ -111,6 +240,7 @@ async function addNote(storeId) {
 
   prependActivity({
     type: "note",
+    project_id: currentProjectId,
     store_id: String(storeId),
     timestamp: new Date().toISOString(),
     title: `📝 Note added to Store ${storeId}`,
