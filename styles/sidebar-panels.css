@@ -208,8 +208,8 @@ button:disabled {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.panelAdminHealth .scopeSummaryCard:last-child {
-  grid-column: 1 / -1;
+.panelAdminHealth .scopeSummaryCard:nth-last-child(-n + 2) {
+  grid-column: span 1;
 }
 
 .statusBadge,
@@ -397,4 +397,11 @@ button:disabled {
   font-size: 13px;
   line-height: 1.45;
   color: var(--muted);
+}
+
+.intelSelectedTertiary {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 196, 92, 0.96);
 }
