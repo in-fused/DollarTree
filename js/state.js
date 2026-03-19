@@ -46,6 +46,7 @@ let currentRole = "viewer";
 
 let projectList = [];
 let statusRowsCache = [];
+let persistedStatusStoreIds = new Set();
 let noteRowsCache = [];
 let photoRowsCache = [];
 let activityEventRowsCache = [];
