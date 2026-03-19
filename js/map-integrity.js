@@ -3,12 +3,16 @@
 function getStoreIntegrityFlags(store, statusMap) {
   const storeId = String(store?.store_id || "");
 
+  const auditGeoMetadata = typeof shouldAuditGeoMetadataForStores === "function"
+    ? shouldAuditGeoMetadataForStores()
+    : true;
+
   return {
-    hasMissingRegion: !String(store?.region || "").trim(),
-    hasMissingTerritory: !String(store?.territory || "").trim(),
-    hasMissingState: !String(store?.state || "").trim(),
+    hasMissingRegion: auditGeoMetadata && !String(store?.region || "").trim(),
+    hasMissingTerritory: auditGeoMetadata && !String(store?.territory || "").trim(),
+    hasMissingState: auditGeoMetadata && !String(store?.state || "").trim(),
     hasMissingCoords: !hasValidCoordinate(store?.lat) || !hasValidCoordinate(store?.lng),
-    hasMissingStatus: !storeId || !statusMap || !Object.prototype.hasOwnProperty.call(statusMap, storeId)
+    hasMissingStatus: !storeId || !(typeof hasPersistedStatusRow === "function" && hasPersistedStatusRow(storeId))
   };
 }
 
