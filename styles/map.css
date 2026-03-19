@@ -39,7 +39,7 @@
 .mapLegendCard {
   position: absolute;
   left: 14px;
-  bottom: 14px;
+  bottom: 7px;
   z-index: 30;
   background: rgba(10,15,24,0.88);
   border: 1px solid rgba(255,255,255,0.1);
