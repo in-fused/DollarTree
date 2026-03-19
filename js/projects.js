@@ -45,6 +45,7 @@ async function hydrate() {
   photoRowsCache = hydrated.photoRows;
   activityEventRowsCache = hydrated.activityEventRows;
 
+  persistedStatusStoreIds = new Set(statusRowsCache.map(row => String(row.store_id)));
   statusMap = {};
 
   if (hydrated.statusError) {
