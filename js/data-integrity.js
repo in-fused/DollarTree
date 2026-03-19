@@ -4,6 +4,21 @@ function hasValidCoordinate(value) {
   return Number.isFinite(Number(value));
 }
 
+function shouldAuditGeoMetadataForStores(stores = storeData) {
+  return (Array.isArray(stores) ? stores : []).some(store =>
+    !!String(store?.region || "").trim() ||
+    !!String(store?.territory || "").trim() ||
+    !!String(store?.state || "").trim()
+  );
+}
+
+function hasPersistedStatusRow(storeId) {
+  if (!storeId) return false;
+  return persistedStatusStoreIds instanceof Set
+    ? persistedStatusStoreIds.has(String(storeId))
+    : false;
+}
+
 function getDataIntegrityReport(storeData, statusMap) {
   const report = {
     missingRegion: [],
@@ -13,18 +28,20 @@ function getDataIntegrityReport(storeData, statusMap) {
     missingStatus: []
   };
 
+  const auditGeoMetadata = shouldAuditGeoMetadataForStores();
+
   (Array.isArray(storeData) ? storeData : []).forEach(store => {
     const storeId = String(store?.store_id || "");
 
-    if (!String(store?.region || "").trim()) {
+    if (auditGeoMetadata && !String(store?.region || "").trim()) {
       report.missingRegion.push(store);
     }
 
-    if (!String(store?.territory || "").trim()) {
+    if (auditGeoMetadata && !String(store?.territory || "").trim()) {
       report.missingTerritory.push(store);
     }
 
-    if (!String(store?.state || "").trim()) {
+    if (auditGeoMetadata && !String(store?.state || "").trim()) {
       report.missingState.push(store);
     }
 
@@ -32,7 +49,7 @@ function getDataIntegrityReport(storeData, statusMap) {
       report.missingCoords.push(store);
     }
 
-    if (!storeId || !statusMap || !Object.prototype.hasOwnProperty.call(statusMap, storeId)) {
+    if (!hasPersistedStatusRow(storeId)) {
       report.missingStatus.push(store);
     }
   });
