@@ -55,6 +55,7 @@ async function updateStore(storeId, completed, closed) {
   }
 
   statusMap[String(storeId)] = { completed, closed };
+  persistedStatusStoreIds.add(String(storeId));
   touchDataRefresh();
 
   prependActivity({
