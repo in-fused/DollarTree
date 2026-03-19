@@ -65,12 +65,17 @@ function updateDataHealthPanel() {
   const scopedStores = typeof getFilteredStores === "function" ? getFilteredStores() : storeData;
   const report = getDataIntegrityReport(scopedStores, statusMap);
 
+  const plottedIssueStores = typeof getPlottedIntegrityIssueStores === "function"
+    ? getPlottedIntegrityIssueStores(scopedStores, statusMap)
+    : [];
+
   const counts = {
     healthMissingRegion: report.missingRegion.length,
     healthMissingTerritory: report.missingTerritory.length,
     healthMissingState: report.missingState.length,
     healthMissingCoords: report.missingCoords.length,
-    healthMissingStatus: report.missingStatus.length
+    healthMissingStatus: report.missingStatus.length,
+    healthPlottedIssues: plottedIssueStores.length
   };
 
   Object.entries(counts).forEach(([id, value]) => {
