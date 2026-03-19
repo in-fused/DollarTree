@@ -1,550 +1,1377 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
 <meta charset="utf-8" />
+
 <title>Import Project Data</title>
+
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
+
+
 <style>
+
 *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,sans-serif}
 
+
+
 body{
+
 margin:0;
+
 background:#0a0f18;
+
 color:white;
+
 padding:24px
+
 }
+
+
 
 .wrap{
+
 max-width:980px;
+
 margin:auto
+
 }
 
+
+
 .card{
+
 background:rgba(255,255,255,0.05);
+
 border-radius:14px;
+
 padding:20px;
+
 margin-bottom:18px
+
 }
+
+
 
 h1,h2{margin-top:0}
 
+
+
 input,button{
+
 width:100%;
+
 padding:10px 12px;
+
 border-radius:10px;
+
 border:1px solid rgba(255,255,255,0.12);
+
 background:rgba(255,255,255,0.08);
+
 color:white;
+
 margin-top:10px;
+
 font:inherit
+
 }
+
+
 
 button{
+
 cursor:pointer;
+
 font-weight:600
+
 }
+
+
 
 button:disabled{
+
 opacity:.45;
+
 cursor:not-allowed
+
 }
+
+
 
 .primaryBtn{
+
 background:#2ecc71;
+
 border:none;
+
 color:#062b14
+
 }
+
+
 
 .secondaryBtn{
+
 background:rgba(255,255,255,0.15);
+
 border:none
+
 }
+
+
 
 .row{
+
 display:grid;
+
 grid-template-columns:1fr 1fr;
+
 gap:12px
+
 }
+
+
 
 .muted{
+
 opacity:.75;
+
 font-size:14px;
+
 line-height:1.5
+
 }
+
+
 
 .log{
+
 background:#111827;
+
 border-radius:10px;
+
 padding:12px;
+
 min-height:180px;
+
 white-space:pre-wrap;
+
 overflow-wrap:anywhere;
+
 font-size:13px;
+
 line-height:1.45
+
 }
+
+
 
 .success{color:#2ecc71}
+
 .warn{color:#ffcc66}
+
 .error{color:#ff6b6b}
 
+
+
 .summaryGrid{
+
 display:grid;
+
 grid-template-columns:repeat(4,1fr);
+
 gap:12px;
+
 margin-top:14px
+
 }
+
+
 
 .summaryStat{
+
 background:rgba(255,255,255,0.06);
+
 border-radius:12px;
+
 padding:14px
+
 }
+
+
 
 .summaryLabel{
+
 font-size:12px;
+
 opacity:.7;
+
 margin-bottom:6px
+
 }
 
+
+
 .summaryValue{
+
 font-size:24px;
+
 font-weight:800
+
 }
+
+
 
 .hidden{display:none}
 
+
+
 @media(max-width:900px){
+
 .row{grid-template-columns:1fr}
+
 .summaryGrid{grid-template-columns:1fr 1fr}
+
 }
 
+
+
 @media(max-width:560px){
+
 .summaryGrid{grid-template-columns:1fr}
+
 }
+
 </style>
+
 </head>
+
+
 
 <body>
 
+
+
 <div class="wrap">
 
+
+
   <div class="card">
+
     <h1>Import Project Data</h1>
 
+
+
     <p class="muted">
+
       This importer supports the full store data model used by the operations console.
+
     </p>
 
+
+
 <pre>
+
 Required:
+
 store_id
 
+
+
 Optional but recommended:
+
 store_name
+
 customer_id
+
 full_address
+
 lat,lng
 
+
+
 Filter metadata fields:
+
 region
+
 territory
+
 state
+
 city
+
 district
+
 division
+
 market
+
 </pre>
 
-    <p class="muted">
-      If filter fields are included, the app will automatically populate Region, Territory, and State filters.
-    </p>
+
 
     <p class="muted">
-      Supported CSV formats:
+
+      If filter fields are included, the app will automatically populate Region, Territory, and State filters.
+
     </p>
+
+
+
+    <p class="muted">
+
+      Supported CSV formats:
+
+    </p>
+
+
 
 <pre>
+
 store_id,full_address
+
+
 
 store_id,address,city,state,zip
 
+
+
 store_id,lat,lng
 
+
+
 store_id,store_name,customer_id,full_address,lat,lng,region,territory,state,city,district,division,market
+
 </pre>
+
   </div>
 
+
+
   <div class="card">
+
     <h2>Project Details</h2>
 
+
+
     <div class="row">
-      <div>
-        <label>Project ID</label>
-        <input id="projectId" placeholder="example: tampa-reset-2026">
-      </div>
 
       <div>
-        <label>Project Name</label>
-        <input id="projectName" placeholder="example: Tampa Reset 2026">
+
+        <label>Project ID</label>
+
+        <input id="projectId" placeholder="example: tampa-reset-2026">
+
       </div>
+
+
+
+      <div>
+
+        <label>Project Name</label>
+
+        <input id="projectName" placeholder="example: Tampa Reset 2026">
+
+      </div>
+
     </div>
+
+
 
     <input id="csvFile" type="file" accept=".csv">
+
     <button id="runImportBtn" class="primaryBtn">Run Import</button>
+
   </div>
+
+
 
   <div class="card hidden" id="summaryCard">
+
     <h2>Import Summary</h2>
 
+
+
     <div class="summaryGrid">
+
       <div class="summaryStat">
-        <div class="summaryLabel">Imported</div>
+
+        <div class="summaryLabel">Valid Rows</div>
+
         <div id="summaryImported" class="summaryValue">0</div>
+
       </div>
 
+
+
       <div class="summaryStat">
-        <div class="summaryLabel">Skipped</div>
+
+        <div class="summaryLabel">Errors</div>
+
         <div id="summarySkipped" class="summaryValue">0</div>
+
       </div>
 
+
+
       <div class="summaryStat">
-        <div class="summaryLabel">Geocoded</div>
+
+        <div class="summaryLabel">Warnings</div>
+
         <div id="summaryGeocoded" class="summaryValue">0</div>
+
       </div>
 
+
+
       <div class="summaryStat">
-        <div class="summaryLabel">Coords Provided</div>
+
+        <div class="summaryLabel">Processed</div>
+
         <div id="summaryCoords" class="summaryValue">0</div>
+
       </div>
+
     </div>
+
   </div>
+
+
 
   <div class="card">
+
     <h2>Import Log</h2>
+
     <div id="log" class="log">Waiting for import…</div>
+
   </div>
+
+
 
 </div>
 
+
+
 <script>
+
 /* ================= CONFIG ================= */
 
+
+
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
+
 const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
+
 const MAPBOX_TOKEN = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
+
 const STORE_IMPORT_CHUNK_SIZE = 200;
+
+const MAX_LOGGED_VALIDATION_ERRORS = 10;
+
+
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+
+
 /* ================= DOM REFS ================= */
 
+
+
 const logEl = document.getElementById("log");
+
 const projectIdInput = document.getElementById("projectId");
+
 const projectNameInput = document.getElementById("projectName");
+
 const csvFileInput = document.getElementById("csvFile");
+
 const runImportBtn = document.getElementById("runImportBtn");
 
+
+
 const summaryCard = document.getElementById("summaryCard");
+
 const summaryImported = document.getElementById("summaryImported");
+
 const summarySkipped = document.getElementById("summarySkipped");
+
 const summaryGeocoded = document.getElementById("summaryGeocoded");
+
 const summaryCoords = document.getElementById("summaryCoords");
+
+
 
 /* ================= UI HELPERS ================= */
 
+
+
 function clearLog() {
+
   logEl.innerHTML = "";
+
 }
+
+
 
 function log(message, type = "") {
+
   const el = document.createElement("div");
+
   if (type) el.className = type;
+
   el.textContent = message;
+
   logEl.appendChild(el);
+
   logEl.scrollTop = logEl.scrollHeight;
+
 }
+
+
 
 function showSummary(result) {
-  summaryImported.textContent = result.normalized.length;
-  summarySkipped.textContent = result.skipped;
-  summaryGeocoded.textContent = result.geocoded;
-  summaryCoords.textContent = result.coordsProvided;
+
+  summaryImported.textContent = result.validRows.toLocaleString();
+
+  summarySkipped.textContent = result.errorCount.toLocaleString();
+
+  summaryGeocoded.textContent = result.warningCount.toLocaleString();
+
+  summaryCoords.textContent = result.totalRows.toLocaleString();
+
   summaryCard.classList.remove("hidden");
+
 }
 
+
+
 function hideSummary() {
+
   summaryCard.classList.add("hidden");
+
 }
+
+
+
+function setImportRunning(isRunning) {
+
+  runImportBtn.disabled = isRunning;
+
+  runImportBtn.textContent = isRunning ? "Importing..." : "Run Import";
+
+}
+
+
 
 /* ================= PARSING HELPERS ================= */
 
+
+
 function buildFullAddress(row) {
+
   if (row.full_address && String(row.full_address).trim()) {
+
     return String(row.full_address).trim();
+
   }
+
+
 
   const address = String(row.address || "").trim();
+
   const city = String(row.city || "").trim();
+
   const state = String(row.state || "").trim();
+
   const zip = String(row.zip || row.postcode || row.postal_code || "").trim();
 
+
+
   return [address, city, state, zip].filter(Boolean).join(", ");
+
 }
+
+
 
 function normalizeOptionalText(value) {
-  return value ? String(value).trim() : null;
+
+  const normalized = value === undefined || value === null ? "" : String(value).trim();
+
+  return normalized || null;
+
 }
+
+
 
 function normalizeCoordinate(value) {
-  if (value === undefined || value === null || value === "") return null;
+
+  if (value === undefined || value === null || String(value).trim() === "") return null;
+
   const parsed = Number(value);
+
   return Number.isFinite(parsed) ? parsed : null;
+
 }
 
-function normalizeStoreRow(row, lat, lng, fullAddress) {
+
+
+function normalizeRow(row) {
+
   return {
+
     store_id: String(row.store_id || "").trim(),
+
     store_name: normalizeOptionalText(row.store_name),
+
     customer_id: normalizeOptionalText(row.customer_id),
-    lat,
-    lng,
-    full_address: fullAddress || null,
-    region: normalizeOptionalText(row.region),
-    territory: normalizeOptionalText(row.territory),
-    state: normalizeOptionalText(row.state),
+
+    full_address: normalizeOptionalText(row.full_address),
+
+    address: normalizeOptionalText(row.address),
+
     city: normalizeOptionalText(row.city),
+
+    state: normalizeOptionalText(row.state),
+
+    zip: normalizeOptionalText(row.zip || row.postcode || row.postal_code),
+
+    region: normalizeOptionalText(row.region),
+
+    territory: normalizeOptionalText(row.territory),
+
     district: normalizeOptionalText(row.district),
+
     division: normalizeOptionalText(row.division),
-    market: normalizeOptionalText(row.market)
+
+    market: normalizeOptionalText(row.market),
+
+    lat: normalizeCoordinate(row.lat),
+
+    lng: normalizeCoordinate(row.lng)
+
   };
+
 }
+
+
+function validateRequiredFields(row) {
+const errors = [];
+
+if (!row.store_id) {
+errors.push("Missing store_id");
+}
+
+const hasCoords = Number.isFinite(row.lat) && Number.isFinite(row.lng);
+
+const hasAddress =
+(row.full_address && row.full_address.trim()) ||
+(row.address && row.city && row.state);
+
+if (!hasCoords && !hasAddress) {
+errors.push(`Store ${row.store_id || "(missing)"}: requires either coordinates OR address`);
+}
+
+return errors;
+}
+
+
+function validateCoordinates(row) {
+
+  const errors = [];
+
+
+
+  if (Number.isFinite(row.lat) && (row.lat < -90 || row.lat > 90)) {
+
+    errors.push(`Store ${row.store_id || "(missing)"}: lat out of range (${row.lat})`);
+
+  }
+
+
+
+  if (Number.isFinite(row.lng) && (row.lng < -180 || row.lng > 180)) {
+
+    errors.push(`Store ${row.store_id || "(missing)"}: lng out of range (${row.lng})`);
+
+  }
+
+
+
+  return errors;
+
+}
+
+
+
+function detectDuplicateStoreIds(rows) {
+
+  const counts = new Map();
+
+  const duplicates = [];
+
+
+
+  rows.forEach(row => {
+
+    if (!row.store_id) return;
+
+    const nextCount = (counts.get(row.store_id) || 0) + 1;
+
+    counts.set(row.store_id, nextCount);
+
+    if (nextCount === 2) {
+
+      duplicates.push(row.store_id);
+
+    }
+
+  });
+
+
+
+  return duplicates;
+
+}
+
+
+
+function validateRows(rows) {
+
+  const errors = [];
+
+  const warnings = [];
+
+
+
+  rows.forEach(row => {
+
+    errors.push(...validateRequiredFields(row));
+
+    errors.push(...validateCoordinates(row));
+
+
+
+    if (!row.region) {
+
+      warnings.push(`Store ${row.store_id || "(missing)"}: missing region`);
+
+    }
+
+
+
+    if (!row.territory) {
+
+      warnings.push(`Store ${row.store_id || "(missing)"}: missing territory`);
+
+    }
+
+
+
+    if (!row.state) {
+
+      warnings.push(`Store ${row.store_id || "(missing)"}: missing state`);
+
+    }
+
+  });
+
+
+
+  return { errors, warnings };
+
+}
+
+
+
+function normalizeStoreRow(row, fullAddress) {
+
+  return {
+
+    store_id: row.store_id,
+
+    store_name: row.store_name,
+
+    customer_id: row.customer_id,
+
+    lat: row.lat,
+
+    lng: row.lng,
+
+    full_address: fullAddress || null,
+
+    region: row.region,
+
+    territory: row.territory,
+
+    state: row.state,
+
+    city: row.city,
+
+    district: row.district,
+
+    division: row.division,
+
+    market: row.market
+
+  };
+
+}
+
+
 
 async function parseCsvFile(file) {
+
   return await new Promise((resolve, reject) => {
+
     Papa.parse(file, {
+
       header: true,
+
       skipEmptyLines: true,
+
       complete: results => resolve(results),
+
       error: error => reject(error)
+
     });
+
   });
+
 }
+
+
 
 async function geocodeAddress(fullAddress) {
+
   const url = "https://api.mapbox.com/search/geocode/v6/forward?" + new URLSearchParams({
+
     q: fullAddress,
+
     access_token: MAPBOX_TOKEN,
+
     limit: "1",
+
     autocomplete: "false",
+
     country: "US",
+
     permanent: "true"
+
   }).toString();
 
+
+
   const res = await fetch(url);
+
   if (!res.ok) {
+
     throw new Error(`Geocode failed (${res.status}) for: ${fullAddress}`);
+
   }
+
+
 
   const json = await res.json();
+
   const coords = json.features?.[0]?.geometry?.coordinates;
 
+
+
   if (!coords || coords.length < 2) {
+
     throw new Error(`No geocode result for: ${fullAddress}`);
+
   }
 
+
+
   return {
+
     lng: Number(coords[0]),
+
     lat: Number(coords[1])
+
   };
+
 }
+
+
 
 async function processRows(rows) {
-  const normalized = [];
-  let geocoded = 0;
-  let coordsProvided = 0;
-  let skipped = 0;
 
-  for (const row of rows) {
-    const storeId = String(row.store_id || "").trim();
+  const normalizedRows = rows.map(normalizeRow);
 
-    if (!storeId) {
-      skipped++;
-      log("Skipping row: missing store_id", "warn");
-      continue;
-    }
+  const duplicateStoreIds = detectDuplicateStoreIds(normalizedRows);
 
-    const fullAddress = buildFullAddress(row);
-    let lat = normalizeCoordinate(row.lat);
-    let lng = normalizeCoordinate(row.lng);
+  const validation = validateRows(normalizedRows);
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      if (!fullAddress) {
-        skipped++;
-        log(`Skipping store ${storeId}: missing address and coordinates`, "warn");
-        continue;
-      }
 
-      log(`Geocoding store ${storeId}...`);
-      const geo = await geocodeAddress(fullAddress);
-      lat = geo.lat;
-      lng = geo.lng;
-      geocoded++;
-    } else {
-      coordsProvided++;
-    }
 
-    normalized.push(normalizeStoreRow(row, lat, lng, fullAddress));
+  if (duplicateStoreIds.length > 0) {
+
+    duplicateStoreIds.forEach(storeId => {
+
+      validation.errors.push(`Duplicate store_id found in CSV: ${storeId}`);
+
+    });
+
   }
 
+
+
+  if (validation.errors.length > 0) {
+
+    return {
+
+      totalRows: rows.length,
+
+      normalized: [],
+
+      geocoded: 0,
+
+      coordsProvided: 0,
+
+      validRows: 0,
+
+      errorCount: validation.errors.length,
+
+      warningCount: validation.warnings.length,
+
+      errors: validation.errors,
+
+      warnings: validation.warnings
+
+    };
+
+  }
+
+
+
+  const normalized = [];
+
+  let geocoded = 0;
+
+  let coordsProvided = 0;
+
+
+
+  for (const row of normalizedRows) {
+
+    const fullAddress = buildFullAddress(row);
+
+
+
+    if (!Number.isFinite(row.lat) || !Number.isFinite(row.lng)) {
+
+      if (!fullAddress) {
+
+        validation.errors.push(`Store ${row.store_id}: missing address and coordinates`);
+
+        continue;
+
+      }
+
+
+
+      log(`Geocoding store ${row.store_id}...`);
+
+      const geo = await geocodeAddress(fullAddress);
+
+      row.lat = geo.lat;
+
+      row.lng = geo.lng;
+
+      geocoded += 1;
+
+    } else {
+
+      coordsProvided += 1;
+
+    }
+
+
+
+    normalized.push(normalizeStoreRow(row, fullAddress));
+
+  }
+
+
+
   return {
+
+    totalRows: rows.length,
+
     normalized,
+
     geocoded,
+
     coordsProvided,
-    skipped
+
+    validRows: normalized.length,
+
+    errorCount: validation.errors.length,
+
+    warningCount: validation.warnings.length,
+
+    errors: validation.errors,
+
+    warnings: validation.warnings
+
   };
+
 }
+
+
 
 /* ================= DATABASE HELPERS ================= */
 
+
+
 async function upsertProject(projectId, projectName) {
+
   const { error } = await supabaseClient
+
     .from("projects")
+
     .upsert({
+
       project_id: projectId,
+
       name: projectName || projectId
+
     });
 
+
+
   if (error) throw error;
+
 }
+
+
 
 async function insertStores(projectId, rows) {
+
   const payload = rows.map(row => ({
+
     project_id: projectId,
+
     store_id: row.store_id,
+
     store_name: row.store_name,
+
     customer_id: row.customer_id,
+
     lat: row.lat,
+
     lng: row.lng,
+
     full_address: row.full_address,
+
     region: row.region,
+
     territory: row.territory,
+
     state: row.state,
+
     city: row.city,
+
     district: row.district,
+
     division: row.division,
+
     market: row.market
+
   }));
+
+
 
   for (let i = 0; i < payload.length; i += STORE_IMPORT_CHUNK_SIZE) {
+
     const chunk = payload.slice(i, i + STORE_IMPORT_CHUNK_SIZE);
 
+
+
     const { error } = await supabaseClient
+
       .from("stores")
+
       .upsert(chunk, { onConflict: "project_id,store_id" });
 
+
+
     if (error) throw error;
+
   }
+
 }
+
+
 
 async function seedStoreStatus(projectId, rows) {
+
   const payload = rows.map(row => ({
+
     project_id: projectId,
+
     store_id: row.store_id,
+
     completed: false,
+
     closed: false,
+
     status: "active"
+
   }));
 
+
+
   const { error } = await supabaseClient
+
     .from("store_status")
+
     .upsert(payload, { onConflict: "project_id,store_id" });
 
+
+
   if (error) throw error;
+
 }
+
+
 
 async function seedActivityEvents(projectId, rows) {
+
   const payload = rows.map(row => ({
+
     project_id: projectId,
+
     store_id: row.store_id,
+
     event_type: "store_created",
+
     payload: {
+
       source: "import-project",
+
       store_id: row.store_id,
+
       store_name: row.store_name || null,
+
       customer_id: row.customer_id || null
+
     },
+
     created_at: new Date().toISOString()
+
   }));
 
+
+
   const { error } = await supabaseClient
+
     .from("activity_events")
+
     .insert(payload);
 
+
+
   if (error) throw error;
+
 }
+
+
 
 /* ================= IMPORT RUNNER ================= */
 
+
+
 async function runImport() {
+
   clearLog();
+
   hideSummary();
 
+  setImportRunning(true);
+
+
+
   const projectId = projectIdInput.value.trim();
+
   const projectName = projectNameInput.value.trim();
+
   const file = csvFileInput.files[0];
 
+
+
   if (!projectId) {
+
     log("Project ID required", "error");
+
+    setImportRunning(false);
+
     return;
+
   }
+
+
 
   if (!file) {
+
     log("Select CSV file", "error");
+
+    setImportRunning(false);
+
     return;
+
   }
 
+
+
   try {
+
     log("Parsing CSV…");
 
+
+
     const parsed = await parseCsvFile(file);
+
     const rows = parsed.data || [];
+
+
 
     log(`Parsed ${rows.length} rows`);
 
+
+
     const result = await processRows(rows);
 
-    log(`Valid stores: ${result.normalized.length}`);
-    log(`Geocoded: ${result.geocoded}`);
-    log(`Coords provided: ${result.coordsProvided}`);
-    log(`Skipped: ${result.skipped}`);
+
+
+    showSummary(result);
+
+
+
+    log(`Total rows processed: ${result.totalRows}`);
+
+    log(`Valid rows: ${result.validRows}`);
+
+    log(`Error count: ${result.errorCount}`);
+
+    log(`Warning count: ${result.warningCount}`);
+
+
+
+    if (result.errorCount > 0) {
+
+      log("Import blocked due to validation errors", "error");
+
+      result.errors.slice(0, MAX_LOGGED_VALIDATION_ERRORS).forEach(message => log(message, "error"));
+
+
+
+      if (result.errors.length > MAX_LOGGED_VALIDATION_ERRORS) {
+
+        log(`Additional errors not shown: ${result.errors.length - MAX_LOGGED_VALIDATION_ERRORS}`, "error");
+
+      }
+
+
+
+      setImportRunning(false);
+
+      return;
+
+    }
+
+
+
+    if (result.validRows === 0) {
+
+      log("No valid rows to import", "warn");
+
+      setImportRunning(false);
+
+      return;
+
+    }
+
+
 
     await upsertProject(projectId, projectName);
 
+
+
     await insertStores(projectId, result.normalized);
-    log("Stores imported", "success");
+
+    log(`Imported ${result.validRows} stores successfully`, "success");
+
+
 
     await seedStoreStatus(projectId, result.normalized);
+
     log("Status rows seeded", "success");
 
+
+
     await seedActivityEvents(projectId, result.normalized);
+
     log("Activity events seeded", "success");
 
+
+
+    log("Source: CSV → Supabase", "success");
+
+
+
+    if (result.warningCount > 0) {
+
+      log("Import completed with warnings", "warn");
+
+      result.warnings.forEach(message => log(message, "warn"));
+
+    }
+
+
+
     log("Import complete", "success");
-    showSummary(result);
+
   } catch (error) {
+
     console.error(error);
+
     log(error.message || "Import failed", "error");
+
+  } finally {
+
+    setImportRunning(false);
+
   }
+
 }
+
+
 
 /* ================= BINDINGS ================= */
 
+
+
 runImportBtn.addEventListener("click", runImport);
+
 </script>
 
+
+
 </body>
+
 </html>

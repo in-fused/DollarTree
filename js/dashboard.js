@@ -154,6 +154,12 @@ function updateIntelRail() {
 function resetSelectedStorePanel() {
   setText("intelSelectedStoreId", "No store selected");
   setText("intelSelectedStoreAddress", "Tap a store marker to inspect status, notes, and photos.");
+
+  const issuesEl = document.getElementById("intelSelectedStoreIssues");
+  if (issuesEl) {
+    issuesEl.textContent = "Data Issues: None";
+    issuesEl.classList.add("hidden");
+  }
 }
 
 function updateSelectedStorePanel(storeId) {
@@ -175,6 +181,18 @@ function updateSelectedStorePanel(storeId) {
   if (store.state) parts.push(`State: ${store.state}`);
   parts.push(`Status: ${statusLabel}`);
 
+  const integrityIssues = typeof getStoreIntegrityIssues === "function"
+    ? getStoreIntegrityIssues(store, statusMap)
+    : [];
+  const issuesEl = document.getElementById("intelSelectedStoreIssues");
+
   setText("intelSelectedStoreId", `Store ${store.store_id}`);
   setText("intelSelectedStoreAddress", parts.join(" • "));
+
+  if (issuesEl) {
+    issuesEl.textContent = integrityIssues.length
+      ? `Data Issues: ${integrityIssues.join(", ")}`
+      : "Data Issues: None";
+    issuesEl.classList.toggle("hidden", integrityIssues.length === 0);
+  }
 }
