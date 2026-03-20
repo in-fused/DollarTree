@@ -4,12 +4,14 @@ function hasValidCoordinate(value) {
   return Number.isFinite(Number(value));
 }
 
-function shouldAuditGeoMetadataForStores(stores = storeData) {
-  return (Array.isArray(stores) ? stores : []).some(store =>
-    !!String(store?.region || "").trim() ||
-    !!String(store?.territory || "").trim() ||
-    !!String(store?.state || "").trim()
-  );
+function getGeoAuditConfig(stores = storeData) {
+  const source = Array.isArray(stores) ? stores : [];
+
+  return {
+    shouldAuditRegion: source.some(store => !!String(store?.region || "").trim()),
+    shouldAuditTerritory: source.some(store => !!String(store?.territory || "").trim()),
+    shouldAuditState: source.some(store => !!String(store?.state || "").trim())
+  };
 }
 
 function hasPersistedStatusRow(storeId) {
@@ -19,7 +21,7 @@ function hasPersistedStatusRow(storeId) {
     : false;
 }
 
-function getDataIntegrityReport(storeData, statusMap, auditGeoMetadata = shouldAuditGeoMetadataForStores(storeData)) {
+function getDataIntegrityReport(storeData, statusMap, geoAudit = getGeoAuditConfig(storeData)) {
   const report = {
     missingRegion: [],
     missingTerritory: [],
@@ -31,15 +33,15 @@ function getDataIntegrityReport(storeData, statusMap, auditGeoMetadata = shouldA
   (Array.isArray(storeData) ? storeData : []).forEach(store => {
     const storeId = String(store?.store_id || "");
 
-    if (auditGeoMetadata && !String(store?.region || "").trim()) {
+    if (geoAudit.shouldAuditRegion && !String(store?.region || "").trim()) {
       report.missingRegion.push(store);
     }
 
-    if (auditGeoMetadata && !String(store?.territory || "").trim()) {
+    if (geoAudit.shouldAuditTerritory && !String(store?.territory || "").trim()) {
       report.missingTerritory.push(store);
     }
 
-    if (auditGeoMetadata && !String(store?.state || "").trim()) {
+    if (geoAudit.shouldAuditState && !String(store?.state || "").trim()) {
       report.missingState.push(store);
     }
 
@@ -78,11 +80,11 @@ function updateDataHealthPanel() {
   if (!panel) return;
 
   const scopedStores = typeof getFilteredStores === "function" ? getFilteredStores() : storeData;
-  const auditGeoMetadata = shouldAuditGeoMetadataForStores(scopedStores);
-  const report = getDataIntegrityReport(scopedStores, statusMap, auditGeoMetadata);
+  const geoAudit = getGeoAuditConfig(scopedStores);
+  const report = getDataIntegrityReport(scopedStores, statusMap, geoAudit);
 
   const plottedIssueStores = typeof getPlottedIntegrityIssueStores === "function"
-    ? getPlottedIntegrityIssueStores(scopedStores, statusMap, auditGeoMetadata)
+    ? getPlottedIntegrityIssueStores(scopedStores, statusMap, geoAudit)
     : [];
 
   const counts = {
