@@ -1,5 +1,25 @@
 /* ================= MODAL / STORE DETAILS ================= */
 
+function buildStatusUpdateErrorMessage(error) {
+  if (error?.message && !/load failed/i.test(error.message)) {
+    return error.message;
+  }
+
+  if (error?.details) {
+    return error.details;
+  }
+
+  if (error?.hint) {
+    return error.hint;
+  }
+
+  if (error instanceof TypeError) {
+    return "Store status update failed because the network request did not complete. Check connectivity and Supabase configuration.";
+  }
+
+  return "Store status update failed.";
+}
+
 function buildLifecycleErrorMessage(error, fallbackMessage) {
   if (error?.message && !/load failed/i.test(error.message)) {
     return error.message;
@@ -68,6 +88,36 @@ function ensureStoreLifecycleControls() {
   }
 }
 
+function ensureExpandedStatusControls() {
+  const modal = document.querySelector("#confirmModal .modalContent");
+  const statusButtons = document.querySelector("#confirmModal .statusButtons");
+  if (!modal || !statusButtons) return;
+
+  if (!document.getElementById("markRescheduled")) {
+    const rescheduledBtn = document.createElement("button");
+    rescheduledBtn.id = "markRescheduled";
+    rescheduledBtn.type = "button";
+    rescheduledBtn.className = "btnSecondary";
+    rescheduledBtn.textContent = "Mark Rescheduled";
+    statusButtons.appendChild(rescheduledBtn);
+  }
+
+  if (!document.getElementById("statusReasonInput")) {
+    const input = document.createElement("input");
+    input.id = "statusReasonInput";
+    input.type = "text";
+    input.placeholder = "Optional reschedule reason";
+    input.maxLength = 120;
+
+    const addToRouteBtn = document.getElementById("addToRouteBtn");
+    if (addToRouteBtn) {
+      modal.insertBefore(input, addToRouteBtn);
+    } else {
+      modal.appendChild(input);
+    }
+  }
+}
+
 function updateStoreLifecycleControls(storeId) {
   ensureStoreLifecycleControls();
 
@@ -101,6 +151,33 @@ function updateStoreLifecycleControls(storeId) {
     if (!canManageStoreLifecycle()) return;
     restoreRemovedStore(storeId);
   };
+}
+
+function updateStatusControlsForStore(storeId) {
+  ensureExpandedStatusControls();
+
+  const markActive = document.getElementById("markActive");
+  const markCompleted = document.getElementById("markCompleted");
+  const markClosed = document.getElementById("markClosed");
+  const markRescheduled = document.getElementById("markRescheduled");
+  const statusReasonInput = document.getElementById("statusReasonInput");
+  const storeStatus = statusMap[String(storeId)] || getStatusState("active");
+
+  if (markActive) markActive.textContent = "Mark Active";
+  if (markCompleted) markCompleted.textContent = "Mark Completed";
+  if (markClosed) markClosed.textContent = "Mark Closed";
+  if (markRescheduled) markRescheduled.textContent = "Mark Rescheduled";
+  if (statusReasonInput) statusReasonInput.value = storeStatus.status_reason || "";
+
+  if (markActive) markActive.onclick = () => updateStore(storeId, "active", "");
+  if (markCompleted) markCompleted.onclick = () => updateStore(storeId, "completed", "");
+  if (markClosed) markClosed.onclick = () => updateStore(storeId, "closed", "");
+  if (markRescheduled) {
+    markRescheduled.onclick = () => {
+      const reason = statusReasonInput?.value.trim() || "";
+      updateStore(storeId, "rescheduled", reason);
+    };
+  }
 }
 
 async function setStoreRemovedState(storeId, nextRemoved) {
@@ -197,17 +274,11 @@ function openStoreModal(storeId) {
   const store = getStoreById(storeId, { includeRemoved: true });
   setText("confirmAddress", store?.full_address || "");
 
-  const markActive = document.getElementById("markActive");
-  const markCompleted = document.getElementById("markCompleted");
-  const markClosed = document.getElementById("markClosed");
   const addNoteBtn = document.getElementById("addNoteBtn");
   const addToRouteBtn = document.getElementById("addToRouteBtn");
   const uploadPhotoBtn = document.getElementById("uploadPhotoBtn");
   const confirmCancel = document.getElementById("confirmCancel");
 
-  if (markActive) markActive.onclick = () => updateStore(storeId, false, false);
-  if (markCompleted) markCompleted.onclick = () => updateStore(storeId, true, false);
-  if (markClosed) markClosed.onclick = () => updateStore(storeId, false, true);
   if (addNoteBtn) addNoteBtn.onclick = () => addNote(storeId);
   if (addToRouteBtn) addToRouteBtn.onclick = () => addStoreToRoute(storeId);
   if (uploadPhotoBtn) uploadPhotoBtn.onclick = () => uploadPhoto(storeId);
@@ -219,6 +290,7 @@ function openStoreModal(storeId) {
 
   ensureStoreLifecycleControls();
   updateStoreLifecycleControls(storeId);
+  updateStatusControlsForStore(storeId);
   loadNotes(storeId);
   loadPhotos(storeId);
   updateWriteAccessUI();
@@ -226,42 +298,47 @@ function openStoreModal(storeId) {
   clearPhotoMessage();
 }
 
-async function updateStore(storeId, completed, closed) {
+async function updateStore(storeId, statusCode, statusReason = "") {
   if (!isSignedIn()) {
     alert("Sign in to update store status.");
     return;
   }
 
+  const nextStatus = getStatusState(statusCode, statusReason);
+
   let result;
   try {
-    result = await dataLayer.updateStoreStatus(currentProjectId, storeId, completed, closed);
+    result = await dataLayer.updateStoreStatus(
+      currentProjectId,
+      storeId,
+      nextStatus.status_code,
+      nextStatus.status_reason
+    );
   } catch (error) {
     console.error(error);
-    alert(buildLifecycleErrorMessage(error, "Store status update failed."));
+    alert(buildStatusUpdateErrorMessage(error));
     return;
   }
 
   if (result?.error) {
     console.error(result.error);
-    alert(buildLifecycleErrorMessage(result.error, "Store status update failed."));
+    alert(buildStatusUpdateErrorMessage(result.error));
     return;
   }
 
-  statusMap[String(storeId)] = { completed, closed };
+  statusMap[String(storeId)] = nextStatus;
   persistedStatusStoreIds.add(String(storeId));
   touchDataRefresh();
 
   prependActivity({
-    type: completed ? "status-completed" : closed ? "status-closed" : "status-active",
+    type: getStatusActivityType(nextStatus.status_code),
     project_id: currentProjectId,
     store_id: String(storeId),
     timestamp: new Date().toISOString(),
-    title: completed
-      ? `✔ Store ${storeId} completed`
-      : closed
-        ? `⚠ Store ${storeId} closed`
-        : `• Store ${storeId} active`,
-    detail: "Status updated"
+    title: buildStatusActivityTitle(storeId, nextStatus.status_code),
+    detail: nextStatus.status_reason
+      ? `Status updated • ${nextStatus.status_reason}`
+      : "Status updated"
   });
 
   rebuild();
