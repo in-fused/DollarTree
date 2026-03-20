@@ -195,7 +195,7 @@ function updateWorkspaceViewUI() {
 /* ================= MAP ================= */
 
 function createGeoJson(stores) {
-  const auditGeoMetadata = shouldAuditGeoMetadataForStores(stores);
+  const geoAudit = getGeoAuditConfig(stores);
 
   return {
     type: "FeatureCollection",
@@ -207,7 +207,7 @@ function createGeoJson(stores) {
           store_id: String(store.store_id),
           completed: statusMap[String(store.store_id)]?.completed === true,
           closed: statusMap[String(store.store_id)]?.closed === true,
-          ...getMappedStoreIntegrityProperties(store, statusMap, auditGeoMetadata)
+          ...getMappedStoreIntegrityProperties(store, statusMap, geoAudit)
         },
         geometry: {
           type: "Point",
