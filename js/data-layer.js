@@ -1,5 +1,10 @@
 /* ================= DATA LAYER ================= */
 
+function isMissingColumnError(error, columnName) {
+  const haystack = `${error?.message || ""} ${error?.details || ""} ${error?.hint || ""}`.toLowerCase();
+  return haystack.includes(columnName.toLowerCase());
+}
+
 const dataLayer = {
   async getSession() {
     return await supabaseClient.auth.getSession();
@@ -163,15 +168,43 @@ const dataLayer = {
       });
   },
 
-  async updateStoreStatus(projectId, storeId, completed, closed) {
-    return await supabaseClient
+  async updateStoreStatus(projectId, storeId, statusCode, statusReason = "") {
+    const state = getStatusState(statusCode, statusReason);
+
+    const fullPayload = {
+      project_id: projectId,
+      store_id: storeId,
+      status_code: state.status_code,
+      status_reason: state.status_reason || null,
+      completed: state.completed,
+      closed: state.closed
+    };
+
+    let result = await supabaseClient
       .from("store_status")
-      .upsert({
-        project_id: projectId,
-        store_id: storeId,
-        completed,
-        closed
-      });
+      .upsert(fullPayload);
+
+    if (!result.error) return result;
+
+    const missingStatusCode = isMissingColumnError(result.error, "status_code");
+    const missingStatusReason = isMissingColumnError(result.error, "status_reason");
+
+    if (!missingStatusCode && !missingStatusReason) {
+      return result;
+    }
+
+    const fallbackPayload = {
+      project_id: projectId,
+      store_id: storeId,
+      completed: state.completed,
+      closed: state.closed
+    };
+
+    result = await supabaseClient
+      .from("store_status")
+      .upsert(fallbackPayload);
+
+    return result;
   },
 
   async loadActivityEvents(projectId, limit = 200) {
