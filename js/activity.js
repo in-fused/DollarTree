@@ -13,6 +13,11 @@ function updateActivityList() {
       if (item.type === "project-archived" || item.type === "project-restored") {
         return String(item.project_id || currentProjectId) === String(currentProjectId);
       }
+
+      if (item.type === "store-removed" || item.type === "store-restored") {
+        return String(item.project_id || currentProjectId) === String(currentProjectId);
+      }
+
       return filteredIds.has(String(item.store_id));
     })
     .slice(0, 12);
@@ -34,7 +39,7 @@ function updateActivityList() {
     else if (item.type === "note") div.style.borderLeftColor = "#d4a5ff";
     else if (item.type === "store-created") div.style.borderLeftColor = "#9fd1ff";
     else if (item.type === "store-removed") div.style.borderLeftColor = "#ff6b6b";
-    else if (item.type === "store-restored") div.style.borderLeftColor = "#9fe8b6";
+    else if (item.type === "store-restored") div.style.borderLeftColor = "#8ee0a1";
     else if (item.type === "project-archived") div.style.borderLeftColor = "#f5c26b";
     else if (item.type === "project-restored") div.style.borderLeftColor = "#9fd1ff";
 
