@@ -18,6 +18,57 @@ const NATIONAL_CENTER = [-96, 38];
 const NATIONAL_ZOOM = 3.2;
 
 const PHOTO_BUCKET_CANDIDATES = ["store-photos", "store_photos", "photos"];
+const SUPPORTED_STORE_STATUS_CODES = ["active", "completed", "closed", "rescheduled"];
+
+function normalizeStatusCode(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (SUPPORTED_STORE_STATUS_CODES.includes(normalized)) return normalized;
+  return "active";
+}
+
+function deriveLegacyStatusCode(completed, closed) {
+  if (completed === true) return "completed";
+  if (closed === true) return "closed";
+  return "active";
+}
+
+function getStatusState(statusCode, statusReason = "") {
+  const normalized = normalizeStatusCode(statusCode);
+  return {
+    status_code: normalized,
+    status_reason: String(statusReason || "").trim(),
+    completed: normalized === "completed",
+    closed: normalized === "closed"
+  };
+}
+
+function getStatusStateFromRow(row) {
+  const code = row?.status_code
+    ? normalizeStatusCode(row.status_code)
+    : deriveLegacyStatusCode(row?.completed === true, row?.closed === true);
+
+  return getStatusState(code, row?.status_reason || "");
+}
+
+function getStatusDisplayLabel(statusCode) {
+  const normalized = normalizeStatusCode(statusCode);
+  if (normalized === "completed") return "Completed";
+  if (normalized === "closed") return "Closed";
+  if (normalized === "rescheduled") return "Rescheduled";
+  return "Active";
+}
+
+function getStatusActivityType(statusCode) {
+  return `status-${normalizeStatusCode(statusCode)}`;
+}
+
+function buildStatusActivityTitle(storeId, statusCode) {
+  const normalized = normalizeStatusCode(statusCode);
+  if (normalized === "completed") return `✔ Store ${storeId} completed`;
+  if (normalized === "closed") return `✖ Store ${storeId} closed`;
+  if (normalized === "rescheduled") return `↺ Store ${storeId} rescheduled`;
+  return `• Store ${storeId} active`;
+}
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -64,6 +115,9 @@ let mobileExecutiveSummaryExpanded = false;
 
 let showArchivedProjects = false;
 let showRemovedStores = false;
+
+let activePointPulseAnimationId = null;
+let activePointPulseStartedAt = 0;
 
 let activeFilters = {
   region: "",
