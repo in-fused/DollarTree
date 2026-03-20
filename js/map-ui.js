@@ -192,7 +192,44 @@ function updateWorkspaceViewUI() {
     renderPhotoLibrary();
   }
 }
+
 /* ================= MAP ================= */
+
+function stopActivePulseAnimation() {
+  if (activePointPulseAnimationId) {
+    cancelAnimationFrame(activePointPulseAnimationId);
+    activePointPulseAnimationId = null;
+  }
+}
+
+function ensureActivePulseAnimation() {
+  if (activePointPulseAnimationId || !map.getLayer("active-point-pulse")) return;
+
+  activePointPulseStartedAt = performance.now();
+
+  const step = (timestamp) => {
+    if (!map.getLayer("active-point-pulse")) {
+      activePointPulseAnimationId = null;
+      return;
+    }
+
+    const progress = ((timestamp - activePointPulseStartedAt) % 2200) / 2200;
+    const radius = 11 + (progress * 9);
+    const opacity = 0.22 * (1 - progress);
+
+    try {
+      map.setPaintProperty("active-point-pulse", "circle-radius", radius);
+      map.setPaintProperty("active-point-pulse", "circle-opacity", opacity);
+    } catch (error) {
+      activePointPulseAnimationId = null;
+      return;
+    }
+
+    activePointPulseAnimationId = requestAnimationFrame(step);
+  };
+
+  activePointPulseAnimationId = requestAnimationFrame(step);
+}
 
 function createGeoJson(stores) {
   const geoAudit = getGeoAuditConfig(stores);
@@ -201,19 +238,25 @@ function createGeoJson(stores) {
     type: "FeatureCollection",
     features: stores
       .filter(store => hasValidCoordinate(store?.lat) && hasValidCoordinate(store?.lng))
-      .map(store => ({
-        type: "Feature",
-        properties: {
-          store_id: String(store.store_id),
-          completed: statusMap[String(store.store_id)]?.completed === true,
-          closed: statusMap[String(store.store_id)]?.closed === true,
-          ...getMappedStoreIntegrityProperties(store, statusMap, geoAudit)
-        },
-        geometry: {
-          type: "Point",
-          coordinates: [store.lng, store.lat]
-        }
-      }))
+      .map(store => {
+        const status = statusMap[String(store.store_id)] || getStatusState("active");
+
+        return {
+          type: "Feature",
+          properties: {
+            store_id: String(store.store_id),
+            status_code: normalizeStatusCode(status.status_code),
+            status_reason: status.status_reason || "",
+            completed: status.completed === true,
+            closed: status.closed === true,
+            ...getMappedStoreIntegrityProperties(store, statusMap, geoAudit)
+          },
+          geometry: {
+            type: "Point",
+            coordinates: [store.lng, store.lat]
+          }
+        };
+      })
   };
 }
 
@@ -268,6 +311,24 @@ function buildMap() {
   });
 
   map.addLayer({
+    id: "active-point-pulse",
+    type: "circle",
+    source: "stores",
+    filter: [
+      "all",
+      ["!", ["has", "point_count"]],
+      ["==", ["get", "status_code"], "active"]
+    ],
+    paint: {
+      "circle-radius": 11,
+      "circle-color": "rgba(100, 181, 246, 0.28)",
+      "circle-opacity": 0.18,
+      "circle-stroke-width": 1.5,
+      "circle-stroke-color": "rgba(100, 181, 246, 0.55)"
+    }
+  });
+
+  map.addLayer({
     id: "point-issue-halo",
     type: "circle",
     source: "stores",
@@ -292,10 +353,12 @@ function buildMap() {
     paint: {
       "circle-radius": 8,
       "circle-color": [
-        "case",
-        ["==", ["get", "closed"], true], "#ff9900",
-        ["==", ["get", "completed"], true], "#2ecc71",
-        "#ff2d2d"
+        "match",
+        ["get", "status_code"],
+        "completed", "#2ecc71",
+        "closed", "#ff2d2d",
+        "rescheduled", "#ff9900",
+        "#64b5f6"
       ],
       "circle-stroke-width": 1.5,
       "circle-stroke-color": "rgba(255,255,255,0.35)"
@@ -320,12 +383,15 @@ function buildMap() {
   map.on("mouseleave", "clusters", () => {
     map.getCanvas().style.cursor = "";
   });
+
+  ensureActivePulseAnimation();
 }
 
 function rebuildFullMap() {
   if (!map.getSource("stores")) return;
   geojsonData = createGeoJson(getFilteredStores());
   map.getSource("stores").setData(geojsonData);
+  ensureActivePulseAnimation();
 }
 
 function rebuild() {
@@ -424,6 +490,7 @@ function setMapModeTags() {
       : `${filteredCount.toLocaleString()} stores in scope`
   );
 }
+
 /* ================= SEARCH ================= */
 
 function bindSearch() {
