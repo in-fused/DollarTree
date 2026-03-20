@@ -1,32 +1,70 @@
 /* ================= MODAL / STORE DETAILS ================= */
 
+function buildLifecycleErrorMessage(error, fallbackMessage) {
+  if (error?.message && !/load failed/i.test(error.message)) {
+    return error.message;
+  }
+
+  if (error?.details) {
+    return error.details;
+  }
+
+  if (error?.hint) {
+    return error.hint;
+  }
+
+  if (error instanceof TypeError) {
+    return `${fallbackMessage} Network request failed. Check connectivity and Supabase configuration.`;
+  }
+
+  return fallbackMessage;
+}
+
 function ensureStoreLifecycleControls() {
   const modal = document.querySelector("#confirmModal .modalContent");
   if (!modal) return;
 
-  if (document.getElementById("removeStoreBtn") && document.getElementById("restoreStoreBtn")) {
-    return;
+  if (!document.getElementById("removeStoreBtn")) {
+    const removeBtn = document.createElement("button");
+    removeBtn.id = "removeStoreBtn";
+    removeBtn.type = "button";
+    removeBtn.className = "btnClosed";
+    removeBtn.textContent = "Remove from Project";
+
+    const cancelBtn = document.getElementById("confirmCancel");
+    if (cancelBtn) {
+      modal.insertBefore(removeBtn, cancelBtn);
+    } else {
+      modal.appendChild(removeBtn);
+    }
   }
 
-  const removeBtn = document.createElement("button");
-  removeBtn.id = "removeStoreBtn";
-  removeBtn.type = "button";
-  removeBtn.className = "btnClosed";
-  removeBtn.textContent = "Remove from Project";
+  if (!document.getElementById("restoreStoreBtn")) {
+    const restoreBtn = document.createElement("button");
+    restoreBtn.id = "restoreStoreBtn";
+    restoreBtn.type = "button";
+    restoreBtn.className = "btnSecondary";
+    restoreBtn.textContent = "Restore Store";
 
-  const restoreBtn = document.createElement("button");
-  restoreBtn.id = "restoreStoreBtn";
-  restoreBtn.type = "button";
-  restoreBtn.className = "btnSecondary";
-  restoreBtn.textContent = "Restore Store";
+    const cancelBtn = document.getElementById("confirmCancel");
+    if (cancelBtn) {
+      modal.insertBefore(restoreBtn, cancelBtn);
+    } else {
+      modal.appendChild(restoreBtn);
+    }
+  }
 
-  const cancelBtn = document.getElementById("confirmCancel");
-  if (cancelBtn) {
-    modal.insertBefore(removeBtn, cancelBtn);
-    modal.insertBefore(restoreBtn, cancelBtn);
-  } else {
-    modal.appendChild(removeBtn);
-    modal.appendChild(restoreBtn);
+  if (!document.getElementById("storeLifecycleHelp")) {
+    const help = document.createElement("div");
+    help.id = "storeLifecycleHelp";
+    help.className = "projectSourceTag";
+
+    const cancelBtn = document.getElementById("confirmCancel");
+    if (cancelBtn) {
+      modal.insertBefore(help, cancelBtn);
+    } else {
+      modal.appendChild(help);
+    }
   }
 }
 
@@ -35,30 +73,42 @@ function updateStoreLifecycleControls(storeId) {
 
   const removeBtn = document.getElementById("removeStoreBtn");
   const restoreBtn = document.getElementById("restoreStoreBtn");
+  const help = document.getElementById("storeLifecycleHelp");
   const store = getStoreById(storeId, { includeRemoved: true });
 
-  if (!removeBtn || !restoreBtn || !store) return;
+  if (!removeBtn || !restoreBtn || !help || !store) return;
 
-  const disabled = !canManageStoreLifecycle();
+  const available = canManageStoreLifecycle();
 
-  removeBtn.disabled = disabled;
-  restoreBtn.disabled = disabled;
+  removeBtn.disabled = !available;
+  restoreBtn.disabled = !available;
 
-  removeBtn.classList.toggle("hidden", isStoreRemoved(store));
-  restoreBtn.classList.toggle("hidden", !isStoreRemoved(store));
+  removeBtn.classList.toggle("hidden", isStoreRemoved(store) || !available);
+  restoreBtn.classList.toggle("hidden", !isStoreRemoved(store) || !available);
 
-  removeBtn.onclick = () => removeStoreFromProject(storeId);
-  restoreBtn.onclick = () => restoreRemovedStore(storeId);
+  help.textContent = available
+    ? (isStoreRemoved(store)
+      ? "Removed stores stay preserved in the project and can be restored."
+      : "Soft remove hides the store from normal operational scope without deleting history.")
+    : "Store remove/restore controls are available for admin users on Supabase-backed projects only.";
+
+  removeBtn.onclick = () => {
+    if (!canManageStoreLifecycle()) return;
+    removeStoreFromProject(storeId);
+  };
+
+  restoreBtn.onclick = () => {
+    if (!canManageStoreLifecycle()) return;
+    restoreRemovedStore(storeId);
+  };
 }
 
 async function setStoreRemovedState(storeId, nextRemoved) {
-  if (!canManageStoreLifecycle()) {
-    alert("Store removal controls are only available for admin users on Supabase-backed projects.");
-    return;
-  }
+  if (!canManageStoreLifecycle()) return;
 
+  let result;
   try {
-    const { error } = await supabaseClient
+    result = await supabaseClient
       .from("stores")
       .update({
         is_removed: nextRemoved,
@@ -66,21 +116,23 @@ async function setStoreRemovedState(storeId, nextRemoved) {
       })
       .eq("project_id", currentProjectId)
       .eq("store_id", String(storeId));
-
-    if (error) throw error;
   } catch (error) {
     console.error(error);
-    alert(error.message || "Store removal update failed.");
+    alert(buildLifecycleErrorMessage(error, "Store lifecycle update failed."));
     return;
   }
 
+  if (result?.error) {
+    console.error(result.error);
+    alert(buildLifecycleErrorMessage(result.error, "Store lifecycle update failed."));
+    return;
+  }
+
+  const removedAt = nextRemoved ? new Date().toISOString() : null;
+
   allStoreData = allStoreData.map(store =>
     String(store.store_id) === String(storeId)
-      ? {
-          ...store,
-          is_removed: nextRemoved,
-          removed_at: nextRemoved ? new Date().toISOString() : null
-        }
+      ? { ...store, is_removed: nextRemoved, removed_at: removedAt }
       : store
   );
 
@@ -96,7 +148,9 @@ async function setStoreRemovedState(storeId, nextRemoved) {
     title: nextRemoved
       ? `🧹 Store ${storeId} removed from project`
       : `↩ Store ${storeId} restored to project`,
-    detail: nextRemoved ? "Store hidden from default operational scope." : "Store returned to operational scope."
+    detail: nextRemoved
+      ? "Store hidden from default operational scope."
+      : "Store returned to operational scope."
   });
 
   if (nextRemoved && !showRemovedStores) {
@@ -111,6 +165,8 @@ async function setStoreRemovedState(storeId, nextRemoved) {
 }
 
 async function removeStoreFromProject(storeId) {
+  if (!canManageStoreLifecycle()) return;
+
   if (!confirm(`Remove Store ${storeId} from the active project? This is a soft remove and can be restored later.`)) {
     return;
   }
@@ -119,6 +175,8 @@ async function removeStoreFromProject(storeId) {
 }
 
 async function restoreRemovedStore(storeId) {
+  if (!canManageStoreLifecycle()) return;
+
   if (!confirm(`Restore Store ${storeId} to the active project?`)) {
     return;
   }
@@ -174,11 +232,18 @@ async function updateStore(storeId, completed, closed) {
     return;
   }
 
-  const { error } = await dataLayer.updateStoreStatus(currentProjectId, storeId, completed, closed);
-
-  if (error) {
+  let result;
+  try {
+    result = await dataLayer.updateStoreStatus(currentProjectId, storeId, completed, closed);
+  } catch (error) {
     console.error(error);
-    alert(error.message || "Store update failed.");
+    alert(buildLifecycleErrorMessage(error, "Store status update failed."));
+    return;
+  }
+
+  if (result?.error) {
+    console.error(result.error);
+    alert(buildLifecycleErrorMessage(result.error, "Store status update failed."));
     return;
   }
 
