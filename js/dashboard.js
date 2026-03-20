@@ -22,7 +22,7 @@ function getScopeMetrics() {
   let closed = 0;
 
   filteredStores.forEach(store => {
-    const status = statusMap[String(store.store_id)] || {};
+    const status = statusMap[String(store.store_id)] || getStatusState("active");
     if (status.completed) completed += 1;
     if (status.closed) closed += 1;
   });
@@ -73,6 +73,7 @@ function getCurrentScopeLabel(metrics) {
   if (activeFilters.region) parts.push(activeFilters.region);
   if (activeFilters.territory) parts.push(activeFilters.territory);
   if (activeFilters.state) parts.push(activeFilters.state);
+  if (showRemovedStores) parts.push("Removed Visible");
   if (metrics.totalStores > 0) parts.push(`${metrics.totalStores.toLocaleString()} stores`);
 
   return parts.join(" • ");
@@ -165,21 +166,22 @@ function resetSelectedStorePanel() {
 function updateSelectedStorePanel(storeId) {
   currentSelectedStoreId = String(storeId);
 
-  const store = storeData.find(item => String(item.store_id) === String(storeId));
+  const store = getStoreById(storeId, { includeRemoved: showRemovedStores });
   if (!store) {
     resetSelectedStorePanel();
     return;
   }
 
-  const status = statusMap[String(store.store_id)] || { completed: false, closed: false };
-  const statusLabel = status.closed ? "Closed" : status.completed ? "Completed" : "Active";
+  const status = statusMap[String(store.store_id)] || getStatusState("active");
+  const statusLabel = getStatusDisplayLabel(status.status_code);
+  const statusReason = String(status.status_reason || "").trim();
 
   const parts = [];
   if (store.full_address) parts.push(store.full_address);
   if (store.region) parts.push(`Region: ${store.region}`);
   if (store.territory) parts.push(`Territory: ${store.territory}`);
   if (store.state) parts.push(`State: ${store.state}`);
-  parts.push(`Status: ${statusLabel}`);
+  parts.push(`Status: ${statusLabel}${statusReason ? ` (${statusReason})` : ""}`);
 
   const integrityIssues = typeof getStoreIntegrityIssues === "function"
     ? getStoreIntegrityIssues(store, statusMap)
