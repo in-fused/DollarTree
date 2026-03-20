@@ -8,6 +8,22 @@ function removedStoresToggleKey() {
   return `showRemovedStores:${currentProjectId}`;
 }
 
+function restoreArchiveToggleState() {
+  showArchivedProjects = localStorage.getItem(projectArchiveToggleKey()) === "true";
+}
+
+function persistArchiveToggleState() {
+  localStorage.setItem(projectArchiveToggleKey(), showArchivedProjects ? "true" : "false");
+}
+
+function restoreRemovedStoresToggleState() {
+  showRemovedStores = localStorage.getItem(removedStoresToggleKey()) === "true";
+}
+
+function persistRemovedStoresToggleState() {
+  localStorage.setItem(removedStoresToggleKey(), showRemovedStores ? "true" : "false");
+}
+
 function isProjectArchived(project) {
   return project?.is_archived === true;
 }
@@ -16,12 +32,22 @@ function isStoreRemoved(store) {
   return store?.is_removed === true;
 }
 
+function isCurrentProjectSupabaseBacked(projectMeta = currentProjectMeta) {
+  if (projectMeta?.backendKind) return projectMeta.backendKind === "supabase";
+
+  const sourceLabel = String(projectMeta?.sourceLabel || "").trim().toLowerCase();
+  if (!sourceLabel) return false;
+  if (sourceLabel.includes("json fallback")) return false;
+  if (sourceLabel.includes("no stores found")) return false;
+  return sourceLabel.includes("supabase");
+}
+
 function canManageProjectLifecycle() {
-  return isAdmin() && currentProjectMeta?.sourceLabel === "Supabase";
+  return isAdmin() && isCurrentProjectSupabaseBacked();
 }
 
 function canManageStoreLifecycle() {
-  return isAdmin() && currentProjectMeta?.sourceLabel === "Supabase";
+  return isAdmin() && isCurrentProjectSupabaseBacked();
 }
 
 function getStoreById(storeId, { includeRemoved = false } = {}) {
@@ -29,30 +55,46 @@ function getStoreById(storeId, { includeRemoved = false } = {}) {
   return source.find(store => String(store.store_id) === String(storeId)) || null;
 }
 
-function persistArchiveToggleState() {
-  localStorage.setItem(projectArchiveToggleKey(), showArchivedProjects ? "true" : "false");
-}
-
-function restoreArchiveToggleState() {
-  showArchivedProjects = localStorage.getItem(projectArchiveToggleKey()) === "true";
-}
-
-function persistRemovedStoresToggleState() {
-  localStorage.setItem(removedStoresToggleKey(), showRemovedStores ? "true" : "false");
-}
-
-function restoreRemovedStoresToggleState() {
-  showRemovedStores = localStorage.getItem(removedStoresToggleKey()) === "true";
-}
-
 function shouldShowProjectInSelector(project) {
-  return !isProjectArchived(project) || showArchivedProjects || project.project_id === currentProjectId;
+  if (!project) return false;
+  if (!isProjectArchived(project)) return true;
+  if (showArchivedProjects) return true;
+  return String(project.project_id) === String(currentProjectId);
+}
+
+function getSelectableProjects(projects) {
+  const visible = (Array.isArray(projects) ? projects : []).filter(shouldShowProjectInSelector);
+
+  if (visible.length > 0) return visible;
+
+  if (showArchivedProjects) {
+    return Array.isArray(projects) ? [...projects] : [];
+  }
+
+  return (Array.isArray(projects) ? projects : []).filter(project => !isProjectArchived(project));
+}
+
+function getPreferredProjectId(projects) {
+  const candidates = Array.isArray(projects) ? projects : [];
+  if (candidates.some(project => String(project.project_id) === String(currentProjectId))) {
+    return currentProjectId;
+  }
+
+  const activeProjects = candidates.filter(project => !isProjectArchived(project));
+  if (activeProjects.length > 0) {
+    return activeProjects[0].project_id;
+  }
+
+  if (showArchivedProjects && candidates.length > 0) {
+    return candidates[0].project_id;
+  }
+
+  return candidates[0]?.project_id || DEFAULT_PROJECT_ID;
 }
 
 function applyStoreVisibility() {
-  storeData = (Array.isArray(allStoreData) ? allStoreData : []).filter(store =>
-    showRemovedStores || !isStoreRemoved(store)
-  );
+  const source = Array.isArray(allStoreData) ? allStoreData : [];
+  storeData = source.filter(store => showRemovedStores || !isStoreRemoved(store));
 
   if (currentSelectedStoreId && !storeData.some(store => String(store.store_id) === String(currentSelectedStoreId))) {
     currentSelectedStoreId = null;
@@ -65,11 +107,6 @@ function applyStoreVisibility() {
 
 function refreshOperationalViews() {
   populateFilterOptions();
-
-  if (map.getSource("stores")) {
-    rebuildFullMap();
-  }
-
   updateProjectSourceTag();
   updateHeaderDashboard();
   updateScopeSummary();
@@ -91,34 +128,34 @@ function refreshOperationalViews() {
 
 function ensureProjectAdminUI() {
   const projectPanel = document.querySelector(".panelProject");
+  const importLink = document.getElementById("importProjectLink");
   if (!projectPanel) return;
 
   if (!document.getElementById("showArchivedProjectsWrap")) {
-    const archivedWrap = document.createElement("label");
-    archivedWrap.id = "showArchivedProjectsWrap";
-    archivedWrap.className = "routeToggleLabel";
-    archivedWrap.style.display = "inline-flex";
-    archivedWrap.style.marginTop = "12px";
+    const toggleWrap = document.createElement("label");
+    toggleWrap.id = "showArchivedProjectsWrap";
+    toggleWrap.className = "routeToggleLabel";
+    toggleWrap.style.display = "inline-flex";
+    toggleWrap.style.marginTop = "12px";
 
-    const archivedToggle = document.createElement("input");
-    archivedToggle.type = "checkbox";
-    archivedToggle.id = "showArchivedProjectsToggle";
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.id = "showArchivedProjectsToggle";
 
-    const archivedLabel = document.createElement("span");
-    archivedLabel.textContent = "Show Archived Projects";
+    const label = document.createElement("span");
+    label.textContent = "Show Archived Projects";
 
-    archivedWrap.appendChild(archivedToggle);
-    archivedWrap.appendChild(archivedLabel);
+    toggleWrap.appendChild(toggle);
+    toggleWrap.appendChild(label);
 
-    const importLink = document.getElementById("importProjectLink");
     if (importLink) {
-      projectPanel.insertBefore(archivedWrap, importLink);
+      projectPanel.insertBefore(toggleWrap, importLink);
     } else {
-      projectPanel.appendChild(archivedWrap);
+      projectPanel.appendChild(toggleWrap);
     }
 
-    archivedToggle.addEventListener("change", async () => {
-      showArchivedProjects = archivedToggle.checked;
+    toggle.addEventListener("change", async () => {
+      showArchivedProjects = toggle.checked;
       persistArchiveToggleState();
       await loadProjects();
       updateProjectArchiveUI();
@@ -126,36 +163,38 @@ function ensureProjectAdminUI() {
   }
 
   if (!document.getElementById("showRemovedStoresWrap")) {
-    const removedWrap = document.createElement("label");
-    removedWrap.id = "showRemovedStoresWrap";
-    removedWrap.className = "routeToggleLabel";
-    removedWrap.style.display = "inline-flex";
-    removedWrap.style.marginTop = "10px";
+    const toggleWrap = document.createElement("label");
+    toggleWrap.id = "showRemovedStoresWrap";
+    toggleWrap.className = "routeToggleLabel";
+    toggleWrap.style.display = "inline-flex";
+    toggleWrap.style.marginTop = "10px";
 
-    const removedToggle = document.createElement("input");
-    removedToggle.type = "checkbox";
-    removedToggle.id = "showRemovedStoresToggle";
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.id = "showRemovedStoresToggle";
 
-    const removedLabel = document.createElement("span");
-    removedLabel.textContent = "Show Removed Stores";
+    const label = document.createElement("span");
+    label.textContent = "Show Removed Stores";
 
-    removedWrap.appendChild(removedToggle);
-    removedWrap.appendChild(removedLabel);
+    toggleWrap.appendChild(toggle);
+    toggleWrap.appendChild(label);
 
-    const anchor = document.getElementById("showArchivedProjectsWrap");
-    if (anchor?.nextSibling) {
-      projectPanel.insertBefore(removedWrap, anchor.nextSibling);
-    } else if (anchor) {
-      projectPanel.appendChild(removedWrap);
+    if (importLink) {
+      projectPanel.insertBefore(toggleWrap, importLink);
     } else {
-      projectPanel.appendChild(removedWrap);
+      projectPanel.appendChild(toggleWrap);
     }
 
-    removedToggle.addEventListener("change", () => {
-      showRemovedStores = removedToggle.checked;
+    toggle.addEventListener("change", () => {
+      showRemovedStores = toggle.checked;
       persistRemovedStoresToggleState();
       applyStoreVisibility();
       restoreRouteState();
+
+      if (map.getSource("stores")) {
+        rebuildFullMap();
+      }
+
       refreshOperationalViews();
     });
   }
@@ -164,7 +203,23 @@ function ensureProjectAdminUI() {
     const status = document.createElement("div");
     status.id = "projectArchiveStatus";
     status.className = "projectSourceTag";
-    projectPanel.appendChild(status);
+    if (importLink) {
+      projectPanel.insertBefore(status, importLink);
+    } else {
+      projectPanel.appendChild(status);
+    }
+  }
+
+  if (!document.getElementById("projectArchiveHelp")) {
+    const help = document.createElement("div");
+    help.id = "projectArchiveHelp";
+    help.className = "projectSourceTag";
+    help.style.marginTop = "8px";
+    if (importLink) {
+      projectPanel.insertBefore(help, importLink);
+    } else {
+      projectPanel.appendChild(help);
+    }
   }
 
   if (!document.getElementById("projectArchiveBtn")) {
@@ -172,14 +227,22 @@ function ensureProjectAdminUI() {
     button.id = "projectArchiveBtn";
     button.type = "button";
     button.className = "btnSecondary";
+
     button.addEventListener("click", async () => {
+      if (!canManageProjectLifecycle()) return;
+
       if (isProjectArchived(currentProjectMeta)) {
         await restoreCurrentProject();
       } else {
         await archiveCurrentProject();
       }
     });
-    projectPanel.appendChild(button);
+
+    if (importLink) {
+      projectPanel.insertBefore(button, importLink);
+    } else {
+      projectPanel.appendChild(button);
+    }
   }
 }
 
@@ -190,6 +253,7 @@ function updateProjectArchiveUI() {
   const removedToggle = document.getElementById("showRemovedStoresToggle");
   const archiveBtn = document.getElementById("projectArchiveBtn");
   const archiveStatus = document.getElementById("projectArchiveStatus");
+  const archiveHelp = document.getElementById("projectArchiveHelp");
 
   if (archivedToggle) archivedToggle.checked = showArchivedProjects;
   if (removedToggle) removedToggle.checked = showRemovedStores;
@@ -197,12 +261,19 @@ function updateProjectArchiveUI() {
   if (archiveBtn) {
     archiveBtn.textContent = isProjectArchived(currentProjectMeta) ? "Restore Project" : "Archive Project";
     archiveBtn.disabled = !canManageProjectLifecycle();
+    archiveBtn.classList.toggle("hidden", !canManageProjectLifecycle());
   }
 
   if (archiveStatus) {
     archiveStatus.textContent = isProjectArchived(currentProjectMeta)
       ? `Archived project${currentProjectMeta?.archived_at ? ` • ${formatActivityTime(currentProjectMeta.archived_at)}` : ""}`
       : "Project active";
+  }
+
+  if (archiveHelp) {
+    archiveHelp.textContent = canManageProjectLifecycle()
+      ? "Archive hides the project from the default selector without deleting any data."
+      : "Archive controls are available for admin users on Supabase-backed projects only.";
   }
 }
 
@@ -235,7 +306,7 @@ async function fetchProjectArchiveMetadata(projectIds) {
 
 async function fetchRemovedStoreMetadata(projectId, storeIds) {
   const ids = (Array.isArray(storeIds) ? storeIds : []).filter(Boolean);
-  if (ids.length === 0 || currentProjectMeta?.sourceLabel !== "Supabase") {
+  if (ids.length === 0 || !isCurrentProjectSupabaseBacked()) {
     return new Map();
   }
 
@@ -264,10 +335,7 @@ async function fetchRemovedStoreMetadata(projectId, storeIds) {
 }
 
 async function setCurrentProjectArchivedState(nextArchived) {
-  if (!canManageProjectLifecycle()) {
-    alert("Project archive controls are only available for admin users on Supabase-backed projects.");
-    return;
-  }
+  if (!canManageProjectLifecycle()) return;
 
   const nextArchivedAt = nextArchived ? new Date().toISOString() : null;
 
@@ -314,7 +382,9 @@ async function setCurrentProjectArchivedState(nextArchived) {
     title: nextArchived
       ? `🗂 Project ${currentProjectMeta?.name || currentProjectId} archived`
       : `📂 Project ${currentProjectMeta?.name || currentProjectId} restored`,
-    detail: nextArchived ? "Archived project hidden from default selector." : "Archived project returned to active selector."
+    detail: nextArchived
+      ? "Project hidden from the default selector."
+      : "Project returned to the active selector."
   });
 
   await loadProjects();
@@ -325,6 +395,8 @@ async function setCurrentProjectArchivedState(nextArchived) {
 }
 
 async function archiveCurrentProject() {
+  if (!canManageProjectLifecycle()) return;
+
   if (!confirm(`Archive project "${currentProjectMeta?.name || currentProjectId}"? This will hide it from the default selector but keep all data intact.`)) {
     return;
   }
@@ -333,6 +405,8 @@ async function archiveCurrentProject() {
 }
 
 async function restoreCurrentProject() {
+  if (!canManageProjectLifecycle()) return;
+
   if (!confirm(`Restore project "${currentProjectMeta?.name || currentProjectId}"?`)) {
     return;
   }
@@ -356,17 +430,10 @@ async function loadProjects() {
     };
   });
 
-  if (!allProjectList.some(project => project.project_id === currentProjectId) && allProjectList.length > 0) {
-    currentProjectId = allProjectList[0].project_id;
-    localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
-  }
+  currentProjectId = getPreferredProjectId(getSelectableProjects(allProjectList));
+  localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
 
-  projectList = allProjectList.filter(shouldShowProjectInSelector);
-
-  if (!projectList.some(project => project.project_id === currentProjectId) && projectList.length > 0) {
-    currentProjectId = projectList[0].project_id;
-    localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
-  }
+  projectList = getSelectableProjects(allProjectList);
 
   const select = document.getElementById("projectSelect");
   if (!select) return;
@@ -461,6 +528,13 @@ async function hydrate() {
   if (hydrated.activityEventError) {
     console.error("Supabase activity_events error:", hydrated.activityEventError);
   }
+
+  currentProjectMeta = {
+    ...currentProjectMeta,
+    backendKind: String(currentProjectMeta?.sourceLabel || "").toLowerCase().includes("supabase")
+      ? "supabase"
+      : "fallback"
+  };
 }
 
 async function hydrateActivityFeed() {
@@ -533,7 +607,8 @@ async function loadActiveProject() {
       name: currentProjectId,
       store_file: `data/${currentProjectId}/stores_with_coords.json`,
       is_archived: false,
-      archived_at: null
+      archived_at: null,
+      backendKind: "fallback"
     };
 
   currentSelectedStoreId = null;
@@ -545,6 +620,7 @@ async function loadActiveProject() {
   await hydrate();
   await hydrateActivityFeed();
   restoreRouteState();
+  populateFilterOptions();
   ensureProjectAdminUI();
 
   if (map.getSource("stores")) {
