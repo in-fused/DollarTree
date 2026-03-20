@@ -509,13 +509,18 @@ async function hydrate() {
 
   statusRowsCache.forEach(row => {
     const key = String(row.store_id);
-    statusMap[key] = {
-      completed: row.completed === true,
-      closed: row.closed === true
-    };
+    statusMap[key] = getStatusStateFromRow(row);
   });
 
   statusMap = ensureStatusIntegrity(allStoreData, statusMap);
+
+  Object.keys(statusMap).forEach(key => {
+    statusMap[key] = {
+      ...getStatusState(statusMap[key]?.status_code || deriveLegacyStatusCode(statusMap[key]?.completed === true, statusMap[key]?.closed === true), statusMap[key]?.status_reason || ""),
+      completed: statusMap[key]?.completed === true || normalizeStatusCode(statusMap[key]?.status_code) === "completed",
+      closed: statusMap[key]?.closed === true || normalizeStatusCode(statusMap[key]?.status_code) === "closed"
+    };
+  });
 
   if (hydrated.noteError) {
     console.error("Supabase store_notes error:", hydrated.noteError);
@@ -547,27 +552,20 @@ async function hydrateActivityFeed() {
   events.push(...importedEvents);
 
   statusRowsCache.forEach(row => {
+    const statusState = getStatusStateFromRow(row);
     const eventTime = row.updated_at || row.created_at || null;
+    const detail = statusState.status_reason
+      ? `Status updated • ${statusState.status_reason}`
+      : "Status updated";
 
-    if (row.completed === true) {
-      events.push({
-        type: "status-completed",
-        store_id: String(row.store_id),
-        project_id: currentProjectId,
-        timestamp: eventTime,
-        title: `✔ Store ${row.store_id} completed`,
-        detail: "Status updated"
-      });
-    } else if (row.closed === true) {
-      events.push({
-        type: "status-closed",
-        store_id: String(row.store_id),
-        project_id: currentProjectId,
-        timestamp: eventTime,
-        title: `⚠ Store ${row.store_id} closed`,
-        detail: "Status updated"
-      });
-    }
+    events.push({
+      type: getStatusActivityType(statusState.status_code),
+      store_id: String(row.store_id),
+      project_id: currentProjectId,
+      timestamp: eventTime,
+      title: buildStatusActivityTitle(row.store_id, statusState.status_code),
+      detail
+    });
   });
 
   noteRowsCache.forEach(row => {
