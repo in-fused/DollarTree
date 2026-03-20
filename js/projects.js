@@ -90,19 +90,32 @@ function getHydratedStatusEventType(row) {
     return "status-rescheduled";
   }
 
-  if (normalizedStatusCode === "active") {
-    return "status-active";
-  }
-
-  if (row?.completed === true) {
-    return "status-completed";
-  }
-
-  if (row?.closed === true) {
-    return "status-closed";
-  }
-
   return "status-active";
+}
+
+function hasRealActiveTransitionEvidence(row) {
+  if (!row) return false;
+
+  const statusReason = String(row.status_reason || "").trim();
+  if (statusReason) return true;
+
+  const updatedAtValue = getTimestampValue(row.updated_at || null);
+  const createdAtValue = getTimestampValue(row.created_at || null);
+
+  if (updatedAtValue > 0 && createdAtValue > 0 && updatedAtValue > createdAtValue + 1000) {
+    return true;
+  }
+
+  const explicitFlags = [
+    row.user_triggered,
+    row.is_user_triggered,
+    row.manual_update,
+    row.is_manual_update,
+    row.explicit_transition,
+    row.is_explicit_transition
+  ];
+
+  return explicitFlags.some(value => value === true);
 }
 
 function isSeededBaselineActiveStatusRow(row) {
@@ -123,23 +136,7 @@ function isSeededBaselineActiveStatusRow(row) {
     return true;
   }
 
-  const statusReason = String(row.status_reason || "").trim();
-  if (statusReason) {
-    return false;
-  }
-
-  const createdAt = getTimestampValue(row.created_at || null);
-  const updatedAt = getTimestampValue(row.updated_at || null);
-
-  if (createdAt > 0 && updatedAt > 0 && updatedAt > createdAt + 1000) {
-    return false;
-  }
-
-  if (String(row.status_code || "").trim().toLowerCase() !== "active") {
-    return row.completed !== true && row.closed !== true;
-  }
-
-  return true;
+  return !hasRealActiveTransitionEvidence(row);
 }
 
 function buildHydratedStatusEvent(row) {
