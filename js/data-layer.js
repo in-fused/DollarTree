@@ -1,10 +1,5 @@
 /* ================= DATA LAYER ================= */
 
-function isMissingColumnError(error, columnName) {
-  const haystack = `${error?.message || ""} ${error?.details || ""} ${error?.hint || ""}`.toLowerCase();
-  return haystack.includes(columnName.toLowerCase());
-}
-
 const dataLayer = {
   async getSession() {
     return await supabaseClient.auth.getSession();
@@ -168,43 +163,96 @@ const dataLayer = {
       });
   },
 
-  async updateStoreStatus(projectId, storeId, statusCode, statusReason = "") {
-    const state = getStatusState(statusCode, statusReason);
+  deriveLegacyStatusCode(completed, closed) {
+    if (closed === true) return "closed";
+    if (completed === true) return "completed";
+    return "active";
+  },
 
-    const fullPayload = {
+  normalizeStatusWritePayload(projectId, storeId, completed, closed, statusCode, statusReason) {
+    const normalizedStatusCode = typeof statusCode === "string" && statusCode.trim()
+      ? statusCode.trim()
+      : this.deriveLegacyStatusCode(completed, closed);
+
+    return {
       project_id: projectId,
       store_id: storeId,
-      status_code: state.status_code,
-      status_reason: state.status_reason || null,
-      completed: state.completed,
-      closed: state.closed
+      status_code: normalizedStatusCode,
+      status_reason: typeof statusReason === "string" && statusReason.trim()
+        ? statusReason.trim()
+        : null,
+      completed,
+      closed
     };
+  },
 
-    let result = await supabaseClient
+  isMissingColumnError(error, columnName) {
+    const haystack = [
+      error?.message,
+      error?.details,
+      error?.hint,
+      error?.code
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    if (!haystack) return false;
+
+    const normalizedColumn = String(columnName || "").toLowerCase();
+    return haystack.includes(normalizedColumn) && (
+      haystack.includes("column") ||
+      haystack.includes("schema cache") ||
+      haystack.includes("could not find") ||
+      haystack.includes("does not exist")
+    );
+  },
+
+  async updateStoreStatus(projectId, storeId, completed, closed, statusCode = null, statusReason = null) {
+    const fullPayload = this.normalizeStatusWritePayload(
+      projectId,
+      storeId,
+      completed,
+      closed,
+      statusCode,
+      statusReason
+    );
+
+    const fullResult = await supabaseClient
       .from("store_status")
       .upsert(fullPayload);
 
-    if (!result.error) return result;
-
-    const missingStatusCode = isMissingColumnError(result.error, "status_code");
-    const missingStatusReason = isMissingColumnError(result.error, "status_reason");
-
-    if (!missingStatusCode && !missingStatusReason) {
-      return result;
+    if (!fullResult.error) {
+      return fullResult;
     }
 
-    const fallbackPayload = {
-      project_id: projectId,
-      store_id: storeId,
-      completed: state.completed,
-      closed: state.closed
-    };
+    const missingStatusReason = this.isMissingColumnError(fullResult.error, "status_reason");
+    const missingStatusCode = this.isMissingColumnError(fullResult.error, "status_code");
 
-    result = await supabaseClient
-      .from("store_status")
-      .upsert(fallbackPayload);
+    if (missingStatusReason && !missingStatusCode) {
+      return await supabaseClient
+        .from("store_status")
+        .upsert({
+          project_id: fullPayload.project_id,
+          store_id: fullPayload.store_id,
+          status_code: fullPayload.status_code,
+          completed: fullPayload.completed,
+          closed: fullPayload.closed
+        });
+    }
 
-    return result;
+    if (missingStatusCode) {
+      return await supabaseClient
+        .from("store_status")
+        .upsert({
+          project_id: fullPayload.project_id,
+          store_id: fullPayload.store_id,
+          completed: fullPayload.completed,
+          closed: fullPayload.closed
+        });
+    }
+
+    return fullResult;
   },
 
   async loadActivityEvents(projectId, limit = 200) {
