@@ -34,7 +34,9 @@ function updateActivityList() {
     div.className = "activityItem";
 
     if (item.type === "status-completed") div.style.borderLeftColor = "#2ecc71";
-    else if (item.type === "status-closed") div.style.borderLeftColor = "#ff9900";
+    else if (item.type === "status-closed") div.style.borderLeftColor = "#ff2d2d";
+    else if (item.type === "status-rescheduled") div.style.borderLeftColor = "#ff9900";
+    else if (item.type === "status-active") div.style.borderLeftColor = "#64b5f6";
     else if (item.type === "photo") div.style.borderLeftColor = "#64b5f6";
     else if (item.type === "note") div.style.borderLeftColor = "#d4a5ff";
     else if (item.type === "store-created") div.style.borderLeftColor = "#9fd1ff";
