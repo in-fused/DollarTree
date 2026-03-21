@@ -73,15 +73,15 @@ async function hydrate() {
 }
 
 function getHydratedStatusEventType(row) {
-  const normalizedStatusCode = normalizeStatusCode(
+  const statusCode = normalizeStatusCode(
     row?.status_code,
     row?.completed === true,
     row?.closed === true
   );
 
-  if (normalizedStatusCode === "completed") return "status-completed";
-  if (normalizedStatusCode === "closed") return "status-closed";
-  if (normalizedStatusCode === "rescheduled") return "status-rescheduled";
+  if (statusCode === "completed") return "status-completed";
+  if (statusCode === "closed") return "status-closed";
+  if (statusCode === "rescheduled") return "status-rescheduled";
   return "status-active";
 }
 
@@ -91,10 +91,10 @@ function hasRealActiveTransitionEvidence(row) {
   const statusReason = String(row.status_reason || "").trim();
   if (statusReason) return true;
 
-  const updatedAtValue = getTimestampValue(row.updated_at || null);
   const createdAtValue = getTimestampValue(row.created_at || null);
+  const updatedAtValue = getTimestampValue(row.updated_at || null);
 
-  if (updatedAtValue > 0 && createdAtValue > 0 && updatedAtValue > createdAtValue + 1000) {
+  if (createdAtValue > 0 && updatedAtValue > 0 && updatedAtValue > createdAtValue + 1000) {
     return true;
   }
 
@@ -132,20 +132,19 @@ function isSeededBaselineActiveStatusRow(row) {
 }
 
 function buildHydratedStatusEvent(row) {
-  const statusState = getStatusStateFromRow(row);
   const type = getHydratedStatusEventType(row);
+  const statusState = getStatusStateFromRow(row);
 
   if (type === "status-active" && isSeededBaselineActiveStatusRow(row)) {
     return null;
   }
 
   const eventTime = row.updated_at || row.created_at || null;
-  const storeId = String(row.store_id);
 
   if (type === "status-completed") {
     return {
       type,
-      store_id: storeId,
+      store_id: String(row.store_id),
       timestamp: eventTime,
       title: `✔ Store ${row.store_id} completed`,
       detail: "Status updated"
@@ -155,7 +154,7 @@ function buildHydratedStatusEvent(row) {
   if (type === "status-closed") {
     return {
       type,
-      store_id: storeId,
+      store_id: String(row.store_id),
       timestamp: eventTime,
       title: `⚠ Store ${row.store_id} closed`,
       detail: "Status updated"
@@ -165,7 +164,7 @@ function buildHydratedStatusEvent(row) {
   if (type === "status-rescheduled") {
     return {
       type,
-      store_id: storeId,
+      store_id: String(row.store_id),
       timestamp: eventTime,
       title: `⟳ Store ${row.store_id} rescheduled`,
       detail: statusState?.status_reason || "Status updated"
@@ -174,7 +173,7 @@ function buildHydratedStatusEvent(row) {
 
   return {
     type,
-    store_id: storeId,
+    store_id: String(row.store_id),
     timestamp: eventTime,
     title: `• Store ${row.store_id} active`,
     detail: statusState?.status_reason || "Status updated"
