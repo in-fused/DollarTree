@@ -1,9 +1,165 @@
 /* ================= PROJECTS / HYDRATION ================= */
 
-async function loadProjects() {
-  projectList = await dataLayer.loadProjects();
+var showRemovedStores = false;
+var showArchivedProjects = false;
 
-  if (!projectList.some(project => project.project_id === currentProjectId)) {
+function getStoreById(storeId, options = {}) {
+  const includeRemoved = options.includeRemoved === true;
+  const normalizedStoreId = String(storeId);
+
+  return (storeData || []).find(store => {
+    if (String(store.store_id) !== normalizedStoreId) return false;
+    if (!includeRemoved && store.is_removed === true) return false;
+    return true;
+  }) || null;
+}
+
+function updateProjectLifecycleControls() {
+  const removedToggleBtn = document.getElementById("toggleRemovedStoresBtn");
+  const archivedToggleBtn = document.getElementById("toggleArchivedProjectsBtn");
+  const archiveBtn = document.getElementById("archiveProjectBtn");
+  const restoreBtn = document.getElementById("restoreProjectBtn");
+  const isCurrentProjectArchived = currentProjectMeta?.is_archived === true;
+
+  if (removedToggleBtn) {
+    removedToggleBtn.classList.toggle("hidden", !isAdmin());
+    removedToggleBtn.textContent = showRemovedStores ? "Hide Removed Stores" : "Show Removed Stores";
+  }
+
+  if (archivedToggleBtn) {
+    archivedToggleBtn.classList.toggle("hidden", !isAdmin());
+    archivedToggleBtn.textContent = showArchivedProjects ? "Hide Archived Projects" : "Show Archived Projects";
+  }
+
+  if (archiveBtn) {
+    archiveBtn.classList.toggle("hidden", !isAdmin() || isCurrentProjectArchived);
+  }
+
+  if (restoreBtn) {
+    restoreBtn.classList.toggle("hidden", !isAdmin() || !isCurrentProjectArchived);
+  }
+}
+
+function ensureProjectLifecycleControls() {
+  const projectPanel = document.querySelector(".panelProject");
+  const importLink = document.getElementById("importProjectLink");
+  if (!projectPanel || !importLink) return;
+
+  let controls = document.getElementById("projectLifecycleControls");
+  if (!controls) {
+    controls = document.createElement("div");
+    controls.id = "projectLifecycleControls";
+    controls.className = "filterGrid";
+
+    const toggleRemovedBtn = document.createElement("button");
+    toggleRemovedBtn.id = "toggleRemovedStoresBtn";
+    toggleRemovedBtn.type = "button";
+    toggleRemovedBtn.className = "btnSecondary";
+    toggleRemovedBtn.textContent = "Show Removed Stores";
+
+    const toggleArchivedBtn = document.createElement("button");
+    toggleArchivedBtn.id = "toggleArchivedProjectsBtn";
+    toggleArchivedBtn.type = "button";
+    toggleArchivedBtn.className = "btnSecondary";
+    toggleArchivedBtn.textContent = "Show Archived Projects";
+
+    const archiveBtn = document.createElement("button");
+    archiveBtn.id = "archiveProjectBtn";
+    archiveBtn.type = "button";
+    archiveBtn.className = "btnClosed";
+    archiveBtn.textContent = "Archive Project";
+
+    const restoreBtn = document.createElement("button");
+    restoreBtn.id = "restoreProjectBtn";
+    restoreBtn.type = "button";
+    restoreBtn.className = "btnComplete";
+    restoreBtn.textContent = "Restore Project";
+
+    controls.appendChild(toggleRemovedBtn);
+    controls.appendChild(toggleArchivedBtn);
+    controls.appendChild(archiveBtn);
+    controls.appendChild(restoreBtn);
+
+    importLink.insertAdjacentElement("afterend", controls);
+  }
+
+  const toggleRemovedBtn = document.getElementById("toggleRemovedStoresBtn");
+  const toggleArchivedBtn = document.getElementById("toggleArchivedProjectsBtn");
+  const archiveBtn = document.getElementById("archiveProjectBtn");
+  const restoreBtn = document.getElementById("restoreProjectBtn");
+
+  if (toggleRemovedBtn && !toggleRemovedBtn.dataset.bound) {
+    toggleRemovedBtn.addEventListener("click", () => {
+      if (!isAdmin()) return;
+      showRemovedStores = !showRemovedStores;
+      updateProjectLifecycleControls();
+      handleFilterChange();
+      updateProjectSourceTag();
+    });
+    toggleRemovedBtn.dataset.bound = "true";
+  }
+
+  if (toggleArchivedBtn && !toggleArchivedBtn.dataset.bound) {
+    toggleArchivedBtn.addEventListener("click", async () => {
+      if (!isAdmin()) return;
+      showArchivedProjects = !showArchivedProjects;
+      updateProjectLifecycleControls();
+      await loadProjects();
+      await loadActiveProject();
+    });
+    toggleArchivedBtn.dataset.bound = "true";
+  }
+
+  if (archiveBtn && !archiveBtn.dataset.bound) {
+    archiveBtn.addEventListener("click", async () => {
+      if (!isAdmin()) return;
+
+      const { error } = await dataLayer.updateProjectLifecycle(currentProjectId, true);
+      if (error) {
+        console.error(error);
+        alert(error.message || "Archiving project failed.");
+        return;
+      }
+
+      await loadProjects();
+      await loadActiveProject();
+    });
+    archiveBtn.dataset.bound = "true";
+  }
+
+  if (restoreBtn && !restoreBtn.dataset.bound) {
+    restoreBtn.addEventListener("click", async () => {
+      if (!isAdmin()) return;
+
+      const { error } = await dataLayer.updateProjectLifecycle(currentProjectId, false);
+      if (error) {
+        console.error(error);
+        alert(error.message || "Restoring project failed.");
+        return;
+      }
+
+      await loadProjects();
+      await loadActiveProject();
+    });
+    restoreBtn.dataset.bound = "true";
+  }
+
+  updateProjectLifecycleControls();
+}
+
+async function loadProjects() {
+  ensureProjectLifecycleControls();
+
+  const allProjects = await dataLayer.loadProjects();
+  projectList = showArchivedProjects
+    ? allProjects
+    : allProjects.filter(project => project.is_archived !== true);
+
+  if (projectList.length === 0) {
+    projectList = allProjects;
+  }
+
+  if (!projectList.some(project => project.project_id === currentProjectId) && projectList.length > 0) {
     currentProjectId = projectList[0].project_id;
     localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
   }
@@ -15,11 +171,14 @@ async function loadProjects() {
   projectList.forEach(project => {
     const option = document.createElement("option");
     option.value = project.project_id;
-    option.textContent = project.name;
+    option.textContent = project.is_archived === true
+      ? `${project.name} (Archived)`
+      : project.name;
     select.appendChild(option);
   });
 
   select.value = currentProjectId;
+  updateProjectLifecycleControls();
 }
 
 function bindProjectSelector() {
@@ -223,9 +382,13 @@ async function hydrateActivityFeed() {
 }
 
 async function loadActiveProject() {
+  ensureProjectLifecycleControls();
+
   currentProjectMeta = projectList.find(project => project.project_id === currentProjectId) || {
     project_id: currentProjectId,
     name: currentProjectId,
+    is_archived: false,
+    archived_at: null,
     store_file: `data/${currentProjectId}/stores_with_coords.json`
   };
 
@@ -246,6 +409,7 @@ async function loadActiveProject() {
   }
 
   updateProjectSourceTag();
+  updateProjectLifecycleControls();
   updateHeaderDashboard();
   updateScopeSummary();
   updateFilterSummary();
@@ -268,7 +432,17 @@ async function loadActiveProject() {
 }
 
 function updateProjectSourceTag() {
-  const text = `${currentProjectMeta?.name || currentProjectId} · ${currentProjectMeta?.sourceLabel || "Project ready"}`;
+  const tags = [currentProjectMeta?.sourceLabel || "Project ready"];
+
+  if (currentProjectMeta?.is_archived === true) {
+    tags.push("Archived");
+  }
+
+  if (showRemovedStores === true) {
+    tags.push("Removed Visible");
+  }
+
+  const text = `${currentProjectMeta?.name || currentProjectId} · ${tags.join(" • ")}`;
   setText("projectSourceTag", text);
-  setText("projectSourceTagInline", currentProjectMeta?.sourceLabel || "Project ready");
+  setText("projectSourceTagInline", tags.join(" • "));
 }
