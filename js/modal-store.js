@@ -41,7 +41,7 @@ function openStoreModal(storeId) {
   clearPhotoMessage();
 }
 
-async function updateStore(storeId, completedOrStatus, closed = false) {
+async function updateStore(storeId, completedOrStatus, closed = false, statusReason = "") {
   if (!isSignedIn()) {
     alert("Sign in to update store status.");
     return;
@@ -52,7 +52,8 @@ async function updateStore(storeId, completedOrStatus, closed = false) {
     ? getStatusState(completedOrStatus)
     : getStatusState({
         completed: completedOrStatus === true,
-        closed: closed === true
+        closed: closed === true,
+        status_reason: statusReason
       });
 
   const { error } = await dataLayer.updateStoreStatus(
