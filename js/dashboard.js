@@ -70,7 +70,7 @@ function getCurrentScopeLabel(metrics) {
   const parts = [];
   parts.push(nationalOverviewEnabled ? "National View" : "Project View");
 
-  if (typeof showRemovedStores !== "undefined" && showRemovedStores === true) {
+  if (showRemovedStores === true) {
     parts.push("Removed Visible");
   }
 
@@ -174,9 +174,7 @@ function updateSelectedStorePanel(storeId) {
   currentSelectedStoreId = String(storeId);
 
   const store = typeof getStoreById === "function"
-    ? getStoreById(storeId, {
-        includeRemoved: typeof showRemovedStores !== "undefined" && showRemovedStores === true
-      })
+    ? getStoreById(storeId, { includeRemoved: showRemovedStores === true })
     : storeData.find(item => String(item.store_id) === String(storeId));
 
   if (!store) {
@@ -201,6 +199,10 @@ function updateSelectedStorePanel(storeId) {
 
   if (statusCode === "rescheduled" && String(status.status_reason || "").trim()) {
     parts.push(`Reason: ${String(status.status_reason).trim()}`);
+  }
+
+  if (store.is_removed === true) {
+    parts.push("Removed");
   }
 
   const integrityIssues = typeof getStoreIntegrityIssues === "function"
