@@ -1,8 +1,5 @@
 /* ================= PROJECTS / HYDRATION ================= */
 
-var showRemovedStores = false;
-var showArchivedProjects = false;
-
 function getStoreById(storeId, options = {}) {
   const includeRemoved = options.includeRemoved === true;
   const normalizedStoreId = String(storeId);
