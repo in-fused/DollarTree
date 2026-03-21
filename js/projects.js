@@ -54,10 +54,7 @@ async function hydrate() {
 
   statusRowsCache.forEach(row => {
     const key = String(row.store_id);
-    statusMap[key] = {
-      completed: row.completed === true,
-      closed: row.closed === true
-    };
+    statusMap[key] = getStatusStateFromRow(row);
   });
 
   statusMap = ensureStatusIntegrity(storeData, statusMap);
@@ -76,20 +73,15 @@ async function hydrate() {
 }
 
 function getHydratedStatusEventType(row) {
-  const normalizedStatusCode = String(row?.status_code || "").trim().toLowerCase();
+  const normalizedStatusCode = normalizeStatusCode(
+    row?.status_code,
+    row?.completed === true,
+    row?.closed === true
+  );
 
-  if (row?.closed === true || normalizedStatusCode === "closed") {
-    return "status-closed";
-  }
-
-  if (row?.completed === true || normalizedStatusCode === "completed") {
-    return "status-completed";
-  }
-
-  if (normalizedStatusCode === "rescheduled") {
-    return "status-rescheduled";
-  }
-
+  if (normalizedStatusCode === "completed") return "status-completed";
+  if (normalizedStatusCode === "closed") return "status-closed";
+  if (normalizedStatusCode === "rescheduled") return "status-rescheduled";
   return "status-active";
 }
 
@@ -140,6 +132,7 @@ function isSeededBaselineActiveStatusRow(row) {
 }
 
 function buildHydratedStatusEvent(row) {
+  const statusState = getStatusStateFromRow(row);
   const type = getHydratedStatusEventType(row);
 
   if (type === "status-active" && isSeededBaselineActiveStatusRow(row)) {
@@ -175,7 +168,7 @@ function buildHydratedStatusEvent(row) {
       store_id: storeId,
       timestamp: eventTime,
       title: `⟳ Store ${row.store_id} rescheduled`,
-      detail: String(row.status_reason || "").trim() || "Status updated"
+      detail: statusState?.status_reason || "Status updated"
     };
   }
 
@@ -184,7 +177,7 @@ function buildHydratedStatusEvent(row) {
     store_id: storeId,
     timestamp: eventTime,
     title: `• Store ${row.store_id} active`,
-    detail: String(row.status_reason || "").trim() || "Status updated"
+    detail: statusState?.status_reason || "Status updated"
   };
 }
 
