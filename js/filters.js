@@ -36,6 +36,11 @@ function matchesStatusFilter(store) {
   return getStoreFilterStatusCode(store) === activeFilters.status;
 }
 
+function matchesRemovedVisibility(store) {
+  if (showRemovedStores === true) return true;
+  return store?.is_removed !== true;
+}
+
 function bindFilters() {
   const regionFilter = document.getElementById("regionFilter");
   const territoryFilter = document.getElementById("territoryFilter");
@@ -109,6 +114,7 @@ function persistFilterState() {
 
 function getFilteredStores() {
   return storeData.filter(store => {
+    if (!matchesRemovedVisibility(store)) return false;
     if (activeFilters.region && String(store.region || "") !== activeFilters.region) return false;
     if (activeFilters.territory && String(store.territory || "") !== activeFilters.territory) return false;
     if (activeFilters.state && String(store.state || "") !== activeFilters.state) return false;
@@ -119,6 +125,7 @@ function getFilteredStores() {
 
 function getStoresForOptionPopulation(dimension) {
   return storeData.filter(store => {
+    if (!matchesRemovedVisibility(store)) return false;
     if (dimension !== "region" && activeFilters.region && String(store.region || "") !== activeFilters.region) return false;
     if (dimension !== "territory" && activeFilters.territory && String(store.territory || "") !== activeFilters.territory) return false;
     if (dimension !== "state" && activeFilters.state && String(store.state || "") !== activeFilters.state) return false;
@@ -199,6 +206,7 @@ function populateFilterOptions() {
 
 function updateFilterSummary() {
   const parts = [];
+  if (showRemovedStores === true) parts.push("Removed Visible");
   if (activeFilters.region) parts.push(`Region: ${activeFilters.region}`);
   if (activeFilters.territory) parts.push(`Territory: ${activeFilters.territory}`);
   if (activeFilters.state) parts.push(`State: ${activeFilters.state}`);
