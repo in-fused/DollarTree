@@ -31,7 +31,7 @@ const dataLayer = {
     try {
       const { data, error } = await supabaseClient
         .from("projects")
-        .select("project_id, name, created_at")
+        .select("project_id, name, created_at, is_archived, archived_at")
         .order("created_at", { ascending: true });
 
       if (!error && Array.isArray(data) && data.length > 0) {
@@ -39,6 +39,8 @@ const dataLayer = {
           project_id: project.project_id,
           name: project.name,
           created_at: project.created_at,
+          is_archived: project.is_archived === true,
+          archived_at: project.archived_at || null,
           store_file: `data/${project.project_id}/stores_with_coords.json`
         }));
       }
@@ -52,7 +54,11 @@ const dataLayer = {
       const fileProjects = await res.json();
 
       if (Array.isArray(fileProjects) && fileProjects.length > 0) {
-        return fileProjects;
+        return fileProjects.map(project => ({
+          ...project,
+          is_archived: project.is_archived === true,
+          archived_at: project.archived_at || null
+        }));
       }
     } catch (error) {
       console.warn("Using default project list fallback:", error);
@@ -61,19 +67,35 @@ const dataLayer = {
     return [{
       project_id: DEFAULT_PROJECT_ID,
       name: "Central FL Dollar Tree",
+      is_archived: false,
+      archived_at: null,
       store_file: "data/central-fl-dollar-tree/stores_with_coords.json"
     }];
+  },
+
+  async updateProjectLifecycle(projectId, isArchived) {
+    return await supabaseClient
+      .from("projects")
+      .update({
+        is_archived: isArchived === true,
+        archived_at: isArchived === true ? new Date().toISOString() : null
+      })
+      .eq("project_id", projectId);
   },
 
   async loadStoresForProject(projectId, projectMeta) {
     const { data, error } = await supabaseClient
       .from("stores")
-      .select("store_id, store_name, customer_id, lat, lng, full_address, region, territory, state, city, district, division, market")
+      .select("store_id, store_name, customer_id, lat, lng, full_address, region, territory, state, city, district, division, market, is_removed, removed_at")
       .eq("project_id", projectId);
 
     if (!error && Array.isArray(data) && data.length > 0) {
       projectMeta.sourceLabel = "Supabase";
-      return data.map(normalizeStoreRecord);
+      return data.map(store => ({
+        ...normalizeStoreRecord(store),
+        is_removed: store.is_removed === true,
+        removed_at: store.removed_at || null
+      }));
     }
 
     const fallbackPaths = [
@@ -89,7 +111,11 @@ const dataLayer = {
         const json = await res.json();
         if (Array.isArray(json) && json.length > 0) {
           projectMeta.sourceLabel = "JSON fallback";
-          return json.map(normalizeStoreRecord);
+          return json.map(store => ({
+            ...normalizeStoreRecord(store),
+            is_removed: store.is_removed === true,
+            removed_at: store.removed_at || null
+          }));
         }
       } catch (err) {
         console.warn("Store file fallback failed:", path, err);
@@ -98,6 +124,17 @@ const dataLayer = {
 
     projectMeta.sourceLabel = "No stores found";
     return [];
+  },
+
+  async updateStoreLifecycle(projectId, storeId, isRemoved) {
+    return await supabaseClient
+      .from("stores")
+      .update({
+        is_removed: isRemoved === true,
+        removed_at: isRemoved === true ? new Date().toISOString() : null
+      })
+      .eq("project_id", projectId)
+      .eq("store_id", storeId);
   },
 
   async loadStoreStatus(projectId) {
