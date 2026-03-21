@@ -70,6 +70,10 @@ function getCurrentScopeLabel(metrics) {
   const parts = [];
   parts.push(nationalOverviewEnabled ? "National View" : "Project View");
 
+  if (typeof showRemovedStores !== "undefined" && showRemovedStores === true) {
+    parts.push("Removed Visible");
+  }
+
   if (activeFilters.region) parts.push(activeFilters.region);
   if (activeFilters.territory) parts.push(activeFilters.territory);
   if (activeFilters.state) parts.push(activeFilters.state);
@@ -169,7 +173,12 @@ function resetSelectedStorePanel() {
 function updateSelectedStorePanel(storeId) {
   currentSelectedStoreId = String(storeId);
 
-  const store = storeData.find(item => String(item.store_id) === String(storeId));
+  const store = typeof getStoreById === "function"
+    ? getStoreById(storeId, {
+        includeRemoved: typeof showRemovedStores !== "undefined" && showRemovedStores === true
+      })
+    : storeData.find(item => String(item.store_id) === String(storeId));
+
   if (!store) {
     resetSelectedStorePanel();
     return;
