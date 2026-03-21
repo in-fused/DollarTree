@@ -1,9 +1,222 @@
 /* ================= PROJECTS / HYDRATION ================= */
 
-async function loadProjects() {
-  projectList = await dataLayer.loadProjects();
+function archivedProjectsKey() {
+  return "archivedProjectIds";
+}
 
-  if (!projectList.some(project => project.project_id === currentProjectId)) {
+function removedStoresKey(projectId = currentProjectId) {
+  return `removedStoreIds:${projectId}`;
+}
+
+function getArchivedProjectIds() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(archivedProjectsKey()) || "[]");
+    return new Set((Array.isArray(saved) ? saved : []).map(value => String(value)));
+  } catch {
+    return new Set();
+  }
+}
+
+function persistArchivedProjectIds(ids) {
+  localStorage.setItem(archivedProjectsKey(), JSON.stringify([...ids]));
+}
+
+function getRemovedStoreIds(projectId = currentProjectId) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(removedStoresKey(projectId)) || "[]");
+    return new Set((Array.isArray(saved) ? saved : []).map(value => String(value)));
+  } catch {
+    return new Set();
+  }
+}
+
+function persistRemovedStoreIds(projectId, ids) {
+  localStorage.setItem(removedStoresKey(projectId), JSON.stringify([...ids]));
+}
+
+function ensureLifecycleStateDefaults() {
+  if (typeof window.showRemovedStores === "undefined") {
+    window.showRemovedStores = false;
+  }
+
+  if (typeof window.showArchivedProjects === "undefined") {
+    window.showArchivedProjects = false;
+  }
+}
+
+function getStoreById(storeId, options = {}) {
+  const includeRemoved = options.includeRemoved === true;
+  const normalizedStoreId = String(storeId);
+
+  return (storeData || []).find(store => {
+    if (String(store.store_id) !== normalizedStoreId) return false;
+    if (!includeRemoved && store.is_removed === true) return false;
+    return true;
+  }) || null;
+}
+
+function updateProjectLifecycleControls() {
+  const removedToggleBtn = document.getElementById("toggleRemovedStoresBtn");
+  const archivedToggleBtn = document.getElementById("toggleArchivedProjectsBtn");
+  const archiveBtn = document.getElementById("archiveProjectBtn");
+  const restoreBtn = document.getElementById("restoreProjectBtn");
+
+  const archivedProjects = getArchivedProjectIds();
+  const isCurrentProjectArchived = archivedProjects.has(String(currentProjectId));
+
+  if (removedToggleBtn) {
+    removedToggleBtn.classList.toggle("hidden", !isAdmin());
+    removedToggleBtn.textContent = showRemovedStores ? "Hide Removed Stores" : "Show Removed Stores";
+  }
+
+  if (archivedToggleBtn) {
+    archivedToggleBtn.classList.toggle("hidden", !isAdmin());
+    archivedToggleBtn.textContent = showArchivedProjects ? "Hide Archived Projects" : "Show Archived Projects";
+  }
+
+  if (archiveBtn) {
+    archiveBtn.classList.toggle("hidden", !isAdmin() || isCurrentProjectArchived);
+  }
+
+  if (restoreBtn) {
+    restoreBtn.classList.toggle("hidden", !isAdmin() || !isCurrentProjectArchived);
+  }
+}
+
+function ensureProjectLifecycleControls() {
+  const projectPanel = document.querySelector(".panelProject");
+  const importLink = document.getElementById("importProjectLink");
+  if (!projectPanel || !importLink) return;
+
+  let controls = document.getElementById("projectLifecycleControls");
+  if (!controls) {
+    controls = document.createElement("div");
+    controls.id = "projectLifecycleControls";
+    controls.className = "filterGrid";
+
+    const toggleRemovedBtn = document.createElement("button");
+    toggleRemovedBtn.id = "toggleRemovedStoresBtn";
+    toggleRemovedBtn.type = "button";
+    toggleRemovedBtn.className = "btnSecondary";
+    toggleRemovedBtn.textContent = "Show Removed Stores";
+
+    const toggleArchivedBtn = document.createElement("button");
+    toggleArchivedBtn.id = "toggleArchivedProjectsBtn";
+    toggleArchivedBtn.type = "button";
+    toggleArchivedBtn.className = "btnSecondary";
+    toggleArchivedBtn.textContent = "Show Archived Projects";
+
+    const archiveBtn = document.createElement("button");
+    archiveBtn.id = "archiveProjectBtn";
+    archiveBtn.type = "button";
+    archiveBtn.className = "btnClosed";
+    archiveBtn.textContent = "Archive Project";
+
+    const restoreBtn = document.createElement("button");
+    restoreBtn.id = "restoreProjectBtn";
+    restoreBtn.type = "button";
+    restoreBtn.className = "btnComplete";
+    restoreBtn.textContent = "Restore Project";
+
+    controls.appendChild(toggleRemovedBtn);
+    controls.appendChild(toggleArchivedBtn);
+    controls.appendChild(archiveBtn);
+    controls.appendChild(restoreBtn);
+
+    importLink.insertAdjacentElement("afterend", controls);
+  }
+
+  const toggleRemovedBtn = document.getElementById("toggleRemovedStoresBtn");
+  const toggleArchivedBtn = document.getElementById("toggleArchivedProjectsBtn");
+  const archiveBtn = document.getElementById("archiveProjectBtn");
+  const restoreBtn = document.getElementById("restoreProjectBtn");
+
+  if (toggleRemovedBtn && !toggleRemovedBtn.dataset.bound) {
+    toggleRemovedBtn.addEventListener("click", () => {
+      if (!isAdmin()) return;
+      showRemovedStores = !showRemovedStores;
+      updateProjectLifecycleControls();
+      handleFilterChange();
+    });
+    toggleRemovedBtn.dataset.bound = "true";
+  }
+
+  if (toggleArchivedBtn && !toggleArchivedBtn.dataset.bound) {
+    toggleArchivedBtn.addEventListener("click", async () => {
+      if (!isAdmin()) return;
+      showArchivedProjects = !showArchivedProjects;
+      updateProjectLifecycleControls();
+      await loadProjects();
+      await loadActiveProject();
+    });
+    toggleArchivedBtn.dataset.bound = "true";
+  }
+
+  if (archiveBtn && !archiveBtn.dataset.bound) {
+    archiveBtn.addEventListener("click", async () => {
+      if (!isAdmin()) return;
+
+      const archivedProjects = getArchivedProjectIds();
+      archivedProjects.add(String(currentProjectId));
+      persistArchivedProjectIds(archivedProjects);
+
+      await loadProjects();
+      await loadActiveProject();
+    });
+    archiveBtn.dataset.bound = "true";
+  }
+
+  if (restoreBtn && !restoreBtn.dataset.bound) {
+    restoreBtn.addEventListener("click", async () => {
+      if (!isAdmin()) return;
+
+      const archivedProjects = getArchivedProjectIds();
+      archivedProjects.delete(String(currentProjectId));
+      persistArchivedProjectIds(archivedProjects);
+
+      await loadProjects();
+      await loadActiveProject();
+    });
+    restoreBtn.dataset.bound = "true";
+  }
+
+  updateProjectLifecycleControls();
+}
+
+function softRemoveStoreFromProject(storeId) {
+  const removedStoreIds = getRemovedStoreIds(currentProjectId);
+  removedStoreIds.add(String(storeId));
+  persistRemovedStoreIds(currentProjectId, removedStoreIds);
+
+  const match = storeData.find(store => String(store.store_id) === String(storeId));
+  if (match) match.is_removed = true;
+}
+
+function restoreStoreToProject(storeId) {
+  const removedStoreIds = getRemovedStoreIds(currentProjectId);
+  removedStoreIds.delete(String(storeId));
+  persistRemovedStoreIds(currentProjectId, removedStoreIds);
+
+  const match = storeData.find(store => String(store.store_id) === String(storeId));
+  if (match) match.is_removed = false;
+}
+
+async function loadProjects() {
+  ensureLifecycleStateDefaults();
+  ensureProjectLifecycleControls();
+
+  const allProjects = await dataLayer.loadProjects();
+  const archivedProjects = getArchivedProjectIds();
+
+  projectList = showArchivedProjects
+    ? allProjects
+    : allProjects.filter(project => !archivedProjects.has(String(project.project_id)));
+
+  if (projectList.length === 0) {
+    projectList = allProjects;
+  }
+
+  if (!projectList.some(project => project.project_id === currentProjectId) && projectList.length > 0) {
     currentProjectId = projectList[0].project_id;
     localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
   }
@@ -15,11 +228,15 @@ async function loadProjects() {
   projectList.forEach(project => {
     const option = document.createElement("option");
     option.value = project.project_id;
-    option.textContent = project.name;
+
+    const archivedLabel = archivedProjects.has(String(project.project_id)) ? " (Archived)" : "";
+    option.textContent = `${project.name}${archivedLabel}`;
+
     select.appendChild(option);
   });
 
   select.value = currentProjectId;
+  updateProjectLifecycleControls();
 }
 
 function bindProjectSelector() {
@@ -39,7 +256,13 @@ function bindProjectSelector() {
 async function hydrate() {
   const hydrated = await dataLayer.hydrateProject(currentProjectId, currentProjectMeta);
 
-  storeData = hydrated.stores;
+  const removedStoreIds = getRemovedStoreIds(currentProjectId);
+
+  storeData = hydrated.stores.map(store => ({
+    ...store,
+    is_removed: removedStoreIds.has(String(store.store_id))
+  }));
+
   statusRowsCache = hydrated.statusRows;
   noteRowsCache = hydrated.noteRows;
   photoRowsCache = hydrated.photoRows;
@@ -223,6 +446,9 @@ async function hydrateActivityFeed() {
 }
 
 async function loadActiveProject() {
+  ensureLifecycleStateDefaults();
+  ensureProjectLifecycleControls();
+
   currentProjectMeta = projectList.find(project => project.project_id === currentProjectId) || {
     project_id: currentProjectId,
     name: currentProjectId,
@@ -246,6 +472,7 @@ async function loadActiveProject() {
   }
 
   updateProjectSourceTag();
+  updateProjectLifecycleControls();
   updateHeaderDashboard();
   updateScopeSummary();
   updateFilterSummary();
@@ -268,7 +495,18 @@ async function loadActiveProject() {
 }
 
 function updateProjectSourceTag() {
-  const text = `${currentProjectMeta?.name || currentProjectId} · ${currentProjectMeta?.sourceLabel || "Project ready"}`;
+  const archivedProjects = getArchivedProjectIds();
+  const tags = [currentProjectMeta?.sourceLabel || "Project ready"];
+
+  if (archivedProjects.has(String(currentProjectId))) {
+    tags.push("Archived");
+  }
+
+  if (showRemovedStores === true) {
+    tags.push("Removed Visible");
+  }
+
+  const text = `${currentProjectMeta?.name || currentProjectId} · ${tags.join(" • ")}`;
   setText("projectSourceTag", text);
-  setText("projectSourceTagInline", currentProjectMeta?.sourceLabel || "Project ready");
+  setText("projectSourceTagInline", tags.join(" • "));
 }
