@@ -50,7 +50,10 @@ async function updateStore(storeId, completedOrStatus, closed = false) {
   const normalizedStoreId = String(storeId);
   const nextStatus = typeof completedOrStatus === "object" && completedOrStatus !== null
     ? getStatusState(completedOrStatus)
-    : getStatusState({ completed: completedOrStatus === true, closed: closed === true });
+    : getStatusState({
+        completed: completedOrStatus === true,
+        closed: closed === true
+      });
 
   const { error } = await dataLayer.updateStoreStatus(
     currentProjectId,
