@@ -1,5 +1,133 @@
 /* ================= MODAL / STORE DETAILS ================= */
 
+const RESCHEDULE_REASON_PRESETS = [
+  "Access issue",
+  "Staffing",
+  "Inventory",
+  "Weather",
+  "Scheduling conflict",
+  "Other"
+];
+
+function ensureRescheduleControls() {
+  const modal = document.getElementById("confirmModal");
+  const statusButtons = modal?.querySelector(".statusButtons");
+  if (!modal || !statusButtons) {
+    return {
+      button: null,
+      section: null,
+      preset: null,
+      custom: null
+    };
+  }
+
+  let rescheduleButton = document.getElementById("markRescheduled");
+  if (!rescheduleButton) {
+    rescheduleButton = document.createElement("button");
+    rescheduleButton.id = "markRescheduled";
+    rescheduleButton.type = "button";
+    rescheduleButton.className = "btnClosed";
+    rescheduleButton.textContent = "Mark Rescheduled";
+    statusButtons.appendChild(rescheduleButton);
+  }
+
+  let section = document.getElementById("rescheduleReasonSection");
+  if (!section) {
+    section = document.createElement("div");
+    section.id = "rescheduleReasonSection";
+
+    const label = document.createElement("div");
+    label.id = "rescheduleReasonLabel";
+    label.className = "projectSourceTag";
+    label.textContent = "Reschedule reason (optional)";
+
+    const preset = document.createElement("select");
+    preset.id = "rescheduleReasonPreset";
+
+    const custom = document.createElement("textarea");
+    custom.id = "rescheduleReasonInput";
+    custom.placeholder = "Enter a reschedule reason (optional)...";
+    custom.style.display = "none";
+
+    section.appendChild(label);
+    section.appendChild(preset);
+    section.appendChild(custom);
+
+    statusButtons.insertAdjacentElement("afterend", section);
+  }
+
+  const preset = document.getElementById("rescheduleReasonPreset");
+  const custom = document.getElementById("rescheduleReasonInput");
+
+  if (preset && !preset.dataset.initialized) {
+    preset.innerHTML = "";
+
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "Select reason (optional)";
+    preset.appendChild(defaultOption);
+
+    RESCHEDULE_REASON_PRESETS.forEach(reason => {
+      const option = document.createElement("option");
+      option.value = reason;
+      option.textContent = reason;
+      preset.appendChild(option);
+    });
+
+    preset.addEventListener("change", () => {
+      if (!custom) return;
+
+      if (preset.value === "Other") {
+        custom.style.display = "block";
+        custom.placeholder = "Enter custom reschedule reason...";
+      } else {
+        custom.style.display = "none";
+      }
+    });
+
+    preset.dataset.initialized = "true";
+  }
+
+  return {
+    button: rescheduleButton,
+    section,
+    preset,
+    custom
+  };
+}
+
+function setRescheduleReasonUI(status) {
+  const controls = ensureRescheduleControls();
+  if (!controls.section || !controls.preset || !controls.custom) return;
+
+  const reason = String(status?.status_reason || "").trim();
+  const statusCode = normalizeStatusCode(
+    status?.status_code,
+    status?.completed === true,
+    status?.closed === true
+  );
+
+  const matchesPreset = RESCHEDULE_REASON_PRESETS.includes(reason) && reason !== "Other";
+
+  controls.section.style.display = statusCode === "rescheduled" ? "block" : "none";
+  controls.preset.value = matchesPreset ? reason : reason ? "Other" : "";
+  controls.custom.value = matchesPreset ? "" : reason;
+  controls.custom.style.display = controls.preset.value === "Other" ? "block" : "none";
+}
+
+function getRescheduleReasonValue() {
+  const preset = document.getElementById("rescheduleReasonPreset");
+  const custom = document.getElementById("rescheduleReasonInput");
+
+  if (!preset) return "";
+
+  if (preset.value === "Other") {
+    return String(custom?.value || "").trim();
+  }
+
+  return String(preset.value || "").trim();
+}
+
 function openStoreModal(storeId) {
   const normalizedStoreId = String(storeId);
   currentModalStoreId = normalizedStoreId;
@@ -22,9 +150,38 @@ function openStoreModal(storeId) {
   const uploadPhotoBtn = document.getElementById("uploadPhotoBtn");
   const confirmCancel = document.getElementById("confirmCancel");
 
-  if (markActive) markActive.onclick = () => updateStore(normalizedStoreId, false, false);
-  if (markCompleted) markCompleted.onclick = () => updateStore(normalizedStoreId, true, false);
-  if (markClosed) markClosed.onclick = () => updateStore(normalizedStoreId, false, true);
+  const rescheduleControls = ensureRescheduleControls();
+  const currentStatus = statusMap[normalizedStoreId] || {};
+  setRescheduleReasonUI(currentStatus);
+
+  if (markActive) {
+    markActive.onclick = () => updateStore(normalizedStoreId, {
+      status_code: "active",
+      status_reason: ""
+    });
+  }
+
+  if (markCompleted) {
+    markCompleted.onclick = () => updateStore(normalizedStoreId, {
+      status_code: "completed",
+      status_reason: ""
+    });
+  }
+
+  if (markClosed) {
+    markClosed.onclick = () => updateStore(normalizedStoreId, {
+      status_code: "closed",
+      status_reason: ""
+    });
+  }
+
+  if (rescheduleControls.button) {
+    rescheduleControls.button.onclick = () => updateStore(normalizedStoreId, {
+      status_code: "rescheduled",
+      status_reason: getRescheduleReasonValue()
+    });
+  }
+
   if (addNoteBtn) addNoteBtn.onclick = () => addNote(normalizedStoreId);
   if (addToRouteBtn) addToRouteBtn.onclick = () => addStoreToRoute(normalizedStoreId);
   if (uploadPhotoBtn) uploadPhotoBtn.onclick = () => uploadPhoto(normalizedStoreId);
@@ -74,6 +231,7 @@ async function updateStore(storeId, completedOrStatus, closed = false, statusRea
   statusMap[normalizedStoreId] = nextStatus;
   persistedStatusStoreIds.add(normalizedStoreId);
   touchDataRefresh();
+  setRescheduleReasonUI(nextStatus);
 
   prependActivity({
     type: nextStatus.status_code === "completed"

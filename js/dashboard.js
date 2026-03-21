@@ -22,7 +22,7 @@ function getScopeMetrics() {
   let closed = 0;
 
   filteredStores.forEach(store => {
-    const status = statusMap[String(store.store_id)] || getStatusState("active");
+    const status = statusMap[String(store.store_id)] || {};
     if (status.completed) completed += 1;
     if (status.closed) closed += 1;
   });
@@ -70,10 +70,17 @@ function getCurrentScopeLabel(metrics) {
   const parts = [];
   parts.push(nationalOverviewEnabled ? "National View" : "Project View");
 
+  if (typeof showRemovedStores !== "undefined" && showRemovedStores === true) {
+    parts.push("Removed Visible");
+  }
+
   if (activeFilters.region) parts.push(activeFilters.region);
   if (activeFilters.territory) parts.push(activeFilters.territory);
   if (activeFilters.state) parts.push(activeFilters.state);
-  if (showRemovedStores) parts.push("Removed Visible");
+  if (activeFilters.status) {
+    const label = activeFilters.status.charAt(0).toUpperCase() + activeFilters.status.slice(1);
+    parts.push(label);
+  }
   if (metrics.totalStores > 0) parts.push(`${metrics.totalStores.toLocaleString()} stores`);
 
   return parts.join(" • ");
@@ -166,22 +173,35 @@ function resetSelectedStorePanel() {
 function updateSelectedStorePanel(storeId) {
   currentSelectedStoreId = String(storeId);
 
-  const store = getStoreById(storeId, { includeRemoved: showRemovedStores });
+  const store = typeof getStoreById === "function"
+    ? getStoreById(storeId, {
+        includeRemoved: typeof showRemovedStores !== "undefined" && showRemovedStores === true
+      })
+    : storeData.find(item => String(item.store_id) === String(storeId));
+
   if (!store) {
     resetSelectedStorePanel();
     return;
   }
 
-  const status = statusMap[String(store.store_id)] || getStatusState("active");
-  const statusLabel = getStatusDisplayLabel(status.status_code);
-  const statusReason = String(status.status_reason || "").trim();
+  const status = statusMap[String(store.store_id)] || {};
+  const statusCode = normalizeStatusCode(
+    status.status_code,
+    status.completed === true,
+    status.closed === true
+  );
+  const statusLabel = statusCode.charAt(0).toUpperCase() + statusCode.slice(1);
 
   const parts = [];
   if (store.full_address) parts.push(store.full_address);
   if (store.region) parts.push(`Region: ${store.region}`);
   if (store.territory) parts.push(`Territory: ${store.territory}`);
   if (store.state) parts.push(`State: ${store.state}`);
-  parts.push(`Status: ${statusLabel}${statusReason ? ` (${statusReason})` : ""}`);
+  parts.push(`Status: ${statusLabel}`);
+
+  if (statusCode === "rescheduled" && String(status.status_reason || "").trim()) {
+    parts.push(`Reason: ${String(status.status_reason).trim()}`);
+  }
 
   const integrityIssues = typeof getStoreIntegrityIssues === "function"
     ? getStoreIntegrityIssues(store, statusMap)
