@@ -73,15 +73,15 @@ async function hydrate() {
 }
 
 function getHydratedStatusEventType(row) {
-  const statusCode = normalizeStatusCode(
+  const normalizedStatusCode = normalizeStatusCode(
     row?.status_code,
     row?.completed === true,
     row?.closed === true
   );
 
-  if (statusCode === "completed") return "status-completed";
-  if (statusCode === "closed") return "status-closed";
-  if (statusCode === "rescheduled") return "status-rescheduled";
+  if (normalizedStatusCode === "completed") return "status-completed";
+  if (normalizedStatusCode === "closed") return "status-closed";
+  if (normalizedStatusCode === "rescheduled") return "status-rescheduled";
   return "status-active";
 }
 
@@ -134,12 +134,11 @@ function isSeededBaselineActiveStatusRow(row) {
 function buildHydratedStatusEvent(row) {
   const type = getHydratedStatusEventType(row);
   const statusState = getStatusStateFromRow(row);
+  const eventTime = row.updated_at || row.created_at || null;
 
   if (type === "status-active" && isSeededBaselineActiveStatusRow(row)) {
     return null;
   }
-
-  const eventTime = row.updated_at || row.created_at || null;
 
   if (type === "status-completed") {
     return {
