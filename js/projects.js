@@ -54,13 +54,14 @@ async function hydrate() {
 
   statusRowsCache.forEach(row => {
     const key = String(row.store_id);
-    statusMap[key] = {
-      completed: row.completed === true,
-      closed: row.closed === true
-    };
+    statusMap[key] = getStatusStateFromRow(row);
   });
 
   statusMap = ensureStatusIntegrity(storeData, statusMap);
+
+  Object.keys(statusMap).forEach(key => {
+    statusMap[key] = getStatusState(statusMap[key]);
+  });
 
   if (hydrated.noteError) {
     console.error("Supabase store_notes error:", hydrated.noteError);
@@ -76,21 +77,8 @@ async function hydrate() {
 }
 
 function getHydratedStatusEventType(row) {
-  const normalizedStatusCode = String(row?.status_code || "").trim().toLowerCase();
-
-  if (row?.closed === true || normalizedStatusCode === "closed") {
-    return "status-closed";
-  }
-
-  if (row?.completed === true || normalizedStatusCode === "completed") {
-    return "status-completed";
-  }
-
-  if (normalizedStatusCode === "rescheduled") {
-    return "status-rescheduled";
-  }
-
-  return "status-active";
+  const statusState = getStatusStateFromRow(row);
+  return `status-${normalizeStatusCode(statusState.status_code, statusState.completed, statusState.closed)}`;
 }
 
 function hasRealActiveTransitionEvidence(row) {
@@ -140,6 +128,7 @@ function isSeededBaselineActiveStatusRow(row) {
 }
 
 function buildHydratedStatusEvent(row) {
+  const statusState = getStatusStateFromRow(row);
   const type = getHydratedStatusEventType(row);
 
   if (type === "status-active" && isSeededBaselineActiveStatusRow(row)) {
@@ -175,7 +164,7 @@ function buildHydratedStatusEvent(row) {
       store_id: storeId,
       timestamp: eventTime,
       title: `⟳ Store ${row.store_id} rescheduled`,
-      detail: String(row.status_reason || "").trim() || "Status updated"
+      detail: statusState.status_reason || "Status updated"
     };
   }
 
@@ -184,7 +173,7 @@ function buildHydratedStatusEvent(row) {
     store_id: storeId,
     timestamp: eventTime,
     title: `• Store ${row.store_id} active`,
-    detail: String(row.status_reason || "").trim() || "Status updated"
+    detail: statusState.status_reason || "Status updated"
   };
 }
 
