@@ -96,6 +96,64 @@ function ensureRescheduleControls() {
   };
 }
 
+function ensureStoreLifecycleControls() {
+  const modal = document.getElementById("confirmModal");
+  const closeBtn = document.getElementById("confirmCancel");
+  if (!modal || !closeBtn) {
+    return {
+      removeBtn: null,
+      restoreBtn: null
+    };
+  }
+
+  let lifecycleWrap = document.getElementById("storeLifecycleControls");
+  if (!lifecycleWrap) {
+    lifecycleWrap = document.createElement("div");
+    lifecycleWrap.id = "storeLifecycleControls";
+    lifecycleWrap.className = "filterGrid";
+
+    const removeBtn = document.createElement("button");
+    removeBtn.id = "removeStoreBtn";
+    removeBtn.type = "button";
+    removeBtn.className = "btnClosed";
+    removeBtn.textContent = "Remove Store from Project";
+
+    const restoreBtn = document.createElement("button");
+    restoreBtn.id = "restoreStoreBtn";
+    restoreBtn.type = "button";
+    restoreBtn.className = "btnComplete";
+    restoreBtn.textContent = "Restore Store";
+
+    lifecycleWrap.appendChild(removeBtn);
+    lifecycleWrap.appendChild(restoreBtn);
+
+    closeBtn.insertAdjacentElement("beforebegin", lifecycleWrap);
+  }
+
+  return {
+    removeBtn: document.getElementById("removeStoreBtn"),
+    restoreBtn: document.getElementById("restoreStoreBtn")
+  };
+}
+
+function updateStoreLifecycleControls(storeId) {
+  const controls = ensureStoreLifecycleControls();
+  const removedStoreIds = typeof getRemovedStoreIds === "function"
+    ? getRemovedStoreIds(currentProjectId)
+    : new Set();
+  const isRemoved = removedStoreIds.has(String(storeId));
+
+  if (controls.removeBtn) {
+    controls.removeBtn.classList.toggle("hidden", !isAdmin() || isRemoved);
+  }
+
+  if (controls.restoreBtn) {
+    controls.restoreBtn.classList.toggle("hidden", !isAdmin() || !isRemoved);
+  }
+
+  return controls;
+}
+
 function setRescheduleReasonUI(status) {
   const controls = ensureRescheduleControls();
   if (!controls.section || !controls.preset || !controls.custom) return;
@@ -139,7 +197,10 @@ function openStoreModal(storeId) {
   modal.classList.remove("hidden");
   setText("confirmStoreId", `Store ID: ${normalizedStoreId}`);
 
-  const store = storeData.find(item => String(item.store_id) === normalizedStoreId);
+  const store = typeof getStoreById === "function"
+    ? getStoreById(normalizedStoreId, { includeRemoved: true })
+    : storeData.find(item => String(item.store_id) === normalizedStoreId);
+
   setText("confirmAddress", store?.full_address || "");
 
   const markActive = document.getElementById("markActive");
@@ -151,6 +212,7 @@ function openStoreModal(storeId) {
   const confirmCancel = document.getElementById("confirmCancel");
 
   const rescheduleControls = ensureRescheduleControls();
+  const lifecycleControls = updateStoreLifecycleControls(normalizedStoreId);
   const currentStatus = statusMap[normalizedStoreId] || {};
   setRescheduleReasonUI(currentStatus);
 
@@ -180,6 +242,31 @@ function openStoreModal(storeId) {
       status_code: "rescheduled",
       status_reason: getRescheduleReasonValue()
     });
+  }
+
+  if (lifecycleControls.removeBtn) {
+    lifecycleControls.removeBtn.onclick = () => {
+      if (!isAdmin()) return;
+      softRemoveStoreFromProject(normalizedStoreId);
+      updateStoreLifecycleControls(normalizedStoreId);
+      handleFilterChange();
+      updateProjectSourceTag();
+      updateSelectedStorePanel(normalizedStoreId);
+      if (showRemovedStores !== true) {
+        modal.classList.add("hidden");
+      }
+    };
+  }
+
+  if (lifecycleControls.restoreBtn) {
+    lifecycleControls.restoreBtn.onclick = () => {
+      if (!isAdmin()) return;
+      restoreStoreToProject(normalizedStoreId);
+      updateStoreLifecycleControls(normalizedStoreId);
+      handleFilterChange();
+      updateProjectSourceTag();
+      updateSelectedStorePanel(normalizedStoreId);
+    };
   }
 
   if (addNoteBtn) addNoteBtn.onclick = () => addNote(normalizedStoreId);
