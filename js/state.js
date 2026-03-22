@@ -32,13 +32,34 @@ function deriveLegacyStatusCode(completed, closed) {
   return "active";
 }
 
-function getStatusState(statusCode, statusReason = "") {
-  const normalized = normalizeStatusCode(statusCode);
+function getStatusState(statusInput, statusReason = "") {
+  if (statusInput && typeof statusInput === "object") {
+    const completed = statusInput.completed === true;
+    const closed = statusInput.closed === true;
+    const normalizedStatusCode = normalizeStatusCode(
+      statusInput.status_code,
+      completed,
+      closed
+    );
+    const normalizedStatusReason = String(
+      statusInput.status_reason ?? statusReason ?? ""
+    ).trim();
+
+    return {
+      status_code: normalizedStatusCode,
+      status_reason: normalizedStatusReason,
+      completed: normalizedStatusCode === "completed",
+      closed: normalizedStatusCode === "closed"
+    };
+  }
+
+  const normalizedStatusCode = normalizeStatusCode(statusInput, false, false);
+
   return {
-    status_code: normalized,
+    status_code: normalizedStatusCode,
     status_reason: String(statusReason || "").trim(),
-    completed: normalized === "completed",
-    closed: normalized === "closed"
+    completed: normalizedStatusCode === "completed",
+    closed: normalizedStatusCode === "closed"
   };
 }
 
