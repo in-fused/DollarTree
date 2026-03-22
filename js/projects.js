@@ -474,7 +474,7 @@ async function loadActiveProject() {
 }
 
 function updateProjectSourceTag() {
-  const tags = [currentProjectMeta?.sourceLabel || "Project ready"];
+  const tags = [currentProjectMeta?.name || currentProjectId, currentProjectMeta?.sourceLabel || "Project ready"];
 
   if (currentProjectMeta?.is_archived === true) {
     tags.push("Archived");
@@ -488,7 +488,7 @@ function updateProjectSourceTag() {
     tags.push(`Updated ${formatLastUpdated(lastDataRefreshAt)}`);
   }
 
-  const text = tags.join(" • ");
+  const text = tags.filter(Boolean).join(" • ");
   setText("projectSourceTag", text);
   setText("projectSourceTagInline", text);
 }
