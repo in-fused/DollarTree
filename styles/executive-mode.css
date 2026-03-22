@@ -2,7 +2,7 @@
 
 body.executive-mode .topHeader {
   height: var(--header-h-exec);
-  padding: max(8px, env(safe-area-inset-top)) 16px 8px;
+  padding: max(7px, env(safe-area-inset-top)) 12px 7px;
 }
 
 body.executive-mode .headerEyebrow,
@@ -14,12 +14,12 @@ body.executive-mode .headerViewMeta {
 }
 
 body.executive-mode .commandBar {
-  min-height: 52px;
-  grid-template-columns: minmax(220px, 1fr) auto minmax(180px, 1fr);
+  min-height: 40px;
+  grid-template-columns: minmax(210px, 1fr) auto minmax(164px, 1fr);
 }
 
 body.executive-mode .brandLogoWide {
-  width: 210px;
+  height: 70px;
 }
 
 body.executive-mode .headerViewBar {
@@ -28,14 +28,14 @@ body.executive-mode .headerViewBar {
 
 body.executive-mode .headerMetricsStrip {
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
+  gap: 5px;
 }
 
 body.executive-mode .headerStat {
-  min-height: 46px;
-  padding: 8px 10px 7px;
+  min-height: 36px;
+  padding: 5px 7px 4px;
 }
 
 body.executive-mode .headerStatValue {
-  font-size: 14px;
+  font-size: 12px;
 }
