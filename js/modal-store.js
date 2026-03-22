@@ -144,11 +144,11 @@ function updateStoreLifecycleControls(storeId) {
   const isRemoved = store?.is_removed === true;
 
   if (controls.removeBtn) {
-    controls.removeBtn.classList.toggle("hidden", !isAdmin() || isRemoved);
+    controls.removeBtn.classList.toggle("hidden", !canManageStoreLifecycle() || isRemoved);
   }
 
   if (controls.restoreBtn) {
-    controls.restoreBtn.classList.toggle("hidden", !isAdmin() || !isRemoved);
+    controls.restoreBtn.classList.toggle("hidden", !canManageStoreLifecycle() || !isRemoved);
   }
 
   return controls;
@@ -246,7 +246,7 @@ function openStoreModal(storeId) {
 
   if (lifecycleControls.removeBtn) {
     lifecycleControls.removeBtn.onclick = async () => {
-      if (!isAdmin()) return;
+      if (!canManageStoreLifecycle()) return;
 
       const { error } = await dataLayer.updateStoreLifecycle(currentProjectId, normalizedStoreId, true);
       if (error) {
@@ -275,7 +275,7 @@ function openStoreModal(storeId) {
 
   if (lifecycleControls.restoreBtn) {
     lifecycleControls.restoreBtn.onclick = async () => {
-      if (!isAdmin()) return;
+      if (!canManageStoreLifecycle()) return;
 
       const { error } = await dataLayer.updateStoreLifecycle(currentProjectId, normalizedStoreId, false);
       if (error) {
@@ -315,8 +315,8 @@ function openStoreModal(storeId) {
 }
 
 async function updateStore(storeId, completedOrStatus, closed = false, statusReason = "") {
-  if (!isSignedIn()) {
-    alert("Sign in to update store status.");
+  if (!isSignedIn() || !canEditStores()) {
+    alert("Editor or admin sign-in required to update store status.");
     return;
   }
 
@@ -380,8 +380,8 @@ async function updateStore(storeId, completedOrStatus, closed = false, statusRea
 }
 
 async function addNote(storeId) {
-  if (!isSignedIn()) {
-    alert("Sign in to add notes.");
+  if (!isSignedIn() || !canAddNotes()) {
+    alert("Editor or admin sign-in required to add notes.");
     return;
   }
 
