@@ -186,6 +186,45 @@ function getRescheduleReasonValue() {
   return String(preset.value || "").trim();
 }
 
+function getModalEffectiveStatus(storeId) {
+  return statusMap[String(storeId)] || {};
+}
+
+async function handleStoreModalClose(storeId) {
+  const modal = document.getElementById("confirmModal");
+  if (!modal) return;
+
+  const normalizedStoreId = String(storeId);
+  const currentStatus = getModalEffectiveStatus(normalizedStoreId);
+  const currentStatusCode = normalizeStatusCode(
+    currentStatus?.status_code,
+    currentStatus?.completed === true,
+    currentStatus?.closed === true
+  );
+
+  if (currentStatusCode !== "rescheduled" || !canEditStores()) {
+    modal.classList.add("hidden");
+    return;
+  }
+
+  const nextReason = getRescheduleReasonValue();
+  const currentReason = String(currentStatus?.status_reason || "").trim();
+
+  if (nextReason === currentReason) {
+    modal.classList.add("hidden");
+    return;
+  }
+
+  const updated = await updateStore(normalizedStoreId, {
+    status_code: "rescheduled",
+    status_reason: nextReason
+  });
+
+  if (updated) {
+    modal.classList.add("hidden");
+  }
+}
+
 function openStoreModal(storeId) {
   const normalizedStoreId = String(storeId);
   currentModalStoreId = normalizedStoreId;
@@ -302,8 +341,8 @@ function openStoreModal(storeId) {
   if (addToRouteBtn) addToRouteBtn.onclick = () => addStoreToRoute(normalizedStoreId);
   if (uploadPhotoBtn) uploadPhotoBtn.onclick = () => uploadPhoto(normalizedStoreId);
   if (confirmCancel) {
-    confirmCancel.onclick = () => {
-      modal.classList.add("hidden");
+    confirmCancel.onclick = async () => {
+      await handleStoreModalClose(normalizedStoreId);
     };
   }
 
@@ -317,7 +356,7 @@ function openStoreModal(storeId) {
 async function updateStore(storeId, completedOrStatus, closed = false, statusReason = "") {
   if (!isSignedIn() || !canEditStores()) {
     alert("Editor or admin sign-in required to update store status.");
-    return;
+    return false;
   }
 
   const normalizedStoreId = String(storeId);
@@ -341,7 +380,7 @@ async function updateStore(storeId, completedOrStatus, closed = false, statusRea
   if (error) {
     console.error(error);
     alert(error.message || "Store update failed.");
-    return;
+    return false;
   }
 
   statusMap[normalizedStoreId] = nextStatus;
@@ -377,6 +416,8 @@ async function updateStore(storeId, completedOrStatus, closed = false, statusRea
   updateIntelRail();
   updateSelectedStorePanel(normalizedStoreId);
   renderPhotoLibrary();
+
+  return true;
 }
 
 async function addNote(storeId) {
