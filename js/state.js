@@ -18,6 +18,57 @@ const NATIONAL_CENTER = [-96, 38];
 const NATIONAL_ZOOM = 3.2;
 
 const PHOTO_BUCKET_CANDIDATES = ["store-photos", "store_photos", "photos"];
+const SUPPORTED_STORE_STATUS_CODES = ["active", "completed", "closed", "rescheduled"];
+
+function normalizeStatusCode(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (SUPPORTED_STORE_STATUS_CODES.includes(normalized)) return normalized;
+  return "active";
+}
+
+function deriveLegacyStatusCode(completed, closed) {
+  if (completed === true) return "completed";
+  if (closed === true) return "closed";
+  return "active";
+}
+
+function getStatusState(statusCode, statusReason = "") {
+  const normalized = normalizeStatusCode(statusCode);
+  return {
+    status_code: normalized,
+    status_reason: String(statusReason || "").trim(),
+    completed: normalized === "completed",
+    closed: normalized === "closed"
+  };
+}
+
+function getStatusStateFromRow(row) {
+  const code = row?.status_code
+    ? normalizeStatusCode(row.status_code)
+    : deriveLegacyStatusCode(row?.completed === true, row?.closed === true);
+
+  return getStatusState(code, row?.status_reason || "");
+}
+
+function getStatusDisplayLabel(statusCode) {
+  const normalized = normalizeStatusCode(statusCode);
+  if (normalized === "completed") return "Completed";
+  if (normalized === "closed") return "Closed";
+  if (normalized === "rescheduled") return "Rescheduled";
+  return "Active";
+}
+
+function getStatusActivityType(statusCode) {
+  return `status-${normalizeStatusCode(statusCode)}`;
+}
+
+function buildStatusActivityTitle(storeId, statusCode) {
+  const normalized = normalizeStatusCode(statusCode);
+  if (normalized === "completed") return `✔ Store ${storeId} completed`;
+  if (normalized === "closed") return `✖ Store ${storeId} closed`;
+  if (normalized === "rescheduled") return `↺ Store ${storeId} rescheduled`;
+  return `• Store ${storeId} active`;
+}
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -30,6 +81,7 @@ const map = new mapboxgl.Map({
 
 let resolvedPhotoBucket = null;
 
+let allStoreData = [];
 let storeData = [];
 let statusMap = {};
 let geojsonData = { type: "FeatureCollection", features: [] };
@@ -44,6 +96,7 @@ let currentSession = null;
 let currentUser = null;
 let currentRole = "viewer";
 
+let allProjectList = [];
 let projectList = [];
 let statusRowsCache = [];
 let persistedStatusStoreIds = new Set();
@@ -63,11 +116,13 @@ let mobileExecutiveSummaryExpanded = false;
 let showArchivedProjects = false;
 let showRemovedStores = false;
 
+let activePointPulseAnimationId = null;
+let activePointPulseStartedAt = 0;
+
 let activeFilters = {
   region: "",
   territory: "",
-  state: "",
-  status: ""
+  state: ""
 };
 
 let photoLibraryFilters = {
@@ -76,55 +131,3 @@ let photoLibraryFilters = {
   group: "none",
   search: ""
 };
-
-function normalizeStatusCode(statusCode, completed = false, closed = false) {
-  const normalized = String(statusCode || "").trim().toLowerCase();
-
-  if (normalized === "active") return "active";
-  if (normalized === "completed") return "completed";
-  if (normalized === "closed") return "closed";
-  if (normalized === "rescheduled") return "rescheduled";
-
-  if (closed === true) return "closed";
-  if (completed === true) return "completed";
-  return "active";
-}
-
-function getStatusState(statusInput, statusReason = "") {
-  if (statusInput && typeof statusInput === "object") {
-    const completed = statusInput.completed === true;
-    const closed = statusInput.closed === true;
-    const normalizedStatusCode = normalizeStatusCode(
-      statusInput.status_code,
-      completed,
-      closed
-    );
-    const normalizedStatusReason = String(
-      statusInput.status_reason ?? statusReason ?? ""
-    ).trim();
-
-    return {
-      status_code: normalizedStatusCode,
-      status_reason: normalizedStatusReason,
-      completed: normalizedStatusCode === "completed",
-      closed: normalizedStatusCode === "closed"
-    };
-  }
-
-  const normalizedStatusCode = normalizeStatusCode(statusInput, false, false);
-  return {
-    status_code: normalizedStatusCode,
-    status_reason: String(statusReason || "").trim(),
-    completed: normalizedStatusCode === "completed",
-    closed: normalizedStatusCode === "closed"
-  };
-}
-
-function getStatusStateFromRow(row) {
-  return getStatusState({
-    status_code: row?.status_code,
-    status_reason: row?.status_reason,
-    completed: row?.completed === true,
-    closed: row?.closed === true
-  });
-}
