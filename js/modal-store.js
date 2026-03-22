@@ -17,7 +17,9 @@ function ensureRescheduleControls() {
       button: null,
       section: null,
       preset: null,
-      custom: null
+      custom: null,
+      applyBtn: null,
+      helper: null
     };
   }
 
@@ -39,7 +41,7 @@ function ensureRescheduleControls() {
     const label = document.createElement("div");
     label.id = "rescheduleReasonLabel";
     label.className = "projectSourceTag";
-    label.textContent = "Reschedule reason (optional)";
+    label.textContent = "Reschedule reason";
 
     const preset = document.createElement("select");
     preset.id = "rescheduleReasonPreset";
@@ -49,15 +51,30 @@ function ensureRescheduleControls() {
     custom.placeholder = "Enter a reschedule reason (optional)...";
     custom.style.display = "none";
 
+    const helper = document.createElement("div");
+    helper.id = "rescheduleReasonHelper";
+    helper.className = "projectSourceTag";
+    helper.textContent = "Reason applies to rescheduled status.";
+
+    const applyBtn = document.createElement("button");
+    applyBtn.id = "applyRescheduleReasonBtn";
+    applyBtn.type = "button";
+    applyBtn.className = "btnSecondary";
+    applyBtn.textContent = "Apply Reschedule Reason";
+
     section.appendChild(label);
     section.appendChild(preset);
     section.appendChild(custom);
+    section.appendChild(helper);
+    section.appendChild(applyBtn);
 
     statusButtons.insertAdjacentElement("afterend", section);
   }
 
   const preset = document.getElementById("rescheduleReasonPreset");
   const custom = document.getElementById("rescheduleReasonInput");
+  const applyBtn = document.getElementById("applyRescheduleReasonBtn");
+  const helper = document.getElementById("rescheduleReasonHelper");
 
   if (preset && !preset.dataset.initialized) {
     preset.innerHTML = "";
@@ -83,16 +100,27 @@ function ensureRescheduleControls() {
       } else {
         custom.style.display = "none";
       }
+
+      updateRescheduleReasonHelper();
     });
 
     preset.dataset.initialized = "true";
+  }
+
+  if (custom && !custom.dataset.bound) {
+    custom.addEventListener("input", () => {
+      updateRescheduleReasonHelper();
+    });
+    custom.dataset.bound = "true";
   }
 
   return {
     button: rescheduleButton,
     section,
     preset,
-    custom
+    custom,
+    applyBtn,
+    helper
   };
 }
 
@@ -171,6 +199,7 @@ function setRescheduleReasonUI(status) {
   controls.preset.value = matchesPreset ? reason : reason ? "Other" : "";
   controls.custom.value = matchesPreset ? "" : reason;
   controls.custom.style.display = controls.preset.value === "Other" ? "block" : "none";
+  updateRescheduleReasonHelper("saved");
 }
 
 function getRescheduleReasonValue() {
@@ -190,6 +219,81 @@ function getModalEffectiveStatus(storeId) {
   return statusMap[String(storeId)] || {};
 }
 
+function isStoreCurrentlyRescheduled(storeId) {
+  const currentStatus = getModalEffectiveStatus(storeId);
+  return normalizeStatusCode(
+    currentStatus?.status_code,
+    currentStatus?.completed === true,
+    currentStatus?.closed === true
+  ) === "rescheduled";
+}
+
+function hasPendingRescheduleReasonChange(storeId) {
+  if (!isStoreCurrentlyRescheduled(storeId)) return false;
+
+  const currentStatus = getModalEffectiveStatus(storeId);
+  const currentReason = String(currentStatus?.status_reason || "").trim();
+  const nextReason = getRescheduleReasonValue();
+
+  return currentReason !== nextReason;
+}
+
+function updateRescheduleReasonHelper(state = "") {
+  const helper = document.getElementById("rescheduleReasonHelper");
+  const applyBtn = document.getElementById("applyRescheduleReasonBtn");
+
+  if (!helper || !applyBtn || !currentModalStoreId) return;
+
+  if (!isStoreCurrentlyRescheduled(currentModalStoreId)) {
+    helper.textContent = "Reason applies to rescheduled status.";
+    helper.style.color = "";
+    applyBtn.disabled = true;
+    return;
+  }
+
+  const dirty = hasPendingRescheduleReasonChange(currentModalStoreId);
+  applyBtn.disabled = !canEditStores() || !dirty;
+
+  if (state === "saved") {
+    helper.textContent = "Reason applies to rescheduled status. Saved.";
+    helper.style.color = "#d7f9e0";
+    return;
+  }
+
+  if (dirty) {
+    helper.textContent = "Reason applies to rescheduled status. Unsaved changes.";
+    helper.style.color = "#ffd27a";
+    return;
+  }
+
+  helper.textContent = "Reason applies to rescheduled status. Saved.";
+  helper.style.color = "#d7f9e0";
+}
+
+async function persistRescheduleReasonIfNeeded(storeId) {
+  const normalizedStoreId = String(storeId);
+
+  if (!canEditStores() || !isStoreCurrentlyRescheduled(normalizedStoreId)) {
+    return true;
+  }
+
+  if (!hasPendingRescheduleReasonChange(normalizedStoreId)) {
+    updateRescheduleReasonHelper("saved");
+    return true;
+  }
+
+  const updated = await updateStore(normalizedStoreId, {
+    status_code: "rescheduled",
+    status_reason: getRescheduleReasonValue()
+  });
+
+  if (updated) {
+    updateRescheduleReasonHelper("saved");
+  }
+
+  return updated;
+}
+
 async function handleStoreModalClose(storeId) {
   const modal = document.getElementById("confirmModal");
   if (!modal) return;
@@ -207,19 +311,7 @@ async function handleStoreModalClose(storeId) {
     return;
   }
 
-  const nextReason = getRescheduleReasonValue();
-  const currentReason = String(currentStatus?.status_reason || "").trim();
-
-  if (nextReason === currentReason) {
-    modal.classList.add("hidden");
-    return;
-  }
-
-  const updated = await updateStore(normalizedStoreId, {
-    status_code: "rescheduled",
-    status_reason: nextReason
-  });
-
+  const updated = await persistRescheduleReasonIfNeeded(normalizedStoreId);
   if (updated) {
     modal.classList.add("hidden");
   }
@@ -281,6 +373,12 @@ function openStoreModal(storeId) {
       status_code: "rescheduled",
       status_reason: getRescheduleReasonValue()
     });
+  }
+
+  if (rescheduleControls.applyBtn) {
+    rescheduleControls.applyBtn.onclick = async () => {
+      await persistRescheduleReasonIfNeeded(normalizedStoreId);
+    };
   }
 
   if (lifecycleControls.removeBtn) {
@@ -350,6 +448,7 @@ function openStoreModal(storeId) {
   loadPhotos(normalizedStoreId);
   updateWriteAccessUI();
   updateRouteModeUI();
+  updateRescheduleReasonHelper("saved");
   clearPhotoMessage();
 }
 
