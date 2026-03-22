@@ -58,46 +58,82 @@ function formatRouteCoordinate(store) {
   return `${store.lat},${store.lng}`;
 }
 
-function buildAppleMapsRouteUrl(routeStores, originCoordinate = "") {
+function getRouteNavigationContext(routeStores, originCoordinate = "", originIsCurrentLocation = false) {
+  if (!routeStores.length) {
+    return {
+      origin: "",
+      stops: []
+    };
+  }
+
+  if (originIsCurrentLocation && originCoordinate) {
+    return {
+      origin: originCoordinate,
+      stops: routeStores.map(formatRouteCoordinate)
+    };
+  }
+
+  if (routeStores.length === 1) {
+    return {
+      origin: "",
+      stops: [formatRouteCoordinate(routeStores[0])]
+    };
+  }
+
+  return {
+    origin: formatRouteCoordinate(routeStores[0]),
+    stops: routeStores.slice(1).map(formatRouteCoordinate)
+  };
+}
+
+function buildAppleMapsRouteUrl(routeStores, originCoordinate = "", originIsCurrentLocation = false) {
   if (!routeStores.length) return "";
 
-  const destinationChain = routeStores.map(formatRouteCoordinate).join(" to: ");
+  const navigation = getRouteNavigationContext(routeStores, originCoordinate, originIsCurrentLocation);
+  if (navigation.stops.length === 0) return "";
+
   const params = new URLSearchParams({
     dirflg: "d",
-    daddr: destinationChain
+    daddr: navigation.stops.join(" to: ")
   });
 
-  if (originCoordinate) {
-    params.set("saddr", originCoordinate);
+  if (navigation.origin) {
+    params.set("saddr", navigation.origin);
   }
 
   return `https://maps.apple.com/?${params.toString()}`;
 }
 
-function buildGoogleMapsRouteUrl(routeStores = getOrderedRouteStores(), originCoordinate = "") {
+function buildGoogleMapsRouteUrl(
+  routeStores = getOrderedRouteStores(),
+  originCoordinate = "",
+  originIsCurrentLocation = false
+) {
   if (routeStores.length === 0) {
     alert("Add at least one stop to build a route.");
     return "";
   }
 
-  const coords = routeStores.map(formatRouteCoordinate);
+  const navigation = getRouteNavigationContext(routeStores, originCoordinate, originIsCurrentLocation);
+  const coords = navigation.stops;
 
   if (coords.length === 0) return "";
 
   if (coords.length === 1) {
     let url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coords[0])}&travelmode=driving`;
-    if (originCoordinate) {
-      url += `&origin=${encodeURIComponent(originCoordinate)}`;
+    if (navigation.origin) {
+      url += `&origin=${encodeURIComponent(navigation.origin)}`;
     }
     return url;
   }
 
-  const fallbackOrigin = coords[0];
-  const origin = originCoordinate || fallbackOrigin;
   const destination = coords[coords.length - 1];
-  const waypoints = originCoordinate ? coords.slice(0, -1) : coords.slice(1, -1);
+  const waypoints = coords.slice(0, -1);
 
-  let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+  let url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+  if (navigation.origin) {
+    url += `&origin=${encodeURIComponent(navigation.origin)}`;
+  }
   if (waypoints.length > 0) {
     url += `&waypoints=${encodeURIComponent(waypoints.join("|"))}`;
   }
@@ -113,17 +149,20 @@ async function buildPreferredRouteUrl() {
   }
 
   let originCoordinate = "";
+  let originIsCurrentLocation = false;
 
   try {
     const position = await getCurrentPosition();
     originCoordinate = `${position.coords.latitude},${position.coords.longitude}`;
+    originIsCurrentLocation = true;
   } catch (error) {
-    originCoordinate = routeStores.length > 1 ? formatRouteCoordinate(routeStores[0]) : "";
+    originCoordinate = "";
+    originIsCurrentLocation = false;
   }
 
   return (
-    buildAppleMapsRouteUrl(routeStores, originCoordinate) ||
-    buildGoogleMapsRouteUrl(routeStores, originCoordinate)
+    buildAppleMapsRouteUrl(routeStores, originCoordinate, originIsCurrentLocation) ||
+    buildGoogleMapsRouteUrl(routeStores, originCoordinate, originIsCurrentLocation)
   );
 }
 
