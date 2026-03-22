@@ -32,6 +32,14 @@ function bindRouteBuilder() {
 
   if (routeModeToggle && !routeModeToggle.dataset.bound) {
     routeModeToggle.addEventListener("change", () => {
+      if (!canManageRoutes()) {
+        routeModeToggle.checked = false;
+        routeModeEnabled = false;
+        persistRouteState();
+        updateRouteModeUI();
+        return;
+      }
+
       routeModeEnabled = routeModeToggle.checked;
       persistRouteState();
       updateRouteModeUI();
@@ -61,6 +69,7 @@ function bindRouteBuilder() {
 
   if (clearRouteBtn && !clearRouteBtn.dataset.bound) {
     clearRouteBtn.addEventListener("click", () => {
+      if (!canManageRoutes()) return;
       selectedRouteStops = [];
       persistRouteState();
       renderRouteStops();
@@ -70,6 +79,7 @@ function bindRouteBuilder() {
 
   if (openRouteBtn && !openRouteBtn.dataset.bound) {
     openRouteBtn.addEventListener("click", () => {
+      if (!canManageRoutes()) return;
       const url = buildGoogleMapsRouteUrl();
       if (url) window.open(url, "_blank");
     });
@@ -83,17 +93,32 @@ function updateRouteModeUI() {
   const routeStoreInput = document.getElementById("routeStoreInput");
   const addToRouteBtn = document.getElementById("addToRouteBtn");
 
-  if (routeModeToggle) routeModeToggle.checked = routeModeEnabled;
-  if (addRouteStoreBtn) addRouteStoreBtn.disabled = !routeModeEnabled;
-  if (routeStoreInput) routeStoreInput.disabled = !routeModeEnabled;
+  const routeAccess = canManageRoutes();
+
+  if (routeModeToggle) {
+    routeModeToggle.checked = routeAccess && routeModeEnabled;
+    routeModeToggle.disabled = !routeAccess;
+  }
+
+  if (addRouteStoreBtn) addRouteStoreBtn.disabled = !routeAccess || !routeModeEnabled;
+  if (routeStoreInput) routeStoreInput.disabled = !routeAccess || !routeModeEnabled;
 
   if (addToRouteBtn) {
-    addToRouteBtn.disabled = !routeModeEnabled;
-    addToRouteBtn.textContent = routeModeEnabled ? "Add to Route" : "Enable Route Mode";
+    addToRouteBtn.disabled = !routeAccess || !routeModeEnabled;
+    addToRouteBtn.textContent = !routeAccess
+      ? "Editor Access Required"
+      : routeModeEnabled
+        ? "Add to Route"
+        : "Enable Route Mode";
   }
 }
 
 function addStoreToRoute(storeId) {
+  if (!canManageRoutes()) {
+    alert("Editor or admin access required for route builder.");
+    return;
+  }
+
   if (!routeModeEnabled) {
     alert("Turn on Route Mode first.");
     return;
@@ -124,12 +149,15 @@ function addStoreToRoute(storeId) {
 }
 
 function removeRouteStop(storeId) {
+  if (!canManageRoutes()) return;
   selectedRouteStops = selectedRouteStops.filter(id => id !== storeId);
   persistRouteState();
   renderRouteStops();
 }
 
 function moveRouteStop(storeId, direction) {
+  if (!canManageRoutes()) return;
+
   const currentIndex = selectedRouteStops.indexOf(storeId);
   if (currentIndex === -1) return;
 
@@ -172,8 +200,8 @@ function renderRouteStops() {
   }
 
   empty.style.display = "none";
-  openRouteBtn.disabled = false;
-  clearRouteBtn.disabled = false;
+  openRouteBtn.disabled = !canManageRoutes();
+  clearRouteBtn.disabled = !canManageRoutes();
 
   selectedRouteStops.forEach((storeId, index) => {
     const store = storeData.find(item => String(item.store_id) === String(storeId));
@@ -213,12 +241,13 @@ function renderRouteStops() {
     });
 
     const upBtn = createRouteMiniButton("↑", () => moveRouteStop(String(storeId), -1));
-    upBtn.disabled = index === 0;
+    upBtn.disabled = index === 0 || !canManageRoutes();
 
     const downBtn = createRouteMiniButton("↓", () => moveRouteStop(String(storeId), 1));
-    downBtn.disabled = index === selectedRouteStops.length - 1;
+    downBtn.disabled = index === selectedRouteStops.length - 1 || !canManageRoutes();
 
     const removeBtn = createRouteMiniButton("Remove", () => removeRouteStop(String(storeId)));
+    removeBtn.disabled = !canManageRoutes();
 
     actions.appendChild(flyBtn);
     actions.appendChild(upBtn);

@@ -19,21 +19,21 @@ function updateProjectLifecycleControls() {
   const isCurrentProjectArchived = currentProjectMeta?.is_archived === true;
 
   if (removedToggleBtn) {
-    removedToggleBtn.classList.toggle("hidden", !isAdmin());
+    removedToggleBtn.classList.toggle("hidden", !canManageProjectLifecycle());
     removedToggleBtn.textContent = showRemovedStores ? "Hide Removed Stores" : "Show Removed Stores";
   }
 
   if (archivedToggleBtn) {
-    archivedToggleBtn.classList.toggle("hidden", !isAdmin());
+    archivedToggleBtn.classList.toggle("hidden", !canManageProjectLifecycle());
     archivedToggleBtn.textContent = showArchivedProjects ? "Hide Archived Projects" : "Show Archived Projects";
   }
 
   if (archiveBtn) {
-    archiveBtn.classList.toggle("hidden", !isAdmin() || isCurrentProjectArchived);
+    archiveBtn.classList.toggle("hidden", !canManageProjectLifecycle() || isCurrentProjectArchived);
   }
 
   if (restoreBtn) {
-    restoreBtn.classList.toggle("hidden", !isAdmin() || !isCurrentProjectArchived);
+    restoreBtn.classList.toggle("hidden", !canManageProjectLifecycle() || !isCurrentProjectArchived);
   }
 }
 
@@ -87,7 +87,7 @@ function ensureProjectLifecycleControls() {
 
   if (toggleRemovedBtn && !toggleRemovedBtn.dataset.bound) {
     toggleRemovedBtn.addEventListener("click", () => {
-      if (!isAdmin()) return;
+      if (!canManageProjectLifecycle()) return;
       showRemovedStores = !showRemovedStores;
       updateProjectLifecycleControls();
       handleFilterChange();
@@ -98,7 +98,7 @@ function ensureProjectLifecycleControls() {
 
   if (toggleArchivedBtn && !toggleArchivedBtn.dataset.bound) {
     toggleArchivedBtn.addEventListener("click", async () => {
-      if (!isAdmin()) return;
+      if (!canManageProjectLifecycle()) return;
       showArchivedProjects = !showArchivedProjects;
       updateProjectLifecycleControls();
       await loadProjects();
@@ -109,7 +109,7 @@ function ensureProjectLifecycleControls() {
 
   if (archiveBtn && !archiveBtn.dataset.bound) {
     archiveBtn.addEventListener("click", async () => {
-      if (!isAdmin()) return;
+      if (!canManageProjectLifecycle()) return;
 
       const { error } = await dataLayer.updateProjectLifecycle(currentProjectId, true);
       if (error) {
@@ -126,7 +126,7 @@ function ensureProjectLifecycleControls() {
 
   if (restoreBtn && !restoreBtn.dataset.bound) {
     restoreBtn.addEventListener("click", async () => {
-      if (!isAdmin()) return;
+      if (!canManageProjectLifecycle()) return;
 
       const { error } = await dataLayer.updateProjectLifecycle(currentProjectId, false);
       if (error) {

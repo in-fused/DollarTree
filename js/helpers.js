@@ -16,8 +16,52 @@ function isSignedIn() {
   return !!currentUser;
 }
 
+function normalizeRole(role) {
+  const normalized = String(role || "").trim().toLowerCase();
+  if (normalized === "admin") return "admin";
+  if (normalized === "editor") return "editor";
+  return "viewer";
+}
+
+function getCurrentRole() {
+  return normalizeRole(currentRole);
+}
+
+function canViewApp() {
+  return true;
+}
+
+function canEditStores() {
+  const role = getCurrentRole();
+  return role === "editor" || role === "admin";
+}
+
+function canManageStoreLifecycle() {
+  return getCurrentRole() === "admin";
+}
+
+function canManageProjectLifecycle() {
+  return getCurrentRole() === "admin";
+}
+
+function canUploadPhotos() {
+  return canEditStores();
+}
+
+function canAddNotes() {
+  return canEditStores();
+}
+
+function canManageRoutes() {
+  return canEditStores();
+}
+
+function canUseExecutiveControls() {
+  return canViewApp();
+}
+
 function isAdmin() {
-  return currentRole === "admin";
+  return canManageProjectLifecycle();
 }
 
 function isMobileViewport() {
