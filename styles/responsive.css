@@ -1,25 +1,26 @@
 /* ================= RESPONSIVE ================= */
 
 @media (max-width: 1320px) {
-  :root { --rail-w: 300px; }
+  :root { --rail-w: 256px; }
 
   .workspace {
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) 256px;
   }
 
   .photoLibraryContent {
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) 286px;
   }
 
   .brandLogoWide {
-    width: 280px;
+    height: 76px;
   }
 }
 
 @media (max-width: 1100px) {
   :root {
-    --header-h: 226px;
-    --header-h-exec: 108px;
+    --header-h: 194px;
+    --header-h-exec: 98px;
+    --sidebar-w: 296px;
   }
 
   .commandBar {
@@ -27,7 +28,7 @@
     grid-template-areas:
       "left right"
       "center center";
-    gap: 10px 14px;
+    gap: 7px 10px;
   }
 
   .commandBarLeft { grid-area: left; }
@@ -35,7 +36,7 @@
   .commandBarRight { grid-area: right; }
 
   .brandLogoWide {
-    width: 240px;
+    height: 68px;
   }
 
   .workspace {
@@ -65,20 +66,20 @@
 
 @media (max-width: 900px) {
   :root {
-    --header-h: 236px;
-    --header-h-exec: 108px;
+    --header-h: 212px;
+    --header-h-exec: 102px;
   }
 
   .topHeader {
-    padding: max(8px, env(safe-area-inset-top)) 12px 8px;
-    gap: 6px;
+    padding: max(7px, env(safe-area-inset-top)) 10px 7px;
+    gap: 5px;
   }
 
   .commandBar {
-    min-height: 52px;
+    min-height: 46px;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas: "left right";
-    gap: 8px;
+    gap: 7px;
   }
 
   .commandBarCenter {
@@ -88,7 +89,7 @@
   .commandBarLeft {
     grid-area: left;
     align-items: flex-start;
-    gap: 10px;
+    gap: 8px;
   }
 
   .commandBarRight {
@@ -101,7 +102,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    padding: 10px 12px;
+    padding: 8px 10px;
   }
 
   .headerTitleBlock {
@@ -110,7 +111,7 @@
   }
 
   .headerProjectName {
-    font-size: 14px;
+    font-size: 13px;
     white-space: normal;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -132,18 +133,18 @@
   .headerModeToggles {
     flex-direction: column;
     align-items: flex-end;
-    gap: 6px;
+    gap: 5px;
   }
 
   .executiveToggle {
-    padding: 5px 9px;
-    font-size: 10px;
-    min-width: 128px;
-    gap: 6px;
+    padding: 5px 8px;
+    font-size: 9px;
+    min-width: 120px;
+    gap: 5px;
   }
 
   .headerViewBar {
-    min-height: 34px;
+    min-height: 28px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     justify-content: flex-start;
@@ -154,26 +155,26 @@
   }
 
   .viewSwitchBtn {
-    padding: 8px 12px;
+    padding: 7px 11px;
   }
 
   .headerMetricsStrip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
+    gap: 5px;
   }
 
   .headerStat {
-    min-height: 50px;
-    padding: 8px 8px 7px;
+    min-height: 44px;
+    padding: 7px 7px 6px;
   }
 
   .headerStatLabel {
-    font-size: 8px;
-    margin-bottom: 3px;
+    font-size: 7px;
+    margin-bottom: 2px;
   }
 
   .headerStatValue {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .headerStat:nth-child(5),
@@ -186,10 +187,10 @@
     top: var(--header-h);
     left: 0;
     bottom: 0;
-    width: min(88vw, 360px);
+    width: min(84vw, 328px);
     z-index: 60;
     transform: translateX(-100%);
-    box-shadow: 16px 0 40px rgba(0,0,0,0.35);
+    box-shadow: 14px 0 34px rgba(0,0,0,0.34);
   }
 
   body.executive-mode .sidebar {
@@ -202,7 +203,12 @@
   }
 
   .sidebarInner {
-    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    padding: 10px 10px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .panel {
+    padding: 10px;
+    margin-bottom: 9px;
   }
 
   .workspace {
@@ -210,16 +216,16 @@
   }
 
   .workspaceProgressBar {
-    padding: 9px 12px 8px;
+    padding: 8px 10px 7px;
   }
 
   .workspaceProgressMeta {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 6px;
-    font-size: 11px;
+    gap: 10px;
+    margin-bottom: 5px;
+    font-size: 10px;
   }
 
   .workspaceProgressMetaLeft {
@@ -233,7 +239,7 @@
   .workspaceProgressTopline {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
     width: 100%;
   }
@@ -249,7 +255,7 @@
 
   .workspaceViewSwitch .viewSwitchBtn {
     flex: 0 0 auto;
-    padding: 8px 12px;
+    padding: 7px 11px;
   }
 
   .workspaceProgressTitleGroup {
@@ -262,7 +268,7 @@
   }
 
   .workspaceProgressContext {
-    font-size: 10px;
+    font-size: 9px;
   }
 
   #dashboardProgressLabel {
@@ -274,20 +280,20 @@
   }
 
   .workspaceProgressTrack {
-    height: 9px;
+    height: 8px;
   }
 
   .mapTopOverlay {
-    top: 10px;
-    left: 10px;
-    max-width: calc(100% - 20px);
+    top: 8px;
+    left: 8px;
+    max-width: calc(100% - 16px);
   }
 
   .mapLegendCard {
-    left: 10px;
-    bottom: calc(84px + env(safe-area-inset-bottom));
-    min-width: 142px;
-    padding: 8px 10px;
+    left: 8px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    min-width: 136px;
+    padding: 7px 9px;
   }
 
   .mapExecutiveCallout {
@@ -296,19 +302,19 @@
 
   body.executive-mode .mapExecutiveCallout {
     display: block;
-    left: 10px;
+    left: 8px;
     right: auto;
     top: auto;
-    bottom: calc(150px + env(safe-area-inset-bottom));
-    width: 150px;
-    max-width: 150px;
+    bottom: calc(138px + env(safe-area-inset-bottom));
+    width: 146px;
+    max-width: 146px;
     min-height: 0;
-    padding: 10px 12px 8px;
+    padding: 9px 10px 7px;
   }
 
   body.executive-mode .mapLegendCard {
-    left: 10px;
-    bottom: calc(84px + env(safe-area-inset-bottom));
+    left: 8px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
   }
 
   .scopeSummaryGrid,
@@ -338,17 +344,17 @@
   }
 
   .photoLibraryShell {
-    padding: 10px 12px 18px;
-    gap: 12px;
+    padding: 9px 10px 14px;
+    gap: 10px;
     min-height: auto;
   }
 
   .photoLibraryTitle {
-    font-size: 20px;
+    font-size: 18px;
   }
 
   .photoLibrarySubline {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .photoLibraryHeaderBadgeGroup {
@@ -377,49 +383,49 @@
 
   .photoLibraryGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 9px;
   }
 
   .photoLibraryCardBody {
-    padding: 10px;
+    padding: 9px;
   }
 
   .emptyStateHero {
-    min-height: 220px;
-    padding: 18px;
+    min-height: 200px;
+    padding: 16px;
   }
 
   .emptyStateHeroTitle {
-    font-size: 18px;
+    font-size: 17px;
   }
 
   .emptyStateHeroText {
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .modalContent {
     width: 100%;
     max-height: 90vh;
-    padding: 16px;
+    padding: 14px;
   }
 }
 
 @media (max-width: 900px) {
   body.executive-mode .topHeader {
-    padding: max(8px, env(safe-area-inset-top)) 10px 8px;
+    padding: max(7px, env(safe-area-inset-top)) 9px 7px;
     gap: 4px;
   }
 
   body.executive-mode .commandBar {
-    min-height: 42px;
+    min-height: 40px;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas: "left right";
-    gap: 8px;
+    gap: 7px;
   }
 
   body.executive-mode .headerProjectName {
-    font-size: 13px;
-    max-width: 135px;
+    font-size: 12px;
+    max-width: 128px;
     -webkit-line-clamp: 2;
   }
 
@@ -433,13 +439,13 @@
   body.executive-mode .headerModeToggles {
     flex-direction: column;
     align-items: flex-end;
-    gap: 5px;
+    gap: 4px;
   }
 
   body.executive-mode .executiveToggle {
-    padding: 5px 8px;
-    font-size: 10px;
-    min-width: 132px;
+    padding: 4px 7px;
+    font-size: 9px;
+    min-width: 124px;
   }
 
   body.executive-mode .headerMetricsStrip {
@@ -448,8 +454,8 @@
   }
 
   body.executive-mode .headerStat {
-    min-height: 42px;
-    padding: 6px 7px 5px;
+    min-height: 40px;
+    padding: 6px 6px 5px;
   }
 
   body.executive-mode .headerStatLabel {
@@ -458,7 +464,7 @@
   }
 
   body.executive-mode .headerStatValue {
-    font-size: 10px;
+    font-size: 9px;
   }
 
   body.executive-mode .workspace {
@@ -466,23 +472,23 @@
   }
 
   body.executive-mode .floatingExecutiveExit {
-    right: 10px;
-    bottom: calc(92px + env(safe-area-inset-bottom));
+    right: 8px;
+    bottom: calc(86px + env(safe-area-inset-bottom));
     top: auto;
-    padding: 9px 12px;
-    font-size: 12px;
+    padding: 8px 10px;
+    font-size: 11px;
     z-index: 45;
   }
 }
 
 @media (max-width: 640px) {
   :root {
-    --header-h: 236px;
-    --header-h-exec: 100px;
+    --header-h: 206px;
+    --header-h-exec: 94px;
   }
 
   .brandLogoWide {
-    width: 132px;
+    width: 124px;
     height: auto;
     max-width: 100%;
     transform: none;
@@ -496,26 +502,26 @@
   }
 
   .activityList {
-    max-height: 280px;
+    max-height: 260px;
   }
 
   .mapLegendCard {
-    min-width: 134px;
-    padding: 8px 9px;
+    min-width: 126px;
+    padding: 7px 8px;
   }
 
   .mapLegendTitle {
-    font-size: 10px;
+    font-size: 9px;
   }
 
   .mapLegendRow {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .mapModeTag,
   .mapScopeTag {
-    font-size: 11px;
-    padding: 8px 10px;
+    font-size: 10px;
+    padding: 7px 9px;
   }
 
   .photoLibraryGrid {
@@ -523,30 +529,34 @@
   }
 
   body.executive-mode .floatingExecutiveExit {
-    right: 8px;
-    bottom: calc(88px + env(safe-area-inset-bottom));
+    right: 7px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
   }
 }
 
 @media (max-width: 420px) {
+  :root {
+    --header-h: 198px;
+  }
+
   .headerProjectName {
-    max-width: 210px;
+    max-width: 194px;
   }
 
   .headerProjectSubline {
-    max-width: 210px;
+    max-width: 194px;
   }
 
   .executiveToggle {
-    min-width: 122px;
+    min-width: 116px;
   }
 
   body.executive-mode .headerProjectName {
-    max-width: 128px;
+    max-width: 120px;
   }
 
   body.executive-mode .executiveToggle {
-    min-width: 124px;
+    min-width: 118px;
   }
 }
 
