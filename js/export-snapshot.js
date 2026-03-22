@@ -13,6 +13,8 @@ function ensureSnapshotExportButton() {
     button.className = "btnSecondary";
     button.textContent = "Export Snapshot";
     importLink.insertAdjacentElement("afterend", button);
+  } else if (button.previousElementSibling !== importLink) {
+    importLink.insertAdjacentElement("afterend", button);
   }
 
   if (!button.dataset.bound) {
