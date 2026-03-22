@@ -45,7 +45,7 @@ async function loadCurrentUserRole() {
     return;
   }
 
-  currentRole = data?.role || "viewer";
+  currentRole = normalizeRole(data?.role);
 }
 
 function bindAuthUI() {
@@ -114,7 +114,7 @@ function updateAuthUI() {
     loggedOut?.classList.add("hidden");
     loggedIn?.classList.remove("hidden");
     setText("authUserDisplay", currentUser.email || "Signed in");
-    setText("authRoleDisplay", `Role: ${currentRole}`);
+    setText("authRoleDisplay", `Role: ${getCurrentRole()}`);
   } else {
     loggedOut?.classList.remove("hidden");
     loggedIn?.classList.add("hidden");
@@ -123,7 +123,7 @@ function updateAuthUI() {
   }
 
   if (importLink) {
-    if (isAdmin()) {
+    if (canManageProjectLifecycle()) {
       importLink.classList.remove("disabled");
       importLink.title = "";
     } else {
@@ -136,23 +136,85 @@ function updateAuthUI() {
 }
 
 function updateWriteAccessUI() {
-  const writeEnabled = isSignedIn();
+  const canEdit = isSignedIn() && canEditStores();
+  const canNote = isSignedIn() && canAddNotes();
+  const canPhoto = isSignedIn() && canUploadPhotos();
+  const canRoutes = isSignedIn() && canManageRoutes();
+  const canStoreLifecycle = isSignedIn() && canManageStoreLifecycle();
+  const canProjectLifecycle = isSignedIn() && canManageProjectLifecycle();
 
   [
     "markActive",
     "markCompleted",
     "markClosed",
+    "markRescheduled",
+    "rescheduleReasonPreset",
+    "rescheduleReasonInput"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !canEdit;
+  });
+
+  [
     "addNoteBtn",
-    "noteBox",
+    "noteBox"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !canNote;
+  });
+
+  [
     "photoInput",
     "uploadPhotoBtn"
   ].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.disabled = !writeEnabled;
+    if (el) el.disabled = !canPhoto;
+  });
+
+  [
+    "addToRouteBtn",
+    "routeModeToggle",
+    "addRouteStoreBtn",
+    "routeStoreInput",
+    "openRouteBtn",
+    "clearRouteBtn"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !canRoutes;
+  });
+
+  [
+    "removeStoreBtn",
+    "restoreStoreBtn"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.disabled = !canStoreLifecycle;
+      el.classList.toggle("hidden", !canStoreLifecycle);
+    }
+  });
+
+  [
+    "archiveProjectBtn",
+    "restoreProjectBtn",
+    "toggleRemovedStoresBtn",
+    "toggleArchivedProjectsBtn"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.disabled = !canProjectLifecycle;
+      el.classList.toggle("hidden", !canProjectLifecycle);
+    }
   });
 
   setText(
     "writeAccessMessage",
-    writeEnabled ? "" : "Sign in to update store status, add notes, and upload photos."
+    canEdit
+      ? ""
+      : "Editor or admin sign-in required to update store status, add notes, and upload photos."
   );
+
+  if (typeof updateProjectLifecycleControls === "function") {
+    updateProjectLifecycleControls();
+  }
 }
