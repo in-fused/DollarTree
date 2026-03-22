@@ -21,6 +21,13 @@ function hasPersistedStatusRow(storeId) {
     : false;
 }
 
+function shouldAuditStatusCoverage(stores = storeData) {
+  const scopedStores = Array.isArray(stores) ? stores : [];
+  if (scopedStores.length === 0) return false;
+  if (persistedStatusStoreIds instanceof Set && persistedStatusStoreIds.size > 0) return true;
+  return Array.isArray(statusRowsCache) && statusRowsCache.length > 0;
+}
+
 function getDataIntegrityReport(storeData, statusMap, geoAudit = getGeoAuditConfig(storeData)) {
   const report = {
     missingRegion: [],
@@ -29,6 +36,8 @@ function getDataIntegrityReport(storeData, statusMap, geoAudit = getGeoAuditConf
     missingCoords: [],
     missingStatus: []
   };
+
+  const auditStatusCoverage = shouldAuditStatusCoverage(storeData);
 
   (Array.isArray(storeData) ? storeData : []).forEach(store => {
     const storeId = String(store?.store_id || "");
@@ -49,7 +58,7 @@ function getDataIntegrityReport(storeData, statusMap, geoAudit = getGeoAuditConf
       report.missingCoords.push(store);
     }
 
-    if (!hasPersistedStatusRow(storeId)) {
+    if (auditStatusCoverage && !hasPersistedStatusRow(storeId)) {
       report.missingStatus.push(store);
     }
   });
@@ -66,10 +75,7 @@ function ensureStatusIntegrity(storeData, statusMap) {
     const storeId = String(store?.store_id || "");
     if (!storeId || Object.prototype.hasOwnProperty.call(repairedStatusMap, storeId)) return;
 
-    repairedStatusMap[storeId] = {
-      completed: false,
-      closed: false
-    };
+    repairedStatusMap[storeId] = getStatusState("active");
   });
 
   return repairedStatusMap;
