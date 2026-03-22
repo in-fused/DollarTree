@@ -1,5 +1,48 @@
 /* ================= PROJECTS / HYDRATION ================= */
 
+function normalizeProjectText(value) {
+  const normalized = value === undefined || value === null ? "" : String(value).trim();
+  return normalized || null;
+}
+
+function normalizeProjectCoordinate(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null || String(value).trim() === "") continue;
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function normalizeHydratedStoreRow(store) {
+  const address = normalizeProjectText(store?.address || store?.address1 || store?.street);
+  const city = normalizeProjectText(store?.city);
+  const state = normalizeProjectText(store?.state || store?.province);
+  const zip = normalizeProjectText(store?.zip || store?.postcode || store?.postal_code);
+  const fullAddress = normalizeProjectText(store?.full_address)
+    || [address, city, state, zip].filter(Boolean).join(", ")
+    || null;
+
+  return {
+    ...store,
+    store_id: String(store?.store_id || store?.store_number || store?.location_id || "").trim(),
+    store_name: normalizeProjectText(store?.store_name || store?.location_name || store?.name),
+    customer_id: normalizeProjectText(store?.customer_id || store?.customer_number),
+    full_address: fullAddress,
+    region: normalizeProjectText(store?.region),
+    territory: normalizeProjectText(store?.territory),
+    state,
+    city,
+    district: normalizeProjectText(store?.district),
+    division: normalizeProjectText(store?.division),
+    market: normalizeProjectText(store?.market),
+    lat: normalizeProjectCoordinate(store?.lat, store?.latitude),
+    lng: normalizeProjectCoordinate(store?.lng, store?.lon, store?.long, store?.longitude),
+    is_removed: store?.is_removed === true,
+    removed_at: store?.removed_at || null
+  };
+}
+
 function getStoreById(storeId, options = {}) {
   const includeRemoved = options.includeRemoved === true;
   const normalizedStoreId = String(storeId);
@@ -195,7 +238,9 @@ function bindProjectSelector() {
 async function hydrate() {
   const hydrated = await dataLayer.hydrateProject(currentProjectId, currentProjectMeta);
 
-  storeData = hydrated.stores;
+  storeData = (hydrated.stores || [])
+    .map(normalizeHydratedStoreRow)
+    .filter(store => !!store.store_id);
   statusRowsCache = hydrated.statusRows;
   noteRowsCache = hydrated.noteRows;
   photoRowsCache = hydrated.photoRows;
@@ -439,7 +484,11 @@ function updateProjectSourceTag() {
     tags.push("Removed Visible");
   }
 
-  const text = `${currentProjectMeta?.name || currentProjectId} · ${tags.join(" • ")}`;
+  if (lastDataRefreshAt) {
+    tags.push(`Updated ${formatLastUpdated(lastDataRefreshAt)}`);
+  }
+
+  const text = tags.join(" • ");
   setText("projectSourceTag", text);
-  setText("projectSourceTagInline", tags.join(" • "));
+  setText("projectSourceTagInline", text);
 }
