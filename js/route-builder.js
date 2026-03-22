@@ -166,6 +166,37 @@ async function buildPreferredRouteUrl() {
   );
 }
 
+function updateRouteHelperText() {
+  const empty = document.getElementById("selectedStopsEmpty");
+  const openRouteBtn = document.getElementById("openRouteBtn");
+  const routeStoreInput = document.getElementById("routeStoreInput");
+
+  if (openRouteBtn) {
+    openRouteBtn.textContent = selectedRouteStops.length > 0 ? "Open in Apple Maps" : "Open Route";
+  }
+
+  if (routeStoreInput) {
+    routeStoreInput.placeholder = routeModeEnabled
+      ? "Add store ID from the current filtered scope"
+      : "Enable Route Mode to add stores";
+  }
+
+  if (empty) {
+    const title = empty.querySelector(".emptyStateMiniTitle");
+    const text = empty.querySelector(".emptyStateMiniText");
+
+    if (title) {
+      title.textContent = routeModeEnabled ? "Route ready for stops" : "No route stops selected";
+    }
+
+    if (text) {
+      text.textContent = routeModeEnabled
+        ? "Add stores from the current filtered scope to build today's route in order."
+        : "Enable Route Mode, then add store IDs or use a store card to build an ordered route.";
+    }
+  }
+}
+
 function bindRouteBuilder() {
   const routeModeToggle = document.getElementById("routeModeToggle");
   const addRouteStoreBtn = document.getElementById("addRouteStoreBtn");
@@ -245,7 +276,11 @@ function updateRouteModeUI() {
     routeModeToggle.disabled = !routeAccess;
   }
 
-  if (addRouteStoreBtn) addRouteStoreBtn.disabled = !routeAccess || !routeModeEnabled;
+  if (addRouteStoreBtn) {
+    addRouteStoreBtn.disabled = !routeAccess || !routeModeEnabled;
+    addRouteStoreBtn.textContent = routeModeEnabled ? "Add Store to Route" : "Add by Store ID";
+  }
+
   if (routeStoreInput) routeStoreInput.disabled = !routeAccess || !routeModeEnabled;
 
   if (addToRouteBtn) {
@@ -256,6 +291,8 @@ function updateRouteModeUI() {
         ? "Add to Route"
         : "Enable Route Mode";
   }
+
+  updateRouteHelperText();
 }
 
 function addStoreToRoute(storeId) {
@@ -341,6 +378,7 @@ function renderRouteStops() {
     openRouteBtn.disabled = true;
     clearRouteBtn.disabled = true;
     updateRouteMetrics();
+    updateRouteHelperText();
     syncRouteMapLine();
     return;
   }
@@ -408,6 +446,7 @@ function renderRouteStops() {
   });
 
   updateRouteMetrics();
+  updateRouteHelperText();
   syncRouteMapLine();
 }
 
@@ -495,7 +534,7 @@ function updateRouteMetrics() {
       : 100;
 
     efficiency = `${score}%`;
-    detail = "Approx route order efficiency based on straight-line stop sequencing.";
+    detail = "Straight-line efficiency for the current stop order.";
   }
 
   setText("routeMetricStops", String(stops));
