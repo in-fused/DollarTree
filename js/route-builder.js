@@ -23,6 +23,149 @@ function getRouteCandidateStores() {
   return typeof getFilteredStores === "function" ? getFilteredStores() : storeData;
 }
 
+function getOrderedRouteStores() {
+  return selectedRouteStops
+    .map(storeId => storeData.find(store => String(store.store_id) === String(storeId)))
+    .filter(store =>
+      store &&
+      Number.isFinite(Number(store.lat)) &&
+      Number.isFinite(Number(store.lng))
+    );
+}
+
+function syncRouteMapLine() {
+  if (typeof updateRouteLineOnMap === "function") {
+    updateRouteLineOnMap();
+  }
+}
+
+function getCurrentPosition(options = {}) {
+  if (!navigator.geolocation) {
+    return Promise.reject(new Error("Geolocation unavailable"));
+  }
+
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 4500,
+      maximumAge: 120000,
+      ...options
+    });
+  });
+}
+
+function formatRouteCoordinate(store) {
+  return `${store.lat},${store.lng}`;
+}
+
+function getRouteNavigationContext(routeStores, originCoordinate = "", originIsCurrentLocation = false) {
+  if (!routeStores.length) {
+    return {
+      origin: "",
+      stops: []
+    };
+  }
+
+  if (originIsCurrentLocation && originCoordinate) {
+    return {
+      origin: originCoordinate,
+      stops: routeStores.map(formatRouteCoordinate)
+    };
+  }
+
+  if (routeStores.length === 1) {
+    return {
+      origin: "",
+      stops: [formatRouteCoordinate(routeStores[0])]
+    };
+  }
+
+  return {
+    origin: formatRouteCoordinate(routeStores[0]),
+    stops: routeStores.slice(1).map(formatRouteCoordinate)
+  };
+}
+
+function buildAppleMapsRouteUrl(routeStores, originCoordinate = "", originIsCurrentLocation = false) {
+  if (!routeStores.length) return "";
+
+  const navigation = getRouteNavigationContext(routeStores, originCoordinate, originIsCurrentLocation);
+  if (navigation.stops.length === 0) return "";
+
+  const params = new URLSearchParams({
+    dirflg: "d",
+    daddr: navigation.stops.join(" to: ")
+  });
+
+  if (navigation.origin) {
+    params.set("saddr", navigation.origin);
+  }
+
+  return `https://maps.apple.com/?${params.toString()}`;
+}
+
+function buildGoogleMapsRouteUrl(
+  routeStores = getOrderedRouteStores(),
+  originCoordinate = "",
+  originIsCurrentLocation = false
+) {
+  if (routeStores.length === 0) {
+    alert("Add at least one stop to build a route.");
+    return "";
+  }
+
+  const navigation = getRouteNavigationContext(routeStores, originCoordinate, originIsCurrentLocation);
+  const coords = navigation.stops;
+
+  if (coords.length === 0) return "";
+
+  if (coords.length === 1) {
+    let url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coords[0])}&travelmode=driving`;
+    if (navigation.origin) {
+      url += `&origin=${encodeURIComponent(navigation.origin)}`;
+    }
+    return url;
+  }
+
+  const destination = coords[coords.length - 1];
+  const waypoints = coords.slice(0, -1);
+
+  let url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+  if (navigation.origin) {
+    url += `&origin=${encodeURIComponent(navigation.origin)}`;
+  }
+  if (waypoints.length > 0) {
+    url += `&waypoints=${encodeURIComponent(waypoints.join("|"))}`;
+  }
+  return url;
+}
+
+async function buildPreferredRouteUrl() {
+  const routeStores = getOrderedRouteStores();
+
+  if (routeStores.length === 0) {
+    alert("Add at least one stop to build a route.");
+    return "";
+  }
+
+  let originCoordinate = "";
+  let originIsCurrentLocation = false;
+
+  try {
+    const position = await getCurrentPosition();
+    originCoordinate = `${position.coords.latitude},${position.coords.longitude}`;
+    originIsCurrentLocation = true;
+  } catch (error) {
+    originCoordinate = "";
+    originIsCurrentLocation = false;
+  }
+
+  return (
+    buildAppleMapsRouteUrl(routeStores, originCoordinate, originIsCurrentLocation) ||
+    buildGoogleMapsRouteUrl(routeStores, originCoordinate, originIsCurrentLocation)
+  );
+}
+
 function bindRouteBuilder() {
   const routeModeToggle = document.getElementById("routeModeToggle");
   const addRouteStoreBtn = document.getElementById("addRouteStoreBtn");
@@ -37,12 +180,14 @@ function bindRouteBuilder() {
         routeModeEnabled = false;
         persistRouteState();
         updateRouteModeUI();
+        syncRouteMapLine();
         return;
       }
 
       routeModeEnabled = routeModeToggle.checked;
       persistRouteState();
       updateRouteModeUI();
+      syncRouteMapLine();
     });
     routeModeToggle.dataset.bound = "true";
   }
@@ -78,9 +223,9 @@ function bindRouteBuilder() {
   }
 
   if (openRouteBtn && !openRouteBtn.dataset.bound) {
-    openRouteBtn.addEventListener("click", () => {
+    openRouteBtn.addEventListener("click", async () => {
       if (!canManageRoutes()) return;
-      const url = buildGoogleMapsRouteUrl();
+      const url = await buildPreferredRouteUrl();
       if (url) window.open(url, "_blank");
     });
     openRouteBtn.dataset.bound = "true";
@@ -196,6 +341,7 @@ function renderRouteStops() {
     openRouteBtn.disabled = true;
     clearRouteBtn.disabled = true;
     updateRouteMetrics();
+    syncRouteMapLine();
     return;
   }
 
@@ -262,34 +408,7 @@ function renderRouteStops() {
   });
 
   updateRouteMetrics();
-}
-
-function buildGoogleMapsRouteUrl() {
-  if (selectedRouteStops.length === 0) {
-    alert("Add at least one stop to build a route.");
-    return "";
-  }
-
-  const coords = selectedRouteStops
-    .map(storeId => storeData.find(store => String(store.store_id) === String(storeId)))
-    .filter(Boolean)
-    .map(store => `${store.lat},${store.lng}`);
-
-  if (coords.length === 0) return "";
-
-  if (coords.length === 1) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coords[0])}&travelmode=driving`;
-  }
-
-  const origin = coords[0];
-  const destination = coords[coords.length - 1];
-  const waypoints = coords.slice(1, -1).join("|");
-
-  let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-  if (waypoints.length > 0) {
-    url += `&waypoints=${encodeURIComponent(waypoints)}`;
-  }
-  return url;
+  syncRouteMapLine();
 }
 
 function haversineMiles(lat1, lon1, lat2, lon2) {
@@ -351,9 +470,7 @@ function estimateOptimalRouteMiles(routeStores) {
 }
 
 function updateRouteMetrics() {
-  const routeStores = selectedRouteStops
-    .map(storeId => storeData.find(store => String(store.store_id) === String(storeId)))
-    .filter(Boolean);
+  const routeStores = getOrderedRouteStores();
 
   const stops = routeStores.length;
   let miles = 0;

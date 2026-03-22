@@ -1,5 +1,8 @@
 /* ================= LOGO / MOBILE ================= */
 
+const ROUTE_LINE_SOURCE_ID = "route-line";
+const ROUTE_LINE_LAYER_ID = "route-line";
+
 function bindLogoHome() {
   const logo = document.querySelector(".brandLogoWide");
   if (!logo || logo.dataset.bound) return;
@@ -260,6 +263,78 @@ function createGeoJson(stores) {
   };
 }
 
+function createRouteLineGeoJson() {
+  const routeStores = typeof getOrderedRouteStores === "function"
+    ? getOrderedRouteStores()
+    : [];
+
+  if (!routeModeEnabled || routeStores.length < 2) {
+    return {
+      type: "FeatureCollection",
+      features: []
+    };
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "LineString",
+        coordinates: routeStores.map(store => [Number(store.lng), Number(store.lat)])
+      }
+    }]
+  };
+}
+
+function ensureRouteLineSourceAndLayer() {
+  if (!map.getSource(ROUTE_LINE_SOURCE_ID)) {
+    map.addSource(ROUTE_LINE_SOURCE_ID, {
+      type: "geojson",
+      data: createRouteLineGeoJson()
+    });
+  }
+
+  if (!map.getLayer(ROUTE_LINE_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_LINE_LAYER_ID,
+      type: "line",
+      source: ROUTE_LINE_SOURCE_ID,
+      layout: {
+        "line-join": "round",
+        "line-cap": "round",
+        visibility: "none"
+      },
+      paint: {
+        "line-color": "rgba(255, 196, 92, 0.88)",
+        "line-width": 4,
+        "line-opacity": 0.82,
+        "line-blur": 0.2
+      }
+    }, "point-issue-halo");
+  }
+}
+
+function updateRouteLineOnMap() {
+  if (!map || !map.isStyleLoaded()) return;
+
+  ensureRouteLineSourceAndLayer();
+
+  const source = map.getSource(ROUTE_LINE_SOURCE_ID);
+  const featureCollection = createRouteLineGeoJson();
+  source?.setData(featureCollection);
+
+  const hasLine = featureCollection.features.length > 0;
+  if (map.getLayer(ROUTE_LINE_LAYER_ID)) {
+    map.setLayoutProperty(
+      ROUTE_LINE_LAYER_ID,
+      "visibility",
+      hasLine ? "visible" : "none"
+    );
+  }
+}
+
 function buildMap() {
   geojsonData = createGeoJson(getFilteredStores());
 
@@ -345,6 +420,8 @@ function buildMap() {
     }
   });
 
+  ensureRouteLineSourceAndLayer();
+
   map.addLayer({
     id: "points",
     type: "circle",
@@ -385,6 +462,7 @@ function buildMap() {
   });
 
   ensureActivePulseAnimation();
+  updateRouteLineOnMap();
 }
 
 function rebuildFullMap() {
@@ -392,6 +470,7 @@ function rebuildFullMap() {
   geojsonData = createGeoJson(getFilteredStores());
   map.getSource("stores").setData(geojsonData);
   ensureActivePulseAnimation();
+  updateRouteLineOnMap();
 }
 
 function rebuild() {
