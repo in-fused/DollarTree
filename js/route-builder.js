@@ -19,6 +19,10 @@ function persistRouteState() {
   localStorage.setItem(routeStopsKey(), JSON.stringify(selectedRouteStops));
 }
 
+function getRouteCandidateStores() {
+  return typeof getFilteredStores === "function" ? getFilteredStores() : storeData;
+}
+
 function bindRouteBuilder() {
   const routeModeToggle = document.getElementById("routeModeToggle");
   const addRouteStoreBtn = document.getElementById("addRouteStoreBtn");
@@ -121,10 +125,11 @@ function addStoreToRoute(storeId) {
   }
 
   const normalized = String(storeId);
-  const store = storeData.find(item => String(item.store_id) === normalized);
+  const candidateStores = getRouteCandidateStores();
+  const store = candidateStores.find(item => String(item.store_id) === normalized);
 
   if (!store) {
-    alert("Store ID not found in current project.");
+    alert("Store ID not found in the current filtered scope.");
     return;
   }
 
