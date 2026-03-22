@@ -92,8 +92,8 @@ async function compressImageFile(file, maxDimension = 1600, quality = 0.82) {
 }
 
 async function uploadPhoto(storeId) {
-  if (!isSignedIn()) {
-    alert("Sign in to upload photos.");
+  if (!isSignedIn() || !canUploadPhotos()) {
+    alert("Editor or admin sign-in required to upload photos.");
     return;
   }
 
