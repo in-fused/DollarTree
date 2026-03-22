@@ -197,7 +197,12 @@ function bindProjectSelector() {
 async function hydrate() {
   const hydrated = await dataLayer.hydrateProject(currentProjectId, currentProjectMeta);
 
-  storeData = hydrated.stores;
+  allStoreData = (hydrated.stores || []).map(store => ({
+    ...normalizeStoreRecord(store),
+    is_removed: store?.is_removed === true,
+    removed_at: store?.removed_at || null
+  }));
+  storeData = [...allStoreData];
   statusRowsCache = hydrated.statusRows;
   noteRowsCache = hydrated.noteRows;
   photoRowsCache = hydrated.photoRows;
@@ -215,7 +220,18 @@ async function hydrate() {
     statusMap[key] = getStatusStateFromRow(row);
   });
 
-  statusMap = ensureStatusIntegrity(storeData, statusMap);
+  statusMap = ensureStatusIntegrity(allStoreData, statusMap);
+
+  Object.keys(statusMap).forEach(key => {
+    statusMap[key] = {
+      ...getStatusState(
+        statusMap[key]?.status_code || deriveLegacyStatusCode(statusMap[key]?.completed === true, statusMap[key]?.closed === true),
+        statusMap[key]?.status_reason || ""
+      ),
+      completed: statusMap[key]?.completed === true || normalizeStatusCode(statusMap[key]?.status_code) === "completed",
+      closed: statusMap[key]?.closed === true || normalizeStatusCode(statusMap[key]?.status_code) === "closed"
+    };
+  });
 
   if (hydrated.noteError) {
     console.error("Supabase store_notes error:", hydrated.noteError);
@@ -228,6 +244,13 @@ async function hydrate() {
   if (hydrated.activityEventError) {
     console.error("Supabase activity_events error:", hydrated.activityEventError);
   }
+
+  currentProjectMeta = {
+    ...currentProjectMeta,
+    backendKind: String(currentProjectMeta?.sourceLabel || "").toLowerCase().includes("supabase")
+      ? "supabase"
+      : "fallback"
+  };
 }
 
 function getHydratedStatusEventType(row) {
@@ -433,17 +456,11 @@ async function loadActiveProject() {
 }
 
 function updateProjectSourceTag() {
-  const tags = [currentProjectMeta?.sourceLabel || "Project ready"];
+  const archiveLabel = currentProjectMeta?.is_archived === true ? " • Archived" : "";
+  const removalLabel = showRemovedStores === true ? " • Showing Removed Stores" : "";
+  const sourceLabel = currentProjectMeta?.sourceLabel || "Project ready";
+  const text = `${currentProjectMeta?.name || currentProjectId} · ${sourceLabel}${archiveLabel}${removalLabel}`;
 
-  if (currentProjectMeta?.is_archived === true) {
-    tags.push("Archived");
-  }
-
-  if (showRemovedStores === true) {
-    tags.push("Removed Visible");
-  }
-
-  const text = `${currentProjectMeta?.name || currentProjectId} · ${tags.join(" • ")}`;
   setText("projectSourceTag", text);
-  setText("projectSourceTagInline", tags.join(" • "));
+  setText("projectSourceTagInline", `${sourceLabel}${archiveLabel}`);
 }
