@@ -1,5 +1,106 @@
 /* ================= ACTIVITY ================= */
 
+function getActivityAccentColor(type) {
+  if (type === "status-completed") return "#2ecc71";
+  if (type === "status-closed") return "#ff2d2d";
+  if (type === "status-rescheduled") return "#ff9900";
+  if (type === "status-active") return "#64b5f6";
+  if (type === "photo") return "#64b5f6";
+  if (type === "note") return "#d4a5ff";
+  if (type === "store-created") return "#9fd1ff";
+  if (type === "store-removed") return "#ff6b6b";
+  if (type === "store-restored") return "#8ee0a1";
+  if (type === "project-archived") return "#f5c26b";
+  if (type === "project-restored") return "#9fd1ff";
+  return "rgba(255,255,255,0.12)";
+}
+
+function getActivityStoreLabel(item) {
+  const storeId = String(item.store_id || "").trim();
+  return storeId ? `Store ${storeId}` : "Project";
+}
+
+function buildActivityDisplay(item) {
+  const type = String(item.type || "").trim();
+  const detailText = String(item.detail || "").trim();
+  const storeLabel = getActivityStoreLabel(item);
+
+  if (type === "status-completed") {
+    return {
+      title: item.title || `${storeLabel} marked completed`,
+      detail: detailText || "Completion recorded."
+    };
+  }
+
+  if (type === "status-closed") {
+    return {
+      title: item.title || `${storeLabel} marked closed`,
+      detail: detailText || "Closure recorded."
+    };
+  }
+
+  if (type === "status-rescheduled") {
+    return {
+      title: item.title || `${storeLabel} marked rescheduled`,
+      detail: detailText || "Reschedule reason updated."
+    };
+  }
+
+  if (type === "status-active") {
+    return {
+      title: item.title || `${storeLabel} marked active`,
+      detail: detailText || "Store returned to active status."
+    };
+  }
+
+  if (type === "note") {
+    return {
+      title: item.title || `${storeLabel} note added`,
+      detail: detailText || "Operational note added."
+    };
+  }
+
+  if (type === "photo") {
+    return {
+      title: item.title || `${storeLabel} photo uploaded`,
+      detail: detailText || "Photo evidence added."
+    };
+  }
+
+  if (type === "store-removed") {
+    return {
+      title: item.title || `${storeLabel} removed from project scope`,
+      detail: detailText || "Store hidden from active project scope."
+    };
+  }
+
+  if (type === "store-restored") {
+    return {
+      title: item.title || `${storeLabel} restored to project scope`,
+      detail: detailText || "Store returned to active project scope."
+    };
+  }
+
+  if (type === "project-archived") {
+    return {
+      title: item.title || "Project archived",
+      detail: detailText || "Project moved out of active operations."
+    };
+  }
+
+  if (type === "project-restored") {
+    return {
+      title: item.title || "Project restored",
+      detail: detailText || "Project returned to active operations."
+    };
+  }
+
+  return {
+    title: item.title || "Operational update",
+    detail: detailText || "Recent activity recorded."
+  };
+}
+
 function updateActivityList() {
   const container = document.getElementById("activityList");
   const countPill = document.getElementById("activityCountPill");
@@ -25,37 +126,28 @@ function updateActivityList() {
   if (countPill) countPill.textContent = items.length;
 
   if (items.length === 0) {
-    container.innerHTML = `<div class="activity-empty">No recent activity yet.</div>`;
+    container.innerHTML = `<div class="activity-empty">No recent field activity in the current scope.</div>`;
     return;
   }
 
   items.forEach(item => {
     const div = document.createElement("div");
     div.className = "activityItem";
-
-    if (item.type === "status-completed") div.style.borderLeftColor = "#2ecc71";
-    else if (item.type === "status-closed") div.style.borderLeftColor = "#ff2d2d";
-    else if (item.type === "status-rescheduled") div.style.borderLeftColor = "#ff9900";
-    else if (item.type === "status-active") div.style.borderLeftColor = "#64b5f6";
-    else if (item.type === "photo") div.style.borderLeftColor = "#64b5f6";
-    else if (item.type === "note") div.style.borderLeftColor = "#d4a5ff";
-    else if (item.type === "store-created") div.style.borderLeftColor = "#9fd1ff";
-    else if (item.type === "store-removed") div.style.borderLeftColor = "#ff6b6b";
-    else if (item.type === "store-restored") div.style.borderLeftColor = "#8ee0a1";
-    else if (item.type === "project-archived") div.style.borderLeftColor = "#f5c26b";
-    else if (item.type === "project-restored") div.style.borderLeftColor = "#9fd1ff";
+    div.style.borderLeftColor = getActivityAccentColor(item.type);
 
     const time = document.createElement("div");
     time.className = "activityTime";
     time.textContent = formatActivityTime(item.timestamp);
 
+    const display = buildActivityDisplay(item);
+
     const title = document.createElement("div");
     title.className = "activityTitle";
-    title.textContent = item.title;
+    title.textContent = display.title;
 
     const detail = document.createElement("div");
     detail.className = "activityDetail";
-    detail.textContent = item.detail || "";
+    detail.textContent = display.detail;
 
     div.appendChild(time);
     div.appendChild(title);
