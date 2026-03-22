@@ -8,53 +8,53 @@
 .photoLibraryShell {
   flex: 1;
   min-height: 0;
-  padding: 14px 18px 18px;
+  padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .photoLibraryHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
 }
 
 .photoLibraryTitle {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1.05;
   margin: 0;
 }
 
 .photoLibrarySubline {
-  margin-top: 6px;
-  font-size: 13px;
+  margin-top: 3px;
+  font-size: 11px;
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.4;
   max-width: 760px;
 }
 
 .photoLibraryHeaderBadgeGroup {
   display: flex;
-  gap: 10px;
+  gap: 7px;
   flex-wrap: wrap;
 }
 
 .photoLibraryHeaderBadge {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-width: 132px;
-  padding: 10px 12px;
-  border-radius: 12px;
+  gap: 2px;
+  min-width: 112px;
+  padding: 8px 9px;
+  border-radius: 11px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.08);
 }
 
 .photoLibraryHeaderBadgeLabel {
-  font-size: 10px;
+  font-size: 8px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.6;
@@ -65,13 +65,13 @@
 }
 
 .photoLibraryToolbarTop {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .photoLibraryToolbarGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 7px;
 }
 
 .photoLibraryToolbarGrid select,
@@ -83,22 +83,22 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 10px;
 }
 
 .photoLibraryGridWrap {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 2px;
   -webkit-overflow-scrolling: touch;
 }
 
 .photoLibraryGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(198px, 1fr));
+  gap: 10px;
 }
 
 .photoLibraryEmptyShell {
@@ -108,7 +108,7 @@
 .photoLibraryCard {
   background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.03));
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
+  border-radius: 13px;
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
@@ -139,18 +139,18 @@
 }
 
 .photoLibraryCardBody {
-  padding: 12px;
+  padding: 9px;
 }
 
 .photoLibraryCardTop {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 7px;
 }
 
 .photoLibraryStore {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -158,20 +158,20 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 24px;
-  padding: 0 8px;
+  min-height: 20px;
+  padding: 0 7px;
   border-radius: 999px;
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.08);
-  font-size: 11px;
+  font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .photoLibraryMeta {
-  margin-top: 8px;
-  font-size: 12px;
-  line-height: 1.45;
+  margin-top: 5px;
+  font-size: 10px;
+  line-height: 1.35;
   color: var(--muted);
 }
 
@@ -187,40 +187,40 @@
 }
 
 .photoDetailEmptyState {
-  margin-top: 12px;
-  font-size: 13px;
-  line-height: 1.5;
+  margin-top: 9px;
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--muted);
 }
 
 .photoDetailHero {
-  margin-top: 12px;
+  margin-top: 9px;
 }
 
 .photoDetailHeroTop {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 9px;
+  margin-bottom: 7px;
 }
 
 .photoDetailHeroEyebrow {
-  font-size: 10px;
+  font-size: 8px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.6;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .photoDetailHeroTitle {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 800;
   line-height: 1.2;
 }
 
 .photoDetailPreviewWrap {
-  border-radius: 14px;
+  border-radius: 13px;
   overflow: hidden;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.06);
@@ -234,57 +234,57 @@
 }
 
 .photoComparePlaceholder {
-  margin-top: 14px;
-  padding: 12px;
-  border-radius: 12px;
+  margin-top: 10px;
+  padding: 9px;
+  border-radius: 11px;
   background: rgba(255,255,255,0.04);
   border: 1px dashed rgba(255,255,255,0.1);
 }
 
 .photoComparePlaceholderTitle {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .photoComparePlaceholderText {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--muted);
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .photoDetailMetaList {
-  margin-top: 14px;
+  margin-top: 10px;
   display: grid;
-  gap: 10px;
+  gap: 7px;
 }
 
 .photoDetailMetaItem {
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 8px 9px;
+  border-radius: 11px;
   background: rgba(255,255,255,0.045);
   border: 1px solid rgba(255,255,255,0.06);
 }
 
 .photoDetailMetaLabel {
-  font-size: 10px;
+  font-size: 8px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.62;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .photoDetailMetaValue {
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.35;
   color: var(--text);
   word-break: break-word;
 }
 
 .photoDetailActions {
   display: flex;
-  gap: 8px;
-  margin-top: 14px;
+  gap: 7px;
+  margin-top: 10px;
 }
 
 .photoDetailActions button {
@@ -294,51 +294,51 @@
 /* ================= EMPTY STATES ================= */
 
 .emptyStateMini {
-  padding: 10px 0 2px;
+  padding: 8px 0 2px;
 }
 
 .emptyStateMiniTitle {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .emptyStateMiniText {
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.35;
   color: var(--muted);
 }
 
 .emptyStateHero {
-  min-height: 280px;
+  min-height: 220px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  border-radius: 16px;
+  border-radius: 15px;
   border: 1px dashed rgba(255,255,255,0.12);
   background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-  padding: 24px;
+  padding: 18px;
 }
 
 .emptyStateHeroEyebrow {
-  font-size: 10px;
+  font-size: 8px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   opacity: 0.62;
-  margin-bottom: 8px;
+  margin-bottom: 7px;
 }
 
 .emptyStateHeroTitle {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
   line-height: 1.15;
   max-width: 700px;
-  margin-bottom: 10px;
+  margin-bottom: 7px;
 }
 
 .emptyStateHeroText {
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.45;
   color: var(--muted);
   max-width: 760px;
 }
