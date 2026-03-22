@@ -20,15 +20,23 @@ function getScopeMetrics() {
 
   let completed = 0;
   let closed = 0;
+  let rescheduled = 0;
 
   filteredStores.forEach(store => {
     const status = statusMap[String(store.store_id)] || {};
-    if (status.completed) completed += 1;
-    if (status.closed) closed += 1;
+    const normalized = normalizeStatusCode(
+      status.status_code,
+      status.completed === true,
+      status.closed === true
+    );
+
+    if (normalized === "completed") completed += 1;
+    else if (normalized === "closed") closed += 1;
+    else if (normalized === "rescheduled") rescheduled += 1;
   });
 
   const totalStores = filteredStores.length;
-  const active = totalStores - completed - closed;
+  const active = totalStores - completed - closed - rescheduled;
   const actionableTotal = totalStores - closed;
   const completionRate = actionableTotal > 0 ? (completed / actionableTotal) * 100 : 0;
 
@@ -38,7 +46,7 @@ function getScopeMetrics() {
 
   const completedToday = completedEvents.filter(item => isToday(item.timestamp)).length;
   const avgPerDay = calculateAverageCompletedPerDay(completedEvents);
-  const etaDays = avgPerDay > 0 ? active / avgPerDay : null;
+  const etaDays = avgPerDay > 0 ? (active + rescheduled) / avgPerDay : null;
   const filteredPhotoCount = photoRowsCache.filter(row => filteredIds.has(String(row.store_id))).length;
 
   return {
@@ -47,6 +55,7 @@ function getScopeMetrics() {
     totalStores,
     completed,
     closed,
+    rescheduled,
     active,
     completionRate,
     completedToday,
@@ -57,13 +66,33 @@ function getScopeMetrics() {
 }
 
 function buildOperationalSummary(metrics) {
-  if (metrics.totalStores === 0) return "No stores loaded";
-  return `${metrics.totalStores.toLocaleString()} stores in scope • ${metrics.completed.toLocaleString()} completed • ${metrics.active.toLocaleString()} active • ${metrics.closed.toLocaleString()} closed`;
+  if (metrics.totalStores === 0) return "No stores currently in scope.";
+
+  const parts = [
+    `${metrics.totalStores.toLocaleString()} in scope`,
+    `${metrics.completed.toLocaleString()} completed`,
+    `${metrics.active.toLocaleString()} active`
+  ];
+
+  if (metrics.rescheduled > 0) {
+    parts.push(`${metrics.rescheduled.toLocaleString()} rescheduled`);
+  }
+
+  if (metrics.closed > 0) {
+    parts.push(`${metrics.closed.toLocaleString()} closed`);
+  }
+
+  return parts.join(" • ");
 }
 
 function buildExecutiveSummary(metrics) {
   if (metrics.totalStores === 0) return "No mapped stores currently in scope.";
-  return `${metrics.totalStores.toLocaleString()} stores in scope with ${metrics.completionRate.toFixed(1)}% actionable completion, ${metrics.completedToday.toLocaleString()} completed today, and ${metrics.filteredPhotoCount.toLocaleString()} photo evidence records captured.`;
+
+  const schedulePart = metrics.rescheduled > 0
+    ? `${metrics.rescheduled.toLocaleString()} rescheduled, `
+    : "";
+
+  return `${metrics.totalStores.toLocaleString()} stores in scope • ${metrics.completionRate.toFixed(1)}% actionable completion • ${metrics.completedToday.toLocaleString()} completed today • ${schedulePart}${metrics.filteredPhotoCount.toLocaleString()} photo records captured.`;
 }
 
 function getCurrentScopeLabel(metrics) {
@@ -89,7 +118,10 @@ function getCurrentScopeLabel(metrics) {
 function getWorkspaceProgressContext(metrics) {
   if (metrics.totalStores === 0) return "Awaiting project data";
   if (metrics.avgPerDay > 0 && metrics.etaDays !== null) {
-    return `${metrics.avgPerDay.toFixed(1)}/day pace • ETA ${formatEta(metrics.etaDays)}`;
+    return `${metrics.avgPerDay.toFixed(1)}/day run rate • ETA ${formatEta(metrics.etaDays)}`;
+  }
+  if (metrics.rescheduled > 0) {
+    return `${metrics.rescheduled.toLocaleString()} rescheduled stores currently need follow-up`;
   }
   return "Execution pace and completion trend";
 }
@@ -117,7 +149,7 @@ function updateHeaderDashboard() {
   );
   setText("dashboardTotalStores", metrics.totalStores.toLocaleString());
   setText("dashboardCompletedStores", metrics.completed.toLocaleString());
-  setText("dashboardActiveStores", metrics.active.toLocaleString());
+  setText("dashboardActiveStores", (metrics.active + metrics.rescheduled).toLocaleString());
   setText("dashboardClosedStores", metrics.closed.toLocaleString());
   setText("dashboardStoresToday", metrics.completedToday.toLocaleString());
   setText("dashboardAvgPerDay", metrics.avgPerDay > 0 ? metrics.avgPerDay.toFixed(1) : "—");
@@ -137,7 +169,7 @@ function updateScopeSummary() {
   setText("scopeStoreCountPill", metrics.totalStores.toLocaleString());
   setText("scopeVisibleStores", metrics.totalStores.toLocaleString());
   setText("scopeVisibleCompleted", metrics.completed.toLocaleString());
-  setText("scopeVisibleActive", metrics.active.toLocaleString());
+  setText("scopeVisibleActive", (metrics.active + metrics.rescheduled).toLocaleString());
   setText("scopeVisibleClosed", metrics.closed.toLocaleString());
 }
 
@@ -150,7 +182,7 @@ function updateIntelRail() {
   setText("intelPhotoCount", metrics.filteredPhotoCount.toLocaleString());
   setText("intelEtaValue", metrics.etaDays !== null ? formatEta(metrics.etaDays) : "—");
   setText("intelCompletedStores", metrics.completed.toLocaleString());
-  setText("intelActiveStores", metrics.active.toLocaleString());
+  setText("intelActiveStores", (metrics.active + metrics.rescheduled).toLocaleString());
   setText("intelClosedStores", metrics.closed.toLocaleString());
   setText("intelCompletedToday", metrics.completedToday.toLocaleString());
 
@@ -161,7 +193,7 @@ function updateIntelRail() {
 
 function resetSelectedStorePanel() {
   setText("intelSelectedStoreId", "No store selected");
-  setText("intelSelectedStoreAddress", "Tap a store marker to inspect status, notes, and photos.");
+  setText("intelSelectedStoreAddress", "Tap a store marker to review current status, field notes, and photo evidence.");
 
   const issuesEl = document.getElementById("intelSelectedStoreIssues");
   if (issuesEl) {
@@ -189,17 +221,28 @@ function updateSelectedStorePanel(storeId) {
     status.closed === true
   );
   const statusLabel = statusCode.charAt(0).toUpperCase() + statusCode.slice(1);
+  const noteCount = noteRowsCache.filter(row => String(row.store_id) === String(store.store_id)).length;
+  const photoCount = photoRowsCache.filter(row => String(row.store_id) === String(store.store_id)).length;
 
   const parts = [];
   if (store.full_address) parts.push(store.full_address);
-  if (store.region) parts.push(`Region: ${store.region}`);
-  if (store.territory) parts.push(`Territory: ${store.territory}`);
-  if (store.state) parts.push(`State: ${store.state}`);
   parts.push(`Status: ${statusLabel}`);
 
   if (statusCode === "rescheduled" && String(status.status_reason || "").trim()) {
     parts.push(`Reason: ${String(status.status_reason).trim()}`);
   }
+
+  if (noteCount > 0) {
+    parts.push(`${noteCount} note${noteCount === 1 ? "" : "s"}`);
+  }
+
+  if (photoCount > 0) {
+    parts.push(`${photoCount} photo${photoCount === 1 ? "" : "s"}`);
+  }
+
+  if (store.region) parts.push(`Region ${store.region}`);
+  if (store.territory) parts.push(`Territory ${store.territory}`);
+  if (store.state) parts.push(store.state);
 
   if (store.is_removed === true) {
     parts.push("Removed");

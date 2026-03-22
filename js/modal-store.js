@@ -54,7 +54,7 @@ function ensureRescheduleControls() {
     const helper = document.createElement("div");
     helper.id = "rescheduleReasonHelper";
     helper.className = "projectSourceTag";
-    helper.textContent = "Reason applies to rescheduled status.";
+    helper.textContent = "Reason applies only when the store is rescheduled.";
 
     const applyBtn = document.createElement("button");
     applyBtn.id = "applyRescheduleReasonBtn";
@@ -245,7 +245,7 @@ function updateRescheduleReasonHelper(state = "") {
   if (!helper || !applyBtn || !currentModalStoreId) return;
 
   if (!isStoreCurrentlyRescheduled(currentModalStoreId)) {
-    helper.textContent = "Reason applies to rescheduled status.";
+    helper.textContent = "Reason applies only when the store is rescheduled.";
     helper.style.color = "";
     applyBtn.disabled = true;
     return;
@@ -255,19 +255,19 @@ function updateRescheduleReasonHelper(state = "") {
   applyBtn.disabled = !canEditStores() || !dirty;
 
   if (state === "saved") {
-    helper.textContent = "Reason applies to rescheduled status. Saved.";
+    helper.textContent = "Reschedule reason saved.";
     helper.style.color = "#d7f9e0";
     return;
   }
 
   if (dirty) {
-    helper.textContent = "Reason applies to rescheduled status. Unsaved changes.";
+    helper.textContent = "Unsaved reschedule reason change.";
     helper.style.color = "#ffd27a";
     return;
   }
 
-  helper.textContent = "Reason applies to rescheduled status. Saved.";
-  helper.style.color = "#d7f9e0";
+  helper.textContent = "Reason applies only when the store is rescheduled.";
+  helper.style.color = "";
 }
 
 async function persistRescheduleReasonIfNeeded(storeId) {
@@ -399,9 +399,23 @@ function openStoreModal(storeId) {
       }
 
       touchDataRefresh();
+
+      prependActivity({
+        type: "store-removed",
+        project_id: currentProjectId,
+        store_id: normalizedStoreId,
+        timestamp: new Date().toISOString(),
+        title: `Store ${normalizedStoreId} removed from project scope`,
+        detail: store?.full_address || "Store removed from active project scope."
+      });
+
       updateStoreLifecycleControls(normalizedStoreId);
       updateProjectSourceTag();
       handleFilterChange();
+      updateHeaderDashboard();
+      updateScopeSummary();
+      updateActivityList();
+      updateIntelRail();
       updateSelectedStorePanel(normalizedStoreId);
 
       if (showRemovedStores !== true) {
@@ -428,9 +442,23 @@ function openStoreModal(storeId) {
       }
 
       touchDataRefresh();
+
+      prependActivity({
+        type: "store-restored",
+        project_id: currentProjectId,
+        store_id: normalizedStoreId,
+        timestamp: new Date().toISOString(),
+        title: `Store ${normalizedStoreId} restored to project scope`,
+        detail: store?.full_address || "Store restored to active project scope."
+      });
+
       updateStoreLifecycleControls(normalizedStoreId);
       updateProjectSourceTag();
       handleFilterChange();
+      updateHeaderDashboard();
+      updateScopeSummary();
+      updateActivityList();
+      updateIntelRail();
       updateSelectedStorePanel(normalizedStoreId);
     };
   }
@@ -498,13 +526,13 @@ async function updateStore(storeId, completedOrStatus, closed = false, statusRea
     store_id: normalizedStoreId,
     timestamp: new Date().toISOString(),
     title: nextStatus.status_code === "completed"
-      ? `✔ Store ${normalizedStoreId} completed`
+      ? `Store ${normalizedStoreId} marked completed`
       : nextStatus.status_code === "closed"
-        ? `⚠ Store ${normalizedStoreId} closed`
+        ? `Store ${normalizedStoreId} marked closed`
         : nextStatus.status_code === "rescheduled"
-          ? `⟳ Store ${normalizedStoreId} rescheduled`
-          : `• Store ${normalizedStoreId} active`,
-    detail: nextStatus.status_reason || "Status updated"
+          ? `Store ${normalizedStoreId} marked rescheduled`
+          : `Store ${normalizedStoreId} marked active`,
+    detail: nextStatus.status_reason || "Status updated."
   });
 
   rebuild();
@@ -552,7 +580,7 @@ async function addNote(storeId) {
     type: "note",
     store_id: String(storeId),
     timestamp: new Date().toISOString(),
-    title: `📝 Note added to Store ${storeId}`,
+    title: `Store ${storeId} note added`,
     detail: note
   });
 
