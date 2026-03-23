@@ -802,7 +802,7 @@ function buildSnapshotHtml(payload) {
         <div class="utility-subtitle">Generated from live project data for the selected scope at ${escapeSnapshotHtml(generatedAt)}. Use Print to save as PDF, or return to the app when finished.</div>
       </div>
       <div class="utility-actions">
-        <button id="snapshotReturnBtn" class="utility-btn secondary" type="button">Return to App</button>
+        <button id="snapshotReturnBtn" class="utility-btn secondary" type="button">Back to App</button>
         <button id="snapshotPrintBtn" class="utility-btn" type="button">Print / Save as PDF</button>
         <span class="utility-chip">${escapeSnapshotHtml(scopeMeta.scopeLabel)}</span>
         <span class="utility-chip">${escapeSnapshotHtml(generatedTimeLabel)}</span>
@@ -919,15 +919,13 @@ function buildSnapshotHtml(payload) {
 
       if (returnBtn) {
         returnBtn.addEventListener("click", function () {
-          try {
-            if (document.referrer && document.referrer !== location.href) {
-              window.location.href = document.referrer;
-              return;
-            }
-          } catch (_error) {}
-
           if (returnUrl) {
             window.location.href = returnUrl;
+            return;
+          }
+
+          if (document.referrer && document.referrer !== location.href) {
+            window.location.href = document.referrer;
             return;
           }
 
