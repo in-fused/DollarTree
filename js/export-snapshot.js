@@ -1299,7 +1299,8 @@ function escapeCsvValue(value) {
 }
 
 function serializeAnalyticsSnapshotToCsv(payload) {
-  const rows = buildAnalyticsCsvRows(payload);
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  const rows = buildAnalyticsCsvRows(exportPayload);
   if (!rows.length) return "";
 
   const lines = [ANALYTICS_CSV_HEADERS.map(escapeCsvValue).join(",")];
@@ -1312,9 +1313,9 @@ function serializeAnalyticsSnapshotToCsv(payload) {
 
 function exportProjectAnalyticsCsv() {
   try {
-    const payload = buildAnalyticsExportPayload();
-    const filename = `${buildAnalyticsExportBaseName(payload)}.csv`;
-    const csv = serializeAnalyticsSnapshotToCsv(payload);
+    const exportPayload = buildAnalyticsExportPayload();
+    const filename = `${buildAnalyticsExportBaseName(exportPayload)}.csv`;
+    const csv = serializeAnalyticsSnapshotToCsv(exportPayload);
     downloadExportText(filename, csv, "text/csv;charset=utf-8");
   } catch (error) {
     console.error(error);
@@ -1324,9 +1325,9 @@ function exportProjectAnalyticsCsv() {
 
 function exportProjectAnalyticsJson() {
   try {
-    const payload = buildAnalyticsExportPayload();
-    const filename = `${buildAnalyticsExportBaseName(payload)}.json`;
-    downloadExportText(filename, `${JSON.stringify(payload, null, 2)}\n`, "application/json;charset=utf-8");
+    const exportPayload = buildAnalyticsExportPayload();
+    const filename = `${buildAnalyticsExportBaseName(exportPayload)}.json`;
+    downloadExportText(filename, `${JSON.stringify(exportPayload, null, 2)}\n`, "application/json;charset=utf-8");
   } catch (error) {
     console.error(error);
     alert("Analytics export failed. Please try again.");
