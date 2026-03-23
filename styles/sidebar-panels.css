@@ -47,6 +47,24 @@
   cursor: pointer;
 }
 
+.panelHeaderRowWrap {
+  align-items: flex-start;
+}
+
+.panelHeaderActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.panelInlineActionCompact {
+  padding: 4px 8px;
+  font-size: 10px;
+  margin-top: 0;
+}
+
 /* ================= FORMS / BUTTONS ================= */
 
 input,
