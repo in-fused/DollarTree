@@ -295,29 +295,198 @@ function buildSnapshotTableRows(rows) {
   `).join("");
 }
 
-function buildSnapshotRecentActivity(rows) {
-  const scopedIds = new Set(rows.map(row => String(row.storeId)));
-  const recent = activityFeed
-    .filter(item => !item.store_id || scopedIds.has(String(item.store_id)))
-    .slice(0, 8);
+function getSnapshotStoreNotes(storeId) {
+  return noteRowsCache
+    .filter(row => String(row.store_id) === String(storeId))
+    .slice()
+    .sort((a, b) => getTimestampValue(b.created_at) - getTimestampValue(a.created_at));
+}
 
-  if (recent.length === 0) {
+function getSnapshotStorePhotos(storeId) {
+  return photoRowsCache
+    .filter(row => String(row.store_id) === String(storeId))
+    .map(row => ({
+      ...row,
+      imageUrl: String(row.image_url || "").trim(),
+      timestampValue: getTimestampValue(row.created_at)
+    }))
+    .filter(row => row.imageUrl)
+    .sort((a, b) => b.timestampValue - a.timestampValue);
+}
+
+function getSnapshotLatestNotePreview(notes, photos = []) {
+  const latestNote = Array.isArray(notes) && notes.length ? notes[0] : null;
+  if (!latestNote) {
+    return {
+      preview: Array.isArray(photos) && photos.length
+        ? "No field notes captured. Photo evidence available."
+        : "No field notes captured for this store in the current scope.",
+      timestampLabel: "",
+      timestampValue: 0
+    };
+  }
+
+  const noteText = String(latestNote.note || "").trim();
+  return {
+    preview: noteText.length > 180 ? `${noteText.slice(0, 177)}...` : noteText,
+    timestampLabel: latestNote.created_at ? formatActivityTime(latestNote.created_at) : "",
+    timestampValue: getTimestampValue(latestNote.created_at)
+  };
+}
+
+function getSnapshotEvidenceRows(filteredStores) {
+  return filteredStores
+    .map((store, index) => {
+      const storeId = String(store.store_id);
+      const notes = getSnapshotStoreNotes(storeId);
+      const photos = getSnapshotStorePhotos(storeId);
+      if (!notes.length && !photos.length) return null;
+
+      const notePreview = getSnapshotLatestNotePreview(notes, photos);
+      const latestPhotoTimestampValue = photos.length ? photos[0].timestampValue : 0;
+      const latestEvidenceTimestampValue = Math.max(notePreview.timestampValue, latestPhotoTimestampValue, 0);
+      const hasBoth = notes.length > 0 && photos.length > 0;
+      const statusCode = getSnapshotStatusCode(store);
+
+      return {
+        originalIndex: index,
+        storeId,
+        address: store.full_address || [store.city, store.state].filter(Boolean).join(", ") || "No address on file",
+        statusCode,
+        statusLabel: getStatusDisplayLabel(statusCode),
+        noteCount: notes.length,
+        photoCount: photos.length,
+        notes,
+        photos,
+        latestNotePreview: notePreview.preview,
+        latestNoteTimestampLabel: notePreview.timestampLabel,
+        latestEvidenceTimestampValue,
+        sortGroup: hasBoth ? 0 : 1
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.sortGroup !== b.sortGroup) return a.sortGroup - b.sortGroup;
+      if (a.latestEvidenceTimestampValue !== b.latestEvidenceTimestampValue) return b.latestEvidenceTimestampValue - a.latestEvidenceTimestampValue;
+      return a.originalIndex - b.originalIndex;
+    });
+}
+
+function getSnapshotEvidenceRows(filteredStores) {
+  return filteredStores
+    .map((store, index) => {
+      const storeId = String(store.store_id);
+      const notes = getSnapshotStoreNotes(storeId);
+      const photos = getSnapshotStorePhotos(storeId);
+      if (!notes.length && !photos.length) return null;
+
+      const notePreview = getSnapshotLatestNotePreview(notes);
+      const latestPhotoTimestampValue = photos.length ? photos[0].timestampValue : 0;
+      const latestEvidenceTimestampValue = Math.max(notePreview.timestampValue, latestPhotoTimestampValue, 0);
+      const hasBoth = notes.length > 0 && photos.length > 0;
+      const statusCode = getSnapshotStatusCode(store);
+
+      return {
+        originalIndex: index,
+        storeId,
+        address: store.full_address || [store.city, store.state].filter(Boolean).join(", ") || "No address on file",
+        statusCode,
+        statusLabel: getStatusDisplayLabel(statusCode),
+        noteCount: notes.length,
+        photoCount: photos.length,
+        notes,
+        photos,
+        latestNotePreview: notePreview.preview,
+        latestNoteTimestampLabel: notePreview.timestampLabel,
+        latestEvidenceTimestampValue,
+        sortGroup: hasBoth ? 0 : 1
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.sortGroup !== b.sortGroup) return a.sortGroup - b.sortGroup;
+      if (a.latestEvidenceTimestampValue !== b.latestEvidenceTimestampValue) return b.latestEvidenceTimestampValue - a.latestEvidenceTimestampValue;
+      return a.originalIndex - b.originalIndex;
+    });
+}
+
+function buildSnapshotEvidenceNotes(notes) {
+  if (!notes.length) {
+    return `<div class="evidence-empty-mini">No field notes logged.</div>`;
+  }
+
+  return notes.slice(0, 3).map(note => `
+    <div class="evidence-note-item">
+      <div class="evidence-note-meta">${escapeSnapshotHtml(note.created_at ? formatActivityTime(note.created_at) : "Note")}</div>
+      <div class="evidence-note-text">${escapeSnapshotHtml(note.note || "No note text available")}</div>
+    </div>
+  `).join("");
+}
+
+function buildSnapshotEvidencePhotoRail(photos, variant = "compact") {
+  if (!photos.length) {
+    return `<div class="evidence-empty-mini">No photo evidence captured.</div>`;
+  }
+
+  const photoLimit = variant === "expanded" ? 4 : 3;
+  return photos.slice(0, photoLimit).map((photo, index) => `
+    <div class="evidence-photo-shell evidence-photo-shell-${escapeSnapshotHtml(variant)}">
+      <img
+        class="evidence-photo evidence-photo-${escapeSnapshotHtml(variant)}"
+        src="${escapeSnapshotHtml(photo.imageUrl)}"
+        alt="Store evidence photo ${index + 1}"
+        loading="lazy"
+        onerror="this.closest('.evidence-photo-shell').classList.add('is-broken'); this.remove();"
+      />
+      <div class="evidence-photo-fallback">Image unavailable</div>
+    </div>
+  `).join("");
+}
+
+function buildSnapshotEvidenceCards(evidenceRows) {
+
+  if (!evidenceRows.length) {
     return `
       <div class="empty-state-card">
-        <div class="empty-state-title">No recent activity in this scope</div>
-        <div class="empty-state-copy">This export still captures live store status, scope metrics, and grouped store detail for stakeholder review.</div>
+        <div class="empty-state-title">No field evidence in this scope</div>
+        <div class="empty-state-copy">Status, scope metrics, and the store summary table are still included for stakeholder review. Notes and photo evidence will appear here as teams capture them.</div>
       </div>
     `;
   }
 
-  return recent.map(item => `
-    <div class="activity-row">
-      <div class="activity-time">${escapeSnapshotHtml(item.timestamp ? formatActivityTime(item.timestamp) : "—")}</div>
-      <div class="activity-body">
-        <div class="activity-title">${escapeSnapshotHtml(item.title || "Operational update")}</div>
-        <div class="activity-detail">${escapeSnapshotHtml(item.detail || "Recent activity recorded")}</div>
+  return evidenceRows.map(row => `
+    <details class="evidence-card" data-evidence-card>
+      <summary class="evidence-summary">
+        <div class="evidence-summary-main">
+          <div class="evidence-store-line">
+            <span class="evidence-store-id">Store ${escapeSnapshotHtml(row.storeId)}</span>
+            <span class="status status-${escapeSnapshotHtml(row.statusCode)}">${escapeSnapshotHtml(row.statusLabel)}</span>
+          </div>
+          <div class="evidence-address">${escapeSnapshotHtml(row.address)}</div>
+          <div class="evidence-preview">${escapeSnapshotHtml(row.latestNotePreview)}</div>
+        </div>
+        <div class="evidence-summary-side">
+          <div class="evidence-count-row">
+            <span class="count-pill ${row.noteCount ? "has-data" : ""}">${row.noteCount} notes</span>
+            <span class="count-pill ${row.photoCount ? "has-data" : ""}">${row.photoCount} photos</span>
+          </div>
+          <div class="evidence-photo-rail">${buildSnapshotEvidencePhotoRail(row.photos, "compact")}</div>
+          <div class="evidence-expand-hint">Click to expand detail</div>
+        </div>
+      </summary>
+      <div class="evidence-expanded">
+        <div class="evidence-expanded-grid">
+          <div>
+            <div class="summary-title">Field Notes</div>
+            ${buildSnapshotEvidenceNotes(row.notes)}
+          </div>
+          <div>
+            <div class="summary-title">Photo Evidence</div>
+            <div class="evidence-photo-grid">${buildSnapshotEvidencePhotoRail(row.photos, "expanded")}</div>
+          </div>
+        </div>
       </div>
-    </div>
+    </details>
   `).join("");
 }
 
@@ -351,6 +520,7 @@ function buildSnapshotHtml(payload) {
     scopeMeta,
     metrics,
     rows,
+    evidenceRows,
     operationalSummary,
     productLabel,
     returnUrl
@@ -790,30 +960,71 @@ function buildSnapshotHtml(payload) {
     color: #1e5b34;
     border-color: #c6decf;
   }
-  .activity-row {
+  .evidence-card {
+    border: 1px solid rgba(188, 203, 218, 0.88);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(244, 248, 252, 0.98) 0%, rgba(236, 242, 248, 0.98) 100%);
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+  }
+  .evidence-card + .evidence-card { margin-top: 12px; }
+  .evidence-summary {
+    list-style: none;
     display: grid;
-    grid-template-columns: 96px minmax(0, 1fr);
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(188, 203, 218, 0.88);
+    grid-template-columns: minmax(0, 1fr) minmax(220px, .9fr);
+    gap: 16px;
+    padding: 16px;
+    cursor: pointer;
   }
-  .activity-row:last-child { border-bottom: none; }
-  .activity-time {
+  .evidence-summary::-webkit-details-marker { display: none; }
+  .evidence-summary-main { display: grid; gap: 8px; }
+  .evidence-store-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .evidence-store-id { font-size: 14px; font-weight: 800; color: #13283b; }
+  .evidence-address { font-size: 13px; line-height: 1.5; color: #203648; }
+  .evidence-preview { font-size: 13px; line-height: 1.6; color: var(--muted); }
+  .evidence-summary-side { display: grid; gap: 10px; align-content: start; }
+  .evidence-count-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; }
+  .evidence-photo-rail { display: flex; gap: 8px; flex-wrap: wrap; }
+  .evidence-photo-shell {
+    position: relative;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(188, 203, 218, 0.88);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .evidence-photo-shell-compact { width: 68px; height: 68px; }
+  .evidence-photo-shell-expanded { min-height: 124px; }
+  .evidence-photo { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .evidence-photo-expanded { aspect-ratio: 4 / 3; }
+  .evidence-photo-fallback {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 12px;
+    text-align: center;
+    font-size: 11px;
     color: var(--muted);
-    font-size: 12px;
-    font-weight: 700;
+    background: rgba(239, 245, 250, 0.92);
   }
-  .activity-title {
-    font-size: 13px;
-    font-weight: 700;
-    margin-bottom: 3px;
-    color: #173047;
+  .evidence-photo-shell.is-broken .evidence-photo-fallback { display: flex; }
+  .evidence-expand-hint { font-size: 11px; color: var(--muted); font-weight: 700; }
+  .evidence-expanded {
+    padding: 0 16px 16px;
+    border-top: 1px solid rgba(188, 203, 218, 0.88);
   }
-  .activity-detail {
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.45;
+  .evidence-expanded-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    padding-top: 14px;
   }
+  .evidence-note-item + .evidence-note-item { margin-top: 10px; }
+  .evidence-note-meta { font-size: 11px; color: var(--muted); font-weight: 700; margin-bottom: 3px; }
+  .evidence-note-text { font-size: 13px; line-height: 1.55; color: #203648; }
+  .evidence-photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .evidence-empty-mini { font-size: 12px; color: var(--muted); line-height: 1.5; }
   .empty-state-card {
     border: 1px dashed var(--line-strong);
     border-radius: 14px;
@@ -838,6 +1049,9 @@ function buildSnapshotHtml(payload) {
   }
   .print-only { display: none; }
   @media print {
+    [data-evidence-card] { page-break-inside: avoid; }
+    [data-evidence-card] .evidence-expanded { display: block !important; }
+
     body {
       background: #fff;
     }
@@ -877,7 +1091,9 @@ function buildSnapshotHtml(payload) {
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .summary-strip,
     .executionOverviewGrid,
-    .two-col { grid-template-columns: 1fr; }
+    .two-col,
+    .evidence-expanded-grid,
+    .evidence-summary { grid-template-columns: 1fr; }
     .hero-top,
     .utility-bar { flex-direction: column; }
     .hero-meta { min-width: 0; width: 100%; }
@@ -1003,8 +1219,9 @@ function buildSnapshotHtml(payload) {
       </div>
 
       <div class="panel">
-        <div class="panel-eyebrow">Recent Activity</div>
-        ${buildSnapshotRecentActivity(rows)}
+        <div class="panel-eyebrow">Field Notes & Photo Evidence</div>
+        <div class="footnote" style="margin-bottom:10px;">This section surfaces scoped store-level evidence for stakeholder review, prioritizing locations with both notes and photos and allowing deeper browser inspection without removing print readability.</div>
+        ${buildSnapshotEvidenceCards(evidenceRows || [])}
       </div>
     </section>
 
@@ -1016,12 +1233,31 @@ function buildSnapshotHtml(payload) {
       const returnUrl = ${JSON.stringify(returnUrl)};
       const printBtn = document.getElementById("snapshotPrintBtn");
       const returnBtn = document.getElementById("snapshotReturnBtn");
+      const evidenceCards = Array.from(document.querySelectorAll("[data-evidence-card]"));
+      const applyEvidencePrintState = (openAll) => {
+        evidenceCards.forEach(card => {
+          if (openAll) {
+            card.dataset.wasOpenBeforePrint = card.open ? "true" : "false";
+            card.open = true;
+          } else if (card.dataset.wasOpenBeforePrint === "false") {
+            card.open = false;
+          }
+        });
+      };
 
       if (printBtn) {
         printBtn.addEventListener("click", function () {
           window.print();
         });
       }
+
+      window.addEventListener("beforeprint", function () {
+        applyEvidencePrintState(true);
+      });
+
+      window.addEventListener("afterprint", function () {
+        applyEvidencePrintState(false);
+      });
 
       if (returnBtn) {
         returnBtn.addEventListener("click", function () {
@@ -1048,6 +1284,7 @@ function exportProjectSnapshot() {
   const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
   const scopeMeta = getSnapshotScopeMeta(filteredStores);
   const rows = getSnapshotRows(filteredStores);
+  const evidenceRows = getSnapshotEvidenceRows(filteredStores);
   const metrics = getSnapshotMetrics(filteredStores, rows);
   const generatedDate = new Date();
   const generatedAt = generatedDate.toLocaleString();
@@ -1067,6 +1304,7 @@ function exportProjectSnapshot() {
     scopeMeta,
     metrics,
     rows,
+    evidenceRows,
     operationalSummary,
     productLabel,
     returnUrl
@@ -1083,7 +1321,34 @@ function slugifyExportName(value) {
     .replace(/-{2,}/g, "-") || "export";
 }
 
-const ANALYTICS_EXPORT_SCHEMA_VERSION = "11.1k-bundled";
+function buildAnalyticsExportBaseName() {
+  const snapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
+  const projectName = snapshot.projectName || currentProjectMeta?.name || currentProjectId || "project";
+  const scopeLabel = snapshot.scopeLabel || document.getElementById("headerScopeSummary")?.textContent || "scope";
+  const generatedAt = snapshot.generatedAt ? new Date(snapshot.generatedAt) : new Date();
+  const dateStamp = Number.isNaN(generatedAt.getTime())
+    ? new Date().toISOString().slice(0, 10)
+    : generatedAt.toISOString().slice(0, 10);
+
+  return `${slugifyExportName(projectName)}-${slugifyExportName(scopeLabel)}-analytics-${dateStamp}`;
+}
+
+function downloadExportBlob(filename, blob) {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+}
+
+function downloadExportText(filename, text, mimeType) {
+  downloadExportBlob(filename, new Blob([text], { type: mimeType || "text/plain;charset=utf-8" }));
+}
+
 const ANALYTICS_CSV_HEADERS = [
   "rowType",
   "projectId",
@@ -1136,329 +1401,55 @@ const ANALYTICS_CSV_HEADERS = [
   "activityTimestampValue"
 ];
 
-function buildAnalyticsExportPayload() {
+function buildAnalyticsCsvRows() {
   const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
   const scopeMeta = getSnapshotScopeMeta(filteredStores);
   const rows = getSnapshotRows(filteredStores);
   const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
   const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
+  const analyticsMetrics = analyticsSnapshot.metrics || {};
+  const generatedAt = analyticsSnapshot.generatedAt || new Date().toISOString();
   const projectId = analyticsSnapshot.projectId || currentProjectId || "";
   const projectName = analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot";
-  const generatedAt = analyticsSnapshot.generatedAt || new Date().toISOString();
   const scopeLabel = analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel;
-  const metrics = analyticsSnapshot.metrics || {};
-  const totalRows = rows.length + 1;
-  const detailRows = rows.length;
-
-  return {
-    exportType: "analytics_export",
-    schemaVersion: ANALYTICS_EXPORT_SCHEMA_VERSION,
-    exportFormat: "route_builder_analytics",
-    exportedBy: "Route Builder",
-    exportedAtLocal: new Date().toLocaleString(),
-    exportReady: true,
-    exportMode: "manual_download",
-    transport: "browser_blob_download",
-    payloadHealth: {
-      hasProjectId: Boolean(projectId),
-      hasProjectName: Boolean(projectName),
-      hasScopeLabel: Boolean(scopeLabel),
-      hasRows: totalRows > 0,
-      hasMetricsObject: Boolean(metrics && typeof metrics === "object" && !Array.isArray(metrics))
-    },
-    rowSchema: {
-      summaryRowType: "project_summary",
-      detailRowType: "store_detail"
-    },
-    exportSummary: {
-      rowCount: totalRows,
-      storeRowCount: detailRows,
-      includesProjectSummaryRow: true,
-      includesStoreDetailRows: detailRows > 0,
-      scopeDescription: scopeMeta.scopeDescription
-    },
-    exportCounts: {
-      totalRows,
-      summaryRows: 1,
-      detailRows
-    },
-    exportIntegrity: {
-      hasRows: totalRows > 0,
-      hasSummaryRow: true,
-      hasDetailRows: detailRows > 0,
-      csvHeaderCount: ANALYTICS_CSV_HEADERS.length,
-      schemaVersion: ANALYTICS_EXPORT_SCHEMA_VERSION
-    },
-    ingestionHints: {
-      preferredKeyField: "storeId",
-      preferredTimestampField: "generatedAt",
-      preferredRowTypeField: "rowType",
-      supportsSummaryRow: true,
-      supportsDetailRows: true
-    },
-    projectId,
-    projectName,
-    generatedAt,
-    scopeLabel,
-    metrics,
-    scopeMeta,
-    snapshotMetrics,
-    rows
-  };
-}
-
-function buildAnalyticsExportBaseName(payload) {
-  const exportPayload = payload || buildAnalyticsExportPayload();
-  const projectName = exportPayload.projectName || "project";
-  const scopeLabel = exportPayload.scopeLabel || "scope";
-  const generatedAt = exportPayload.generatedAt ? new Date(exportPayload.generatedAt) : new Date();
-  const safeGeneratedAt = Number.isNaN(generatedAt.getTime()) ? new Date() : generatedAt;
-  const dateStamp = safeGeneratedAt.toISOString().slice(0, 10);
-
-  return `${slugifyExportName(projectName)}-${slugifyExportName(scopeLabel)}-analytics-${dateStamp}`;
-}
-
-function buildAnalyticsExportManifest(payload) {
-  const exportPayload = payload || buildAnalyticsExportPayload();
-  const exportCounts = exportPayload.exportCounts || {};
-  const ingestionHints = exportPayload.ingestionHints || {};
-  const exportIntegrity = exportPayload.exportIntegrity || {};
-
-  return {
-    exportType: exportPayload.exportType,
-    schemaVersion: exportPayload.schemaVersion,
-    exportFormat: exportPayload.exportFormat,
-    exportedBy: exportPayload.exportedBy,
-    generatedAt: exportPayload.generatedAt,
-    exportedAtLocal: exportPayload.exportedAtLocal,
-    projectId: exportPayload.projectId,
-    projectName: exportPayload.projectName,
-    scopeLabel: exportPayload.scopeLabel,
-    totalRows: exportCounts.totalRows,
-    summaryRows: exportCounts.summaryRows,
-    detailRows: exportCounts.detailRows,
-    csvHeaderCount: exportIntegrity.csvHeaderCount,
-    supportsSummaryRow: ingestionHints.supportsSummaryRow === true,
-    supportsDetailRows: ingestionHints.supportsDetailRows === true
-  };
-}
-
-function estimateAnalyticsCsvBytes(payload) {
-  return new Blob([serializeAnalyticsSnapshotToCsv(payload)], { type: "text/csv;charset=utf-8" }).size;
-}
-
-function estimateAnalyticsJsonBytes(payload) {
-  const exportPayload = payload || buildAnalyticsExportPayload();
-  return new Blob([`${JSON.stringify(exportPayload, null, 2)}\n`], { type: "application/json;charset=utf-8" }).size;
-}
-
-function buildAnalyticsExportPreflight(payload) {
-  const exportPayload = payload || buildAnalyticsExportPayload();
-  const estimatedCsvBytes = estimateAnalyticsCsvBytes(exportPayload);
-  const estimatedJsonBytes = estimateAnalyticsJsonBytes(exportPayload);
-
-  return {
-    manifest: buildAnalyticsExportManifest(exportPayload),
-    estimatedCsvBytes,
-    estimatedJsonBytes,
-    estimatedCsvKilobytes: Number((estimatedCsvBytes / 1024).toFixed(2)),
-    estimatedJsonKilobytes: Number((estimatedJsonBytes / 1024).toFixed(2))
-  };
-}
-
-function isSupportedAnalyticsExportPayload(payload) {
-  return Boolean(
-    payload &&
-    typeof payload === "object" &&
-    !Array.isArray(payload) &&
-    payload.exportType === "analytics_export" &&
-    payload.exportFormat === "route_builder_analytics" &&
-    typeof payload.schemaVersion === "string" &&
-    payload.schemaVersion.trim() !== "" &&
-    Array.isArray(payload.rows)
-  );
-}
-
-function getAnalyticsExportSupportedRowTypes(payload) {
-  const rowSchema = payload && typeof payload === "object" && !Array.isArray(payload)
-    ? (payload.rowSchema || {})
-    : {};
-
-  return [rowSchema.summaryRowType, rowSchema.detailRowType]
-    .map(value => String(value || "").trim())
-    .filter((value, index, array) => value && array.indexOf(value) === index);
-}
-
-function summarizeAnalyticsExportPayload(payload) {
-  const isSupported = isSupportedAnalyticsExportPayload(payload);
-  const exportCounts = payload && typeof payload === "object" && !Array.isArray(payload)
-    ? (payload.exportCounts || {})
-    : {};
-  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
-
-  return {
-    isSupported,
-    schemaVersion: payload?.schemaVersion || "",
-    exportFormat: payload?.exportFormat || "",
-    projectId: payload?.projectId || "",
-    projectName: payload?.projectName || "",
-    scopeLabel: payload?.scopeLabel || "",
-    totalRows: exportCounts.totalRows ?? rows.length,
-    detailRows: exportCounts.detailRows ?? rows.filter(row => row?.rowType === "store_detail").length,
-    summaryRows: exportCounts.summaryRows ?? rows.filter(row => row?.rowType === "project_summary").length,
-    hasRows: rows.length > 0,
-    hasMetrics: Boolean(payload && typeof payload.metrics === "object" && payload.metrics !== null && !Array.isArray(payload.metrics)),
-    hasScopeMeta: Boolean(payload && typeof payload.scopeMeta === "object" && payload.scopeMeta !== null && !Array.isArray(payload.scopeMeta)),
-    supportedRowTypes: getAnalyticsExportSupportedRowTypes(payload)
-  };
-}
-
-function validateAnalyticsExportPayloadShape(payload) {
-  const errors = [];
-  const warnings = [];
-  const isObject = Boolean(payload && typeof payload === "object" && !Array.isArray(payload));
-
-  if (!isObject) {
-    errors.push("payload missing or not object");
-  }
-
-  if (!isObject || payload.exportType !== "analytics_export") {
-    errors.push("wrong exportType");
-  }
-
-  if (!isObject || payload.exportFormat !== "route_builder_analytics") {
-    errors.push("wrong exportFormat");
-  }
-
-  if (!isObject || typeof payload.schemaVersion !== "string" || payload.schemaVersion.trim() === "") {
-    errors.push("missing schemaVersion");
-  }
-
-  if (!isObject || !Array.isArray(payload.rows)) {
-    errors.push("missing rows array");
-  }
-
-  if (!isObject || !payload.projectId) {
-    warnings.push("missing projectId");
-  }
-
-  if (!isObject || !payload.projectName) {
-    warnings.push("missing projectName");
-  }
-
-  if (!isObject || !payload.scopeLabel) {
-    warnings.push("missing scopeLabel");
-  }
-
-  if (!isObject || typeof payload.metrics !== "object" || payload.metrics === null || Array.isArray(payload.metrics)) {
-    warnings.push("missing metrics object");
-  }
-
-  if (!isObject || typeof payload.scopeMeta !== "object" || payload.scopeMeta === null || Array.isArray(payload.scopeMeta)) {
-    warnings.push("missing scopeMeta");
-  }
-
-  if (!Array.isArray(payload?.rows) || payload.rows.length === 0) {
-    warnings.push("rows array empty");
-  }
-
-  const supportedRowTypes = getAnalyticsExportSupportedRowTypes(payload);
-  if (supportedRowTypes.length < 2) {
-    warnings.push("rowSchema missing summary/detail row types");
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings
-  };
-}
-
-function buildAnalyticsExportImportReadiness(payload) {
-  const exportPayload = payload || buildAnalyticsExportPayload();
-
-  return {
-    summary: summarizeAnalyticsExportPayload(exportPayload),
-    validation: validateAnalyticsExportPayloadShape(exportPayload),
-    preflight: buildAnalyticsExportPreflight(exportPayload)
-  };
-}
-
-function downloadExportBlob(filename, blob) {
-  const objectUrl = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = objectUrl;
-  link.download = filename;
-  link.rel = "noopener";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-}
-
-function downloadExportText(filename, text, mimeType) {
-  downloadExportBlob(filename, new Blob([text], { type: mimeType || "text/plain;charset=utf-8" }));
-}
-
-function normalizeAnalyticsExportValue(value) {
-  if (value === undefined || value === null) return "";
-  return value;
-}
-
-function normalizeAnalyticsExportBoolean(value) {
-  return value === true ? "true" : "false";
-}
-
-function buildAnalyticsCsvRows(payload) {
-  const exportPayload = payload || buildAnalyticsExportPayload();
-  const {
-    projectId,
-    projectName,
-    generatedAt,
-    scopeLabel,
-    metrics,
-    scopeMeta,
-    snapshotMetrics,
-    rows
-  } = exportPayload;
 
   const buildBaseRow = () => ({
     rowType: "",
-    projectId: normalizeAnalyticsExportValue(projectId),
-    projectName: normalizeAnalyticsExportValue(projectName),
-    generatedAt: normalizeAnalyticsExportValue(generatedAt),
-    scopeLabel: normalizeAnalyticsExportValue(scopeLabel),
-    scopeDescription: normalizeAnalyticsExportValue(scopeMeta.scopeDescription),
-    totalStores: normalizeAnalyticsExportValue(metrics.totalStores ?? snapshotMetrics.total),
-    active: normalizeAnalyticsExportValue(metrics.active ?? snapshotMetrics.active),
-    rescheduled: normalizeAnalyticsExportValue(metrics.rescheduled ?? snapshotMetrics.rescheduled),
-    completed: normalizeAnalyticsExportValue(metrics.completed ?? snapshotMetrics.completed),
-    closed: normalizeAnalyticsExportValue(metrics.closed ?? snapshotMetrics.closed),
-    openWorkCount: normalizeAnalyticsExportValue(metrics.openWorkCount ?? Math.max(0, snapshotMetrics.total - snapshotMetrics.completed - snapshotMetrics.closed)),
-    completionRate: normalizeAnalyticsExportValue(metrics.completionRate ?? Number(snapshotMetrics.completionRate.toFixed(2))),
-    actionableRate: normalizeAnalyticsExportValue(metrics.actionableRate),
-    noteCoverageRate: normalizeAnalyticsExportValue(metrics.noteCoverageRate ?? Number(snapshotMetrics.noteCoverageRate.toFixed(2))),
-    photoCoverageRate: normalizeAnalyticsExportValue(metrics.photoCoverageRate ?? Number(snapshotMetrics.photoCoverageRate.toFixed(2))),
-    activityCoverageRate: normalizeAnalyticsExportValue(metrics.activityCoverageRate ?? Number(snapshotMetrics.activityCoverageRate.toFixed(2))),
-    recentActivityCoverageRate: normalizeAnalyticsExportValue(metrics.recentActivityCoverageRate),
-    integrityIssueCount: normalizeAnalyticsExportValue(metrics.integrityIssueCount),
-    integrityIssueRate: normalizeAnalyticsExportValue(metrics.integrityIssueRate),
-    storesWithNoUpdates: normalizeAnalyticsExportValue(metrics.storesWithNoUpdates),
-    storesWithNotesNoPhotos: normalizeAnalyticsExportValue(metrics.storesWithNotesNoPhotos),
-    storesWithPhotosNoNotes: normalizeAnalyticsExportValue(metrics.storesWithPhotosNoNotes),
-    stalledActiveCount: normalizeAnalyticsExportValue(metrics.stalledActiveCount),
-    rescheduledNoReasonCount: normalizeAnalyticsExportValue(metrics.rescheduledNoReasonCount),
-    rescheduledNoRecentFollowUpCount: normalizeAnalyticsExportValue(metrics.rescheduledNoRecentFollowUpCount),
-    completedToday: normalizeAnalyticsExportValue(metrics.completedToday),
-    avgCompletedPerDay: normalizeAnalyticsExportValue(metrics.avgCompletedPerDay),
-    etaDays: normalizeAnalyticsExportValue(metrics.etaDays),
-    attentionNeededCount: normalizeAnalyticsExportValue(metrics.attentionNeededCount),
-    snapshotNotes: normalizeAnalyticsExportValue(snapshotMetrics.notes),
-    snapshotPhotos: normalizeAnalyticsExportValue(snapshotMetrics.photos),
-    storesWithNotes: normalizeAnalyticsExportValue(snapshotMetrics.storesWithNotes),
-    storesWithPhotos: normalizeAnalyticsExportValue(snapshotMetrics.storesWithPhotos),
-    storesWithRecentActivity: normalizeAnalyticsExportValue(snapshotMetrics.storesWithRecentActivity),
-    actionableTotal: normalizeAnalyticsExportValue(snapshotMetrics.actionableTotal),
+    projectId,
+    projectName,
+    generatedAt,
+    scopeLabel,
+    scopeDescription: scopeMeta.scopeDescription,
+    totalStores: analyticsMetrics.totalStores ?? snapshotMetrics.total,
+    active: analyticsMetrics.active ?? snapshotMetrics.active,
+    rescheduled: analyticsMetrics.rescheduled ?? snapshotMetrics.rescheduled,
+    completed: analyticsMetrics.completed ?? snapshotMetrics.completed,
+    closed: analyticsMetrics.closed ?? snapshotMetrics.closed,
+    openWorkCount: analyticsMetrics.openWorkCount ?? Math.max(0, snapshotMetrics.total - snapshotMetrics.completed - snapshotMetrics.closed),
+    completionRate: analyticsMetrics.completionRate ?? Number(snapshotMetrics.completionRate.toFixed(2)),
+    actionableRate: analyticsMetrics.actionableRate ?? null,
+    noteCoverageRate: analyticsMetrics.noteCoverageRate ?? Number(snapshotMetrics.noteCoverageRate.toFixed(2)),
+    photoCoverageRate: analyticsMetrics.photoCoverageRate ?? Number(snapshotMetrics.photoCoverageRate.toFixed(2)),
+    activityCoverageRate: analyticsMetrics.activityCoverageRate ?? Number(snapshotMetrics.activityCoverageRate.toFixed(2)),
+    recentActivityCoverageRate: analyticsMetrics.recentActivityCoverageRate ?? null,
+    integrityIssueCount: analyticsMetrics.integrityIssueCount ?? null,
+    integrityIssueRate: analyticsMetrics.integrityIssueRate ?? null,
+    storesWithNoUpdates: analyticsMetrics.storesWithNoUpdates ?? null,
+    storesWithNotesNoPhotos: analyticsMetrics.storesWithNotesNoPhotos ?? null,
+    storesWithPhotosNoNotes: analyticsMetrics.storesWithPhotosNoNotes ?? null,
+    stalledActiveCount: analyticsMetrics.stalledActiveCount ?? null,
+    rescheduledNoReasonCount: analyticsMetrics.rescheduledNoReasonCount ?? null,
+    rescheduledNoRecentFollowUpCount: analyticsMetrics.rescheduledNoRecentFollowUpCount ?? null,
+    completedToday: analyticsMetrics.completedToday ?? null,
+    avgCompletedPerDay: analyticsMetrics.avgCompletedPerDay ?? null,
+    etaDays: analyticsMetrics.etaDays ?? null,
+    attentionNeededCount: analyticsMetrics.attentionNeededCount ?? null,
+    snapshotNotes: snapshotMetrics.notes,
+    snapshotPhotos: snapshotMetrics.photos,
+    storesWithNotes: snapshotMetrics.storesWithNotes,
+    storesWithPhotos: snapshotMetrics.storesWithPhotos,
+    storesWithRecentActivity: snapshotMetrics.storesWithRecentActivity,
+    actionableTotal: snapshotMetrics.actionableTotal,
     storeId: "",
     address: "",
     statusCode: "",
@@ -1466,9 +1457,9 @@ function buildAnalyticsCsvRows(payload) {
     rescheduleReason: "",
     noteCount: "",
     photoCount: "",
-    hasNotes: "false",
-    hasPhotos: "false",
-    hasActivity: "false",
+    hasNotes: "",
+    hasPhotos: "",
+    hasActivity: "",
     activityLabel: "",
     activitySummary: "",
     activityTimestampValue: ""
@@ -1482,19 +1473,19 @@ function buildAnalyticsCsvRows(payload) {
     ...rows.map(row => ({
       ...buildBaseRow(),
       rowType: "store_detail",
-      storeId: normalizeAnalyticsExportValue(row.storeId),
-      address: normalizeAnalyticsExportValue(row.address),
-      statusCode: normalizeAnalyticsExportValue(row.statusCode),
-      statusLabel: normalizeAnalyticsExportValue(row.statusLabel),
-      rescheduleReason: normalizeAnalyticsExportValue(row.rescheduleReason),
-      noteCount: normalizeAnalyticsExportValue(row.noteCount),
-      photoCount: normalizeAnalyticsExportValue(row.photoCount),
-      hasNotes: normalizeAnalyticsExportBoolean(row.hasNotes),
-      hasPhotos: normalizeAnalyticsExportBoolean(row.hasPhotos),
-      hasActivity: normalizeAnalyticsExportBoolean(row.hasActivity),
-      activityLabel: normalizeAnalyticsExportValue(row.activityLabel),
-      activitySummary: normalizeAnalyticsExportValue(row.activitySummary),
-      activityTimestampValue: normalizeAnalyticsExportValue(row.activityTimestampValue)
+      storeId: row.storeId,
+      address: row.address,
+      statusCode: row.statusCode,
+      statusLabel: row.statusLabel,
+      rescheduleReason: row.rescheduleReason,
+      noteCount: row.noteCount,
+      photoCount: row.photoCount,
+      hasNotes: row.hasNotes,
+      hasPhotos: row.hasPhotos,
+      hasActivity: row.hasActivity,
+      activityLabel: row.activityLabel,
+      activitySummary: row.activitySummary,
+      activityTimestampValue: row.activityTimestampValue
     }))
   ];
 }
@@ -1507,9 +1498,8 @@ function escapeCsvValue(value) {
   return stringValue;
 }
 
-function serializeAnalyticsSnapshotToCsv(payload) {
-  const exportPayload = payload || buildAnalyticsExportPayload();
-  const rows = buildAnalyticsCsvRows(exportPayload);
+function serializeAnalyticsSnapshotToCsv() {
+  const rows = buildAnalyticsCsvRows();
   if (!rows.length) return "";
 
   const lines = [ANALYTICS_CSV_HEADERS.map(escapeCsvValue).join(",")];
@@ -1522,23 +1512,37 @@ function serializeAnalyticsSnapshotToCsv(payload) {
 
 function exportProjectAnalyticsCsv() {
   try {
-    const exportPayload = buildAnalyticsExportPayload();
-    const filename = `${buildAnalyticsExportBaseName(exportPayload)}.csv`;
-    const csv = serializeAnalyticsSnapshotToCsv(exportPayload);
+    const filename = `${buildAnalyticsExportBaseName()}.csv`;
+    const csv = serializeAnalyticsSnapshotToCsv();
     downloadExportText(filename, csv, "text/csv;charset=utf-8");
   } catch (error) {
-    console.error(error);
+    console.error("Analytics CSV export failed", error);
     alert("Analytics export failed. Please try again.");
   }
 }
 
 function exportProjectAnalyticsJson() {
   try {
-    const exportPayload = buildAnalyticsExportPayload();
-    const filename = `${buildAnalyticsExportBaseName(exportPayload)}.json`;
-    downloadExportText(filename, `${JSON.stringify(exportPayload, null, 2)}\n`, "application/json;charset=utf-8");
+    const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
+    const scopeMeta = getSnapshotScopeMeta(filteredStores);
+    const rows = getSnapshotRows(filteredStores);
+    const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
+    const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
+    const payload = {
+      projectId: analyticsSnapshot.projectId || currentProjectId || "",
+      projectName: analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot",
+      generatedAt: analyticsSnapshot.generatedAt || new Date().toISOString(),
+      scopeLabel: analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel,
+      metrics: analyticsSnapshot.metrics || {},
+      scopeMeta,
+      snapshotMetrics,
+      rows
+    };
+
+    const filename = `${buildAnalyticsExportBaseName()}.json`;
+    downloadExportText(filename, `${JSON.stringify(payload, null, 2)}\n`, "application/json;charset=utf-8");
   } catch (error) {
-    console.error(error);
+    console.error("Analytics JSON export failed", error);
     alert("Analytics export failed. Please try again.");
   }
 }
@@ -1563,27 +1567,15 @@ function bindAnalyticsExportControls() {
   });
 }
 
-Object.assign(window, {
-  slugifyExportName,
-  buildAnalyticsExportPayload,
-  buildAnalyticsExportBaseName,
-  buildAnalyticsExportManifest,
-  estimateAnalyticsCsvBytes,
-  estimateAnalyticsJsonBytes,
-  buildAnalyticsExportPreflight,
-  isSupportedAnalyticsExportPayload,
-  getAnalyticsExportSupportedRowTypes,
-  summarizeAnalyticsExportPayload,
-  validateAnalyticsExportPayloadShape,
-  buildAnalyticsExportImportReadiness,
-  downloadExportBlob,
-  downloadExportText,
-  buildAnalyticsCsvRows,
-  escapeCsvValue,
-  serializeAnalyticsSnapshotToCsv,
-  exportProjectAnalyticsCsv,
-  exportProjectAnalyticsJson,
-  bindAnalyticsExportControls
-});
+window.slugifyExportName = slugifyExportName;
+window.buildAnalyticsExportBaseName = buildAnalyticsExportBaseName;
+window.downloadExportBlob = downloadExportBlob;
+window.downloadExportText = downloadExportText;
+window.buildAnalyticsCsvRows = buildAnalyticsCsvRows;
+window.escapeCsvValue = escapeCsvValue;
+window.serializeAnalyticsSnapshotToCsv = serializeAnalyticsSnapshotToCsv;
+window.exportProjectAnalyticsCsv = exportProjectAnalyticsCsv;
+window.exportProjectAnalyticsJson = exportProjectAnalyticsJson;
+window.bindAnalyticsExportControls = bindAnalyticsExportControls;
 
 bindAnalyticsExportControls();
