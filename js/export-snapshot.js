@@ -110,8 +110,6 @@ function getSnapshotRows(filteredStores) {
         activitySummary: activity.summary,
         hasActivity: activity.hasActivity,
         activityTimestampValue: activity.timestampValue,
-        lat: Number(store.lat),
-        lng: Number(store.lng),
         sortPriority: statusPriority[statusCode] ?? 99
       };
     })
@@ -177,228 +175,6 @@ function getStatusColor(statusCode) {
   return "#64b5f6";
 }
 
-function clampLatitude(lat) {
-  return Math.max(-85, Math.min(85, lat));
-}
-
-function mercatorY(lat) {
-  const clampedLat = clampLatitude(lat);
-  const rad = clampedLat * Math.PI / 180;
-  return Math.log(Math.tan((Math.PI / 4) + (rad / 2)));
-}
-
-function buildStaticMarkerToken(row) {
-  const color = getStatusColor(row.statusCode).replace("#", "");
-  return `pin-s+${color}(${Number(row.lng).toFixed(5)},${Number(row.lat).toFixed(5)})`;
-}
-
-function buildClusterGradient(counts, total) {
-  if (!total) return "#64b5f6";
-
-  const segments = [
-    { color: "#64b5f6", value: counts.active || 0 },
-    { color: "#ff9900", value: counts.rescheduled || 0 },
-    { color: "#2ecc71", value: counts.completed || 0 },
-    { color: "#ff2d2d", value: counts.closed || 0 }
-  ].filter(segment => segment.value > 0);
-
-  let current = 0;
-  const parts = segments.map(segment => {
-    const start = current;
-    current += (segment.value / total) * 100;
-    return `${segment.color} ${start.toFixed(2)}% ${current.toFixed(2)}%`;
-  });
-
-  if (parts.length === 1) return parts[0].split(" ")[0];
-  return `conic-gradient(${parts.join(", ")})`;
-}
-
-function getSnapshotMapData(rows, width = 1100, height = 520, padding = 48) {
-  const mappedRows = rows.filter(row => Number.isFinite(row.lng) && Number.isFinite(row.lat));
-  if (mappedRows.length === 0) {
-    return null;
-  }
-
-  let minLng = Math.min(...mappedRows.map(row => row.lng));
-  let maxLng = Math.max(...mappedRows.map(row => row.lng));
-  let minLat = Math.min(...mappedRows.map(row => row.lat));
-  let maxLat = Math.max(...mappedRows.map(row => row.lat));
-
-  if (minLng === maxLng) {
-    minLng -= 0.3;
-    maxLng += 0.3;
-  }
-
-  if (minLat === maxLat) {
-    minLat -= 0.3;
-    maxLat += 0.3;
-  }
-
-  const mercatorMinY = mercatorY(maxLat);
-  const mercatorMaxY = mercatorY(minLat);
-  const innerWidth = width - (padding * 2);
-  const innerHeight = height - (padding * 2);
-
-  const projectedPoints = mappedRows.map(row => {
-    const xRatio = (row.lng - minLng) / (maxLng - minLng || 1);
-    const yRatio = (mercatorY(row.lat) - mercatorMinY) / (mercatorMaxY - mercatorMinY || 1);
-
-    return {
-      ...row,
-      fill: getStatusColor(row.statusCode),
-      x: padding + (xRatio * innerWidth),
-      y: padding + (yRatio * innerHeight)
-    };
-  });
-
-  const accessToken = typeof mapboxgl !== "undefined" ? mapboxgl.accessToken : "";
-  const bbox = [
-    minLng.toFixed(5),
-    minLat.toFixed(5),
-    maxLng.toFixed(5),
-    maxLat.toFixed(5)
-  ].join(",");
-  const encodedBbox = encodeURIComponent(`[${bbox}]`);
-  const baseStaticMapUrl = accessToken
-    ? `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${encodedBbox}/${width}x${height}?padding=${padding},${padding},${padding},${padding}&logo=false&attribution=false&access_token=${encodeURIComponent(accessToken)}`
-    : "";
-
-  let nativeMarkerMapUrl = "";
-  if (accessToken) {
-    const markerTokens = mappedRows.map(buildStaticMarkerToken);
-    const overlayPath = markerTokens.join(",");
-    const candidateUrl = `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${overlayPath}/${encodedBbox}/${width}x${height}?padding=${padding},${padding},${padding},${padding}&logo=false&attribution=false&access_token=${encodeURIComponent(accessToken)}`;
-
-    if (candidateUrl.length <= 7500) {
-      nativeMarkerMapUrl = candidateUrl;
-    }
-  }
-
-  const clusterCellSize = mappedRows.length > 500 ? 80 : mappedRows.length > 220 ? 72 : 64;
-  const clusterMap = new Map();
-
-  projectedPoints.forEach(point => {
-    const col = Math.max(0, Math.min(999, Math.floor((point.x - padding) / clusterCellSize)));
-    const row = Math.max(0, Math.min(999, Math.floor((point.y - padding) / clusterCellSize)));
-    const key = `${col}:${row}`;
-    const existing = clusterMap.get(key);
-
-    if (existing) {
-      existing.count += 1;
-      existing.sumX += point.x;
-      existing.sumY += point.y;
-      existing.counts[point.statusCode] = (existing.counts[point.statusCode] || 0) + 1;
-    } else {
-      clusterMap.set(key, {
-        key,
-        count: 1,
-        sumX: point.x,
-        sumY: point.y,
-        counts: {
-          active: point.statusCode === "active" ? 1 : 0,
-          rescheduled: point.statusCode === "rescheduled" ? 1 : 0,
-          completed: point.statusCode === "completed" ? 1 : 0,
-          closed: point.statusCode === "closed" ? 1 : 0
-        }
-      });
-    }
-  });
-
-  const clusters = Array.from(clusterMap.values()).map(cluster => {
-    const size = Math.min(44, Math.max(18, 14 + (Math.sqrt(cluster.count) * 3.6)));
-    return {
-      count: cluster.count,
-      x: cluster.sumX / cluster.count,
-      y: cluster.sumY / cluster.count,
-      size,
-      gradient: buildClusterGradient(cluster.counts, cluster.count),
-      label: cluster.count > 1 ? String(cluster.count) : "",
-      counts: cluster.counts
-    };
-  });
-
-  return {
-    width,
-    height,
-    mappedRows,
-    projectedPoints,
-    clusters,
-    baseStaticMapUrl,
-    nativeMarkerMapUrl,
-    shouldUseClusters: projectedPoints.length > 140
-  };
-}
-
-function buildSnapshotMapMarkup(rows, width = 1100, height = 520) {
-  const mapData = getSnapshotMapData(rows, width, height, 48);
-
-  if (!mapData) {
-    return `
-      <div class="snapshotMapFallback">
-        <div class="snapshotMapFallbackTitle">No mappable store coordinates in current scope</div>
-        <div class="snapshotMapFallbackText">The snapshot still includes metrics, store detail, and recent activity for stakeholder review.</div>
-      </div>
-    `;
-  }
-
-  const overlayMarkersMarkup = mapData.projectedPoints.map(point => `
-    <div
-      class="snapshotMapMarker"
-      style="left:${point.x.toFixed(2)}px; top:${point.y.toFixed(2)}px; --marker-color:${escapeSnapshotHtml(point.fill)};"
-      title="Store ${escapeSnapshotHtml(point.storeId)} · ${escapeSnapshotHtml(point.statusLabel)}"
-      aria-label="Store ${escapeSnapshotHtml(point.storeId)} ${escapeSnapshotHtml(point.statusLabel)}">
-    </div>
-  `).join("");
-
-  const clusterMarkersMarkup = mapData.clusters.map((cluster, index) => `
-    <div
-      class="snapshotMapCluster"
-      style="left:${cluster.x.toFixed(2)}px; top:${cluster.y.toFixed(2)}px; width:${cluster.size.toFixed(2)}px; height:${cluster.size.toFixed(2)}px; --cluster-bg:${escapeSnapshotHtml(cluster.gradient)};"
-      title="Cluster ${index + 1} · ${cluster.count} stores"
-      aria-label="Cluster ${index + 1} containing ${cluster.count} stores">
-      ${cluster.label ? `<span>${escapeSnapshotHtml(cluster.label)}</span>` : ""}
-    </div>
-  `).join("");
-
-  return `
-    <div
-      class="snapshotMapShell"
-      data-map-shell
-      data-has-native="${mapData.nativeMarkerMapUrl ? "true" : "false"}"
-      data-has-base="${mapData.baseStaticMapUrl ? "true" : "false"}"
-      data-prefer-clusters="${mapData.shouldUseClusters ? "true" : "false"}">
-      <div class="snapshotMapFrame" style="width:${mapData.width}px; height:${mapData.height}px;">
-        ${mapData.nativeMarkerMapUrl
-          ? `<img class="snapshotMapImage snapshotMapNativeLayer" data-map-native src="${escapeSnapshotHtml(mapData.nativeMarkerMapUrl)}" alt="Geographic project footprint overview map with native status markers" />`
-          : ""}
-
-        ${mapData.baseStaticMapUrl
-          ? `<img class="snapshotMapImage snapshotMapBaseLayer hidden" data-map-base src="${escapeSnapshotHtml(mapData.baseStaticMapUrl)}" alt="Geographic project footprint overview map" />`
-          : ""}
-
-        <div class="snapshotMapBackgroundFallback hidden" data-map-local-bg></div>
-
-        <div class="snapshotMapOverlay hidden" data-map-overlay-markers>
-          ${overlayMarkersMarkup}
-        </div>
-
-        <div class="snapshotMapOverlay hidden" data-map-clusters>
-          ${clusterMarkersMarkup}
-        </div>
-
-        <div class="snapshotMapTopline">Geographic scope footprint</div>
-        <div class="snapshotMapCaption" data-map-caption>
-          ${mapData.nativeMarkerMapUrl
-            ? "Status markers are rendered directly into the geographic static map for improved alignment fidelity across the current export scope."
-            : mapData.shouldUseClusters
-              ? "Clustered geographic view summarizes larger scopes while preserving overall footprint and status mix."
-              : "Store markers are positioned from current-scope geographic coordinates using fitted bounds sized for the static export view."}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function buildSnapshotMetricCards(metrics) {
   const cards = [
     { label: "Total Stores", value: metrics.total.toLocaleString() },
@@ -417,6 +193,80 @@ function buildSnapshotMetricCards(metrics) {
     <div class="metric">
       <div class="metric-label">${escapeSnapshotHtml(card.label)}</div>
       <div class="metric-value">${escapeSnapshotHtml(card.value)}</div>
+    </div>
+  `).join("");
+}
+
+function buildExecutionStatusBreakdown(metrics) {
+  const segments = [
+    { key: "active", label: "Active", value: metrics.active },
+    { key: "rescheduled", label: "Rescheduled", value: metrics.rescheduled },
+    { key: "completed", label: "Completed", value: metrics.completed },
+    { key: "closed", label: "Closed", value: metrics.closed }
+  ];
+
+  const total = Math.max(metrics.total, 1);
+
+  return segments.map(segment => {
+    const percent = metrics.total > 0 ? (segment.value / total) * 100 : 0;
+    return `
+      <div class="statusBreakdownRow">
+        <div class="statusBreakdownMeta">
+          <div class="statusBreakdownLabelWrap">
+            <span class="statusSwatch statusSwatch-${escapeSnapshotHtml(segment.key)}"></span>
+            <span class="statusBreakdownLabel">${escapeSnapshotHtml(segment.label)}</span>
+          </div>
+          <div class="statusBreakdownValue">${segment.value.toLocaleString()} <span>${percent.toFixed(1)}%</span></div>
+        </div>
+        <div class="statusBreakdownBarTrack">
+          <div class="statusBreakdownBarFill statusBreakdownBarFill-${escapeSnapshotHtml(segment.key)}" style="width:${percent.toFixed(2)}%;"></div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function buildOperationalStatusRows(metrics) {
+  const rows = [
+    {
+      label: "Completion vs Actionable Scope",
+      value: `${metrics.completed.toLocaleString()} / ${metrics.actionableTotal.toLocaleString()}`,
+      detail: `${metrics.completionRate.toFixed(1)}% of non-closed stores completed`
+    },
+    {
+      label: "Recent Activity Coverage",
+      value: `${metrics.storesWithRecentActivity.toLocaleString()} stores`,
+      detail: `${metrics.activityCoverageRate.toFixed(1)}% of current scope has recent logged activity`
+    },
+    {
+      label: "Field Notes Coverage",
+      value: `${metrics.storesWithNotes.toLocaleString()} stores`,
+      detail: `${metrics.noteCoverageRate.toFixed(1)}% of scope includes notes`
+    },
+    {
+      label: "Photo Evidence Coverage",
+      value: `${metrics.storesWithPhotos.toLocaleString()} stores`,
+      detail: `${metrics.photoCoverageRate.toFixed(1)}% of scope includes photos`
+    },
+    {
+      label: "Rescheduled Work",
+      value: `${metrics.rescheduled.toLocaleString()} stores`,
+      detail: `${metrics.rescheduledRate.toFixed(1)}% of scope is rescheduled`
+    },
+    {
+      label: "Closed Scope",
+      value: `${metrics.closed.toLocaleString()} stores`,
+      detail: `${metrics.closedRate.toFixed(1)}% of scope is closed`
+    }
+  ];
+
+  return rows.map(row => `
+    <div class="executionStatRow">
+      <div>
+        <div class="executionStatLabel">${escapeSnapshotHtml(row.label)}</div>
+        <div class="executionStatDetail">${escapeSnapshotHtml(row.detail)}</div>
+      </div>
+      <div class="executionStatValue">${escapeSnapshotHtml(row.value)}</div>
     </div>
   `).join("");
 }
@@ -462,7 +312,7 @@ function buildSnapshotRecentActivity(rows) {
     return `
       <div class="empty-state-card">
         <div class="empty-state-title">No recent activity in this scope</div>
-        <div class="empty-state-copy">This export still captures live store status, scope metrics, and mapped execution visibility for stakeholder review.</div>
+        <div class="empty-state-copy">This export still captures live store status, scope metrics, and grouped store detail for stakeholder review.</div>
       </div>
     `;
   }
@@ -507,7 +357,6 @@ function buildSnapshotHtml(payload) {
     projectId,
     scopeMeta,
     metrics,
-    mapMarkup,
     rows,
     operationalSummary,
     productLabel,
@@ -545,7 +394,6 @@ function buildSnapshotHtml(payload) {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .hidden { display: none !important; }
   .page {
     width: 100%;
     max-width: 1180px;
@@ -714,130 +562,109 @@ function buildSnapshotHtml(payload) {
     font-weight: 800;
     line-height: 1;
   }
-  .snapshotMapFrame {
-    position: relative;
-    width: 100%;
-    max-width: 1100px;
-    height: auto;
-    aspect-ratio: 1100 / 520;
-    overflow: hidden;
-    border-radius: 20px;
+  .executionOverviewGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, .95fr);
+    gap: 16px;
+  }
+  .executionSummaryCard,
+  .executionStatusCard {
+    background: linear-gradient(180deg, #f9fbfe 0%, #f5f9fc 100%);
     border: 1px solid var(--line);
-    background: #dfe8f2;
+    border-radius: 16px;
+    padding: 16px;
   }
-  .snapshotMapImage,
-  .snapshotMapBackgroundFallback,
-  .snapshotMapOverlay {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
-  .snapshotMapImage {
-    object-fit: cover;
-    background: #dfe8f2;
-  }
-  .snapshotMapBackgroundFallback {
-    background:
-      radial-gradient(circle at 18% 22%, rgba(113, 169, 221, 0.18), transparent 20%),
-      radial-gradient(circle at 74% 66%, rgba(46, 204, 113, 0.14), transparent 18%),
-      linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.04)),
-      linear-gradient(135deg, #eef4fa 0%, #d7e5f0 100%);
-  }
-  .snapshotMapBackgroundFallback::before,
-  .snapshotMapBackgroundFallback::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-  .snapshotMapBackgroundFallback::before {
-    background-image:
-      linear-gradient(to right, rgba(19,34,55,0.06) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(19,34,55,0.06) 1px, transparent 1px);
-    background-size: 80px 80px, 80px 80px;
-  }
-  .snapshotMapBackgroundFallback::after {
-    background:
-      linear-gradient(90deg, transparent 49.7%, rgba(19,34,55,0.05) 50%, transparent 50.3%),
-      linear-gradient(transparent 49.7%, rgba(19,34,55,0.05) 50%, transparent 50.3%);
-  }
-  .snapshotMapOverlay { pointer-events: none; }
-  .snapshotMapMarker {
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    margin-left: -7px;
-    margin-top: -7px;
-    border-radius: 999px;
-    background: var(--marker-color);
-    border: 2px solid rgba(255,255,255,0.95);
-    box-shadow: 0 0 0 1px rgba(19,34,55,0.18), 0 4px 8px rgba(19,34,55,0.22);
-  }
-  .snapshotMapCluster {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    display: grid;
-    place-items: center;
-    border-radius: 999px;
-    background: var(--cluster-bg);
-    border: 2px solid rgba(255,255,255,0.95);
-    box-shadow: 0 0 0 1px rgba(19,34,55,0.18), 0 6px 12px rgba(19,34,55,0.2);
-    color: #132237;
-    font-size: 11px;
-    font-weight: 800;
-  }
-  .snapshotMapCluster span {
-    display: inline-grid;
-    place-items: center;
-    width: 100%;
-    height: 100%;
-  }
-  .snapshotMapTopline {
-    position: absolute;
-    top: 14px;
-    left: 16px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.92);
-    border: 1px solid rgba(19,34,55,0.08);
-    font-size: 12px;
-    font-weight: 800;
+  .executionLead {
+    font-size: 15px;
+    line-height: 1.6;
     color: var(--ink);
-    z-index: 2;
+    margin-bottom: 14px;
   }
-  .snapshotMapCaption {
-    position: absolute;
-    left: 16px;
-    right: 16px;
-    bottom: 14px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.9);
-    border: 1px solid rgba(19,34,55,0.08);
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.4;
-    z-index: 2;
-  }
-  .snapshotMapFallback {
-    min-height: 280px;
-    border-radius: 18px;
-    border: 1px dashed var(--line-strong);
-    background: var(--panel-soft);
+  .executionStatStack {
     display: grid;
-    align-content: center;
-    justify-items: center;
-    gap: 8px;
-    padding: 24px;
-    text-align: center;
+    gap: 10px;
   }
-  .snapshotMapFallbackTitle { font-size: 18px; font-weight: 800; }
-  .snapshotMapFallbackText {
+  .executionStatRow {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-top: 1px solid rgba(19,34,55,0.08);
+  }
+  .executionStatRow:first-child {
+    border-top: none;
+    padding-top: 0;
+  }
+  .executionStatLabel {
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 3px;
+  }
+  .executionStatDetail {
+    font-size: 12px;
+    line-height: 1.45;
     color: var(--muted);
-    max-width: 640px;
-    line-height: 1.5;
   }
+  .executionStatValue {
+    font-size: 14px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .statusBreakdownStack {
+    display: grid;
+    gap: 12px;
+  }
+  .statusBreakdownRow {
+    display: grid;
+    gap: 6px;
+  }
+  .statusBreakdownMeta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .statusBreakdownLabelWrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .statusSwatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,0,0,.08);
+  }
+  .statusSwatch-active { background: var(--active); }
+  .statusSwatch-rescheduled { background: var(--rescheduled); }
+  .statusSwatch-completed { background: var(--completed); }
+  .statusSwatch-closed { background: var(--closed); }
+  .statusBreakdownValue {
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .statusBreakdownValue span {
+    color: var(--muted);
+    font-weight: 700;
+    margin-left: 6px;
+  }
+  .statusBreakdownBarTrack {
+    height: 10px;
+    border-radius: 999px;
+    background: #e7eef5;
+    overflow: hidden;
+  }
+  .statusBreakdownBarFill {
+    height: 100%;
+    border-radius: 999px;
+  }
+  .statusBreakdownBarFill-active { background: var(--active); }
+  .statusBreakdownBarFill-rescheduled { background: var(--rescheduled); }
+  .statusBreakdownBarFill-completed { background: var(--completed); }
+  .statusBreakdownBarFill-closed { background: var(--closed); }
   .legend {
     display: flex;
     flex-wrap: wrap;
@@ -845,12 +672,12 @@ function buildSnapshotHtml(payload) {
     color: var(--muted);
     font-size: 13px;
   }
-  .legend-item {
+  .legendItem {
     display: inline-flex;
     align-items: center;
     gap: 8px;
   }
-  .dot {
+  .legendDot {
     width: 12px;
     height: 12px;
     border-radius: 999px;
@@ -1010,6 +837,7 @@ function buildSnapshotHtml(payload) {
   @media (max-width: 1020px) {
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .summary-strip,
+    .executionOverviewGrid,
     .two-col { grid-template-columns: 1fr; }
     .hero-top,
     .utility-bar { flex-direction: column; }
@@ -1087,15 +915,30 @@ function buildSnapshotHtml(payload) {
     </section>
 
     <section class="panel">
-      <div class="panel-eyebrow">Map Overview</div>
-      ${mapMarkup}
-      <div class="legend" style="margin-top:14px;">
-        <div class="legend-item"><span class="dot" style="background:var(--active)"></span>Active</div>
-        <div class="legend-item"><span class="dot" style="background:var(--completed)"></span>Completed</div>
-        <div class="legend-item"><span class="dot" style="background:var(--rescheduled)"></span>Rescheduled</div>
-        <div class="legend-item"><span class="dot" style="background:var(--closed)"></span>Closed</div>
+      <div class="panel-eyebrow">Operational Status Overview</div>
+      <div class="executionOverviewGrid">
+        <div class="executionSummaryCard">
+          <div class="summary-title">Executive Readout</div>
+          <div class="executionLead">${escapeSnapshotHtml(buildSnapshotNarrative(payload))}</div>
+          <div class="executionStatStack">
+            ${buildOperationalStatusRows(metrics)}
+          </div>
+        </div>
+
+        <div class="executionStatusCard">
+          <div class="summary-title">Status Distribution</div>
+          <div class="statusBreakdownStack">
+            ${buildExecutionStatusBreakdown(metrics)}
+          </div>
+          <div class="legend" style="margin-top:14px;">
+            <div class="legendItem"><span class="legendDot" style="background:var(--active)"></span>Active</div>
+            <div class="legendItem"><span class="legendDot" style="background:var(--rescheduled)"></span>Rescheduled</div>
+            <div class="legendItem"><span class="legendDot" style="background:var(--completed)"></span>Completed</div>
+            <div class="legendItem"><span class="legendDot" style="background:var(--closed)"></span>Closed</div>
+          </div>
+          <div class="footnote" style="margin-top:10px;">This section replaces the export map intentionally, emphasizing execution status, scope health, and stakeholder-ready analytics in a cleaner printable format.</div>
+        </div>
       </div>
-      <div class="footnote" style="margin-top:10px;">Map always falls back to a locally rendered geographic visualization when static imagery is unavailable, so stakeholder exports remain usable whenever mappable coordinates exist.</div>
     </section>
 
     <section class="two-col">
@@ -1156,103 +999,6 @@ function buildSnapshotHtml(payload) {
           window.location.reload();
         });
       }
-
-      document.querySelectorAll("[data-map-shell]").forEach(function (shell) {
-        const nativeImg = shell.querySelector("[data-map-native]");
-        const baseImg = shell.querySelector("[data-map-base]");
-        const localBg = shell.querySelector("[data-map-local-bg]");
-        const overlayMarkers = shell.querySelector("[data-map-overlay-markers]");
-        const clusterLayer = shell.querySelector("[data-map-clusters]");
-        const caption = shell.querySelector("[data-map-caption]");
-        const preferClusters = shell.dataset.preferClusters === "true";
-
-        function showLocalClusterMode() {
-          if (nativeImg) nativeImg.classList.add("hidden");
-          if (baseImg) baseImg.classList.add("hidden");
-          if (localBg) localBg.classList.remove("hidden");
-          if (overlayMarkers) overlayMarkers.classList.add("hidden");
-          if (clusterLayer) clusterLayer.classList.remove("hidden");
-          if (caption) {
-            caption.textContent = "Locally rendered clustered geographic fallback preserves footprint context and current status mix when static imagery is unavailable.";
-          }
-        }
-
-        function showLocalMarkerMode() {
-          if (nativeImg) nativeImg.classList.add("hidden");
-          if (baseImg) baseImg.classList.add("hidden");
-          if (localBg) localBg.classList.remove("hidden");
-          if (clusterLayer) clusterLayer.classList.add("hidden");
-          if (overlayMarkers) overlayMarkers.classList.remove("hidden");
-          if (caption) {
-            caption.textContent = "Locally rendered geographic fallback preserves relative footprint and current status positions when static imagery is unavailable.";
-          }
-        }
-
-        function showOverlayMode() {
-          if (nativeImg) nativeImg.classList.add("hidden");
-          if (baseImg) baseImg.classList.remove("hidden");
-          if (localBg) localBg.classList.add("hidden");
-          if (clusterLayer) clusterLayer.classList.add("hidden");
-          if (overlayMarkers) overlayMarkers.classList.remove("hidden");
-          if (caption) {
-            caption.textContent = "Store markers are placed over the fitted static geographic map when native per-store rendering is unavailable or impractical.";
-          }
-        }
-
-        function showClusterModeOnBase() {
-          if (nativeImg) nativeImg.classList.add("hidden");
-          if (baseImg) baseImg.classList.remove("hidden");
-          if (localBg) localBg.classList.add("hidden");
-          if (overlayMarkers) overlayMarkers.classList.add("hidden");
-          if (clusterLayer) clusterLayer.classList.remove("hidden");
-          if (caption) {
-            caption.textContent = "Clustered geographic view summarizes larger scopes while preserving full footprint context and current status mix.";
-          }
-        }
-
-        function showBestLocalFallback() {
-          if (preferClusters && clusterLayer) {
-            showLocalClusterMode();
-          } else {
-            showLocalMarkerMode();
-          }
-        }
-
-        if (nativeImg) {
-          nativeImg.addEventListener("error", function () {
-            if (baseImg) {
-              if (preferClusters && clusterLayer) {
-                showClusterModeOnBase();
-              } else {
-                showOverlayMode();
-              }
-            } else {
-              showBestLocalFallback();
-            }
-          });
-
-          nativeImg.addEventListener("load", function () {
-            if (baseImg) baseImg.classList.add("hidden");
-            if (localBg) localBg.classList.add("hidden");
-            if (overlayMarkers) overlayMarkers.classList.add("hidden");
-            if (clusterLayer) clusterLayer.classList.add("hidden");
-          });
-        } else if (baseImg) {
-          if (preferClusters && clusterLayer) {
-            showClusterModeOnBase();
-          } else {
-            showOverlayMode();
-          }
-        } else {
-          showBestLocalFallback();
-        }
-
-        if (baseImg) {
-          baseImg.addEventListener("error", function () {
-            showBestLocalFallback();
-          });
-        }
-      });
     })();
   </script>
 </body>
@@ -1268,7 +1014,6 @@ function exportProjectSnapshot() {
   const generatedAt = generatedDate.toLocaleString();
   const generatedTimeLabel = `Generated ${generatedDate.toLocaleDateString()} • ${generatedDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
   const projectTitle = currentProjectMeta?.name || currentProjectId || "Project Snapshot";
-  const mapMarkup = buildSnapshotMapMarkup(rows);
   const operationalSummary = document.getElementById("headerOperationalSummary")?.textContent
     || `${metrics.total.toLocaleString()} stores in scope with ${metrics.completed.toLocaleString()} completed, ${metrics.rescheduled.toLocaleString()} rescheduled, and ${metrics.closed.toLocaleString()} closed.`;
   const productLabel = "Route Builder Executive Snapshot";
@@ -1282,7 +1027,6 @@ function exportProjectSnapshot() {
     projectId: currentProjectId,
     scopeMeta,
     metrics,
-    mapMarkup,
     rows,
     operationalSummary,
     productLabel,
