@@ -1,2 +1,2 @@
-# DollarTree
-Reset list and navigable map for DT's in FL
+# interactive project tracking
+navigable map and analytics for teams
