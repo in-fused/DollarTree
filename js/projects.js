@@ -456,10 +456,11 @@ async function loadActiveProject() {
 }
 
 function updateProjectSourceTag() {
-  const archiveLabel = currentProjectMeta?.is_archived === true ? " • Archived" : "";
-  const removalLabel = showRemovedStores === true ? " • Showing Removed Stores" : "";
   const sourceLabel = currentProjectMeta?.sourceLabel || "Project ready";
-  const text = `${currentProjectMeta?.name || currentProjectId} · ${sourceLabel}${archiveLabel}${removalLabel}`;
+  const archiveLabel = currentProjectMeta?.is_archived === true ? " • Archived" : "";
+  const removalLabel = showRemovedStores === true ? " • Removed Visible" : "";
+  const updatedLabel = lastDataRefreshAt ? ` • Updated ${formatLastUpdated(lastDataRefreshAt)}` : "";
+  const text = `${currentProjectMeta?.name || currentProjectId} · ${sourceLabel}${archiveLabel}${removalLabel}${updatedLabel}`;
 
   setText("projectSourceTag", text);
   setText("projectSourceTagInline", `${sourceLabel}${archiveLabel}`);
