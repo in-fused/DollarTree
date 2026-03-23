@@ -192,9 +192,29 @@ function buildStaticMarkerToken(row) {
   return `pin-s+${color}(${Number(row.lng).toFixed(5)},${Number(row.lat).toFixed(5)})`;
 }
 
+function buildClusterGradient(counts, total) {
+  if (!total) return "#64b5f6";
+
+  const segments = [
+    { color: "#64b5f6", value: counts.active || 0 },
+    { color: "#ff9900", value: counts.rescheduled || 0 },
+    { color: "#2ecc71", value: counts.completed || 0 },
+    { color: "#ff2d2d", value: counts.closed || 0 }
+  ].filter(segment => segment.value > 0);
+
+  let current = 0;
+  const parts = segments.map(segment => {
+    const start = current;
+    current += (segment.value / total) * 100;
+    return `${segment.color} ${start.toFixed(2)}% ${current.toFixed(2)}%`;
+  });
+
+  if (parts.length === 1) return parts[0].split(" ")[0];
+  return `conic-gradient(${parts.join(", ")})`;
+}
+
 function getSnapshotMapData(rows, width = 1100, height = 520, padding = 48) {
   const mappedRows = rows.filter(row => Number.isFinite(row.lng) && Number.isFinite(row.lat));
-
   if (mappedRows.length === 0) {
     return null;
   }
@@ -216,14 +236,12 @@ function getSnapshotMapData(rows, width = 1100, height = 520, padding = 48) {
 
   const mercatorMinY = mercatorY(maxLat);
   const mercatorMaxY = mercatorY(minLat);
-
   const innerWidth = width - (padding * 2);
   const innerHeight = height - (padding * 2);
 
-  const overlayPoints = mappedRows.map(row => {
+  const projectedPoints = mappedRows.map(row => {
     const xRatio = (row.lng - minLng) / (maxLng - minLng || 1);
-    const currentY = mercatorY(row.lat);
-    const yRatio = (currentY - mercatorMinY) / (mercatorMaxY - mercatorMinY || 1);
+    const yRatio = (mercatorY(row.lat) - mercatorMinY) / (mercatorMaxY - mercatorMinY || 1);
 
     return {
       ...row,
@@ -241,7 +259,6 @@ function getSnapshotMapData(rows, width = 1100, height = 520, padding = 48) {
     maxLat.toFixed(5)
   ].join(",");
   const encodedBbox = encodeURIComponent(`[${bbox}]`);
-
   const baseStaticMapUrl = accessToken
     ? `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${encodedBbox}/${width}x${height}?padding=${padding},${padding},${padding},${padding}&logo=false&attribution=false&access_token=${encodeURIComponent(accessToken)}`
     : "";
@@ -257,14 +274,59 @@ function getSnapshotMapData(rows, width = 1100, height = 520, padding = 48) {
     }
   }
 
+  const clusterCellSize = mappedRows.length > 500 ? 80 : mappedRows.length > 220 ? 72 : 64;
+  const clusterMap = new Map();
+
+  projectedPoints.forEach(point => {
+    const col = Math.max(0, Math.min(999, Math.floor((point.x - padding) / clusterCellSize)));
+    const row = Math.max(0, Math.min(999, Math.floor((point.y - padding) / clusterCellSize)));
+    const key = `${col}:${row}`;
+    const existing = clusterMap.get(key);
+
+    if (existing) {
+      existing.count += 1;
+      existing.sumX += point.x;
+      existing.sumY += point.y;
+      existing.counts[point.statusCode] = (existing.counts[point.statusCode] || 0) + 1;
+    } else {
+      clusterMap.set(key, {
+        key,
+        count: 1,
+        sumX: point.x,
+        sumY: point.y,
+        counts: {
+          active: point.statusCode === "active" ? 1 : 0,
+          rescheduled: point.statusCode === "rescheduled" ? 1 : 0,
+          completed: point.statusCode === "completed" ? 1 : 0,
+          closed: point.statusCode === "closed" ? 1 : 0
+        }
+      });
+    }
+  });
+
+  const clusters = Array.from(clusterMap.values()).map(cluster => {
+    const size = Math.min(42, Math.max(18, 14 + (Math.sqrt(cluster.count) * 3.6)));
+    return {
+      count: cluster.count,
+      x: cluster.sumX / cluster.count,
+      y: cluster.sumY / cluster.count,
+      size,
+      gradient: buildClusterGradient(cluster.counts, cluster.count),
+      label: cluster.count > 1 ? String(cluster.count) : "",
+      counts: cluster.counts
+    };
+  });
+
   return {
     width,
     height,
     padding,
-    overlayPoints,
+    mappedRows,
+    projectedPoints,
+    clusters,
     baseStaticMapUrl,
     nativeMarkerMapUrl,
-    usesNativeMarkers: Boolean(nativeMarkerMapUrl)
+    shouldUseClusters: projectedPoints.length > 140
   };
 }
 
@@ -280,17 +342,7 @@ function buildSnapshotMapMarkup(rows, width = 1100, height = 520) {
     `;
   }
 
-  if (mapData.usesNativeMarkers) {
-    return `
-      <div class="snapshotMapFrame" style="width:${mapData.width}px; height:${mapData.height}px;">
-        <img class="snapshotMapImage" src="${escapeSnapshotHtml(mapData.nativeMarkerMapUrl)}" alt="Geographic project footprint overview map with status markers" />
-        <div class="snapshotMapTopline">Geographic scope footprint</div>
-        <div class="snapshotMapCaption">Status markers are rendered directly into the geographic static map for improved alignment fidelity across the current export scope.</div>
-      </div>
-    `;
-  }
-
-  const markers = mapData.overlayPoints.map(point => `
+  const overlayMarkersMarkup = mapData.projectedPoints.map(point => `
     <div
       class="snapshotMapMarker"
       style="left:${point.x.toFixed(2)}px; top:${point.y.toFixed(2)}px; --marker-color:${escapeSnapshotHtml(point.fill)};"
@@ -299,18 +351,54 @@ function buildSnapshotMapMarkup(rows, width = 1100, height = 520) {
     </div>
   `).join("");
 
-  const background = mapData.baseStaticMapUrl
-    ? `<img class="snapshotMapImage" src="${escapeSnapshotHtml(mapData.baseStaticMapUrl)}" alt="Geographic project footprint overview map" />`
-    : `<div class="snapshotMapBackgroundFallback"></div>`;
+  const clusterMarkersMarkup = mapData.clusters.map((cluster, index) => `
+    <div
+      class="snapshotMapCluster"
+      style="left:${cluster.x.toFixed(2)}px; top:${cluster.y.toFixed(2)}px; width:${cluster.size.toFixed(2)}px; height:${cluster.size.toFixed(2)}px; --cluster-bg:${escapeSnapshotHtml(cluster.gradient)};"
+      title="Cluster ${index + 1} · ${cluster.count} stores"
+      aria-label="Cluster ${index + 1} containing ${cluster.count} stores">
+      ${cluster.label ? `<span>${escapeSnapshotHtml(cluster.label)}</span>` : ""}
+    </div>
+  `).join("");
 
   return `
-    <div class="snapshotMapFrame" style="width:${mapData.width}px; height:${mapData.height}px;">
-      ${background}
-      <div class="snapshotMapOverlay">
-        ${markers}
+    <div
+      class="snapshotMapShell"
+      data-map-shell
+      data-has-native="${mapData.nativeMarkerMapUrl ? "true" : "false"}"
+      data-has-base="${mapData.baseStaticMapUrl ? "true" : "false"}"
+      data-prefer-clusters="${mapData.shouldUseClusters ? "true" : "false"}">
+      <div class="snapshotMapFrame" style="width:${mapData.width}px; height:${mapData.height}px;">
+        ${mapData.nativeMarkerMapUrl
+          ? `<img class="snapshotMapImage snapshotMapNativeLayer" data-map-native src="${escapeSnapshotHtml(mapData.nativeMarkerMapUrl)}" alt="Geographic project footprint overview map with native status markers" />`
+          : ""}
+
+        ${mapData.baseStaticMapUrl
+          ? `<img class="snapshotMapImage snapshotMapBaseLayer hidden" data-map-base src="${escapeSnapshotHtml(mapData.baseStaticMapUrl)}" alt="Geographic project footprint overview map" />`
+          : `<div class="snapshotMapBackgroundFallback hidden" data-map-base-fallback></div>`}
+
+        <div class="snapshotMapOverlay hidden" data-map-overlay-markers>
+          ${overlayMarkersMarkup}
+        </div>
+
+        <div class="snapshotMapOverlay hidden" data-map-clusters>
+          ${clusterMarkersMarkup}
+        </div>
+
+        <div class="snapshotMapTopline">Geographic scope footprint</div>
+        <div class="snapshotMapCaption" data-map-caption>
+          ${mapData.nativeMarkerMapUrl
+            ? "Status markers are rendered directly into the geographic static map for improved alignment fidelity across the current export scope."
+            : mapData.shouldUseClusters
+              ? "Clustered geographic view summarizes larger scopes while preserving overall footprint and status mix."
+              : "Store markers are positioned from current-scope geographic coordinates using fitted bounds sized for the static export view."}
+        </div>
       </div>
-      <div class="snapshotMapTopline">Geographic scope footprint</div>
-      <div class="snapshotMapCaption">Store markers are positioned from current-scope geographic coordinates using fitted bounds sized for the static export view.</div>
+
+      <div class="snapshotMapFallback hidden" data-map-fallback>
+        <div class="snapshotMapFallbackTitle">Geographic map preview unavailable</div>
+        <div class="snapshotMapFallbackText">Live store metrics, grouped store detail, and recent activity remain available in this export even when the static map preview cannot be rendered.</div>
+      </div>
     </div>
   `;
 }
@@ -461,6 +549,7 @@ function buildSnapshotHtml(payload) {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+  .hidden { display: none !important; }
   .page {
     width: 100%;
     max-width: 1180px;
@@ -477,9 +566,7 @@ function buildSnapshotHtml(payload) {
     border-radius: 18px;
     box-shadow: var(--shadow);
   }
-  .hero {
-    padding: 22px 24px;
-  }
+  .hero { padding: 22px 24px; }
   .utility-bar {
     position: sticky;
     top: 0;
@@ -490,20 +577,9 @@ function buildSnapshotHtml(payload) {
     align-items: flex-start;
     gap: 18px;
   }
-  .utility-copy {
-    display: grid;
-    gap: 4px;
-  }
-  .utility-title {
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: .02em;
-  }
-  .utility-subtitle {
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.45;
-  }
+  .utility-copy { display: grid; gap: 4px; }
+  .utility-title { font-size: 13px; font-weight: 800; letter-spacing: .02em; }
+  .utility-subtitle { color: var(--muted); font-size: 12px; line-height: 1.45; }
   .utility-actions {
     display: flex;
     flex-wrap: wrap;
@@ -537,10 +613,7 @@ function buildSnapshotHtml(payload) {
     font-weight: 800;
     cursor: pointer;
   }
-  .utility-btn.secondary {
-    background: #fff;
-    color: var(--ink);
-  }
+  .utility-btn.secondary { background: #fff; color: var(--ink); }
   .hero-top {
     display: flex;
     justify-content: space-between;
@@ -567,11 +640,7 @@ function buildSnapshotHtml(payload) {
     line-height: 1.55;
     max-width: 760px;
   }
-  .hero-meta {
-    display: grid;
-    gap: 8px;
-    min-width: 290px;
-  }
+  .hero-meta { display: grid; gap: 8px; min-width: 290px; }
   .meta-card {
     background: var(--panel-soft);
     border: 1px solid var(--line);
@@ -585,11 +654,7 @@ function buildSnapshotHtml(payload) {
     color: var(--muted);
     margin-bottom: 5px;
   }
-  .meta-value {
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1.4;
-  }
+  .meta-value { font-size: 13px; font-weight: 700; line-height: 1.4; }
   .summary-strip {
     margin-top: 16px;
     display: grid;
@@ -614,22 +679,15 @@ function buildSnapshotHtml(payload) {
     line-height: 1.55;
     color: var(--ink);
   }
-  .summary-kpis {
-    display: grid;
-    gap: 8px;
-  }
+  .summary-kpis { display: grid; gap: 8px; }
   .summary-kpi-row {
     display: flex;
     justify-content: space-between;
     gap: 12px;
     font-size: 13px;
   }
-  .summary-kpi-row span:last-child {
-    font-weight: 800;
-  }
-  .panel {
-    padding: 18px 20px;
-  }
+  .summary-kpi-row span:last-child { font-weight: 800; }
+  .panel { padding: 18px 20px; }
   .panel-eyebrow {
     font-size: 11px;
     text-transform: uppercase;
@@ -660,6 +718,7 @@ function buildSnapshotHtml(payload) {
     font-weight: 800;
     line-height: 1;
   }
+  .snapshotMapShell { display: grid; gap: 0; }
   .snapshotMapFrame {
     position: relative;
     width: 100%;
@@ -688,9 +747,7 @@ function buildSnapshotHtml(payload) {
       linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02)),
       linear-gradient(135deg, #eef4fa 0%, #d7e5f0 100%);
   }
-  .snapshotMapOverlay {
-    pointer-events: none;
-  }
+  .snapshotMapOverlay { pointer-events: none; }
   .snapshotMapMarker {
     position: absolute;
     width: 14px;
@@ -701,6 +758,27 @@ function buildSnapshotHtml(payload) {
     background: var(--marker-color);
     border: 2px solid rgba(255,255,255,0.95);
     box-shadow: 0 0 0 1px rgba(19,34,55,0.18), 0 4px 8px rgba(19,34,55,0.22);
+  }
+  .snapshotMapCluster {
+    position: absolute;
+    margin-left: calc(var(--cluster-size, 0px) / -2);
+    margin-top: calc(var(--cluster-size, 0px) / -2);
+    transform: translate(-50%, -50%);
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--cluster-bg);
+    border: 2px solid rgba(255,255,255,0.95);
+    box-shadow: 0 0 0 1px rgba(19,34,55,0.18), 0 6px 12px rgba(19,34,55,0.2);
+    color: #132237;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .snapshotMapCluster span {
+    display: inline-grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
   }
   .snapshotMapTopline {
     position: absolute;
@@ -741,10 +819,7 @@ function buildSnapshotHtml(payload) {
     padding: 24px;
     text-align: center;
   }
-  .snapshotMapFallbackTitle {
-    font-size: 18px;
-    font-weight: 800;
-  }
+  .snapshotMapFallbackTitle { font-size: 18px; font-weight: 800; }
   .snapshotMapFallbackText {
     color: var(--muted);
     max-width: 640px;
@@ -798,9 +873,7 @@ function buildSnapshotHtml(payload) {
     border-collapse: collapse;
     font-size: 12.5px;
   }
-  thead {
-    display: table-header-group;
-  }
+  thead { display: table-header-group; }
   th, td {
     border-bottom: 1px solid var(--line);
     padding: 10px 8px;
@@ -814,16 +887,9 @@ function buildSnapshotHtml(payload) {
     color: var(--muted);
     white-space: nowrap;
   }
-  tr:nth-child(even) td {
-    background: rgba(248, 251, 255, 0.6);
-  }
-  .store-id {
-    font-weight: 800;
-    color: var(--ink);
-  }
-  .location-main {
-    line-height: 1.45;
-  }
+  tr:nth-child(even) td { background: rgba(248, 251, 255, 0.6); }
+  .store-id { font-weight: 800; color: var(--ink); }
+  .location-main { line-height: 1.45; }
   .status {
     display: inline-flex;
     align-items: center;
@@ -841,10 +907,7 @@ function buildSnapshotHtml(payload) {
   .status-rescheduled { background: var(--rescheduled); color: #3c2400; }
   .status-closed { background: var(--closed); }
   .reason-text,
-  .activity-summary-inline {
-    color: var(--ink);
-    line-height: 1.45;
-  }
+  .activity-summary-inline { color: var(--ink); line-height: 1.45; }
   .activity-time-inline {
     font-weight: 700;
     margin-bottom: 2px;
@@ -914,9 +977,7 @@ function buildSnapshotHtml(payload) {
     font-size: 12px;
     line-height: 1.5;
   }
-  .print-only {
-    display: none;
-  }
+  .print-only { display: none; }
   @media print {
     body { background: #fff; }
     .page { max-width: none; padding: 10mm; gap: 10px; }
@@ -930,12 +991,8 @@ function buildSnapshotHtml(payload) {
       box-shadow: none;
       page-break-inside: avoid;
     }
-    .print-only {
-      display: block;
-    }
-    .no-print {
-      display: none !important;
-    }
+    .print-only { display: block; }
+    .no-print { display: none !important; }
   }
   @media (max-width: 1020px) {
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1025,7 +1082,7 @@ function buildSnapshotHtml(payload) {
         <div class="legend-item"><span class="dot" style="background:var(--rescheduled)"></span>Rescheduled</div>
         <div class="legend-item"><span class="dot" style="background:var(--closed)"></span>Closed</div>
       </div>
-      <div class="footnote" style="margin-top:10px;">Map markers are placed from current-scope geographic coordinates and colored by execution status for stakeholder-ready footprint review.</div>
+      <div class="footnote" style="margin-top:10px;">Map follows a reliability hierarchy: native static markers when feasible, static-map overlays when needed, clustered geographic view for larger scopes, then a polished fallback only if the static map cannot render.</div>
     </section>
 
     <section class="two-col">
@@ -1086,6 +1143,88 @@ function buildSnapshotHtml(payload) {
           window.location.reload();
         });
       }
+
+      document.querySelectorAll("[data-map-shell]").forEach(function (shell) {
+        const nativeImg = shell.querySelector("[data-map-native]");
+        const baseImg = shell.querySelector("[data-map-base]");
+        const baseFallback = shell.querySelector("[data-map-base-fallback]");
+        const overlayMarkers = shell.querySelector("[data-map-overlay-markers]");
+        const clusterLayer = shell.querySelector("[data-map-clusters]");
+        const fallbackPanel = shell.querySelector("[data-map-fallback]");
+        const caption = shell.querySelector("[data-map-caption]");
+        const preferClusters = shell.dataset.preferClusters === "true";
+
+        function showFallback(message) {
+          const frame = shell.querySelector(".snapshotMapFrame");
+          if (frame) frame.classList.add("hidden");
+          if (fallbackPanel) fallbackPanel.classList.remove("hidden");
+          if (message && caption) caption.textContent = message;
+        }
+
+        function showClusterMode() {
+          if (nativeImg) nativeImg.classList.add("hidden");
+          if (baseImg) baseImg.classList.remove("hidden");
+          if (baseFallback) baseFallback.classList.add("hidden");
+          if (overlayMarkers) overlayMarkers.classList.add("hidden");
+          if (clusterLayer) clusterLayer.classList.remove("hidden");
+          if (caption) {
+            caption.textContent = "Clustered geographic view summarizes larger scopes while preserving full footprint context and current status mix.";
+          }
+        }
+
+        function showOverlayMode() {
+          if (nativeImg) nativeImg.classList.add("hidden");
+          if (baseImg) baseImg.classList.remove("hidden");
+          if (baseFallback) baseFallback.classList.add("hidden");
+          if (clusterLayer) clusterLayer.classList.add("hidden");
+          if (overlayMarkers) overlayMarkers.classList.remove("hidden");
+          if (caption) {
+            caption.textContent = "Store markers are placed over the fitted static geographic map when native per-store rendering is unavailable or impractical.";
+          }
+        }
+
+        function showBaseFailureFallback() {
+          if (baseImg) baseImg.classList.add("hidden");
+          if (baseFallback) baseFallback.classList.remove("hidden");
+          if (overlayMarkers) overlayMarkers.classList.add("hidden");
+          if (clusterLayer) clusterLayer.classList.add("hidden");
+          showFallback("Static geographic imagery could not be rendered for this export scope.");
+        }
+
+        if (nativeImg) {
+          nativeImg.addEventListener("error", function () {
+            if (baseImg) {
+              if (preferClusters && clusterLayer) {
+                showClusterMode();
+              } else {
+                showOverlayMode();
+              }
+            } else if (baseFallback) {
+              showBaseFailureFallback();
+            } else {
+              showFallback("Static geographic imagery could not be rendered for this export scope.");
+            }
+          });
+
+          nativeImg.addEventListener("load", function () {
+            if (baseImg) baseImg.classList.add("hidden");
+            if (overlayMarkers) overlayMarkers.classList.add("hidden");
+            if (clusterLayer) clusterLayer.classList.add("hidden");
+          });
+        } else if (baseImg) {
+          if (preferClusters && clusterLayer) {
+            showClusterMode();
+          } else {
+            showOverlayMode();
+          }
+        }
+
+        if (baseImg) {
+          baseImg.addEventListener("error", function () {
+            showBaseFailureFallback();
+          });
+        }
+      });
     })();
   </script>
 </body>
