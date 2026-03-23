@@ -1102,6 +1102,13 @@ function buildAnalyticsExportPayload() {
   return {
     exportType: "analytics_export",
     schemaVersion: ANALYTICS_EXPORT_SCHEMA_VERSION,
+    exportFormat: "route_builder_analytics",
+    exportedBy: "Route Builder",
+    exportedAtLocal: new Date().toLocaleString(),
+    rowSchema: {
+      summaryRowType: "project_summary",
+      detailRowType: "store_detail"
+    },
     exportSummary,
     projectId: analyticsSnapshot.projectId || currentProjectId || "",
     projectName: analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot",
