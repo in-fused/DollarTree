@@ -1,8 +1,5 @@
 /* ================= LOGO / MOBILE ================= */
 
-const ROUTE_LINE_SOURCE_ID = "route-line";
-const ROUTE_LINE_LAYER_ID = "route-line";
-
 function bindLogoHome() {
   const logo = document.querySelector(".brandLogoWide");
   if (!logo || logo.dataset.bound) return;
@@ -234,6 +231,36 @@ function ensureActivePulseAnimation() {
   activePointPulseAnimationId = requestAnimationFrame(step);
 }
 
+function getDominantClusterStatusColorExpression() {
+  return [
+    "case",
+    [
+      "all",
+      [">=", ["get", "closedCount"], ["get", "rescheduledCount"]],
+      [">=", ["get", "closedCount"], ["get", "activeCount"]],
+      [">=", ["get", "closedCount"], ["get", "completedCount"]],
+      [">", ["get", "closedCount"], 0]
+    ],
+    "#ff2d2d",
+    [
+      "all",
+      [">=", ["get", "rescheduledCount"], ["get", "activeCount"]],
+      [">=", ["get", "rescheduledCount"], ["get", "completedCount"]],
+      [">", ["get", "rescheduledCount"], 0]
+    ],
+    "#ff9900",
+    [
+      "all",
+      [">=", ["get", "activeCount"], ["get", "completedCount"]],
+      [">", ["get", "activeCount"], 0]
+    ],
+    "#64b5f6",
+    [">", ["get", "completedCount"], 0],
+    "#2ecc71",
+    "#64b5f6"
+  ];
+}
+
 function createGeoJson(stores) {
   const geoAudit = getGeoAuditConfig(stores);
 
@@ -263,78 +290,6 @@ function createGeoJson(stores) {
   };
 }
 
-function createRouteLineGeoJson() {
-  const routeStores = typeof getOrderedRouteStores === "function"
-    ? getOrderedRouteStores()
-    : [];
-
-  if (!routeModeEnabled || routeStores.length < 2) {
-    return {
-      type: "FeatureCollection",
-      features: []
-    };
-  }
-
-  return {
-    type: "FeatureCollection",
-    features: [{
-      type: "Feature",
-      properties: {},
-      geometry: {
-        type: "LineString",
-        coordinates: routeStores.map(store => [Number(store.lng), Number(store.lat)])
-      }
-    }]
-  };
-}
-
-function ensureRouteLineSourceAndLayer() {
-  if (!map.getSource(ROUTE_LINE_SOURCE_ID)) {
-    map.addSource(ROUTE_LINE_SOURCE_ID, {
-      type: "geojson",
-      data: createRouteLineGeoJson()
-    });
-  }
-
-  if (!map.getLayer(ROUTE_LINE_LAYER_ID)) {
-    map.addLayer({
-      id: ROUTE_LINE_LAYER_ID,
-      type: "line",
-      source: ROUTE_LINE_SOURCE_ID,
-      layout: {
-        "line-join": "round",
-        "line-cap": "round",
-        visibility: "none"
-      },
-      paint: {
-        "line-color": "rgba(255, 196, 92, 0.88)",
-        "line-width": 4,
-        "line-opacity": 0.82,
-        "line-blur": 0.2
-      }
-    }, "point-issue-halo");
-  }
-}
-
-function updateRouteLineOnMap() {
-  if (!map || !map.isStyleLoaded()) return;
-
-  ensureRouteLineSourceAndLayer();
-
-  const source = map.getSource(ROUTE_LINE_SOURCE_ID);
-  const featureCollection = createRouteLineGeoJson();
-  source?.setData(featureCollection);
-
-  const hasLine = featureCollection.features.length > 0;
-  if (map.getLayer(ROUTE_LINE_LAYER_ID)) {
-    map.setLayoutProperty(
-      ROUTE_LINE_LAYER_ID,
-      "visibility",
-      hasLine ? "visible" : "none"
-    );
-  }
-}
-
 function buildMap() {
   geojsonData = createGeoJson(getFilteredStores());
 
@@ -344,9 +299,21 @@ function buildMap() {
     cluster: true,
     clusterRadius: 50,
     clusterProperties: {
+      activeCount: [
+        "+",
+        ["case", ["==", ["get", "status_code"], "active"], 1, 0]
+      ],
+      rescheduledCount: [
+        "+",
+        ["case", ["==", ["get", "status_code"], "rescheduled"], 1, 0]
+      ],
       completedCount: [
         "+",
-        ["case", ["==", ["get", "completed"], true], 1, 0]
+        ["case", ["==", ["get", "status_code"], "completed"], 1, 0]
+      ],
+      closedCount: [
+        "+",
+        ["case", ["==", ["get", "status_code"], "closed"], 1, 0]
       ],
       totalCount: ["+", 1]
     }
@@ -358,13 +325,15 @@ function buildMap() {
     source: "stores",
     filter: ["has", "point_count"],
     paint: {
-      "circle-radius": 28,
-      "circle-color": [
-        "case",
-        [">=", ["/", ["get", "completedCount"], ["get", "totalCount"]], 0.75], "#2ecc71",
-        [">=", ["/", ["get", "completedCount"], ["get", "totalCount"]], 0.4], "#ff9900",
-        "#ff2d2d"
+      "circle-radius": [
+        "step",
+        ["get", "point_count"],
+        28,
+        10, 30,
+        25, 33,
+        50, 36
       ],
+      "circle-color": getDominantClusterStatusColorExpression(),
       "circle-stroke-width": 2,
       "circle-stroke-color": "rgba(255,255,255,0.18)",
       "circle-opacity": 0.92
@@ -378,7 +347,13 @@ function buildMap() {
     filter: ["has", "point_count"],
     layout: {
       "text-field": "{point_count}",
-      "text-size": 14
+      "text-size": [
+        "step",
+        ["get", "point_count"],
+        14,
+        10, 15,
+        25, 16
+      ]
     },
     paint: {
       "text-color": "#ffffff"
@@ -420,8 +395,6 @@ function buildMap() {
     }
   });
 
-  ensureRouteLineSourceAndLayer();
-
   map.addLayer({
     id: "points",
     type: "circle",
@@ -462,7 +435,6 @@ function buildMap() {
   });
 
   ensureActivePulseAnimation();
-  updateRouteLineOnMap();
 }
 
 function rebuildFullMap() {
@@ -470,7 +442,6 @@ function rebuildFullMap() {
   geojsonData = createGeoJson(getFilteredStores());
   map.getSource("stores").setData(geojsonData);
   ensureActivePulseAnimation();
-  updateRouteLineOnMap();
 }
 
 function rebuild() {
