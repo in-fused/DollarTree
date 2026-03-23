@@ -1,5 +1,16 @@
 /* ================= PHOTOS ================= */
 
+const PHOTO_UPLOAD_TIMEOUT_MS = 45000;
+let activePhotoUploadToken = 0;
+let activePhotoUploadState = {
+  status: "idle",
+  storeId: null,
+  fileName: "",
+  startedAt: 0,
+  timeoutId: null,
+  token: 0
+};
+
 function bindPhotoUI() {
   const uploadBtn = document.getElementById("uploadPhotoBtn");
   if (!uploadBtn || uploadBtn.dataset.bound) return;
@@ -33,16 +44,155 @@ function bindLightboxUI() {
   }
 }
 
-function setPhotoMessage(message = "", isError = false) {
-  const el = document.getElementById("photoUploadMessage");
+function getPhotoUploadUiElements() {
+  return {
+    input: document.getElementById("photoInput"),
+    uploadBtn: document.getElementById("uploadPhotoBtn"),
+    message: document.getElementById("photoUploadMessage"),
+    row: document.querySelector(".photoUploadRow")
+  };
+}
+
+function setPhotoMessage(message = "", isError = false, state = "idle") {
+  const { message: el } = getPhotoUploadUiElements();
   if (!el) return;
 
   el.textContent = message;
-  el.style.color = isError ? "#ff6b6b" : "#d7f9e0";
+  el.dataset.state = state || "idle";
+  el.classList.toggle("is-error", Boolean(isError));
+  el.classList.toggle("is-success", state === "success" && !isError);
+  el.classList.toggle("is-busy", state === "preparing" || state === "uploading");
+  el.style.color = isError ? "#ff6b6b" : state === "success" ? "#d7f9e0" : "#d7e6ff";
 }
 
 function clearPhotoMessage() {
-  setPhotoMessage("");
+  setPhotoMessage("", false, "idle");
+}
+
+function setPhotoUploadLifecycleState(status, options = {}) {
+  const {
+    message = "",
+    isError = false,
+    keepInputValue = true,
+    lockUi = status === "preparing" || status === "uploading",
+    fileName = activePhotoUploadState.fileName,
+    storeId = activePhotoUploadState.storeId,
+    token = activePhotoUploadState.token
+  } = options;
+
+  const { input, uploadBtn, row } = getPhotoUploadUiElements();
+  activePhotoUploadState = {
+    ...activePhotoUploadState,
+    status,
+    fileName,
+    storeId,
+    token
+  };
+
+  if (row) row.dataset.uploadState = status;
+  if (input) {
+    input.disabled = lockUi;
+    if (!keepInputValue) input.value = "";
+  }
+
+  if (uploadBtn) {
+    uploadBtn.disabled = lockUi;
+    uploadBtn.dataset.uploadState = status;
+    uploadBtn.textContent = status === "preparing"
+      ? "Preparing…"
+      : status === "uploading"
+        ? "Uploading…"
+        : status === "success"
+          ? "Uploaded"
+          : status === "failure"
+            ? "Retry Upload"
+            : "Upload Photo";
+  }
+
+  setPhotoMessage(message, isError, status);
+}
+
+function clearPhotoUploadTimeout() {
+  if (activePhotoUploadState.timeoutId) {
+    clearTimeout(activePhotoUploadState.timeoutId);
+  }
+
+  activePhotoUploadState.timeoutId = null;
+}
+
+function startPhotoUploadTimeout(token, storeId, fileName) {
+  clearPhotoUploadTimeout();
+  activePhotoUploadState.timeoutId = setTimeout(() => {
+    if (activePhotoUploadState.token !== token) return;
+
+    console.warn("Photo upload timed out", { storeId, fileName, timeoutMs: PHOTO_UPLOAD_TIMEOUT_MS });
+    failPhotoUploadState("Photo upload timed out. Please try again.", { keepInputValue: true });
+  }, PHOTO_UPLOAD_TIMEOUT_MS);
+}
+
+function resetPhotoUploadState(options = {}) {
+  const {
+    clearMessage = false,
+    clearInputValue = false,
+    preserveFailureMessage = false,
+    nextButtonLabel = "Upload Photo"
+  } = options;
+
+  clearPhotoUploadTimeout();
+
+  const { input, uploadBtn, row, message } = getPhotoUploadUiElements();
+  activePhotoUploadState = {
+    status: "idle",
+    storeId: null,
+    fileName: "",
+    startedAt: 0,
+    timeoutId: null,
+    token: 0
+  };
+
+  if (row) row.dataset.uploadState = "idle";
+  if (input) {
+    input.disabled = false;
+    if (clearInputValue) input.value = "";
+  }
+  if (uploadBtn) {
+    uploadBtn.disabled = false;
+    uploadBtn.dataset.uploadState = "idle";
+    uploadBtn.textContent = nextButtonLabel;
+  }
+  if (message) {
+    if (clearMessage) {
+      clearPhotoMessage();
+    } else if (!preserveFailureMessage && !message.textContent) {
+      clearPhotoMessage();
+    }
+  }
+}
+
+function failPhotoUploadState(message, options = {}) {
+  setPhotoUploadLifecycleState("failure", {
+    message,
+    isError: true,
+    keepInputValue: options.keepInputValue !== false,
+    lockUi: false
+  });
+  clearPhotoUploadTimeout();
+}
+
+function succeedPhotoUploadState(message) {
+  setPhotoUploadLifecycleState("success", {
+    message,
+    isError: false,
+    keepInputValue: false,
+    lockUi: false
+  });
+  clearPhotoUploadTimeout();
+
+  setTimeout(() => {
+    if (activePhotoUploadState.status === "success") {
+      resetPhotoUploadState({ clearMessage: false, clearInputValue: false });
+    }
+  }, 1600);
 }
 
 function clearPhotoUI() {
@@ -51,7 +201,7 @@ function clearPhotoUI() {
 
   if (input) input.value = "";
   if (gallery) gallery.innerHTML = "";
-  clearPhotoMessage();
+  resetPhotoUploadState({ clearMessage: true, clearInputValue: false });
 }
 
 async function compressImageFile(file, maxDimension = 1600, quality = 0.82) {
@@ -91,81 +241,162 @@ async function compressImageFile(file, maxDimension = 1600, quality = 0.82) {
   });
 }
 
+function runPhotoUploadStepWithTimeout(stepLabel, operation, timeoutMs = PHOTO_UPLOAD_TIMEOUT_MS) {
+  return Promise.race([
+    Promise.resolve().then(operation),
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`${stepLabel} timed out. Please try again.`));
+      }, timeoutMs);
+    })
+  ]);
+}
+
 async function uploadPhoto(storeId) {
-  if (!isSignedIn() || !canUploadPhotos()) {
-    alert("Editor or admin sign-in required to upload photos.");
+  if (activePhotoUploadState.status === "preparing" || activePhotoUploadState.status === "uploading") {
+    setPhotoMessage("A photo upload is already in progress.", true, activePhotoUploadState.status);
     return;
   }
 
-  const input = document.getElementById("photoInput");
+  if (!isSignedIn() || !canUploadPhotos()) {
+    failPhotoUploadState("Editor or admin sign-in required to upload photos.", { keepInputValue: true });
+    return;
+  }
+
+  const { input } = getPhotoUploadUiElements();
   const originalFile = input?.files?.[0];
 
   if (!originalFile) {
-    setPhotoMessage("Choose a photo first.", true);
+    failPhotoUploadState("Choose a photo first.", { keepInputValue: true });
     return;
   }
 
-  setPhotoMessage("Compressing and uploading photo...");
+  const uploadToken = ++activePhotoUploadToken;
+  activePhotoUploadState = {
+    status: "idle",
+    storeId: String(storeId),
+    fileName: originalFile.name || "photo",
+    startedAt: Date.now(),
+    timeoutId: null,
+    token: uploadToken
+  };
+
+  setPhotoUploadLifecycleState("preparing", {
+    message: "Preparing photo for upload…",
+    storeId: String(storeId),
+    fileName: originalFile.name || "photo",
+    token: uploadToken
+  });
+  startPhotoUploadTimeout(uploadToken, String(storeId), originalFile.name || "photo");
 
   let file = originalFile;
+
   try {
-    file = await compressImageFile(originalFile);
+    file = await runPhotoUploadStepWithTimeout("Photo preparation", async () => {
+      try {
+        return await compressImageFile(originalFile);
+      } catch (error) {
+        console.warn("Compression failed, using original file.", error);
+        return originalFile;
+      }
+    }, 20000);
+
+    if (activePhotoUploadState.token !== uploadToken) return;
+
+    setPhotoUploadLifecycleState("uploading", {
+      message: `Uploading ${file.name || "photo"}…`,
+      storeId: String(storeId),
+      fileName: file.name || originalFile.name || "photo",
+      token: uploadToken
+    });
+
+    const bucketName = await runPhotoUploadStepWithTimeout(
+      "Photo bucket resolution",
+      () => dataLayer.resolvePhotoBucketName(),
+      15000
+    );
+
+    const path = buildPhotoPath(storeId, file);
+
+    const uploadResult = await runPhotoUploadStepWithTimeout(
+      "Photo file upload",
+      () => dataLayer.uploadPhotoFile(bucketName, path, file),
+      PHOTO_UPLOAD_TIMEOUT_MS
+    );
+
+    if (uploadResult?.error) {
+      throw uploadResult.error;
+    }
+
+    const imageUrl = dataLayer.getPublicPhotoUrl(bucketName, path);
+
+    const rowResult = await runPhotoUploadStepWithTimeout(
+      "Photo metadata save",
+      () => dataLayer.insertPhotoRow(currentProjectId, storeId, imageUrl, path),
+      20000
+    );
+
+    if (rowResult?.error) {
+      throw rowResult.error;
+    }
+
+    if (activePhotoUploadState.token !== uploadToken) return;
+
+    photoRowsCache.unshift({
+      id: cryptoRandomKey(),
+      project_id: currentProjectId,
+      store_id: String(storeId),
+      image_url: imageUrl,
+      storage_path: path,
+      created_at: new Date().toISOString(),
+      photo_type: "other"
+    });
+
+    touchDataRefresh();
+
+    prependActivity({
+      type: "photo",
+      store_id: String(storeId),
+      timestamp: new Date().toISOString(),
+      title: `📷 Photo uploaded for Store ${storeId}`,
+      detail: `${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}`
+    });
+
+    updateHeaderDashboard();
+    updateScopeSummary();
+    updateActivityList();
+    updateIntelRail();
+    updateSelectedStorePanel(storeId);
+    renderPhotoLibrary();
+    await loadPhotos(storeId);
+
+    console.info("Photo upload completed", {
+      storeId: String(storeId),
+      originalBytes: originalFile.size,
+      uploadedBytes: file.size
+    });
+
+    succeedPhotoUploadState(`Photo uploaded successfully (${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}).`);
   } catch (error) {
-    console.warn("Compression failed, using original file.", error);
-    file = originalFile;
+    console.error("Photo upload failed", { storeId: String(storeId), error });
+    failPhotoUploadState(error?.message || "Photo upload failed.", { keepInputValue: true });
+  } finally {
+    clearPhotoUploadTimeout();
+
+    if (activePhotoUploadState.token === uploadToken && activePhotoUploadState.status !== "success") {
+      const terminalStatus = activePhotoUploadState.status;
+      resetPhotoUploadState({
+        clearMessage: false,
+        clearInputValue: false,
+        preserveFailureMessage: terminalStatus === "failure",
+        nextButtonLabel: terminalStatus === "failure" ? "Retry Upload" : "Upload Photo"
+      });
+
+      if (terminalStatus !== "failure") {
+        clearPhotoMessage();
+      }
+    }
   }
-
-  const bucketName = await dataLayer.resolvePhotoBucketName();
-  const path = buildPhotoPath(storeId, file);
-
-  const { error: uploadError } = await dataLayer.uploadPhotoFile(bucketName, path, file);
-
-  if (uploadError) {
-    console.error(uploadError);
-    setPhotoMessage(uploadError.message || "Photo upload failed.", true);
-    return;
-  }
-
-  const imageUrl = dataLayer.getPublicPhotoUrl(bucketName, path);
-
-  const { error: rowError } = await dataLayer.insertPhotoRow(currentProjectId, storeId, imageUrl, path);
-
-  if (rowError) {
-    console.error(rowError);
-    setPhotoMessage(rowError.message || "Photo metadata save failed.", true);
-    return;
-  }
-
-  photoRowsCache.unshift({
-    id: cryptoRandomKey(),
-    project_id: currentProjectId,
-    store_id: String(storeId),
-    image_url: imageUrl,
-    storage_path: path,
-    created_at: new Date().toISOString(),
-    photo_type: "other"
-  });
-
-  touchDataRefresh();
-
-  prependActivity({
-    type: "photo",
-    store_id: String(storeId),
-    timestamp: new Date().toISOString(),
-    title: `📷 Photo uploaded for Store ${storeId}`,
-    detail: `${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}`
-  });
-
-  if (input) input.value = "";
-
-  updateHeaderDashboard();
-  updateScopeSummary();
-  updateActivityList();
-  updateIntelRail();
-  updateSelectedStorePanel(storeId);
-  renderPhotoLibrary();
-  setPhotoMessage(`Photo uploaded successfully (${formatFileSize(originalFile.size)} → ${formatFileSize(file.size)}).`);
-  await loadPhotos(storeId);
 }
 
 async function loadPhotos(storeId) {
