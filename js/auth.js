@@ -28,10 +28,6 @@ async function initializeAuth() {
 
     updateAuthUI();
     updateWriteAccessUI();
-
-    if (typeof bindSnapshotExportUI === "function") {
-      bindSnapshotExportUI();
-    }
   });
 }
 
