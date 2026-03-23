@@ -305,7 +305,7 @@ function getSnapshotMapData(rows, width = 1100, height = 520, padding = 48) {
   });
 
   const clusters = Array.from(clusterMap.values()).map(cluster => {
-    const size = Math.min(42, Math.max(18, 14 + (Math.sqrt(cluster.count) * 3.6)));
+    const size = Math.min(44, Math.max(18, 14 + (Math.sqrt(cluster.count) * 3.6)));
     return {
       count: cluster.count,
       x: cluster.sumX / cluster.count,
@@ -320,7 +320,6 @@ function getSnapshotMapData(rows, width = 1100, height = 520, padding = 48) {
   return {
     width,
     height,
-    padding,
     mappedRows,
     projectedPoints,
     clusters,
@@ -375,7 +374,9 @@ function buildSnapshotMapMarkup(rows, width = 1100, height = 520) {
 
         ${mapData.baseStaticMapUrl
           ? `<img class="snapshotMapImage snapshotMapBaseLayer hidden" data-map-base src="${escapeSnapshotHtml(mapData.baseStaticMapUrl)}" alt="Geographic project footprint overview map" />`
-          : `<div class="snapshotMapBackgroundFallback hidden" data-map-base-fallback></div>`}
+          : ""}
+
+        <div class="snapshotMapBackgroundFallback hidden" data-map-local-bg></div>
 
         <div class="snapshotMapOverlay hidden" data-map-overlay-markers>
           ${overlayMarkersMarkup}
@@ -393,11 +394,6 @@ function buildSnapshotMapMarkup(rows, width = 1100, height = 520) {
               ? "Clustered geographic view summarizes larger scopes while preserving overall footprint and status mix."
               : "Store markers are positioned from current-scope geographic coordinates using fitted bounds sized for the static export view."}
         </div>
-      </div>
-
-      <div class="snapshotMapFallback hidden" data-map-fallback>
-        <div class="snapshotMapFallbackTitle">Geographic map preview unavailable</div>
-        <div class="snapshotMapFallbackText">Live store metrics, grouped store detail, and recent activity remain available in this export even when the static map preview cannot be rendered.</div>
       </div>
     </div>
   `;
@@ -718,7 +714,6 @@ function buildSnapshotHtml(payload) {
     font-weight: 800;
     line-height: 1;
   }
-  .snapshotMapShell { display: grid; gap: 0; }
   .snapshotMapFrame {
     position: relative;
     width: 100%;
@@ -744,8 +739,28 @@ function buildSnapshotHtml(payload) {
   }
   .snapshotMapBackgroundFallback {
     background:
-      linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02)),
+      radial-gradient(circle at 18% 22%, rgba(113, 169, 221, 0.18), transparent 20%),
+      radial-gradient(circle at 74% 66%, rgba(46, 204, 113, 0.14), transparent 18%),
+      linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.04)),
       linear-gradient(135deg, #eef4fa 0%, #d7e5f0 100%);
+  }
+  .snapshotMapBackgroundFallback::before,
+  .snapshotMapBackgroundFallback::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .snapshotMapBackgroundFallback::before {
+    background-image:
+      linear-gradient(to right, rgba(19,34,55,0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(19,34,55,0.06) 1px, transparent 1px);
+    background-size: 80px 80px, 80px 80px;
+  }
+  .snapshotMapBackgroundFallback::after {
+    background:
+      linear-gradient(90deg, transparent 49.7%, rgba(19,34,55,0.05) 50%, transparent 50.3%),
+      linear-gradient(transparent 49.7%, rgba(19,34,55,0.05) 50%, transparent 50.3%);
   }
   .snapshotMapOverlay { pointer-events: none; }
   .snapshotMapMarker {
@@ -761,8 +776,6 @@ function buildSnapshotHtml(payload) {
   }
   .snapshotMapCluster {
     position: absolute;
-    margin-left: calc(var(--cluster-size, 0px) / -2);
-    margin-top: calc(var(--cluster-size, 0px) / -2);
     transform: translate(-50%, -50%);
     display: grid;
     place-items: center;
@@ -1082,7 +1095,7 @@ function buildSnapshotHtml(payload) {
         <div class="legend-item"><span class="dot" style="background:var(--rescheduled)"></span>Rescheduled</div>
         <div class="legend-item"><span class="dot" style="background:var(--closed)"></span>Closed</div>
       </div>
-      <div class="footnote" style="margin-top:10px;">Map follows a reliability hierarchy: native static markers when feasible, static-map overlays when needed, clustered geographic view for larger scopes, then a polished fallback only if the static map cannot render.</div>
+      <div class="footnote" style="margin-top:10px;">Map always falls back to a locally rendered geographic visualization when static imagery is unavailable, so stakeholder exports remain usable whenever mappable coordinates exist.</div>
     </section>
 
     <section class="two-col">
@@ -1147,35 +1160,38 @@ function buildSnapshotHtml(payload) {
       document.querySelectorAll("[data-map-shell]").forEach(function (shell) {
         const nativeImg = shell.querySelector("[data-map-native]");
         const baseImg = shell.querySelector("[data-map-base]");
-        const baseFallback = shell.querySelector("[data-map-base-fallback]");
+        const localBg = shell.querySelector("[data-map-local-bg]");
         const overlayMarkers = shell.querySelector("[data-map-overlay-markers]");
         const clusterLayer = shell.querySelector("[data-map-clusters]");
-        const fallbackPanel = shell.querySelector("[data-map-fallback]");
         const caption = shell.querySelector("[data-map-caption]");
         const preferClusters = shell.dataset.preferClusters === "true";
 
-        function showFallback(message) {
-          const frame = shell.querySelector(".snapshotMapFrame");
-          if (frame) frame.classList.add("hidden");
-          if (fallbackPanel) fallbackPanel.classList.remove("hidden");
-          if (message && caption) caption.textContent = message;
-        }
-
-        function showClusterMode() {
+        function showLocalClusterMode() {
           if (nativeImg) nativeImg.classList.add("hidden");
-          if (baseImg) baseImg.classList.remove("hidden");
-          if (baseFallback) baseFallback.classList.add("hidden");
+          if (baseImg) baseImg.classList.add("hidden");
+          if (localBg) localBg.classList.remove("hidden");
           if (overlayMarkers) overlayMarkers.classList.add("hidden");
           if (clusterLayer) clusterLayer.classList.remove("hidden");
           if (caption) {
-            caption.textContent = "Clustered geographic view summarizes larger scopes while preserving full footprint context and current status mix.";
+            caption.textContent = "Locally rendered clustered geographic fallback preserves footprint context and current status mix when static imagery is unavailable.";
+          }
+        }
+
+        function showLocalMarkerMode() {
+          if (nativeImg) nativeImg.classList.add("hidden");
+          if (baseImg) baseImg.classList.add("hidden");
+          if (localBg) localBg.classList.remove("hidden");
+          if (clusterLayer) clusterLayer.classList.add("hidden");
+          if (overlayMarkers) overlayMarkers.classList.remove("hidden");
+          if (caption) {
+            caption.textContent = "Locally rendered geographic fallback preserves relative footprint and current status positions when static imagery is unavailable.";
           }
         }
 
         function showOverlayMode() {
           if (nativeImg) nativeImg.classList.add("hidden");
           if (baseImg) baseImg.classList.remove("hidden");
-          if (baseFallback) baseFallback.classList.add("hidden");
+          if (localBg) localBg.classList.add("hidden");
           if (clusterLayer) clusterLayer.classList.add("hidden");
           if (overlayMarkers) overlayMarkers.classList.remove("hidden");
           if (caption) {
@@ -1183,45 +1199,57 @@ function buildSnapshotHtml(payload) {
           }
         }
 
-        function showBaseFailureFallback() {
-          if (baseImg) baseImg.classList.add("hidden");
-          if (baseFallback) baseFallback.classList.remove("hidden");
+        function showClusterModeOnBase() {
+          if (nativeImg) nativeImg.classList.add("hidden");
+          if (baseImg) baseImg.classList.remove("hidden");
+          if (localBg) localBg.classList.add("hidden");
           if (overlayMarkers) overlayMarkers.classList.add("hidden");
-          if (clusterLayer) clusterLayer.classList.add("hidden");
-          showFallback("Static geographic imagery could not be rendered for this export scope.");
+          if (clusterLayer) clusterLayer.classList.remove("hidden");
+          if (caption) {
+            caption.textContent = "Clustered geographic view summarizes larger scopes while preserving full footprint context and current status mix.";
+          }
+        }
+
+        function showBestLocalFallback() {
+          if (preferClusters && clusterLayer) {
+            showLocalClusterMode();
+          } else {
+            showLocalMarkerMode();
+          }
         }
 
         if (nativeImg) {
           nativeImg.addEventListener("error", function () {
             if (baseImg) {
               if (preferClusters && clusterLayer) {
-                showClusterMode();
+                showClusterModeOnBase();
               } else {
                 showOverlayMode();
               }
-            } else if (baseFallback) {
-              showBaseFailureFallback();
             } else {
-              showFallback("Static geographic imagery could not be rendered for this export scope.");
+              showBestLocalFallback();
             }
           });
 
           nativeImg.addEventListener("load", function () {
             if (baseImg) baseImg.classList.add("hidden");
+            if (localBg) localBg.classList.add("hidden");
             if (overlayMarkers) overlayMarkers.classList.add("hidden");
             if (clusterLayer) clusterLayer.classList.add("hidden");
           });
         } else if (baseImg) {
           if (preferClusters && clusterLayer) {
-            showClusterMode();
+            showClusterModeOnBase();
           } else {
             showOverlayMode();
           }
+        } else {
+          showBestLocalFallback();
         }
 
         if (baseImg) {
           baseImg.addEventListener("error", function () {
-            showBaseFailureFallback();
+            showBestLocalFallback();
           });
         }
       });
