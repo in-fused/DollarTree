@@ -649,9 +649,13 @@
         </div>
 
         <div class="panel intelPanel">
-          <div class="panelHeaderRow">
+          <div class="panelHeaderRow panelHeaderRowWrap">
             <h3>Execution Health</h3>
-            <div class="panelHeaderTag">Coverage</div>
+            <div class="panelHeaderActions">
+              <div class="panelHeaderTag">Coverage</div>
+              <button id="exportAnalyticsCsvBtn" class="panelInlineAction panelInlineActionCompact" type="button">Export CSV</button>
+              <button id="exportAnalyticsJsonBtn" class="panelInlineAction panelInlineActionCompact" type="button">Export JSON</button>
+            </div>
           </div>
 
           <div class="intelMetricGrid">
