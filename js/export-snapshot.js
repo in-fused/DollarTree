@@ -1163,6 +1163,15 @@ const ANALYTICS_CSV_HEADERS = [
   "activityTimestampValue"
 ];
 
+function normalizeAnalyticsExportValue(value) {
+  if (value === undefined || value === null) return "";
+  return value;
+}
+
+function normalizeAnalyticsExportBoolean(value) {
+  return value === true ? "true" : "false";
+}
+
 function buildAnalyticsExportPayload() {
   const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
   const scopeMeta = getSnapshotScopeMeta(filteredStores);
@@ -1207,41 +1216,41 @@ function buildAnalyticsCsvRows() {
 
   const buildBaseRow = () => ({
     rowType: "",
-    projectId,
-    projectName,
-    generatedAt,
-    scopeLabel,
-    scopeDescription: scopeMeta.scopeDescription,
-    totalStores: metrics.totalStores ?? snapshotMetrics.total,
-    active: metrics.active ?? snapshotMetrics.active,
-    rescheduled: metrics.rescheduled ?? snapshotMetrics.rescheduled,
-    completed: metrics.completed ?? snapshotMetrics.completed,
-    closed: metrics.closed ?? snapshotMetrics.closed,
-    openWorkCount: metrics.openWorkCount ?? Math.max(0, snapshotMetrics.total - snapshotMetrics.completed - snapshotMetrics.closed),
-    completionRate: metrics.completionRate ?? Number(snapshotMetrics.completionRate.toFixed(2)),
-    actionableRate: metrics.actionableRate ?? null,
-    noteCoverageRate: metrics.noteCoverageRate ?? Number(snapshotMetrics.noteCoverageRate.toFixed(2)),
-    photoCoverageRate: metrics.photoCoverageRate ?? Number(snapshotMetrics.photoCoverageRate.toFixed(2)),
-    activityCoverageRate: metrics.activityCoverageRate ?? Number(snapshotMetrics.activityCoverageRate.toFixed(2)),
-    recentActivityCoverageRate: metrics.recentActivityCoverageRate ?? null,
-    integrityIssueCount: metrics.integrityIssueCount ?? null,
-    integrityIssueRate: metrics.integrityIssueRate ?? null,
-    storesWithNoUpdates: metrics.storesWithNoUpdates ?? null,
-    storesWithNotesNoPhotos: metrics.storesWithNotesNoPhotos ?? null,
-    storesWithPhotosNoNotes: metrics.storesWithPhotosNoNotes ?? null,
-    stalledActiveCount: metrics.stalledActiveCount ?? null,
-    rescheduledNoReasonCount: metrics.rescheduledNoReasonCount ?? null,
-    rescheduledNoRecentFollowUpCount: metrics.rescheduledNoRecentFollowUpCount ?? null,
-    completedToday: metrics.completedToday ?? null,
-    avgCompletedPerDay: metrics.avgCompletedPerDay ?? null,
-    etaDays: metrics.etaDays ?? null,
-    attentionNeededCount: metrics.attentionNeededCount ?? null,
-    snapshotNotes: snapshotMetrics.notes,
-    snapshotPhotos: snapshotMetrics.photos,
-    storesWithNotes: snapshotMetrics.storesWithNotes,
-    storesWithPhotos: snapshotMetrics.storesWithPhotos,
-    storesWithRecentActivity: snapshotMetrics.storesWithRecentActivity,
-    actionableTotal: snapshotMetrics.actionableTotal,
+    projectId: normalizeAnalyticsExportValue(projectId),
+    projectName: normalizeAnalyticsExportValue(projectName),
+    generatedAt: normalizeAnalyticsExportValue(generatedAt),
+    scopeLabel: normalizeAnalyticsExportValue(scopeLabel),
+    scopeDescription: normalizeAnalyticsExportValue(scopeMeta.scopeDescription),
+    totalStores: normalizeAnalyticsExportValue(metrics.totalStores ?? snapshotMetrics.total),
+    active: normalizeAnalyticsExportValue(metrics.active ?? snapshotMetrics.active),
+    rescheduled: normalizeAnalyticsExportValue(metrics.rescheduled ?? snapshotMetrics.rescheduled),
+    completed: normalizeAnalyticsExportValue(metrics.completed ?? snapshotMetrics.completed),
+    closed: normalizeAnalyticsExportValue(metrics.closed ?? snapshotMetrics.closed),
+    openWorkCount: normalizeAnalyticsExportValue(metrics.openWorkCount ?? Math.max(0, snapshotMetrics.total - snapshotMetrics.completed - snapshotMetrics.closed)),
+    completionRate: normalizeAnalyticsExportValue(metrics.completionRate ?? Number(snapshotMetrics.completionRate.toFixed(2))),
+    actionableRate: normalizeAnalyticsExportValue(metrics.actionableRate),
+    noteCoverageRate: normalizeAnalyticsExportValue(metrics.noteCoverageRate ?? Number(snapshotMetrics.noteCoverageRate.toFixed(2))),
+    photoCoverageRate: normalizeAnalyticsExportValue(metrics.photoCoverageRate ?? Number(snapshotMetrics.photoCoverageRate.toFixed(2))),
+    activityCoverageRate: normalizeAnalyticsExportValue(metrics.activityCoverageRate ?? Number(snapshotMetrics.activityCoverageRate.toFixed(2))),
+    recentActivityCoverageRate: normalizeAnalyticsExportValue(metrics.recentActivityCoverageRate),
+    integrityIssueCount: normalizeAnalyticsExportValue(metrics.integrityIssueCount),
+    integrityIssueRate: normalizeAnalyticsExportValue(metrics.integrityIssueRate),
+    storesWithNoUpdates: normalizeAnalyticsExportValue(metrics.storesWithNoUpdates),
+    storesWithNotesNoPhotos: normalizeAnalyticsExportValue(metrics.storesWithNotesNoPhotos),
+    storesWithPhotosNoNotes: normalizeAnalyticsExportValue(metrics.storesWithPhotosNoNotes),
+    stalledActiveCount: normalizeAnalyticsExportValue(metrics.stalledActiveCount),
+    rescheduledNoReasonCount: normalizeAnalyticsExportValue(metrics.rescheduledNoReasonCount),
+    rescheduledNoRecentFollowUpCount: normalizeAnalyticsExportValue(metrics.rescheduledNoRecentFollowUpCount),
+    completedToday: normalizeAnalyticsExportValue(metrics.completedToday),
+    avgCompletedPerDay: normalizeAnalyticsExportValue(metrics.avgCompletedPerDay),
+    etaDays: normalizeAnalyticsExportValue(metrics.etaDays),
+    attentionNeededCount: normalizeAnalyticsExportValue(metrics.attentionNeededCount),
+    snapshotNotes: normalizeAnalyticsExportValue(snapshotMetrics.notes),
+    snapshotPhotos: normalizeAnalyticsExportValue(snapshotMetrics.photos),
+    storesWithNotes: normalizeAnalyticsExportValue(snapshotMetrics.storesWithNotes),
+    storesWithPhotos: normalizeAnalyticsExportValue(snapshotMetrics.storesWithPhotos),
+    storesWithRecentActivity: normalizeAnalyticsExportValue(snapshotMetrics.storesWithRecentActivity),
+    actionableTotal: normalizeAnalyticsExportValue(snapshotMetrics.actionableTotal),
     storeId: "",
     address: "",
     statusCode: "",
@@ -1249,9 +1258,9 @@ function buildAnalyticsCsvRows() {
     rescheduleReason: "",
     noteCount: "",
     photoCount: "",
-    hasNotes: "",
-    hasPhotos: "",
-    hasActivity: "",
+    hasNotes: "false",
+    hasPhotos: "false",
+    hasActivity: "false",
     activityLabel: "",
     activitySummary: "",
     activityTimestampValue: ""
@@ -1265,19 +1274,19 @@ function buildAnalyticsCsvRows() {
     ...rows.map(row => ({
       ...buildBaseRow(),
       rowType: "store_detail",
-      storeId: row.storeId,
-      address: row.address,
-      statusCode: row.statusCode,
-      statusLabel: row.statusLabel,
-      rescheduleReason: row.rescheduleReason,
-      noteCount: row.noteCount,
-      photoCount: row.photoCount,
-      hasNotes: row.hasNotes,
-      hasPhotos: row.hasPhotos,
-      hasActivity: row.hasActivity,
-      activityLabel: row.activityLabel,
-      activitySummary: row.activitySummary,
-      activityTimestampValue: row.activityTimestampValue
+      storeId: normalizeAnalyticsExportValue(row.storeId),
+      address: normalizeAnalyticsExportValue(row.address),
+      statusCode: normalizeAnalyticsExportValue(row.statusCode),
+      statusLabel: normalizeAnalyticsExportValue(row.statusLabel),
+      rescheduleReason: normalizeAnalyticsExportValue(row.rescheduleReason),
+      noteCount: normalizeAnalyticsExportValue(row.noteCount),
+      photoCount: normalizeAnalyticsExportValue(row.photoCount),
+      hasNotes: normalizeAnalyticsExportBoolean(row.hasNotes),
+      hasPhotos: normalizeAnalyticsExportBoolean(row.hasPhotos),
+      hasActivity: normalizeAnalyticsExportBoolean(row.hasActivity),
+      activityLabel: normalizeAnalyticsExportValue(row.activityLabel),
+      activitySummary: normalizeAnalyticsExportValue(row.activitySummary),
+      activityTimestampValue: normalizeAnalyticsExportValue(row.activityTimestampValue)
     }))
   ];
 }
