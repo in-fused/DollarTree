@@ -168,13 +168,6 @@ function escapeSnapshotHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function getStatusColor(statusCode) {
-  if (statusCode === "completed") return "#2ecc71";
-  if (statusCode === "closed") return "#ff2d2d";
-  if (statusCode === "rescheduled") return "#ff9900";
-  return "#64b5f6";
-}
-
 function buildSnapshotMetricCards(metrics) {
   const cards = [
     { label: "Total Stores", value: metrics.total.toLocaleString() },
@@ -371,24 +364,28 @@ function buildSnapshotHtml(payload) {
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <style>
   :root {
-    --bg: #f3f7fb;
-    --panel: #ffffff;
-    --panel-soft: #f8fbff;
-    --ink: #132237;
-    --muted: #5d7187;
-    --line: #d7e1ec;
-    --line-strong: #c3d3e2;
+    --bg: #eaf0f6;
+    --panel: #f6f9fc;
+    --panel-soft: #edf3f8;
+    --panel-strong: #ffffff;
+    --ink: #102132;
+    --muted: #55697e;
+    --line: #cfdae5;
+    --line-strong: #bccbda;
     --active: #64b5f6;
     --completed: #2ecc71;
     --rescheduled: #ff9900;
     --closed: #ff2d2d;
-    --shadow: 0 14px 34px rgba(19, 34, 55, 0.06);
+    --shadow: 0 16px 36px rgba(16, 33, 50, 0.08);
+    --shadow-soft: 0 10px 24px rgba(16, 33, 50, 0.05);
   }
   * { box-sizing: border-box; }
   html { background: var(--bg); }
   body {
     margin: 0;
-    background: var(--bg);
+    background:
+      radial-gradient(circle at top left, rgba(255,255,255,0.55), transparent 30%),
+      linear-gradient(180deg, #eef4f9 0%, #e6edf4 100%);
     color: var(--ink);
     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     -webkit-print-color-adjust: exact;
@@ -405,12 +402,16 @@ function buildSnapshotHtml(payload) {
   .hero,
   .panel,
   .utility-bar {
-    background: var(--panel);
-    border: 1px solid var(--line);
+    background: rgba(248, 251, 254, 0.96);
+    border: 1px solid rgba(188, 203, 218, 0.92);
     border-radius: 18px;
     box-shadow: var(--shadow);
+    backdrop-filter: blur(4px);
   }
-  .hero { padding: 22px 24px; }
+  .hero {
+    padding: 22px 24px;
+    background: linear-gradient(180deg, rgba(250, 252, 254, 0.98) 0%, rgba(243, 248, 252, 0.98) 100%);
+  }
   .utility-bar {
     position: sticky;
     top: 0;
@@ -420,9 +421,10 @@ function buildSnapshotHtml(payload) {
     justify-content: space-between;
     align-items: flex-start;
     gap: 18px;
+    background: rgba(245, 249, 252, 0.96);
   }
   .utility-copy { display: grid; gap: 4px; }
-  .utility-title { font-size: 13px; font-weight: 800; letter-spacing: .02em; }
+  .utility-title { font-size: 13px; font-weight: 800; letter-spacing: .02em; color: #12273a; }
   .utility-subtitle { color: var(--muted); font-size: 12px; line-height: 1.45; }
   .utility-actions {
     display: flex;
@@ -438,17 +440,17 @@ function buildSnapshotHtml(payload) {
     min-height: 28px;
     padding: 0 10px;
     border-radius: 999px;
-    background: var(--panel-soft);
+    background: #e9f0f6;
     border: 1px solid var(--line);
-    color: var(--ink);
+    color: #21384d;
     font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
   }
   .utility-btn {
     appearance: none;
-    border: 1px solid var(--line-strong);
-    background: #102032;
+    border: 1px solid rgba(16, 33, 50, 0.12);
+    background: #183048;
     color: #fff;
     min-height: 38px;
     padding: 0 14px;
@@ -456,8 +458,12 @@ function buildSnapshotHtml(payload) {
     font-size: 13px;
     font-weight: 800;
     cursor: pointer;
+    box-shadow: var(--shadow-soft);
   }
-  .utility-btn.secondary { background: #fff; color: var(--ink); }
+  .utility-btn.secondary {
+    background: rgba(255,255,255,0.88);
+    color: var(--ink);
+  }
   .hero-top {
     display: flex;
     justify-content: space-between;
@@ -468,7 +474,7 @@ function buildSnapshotHtml(payload) {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: .14em;
-    color: var(--muted);
+    color: #6b8095;
     margin-bottom: 8px;
   }
   .hero-title {
@@ -476,6 +482,7 @@ function buildSnapshotHtml(payload) {
     font-size: 32px;
     line-height: 1.02;
     letter-spacing: -.02em;
+    color: #102132;
   }
   .hero-subtitle {
     margin-top: 8px;
@@ -486,8 +493,8 @@ function buildSnapshotHtml(payload) {
   }
   .hero-meta { display: grid; gap: 8px; min-width: 290px; }
   .meta-card {
-    background: var(--panel-soft);
-    border: 1px solid var(--line);
+    background: rgba(236, 243, 248, 0.92);
+    border: 1px solid rgba(188, 203, 218, 0.88);
     border-radius: 14px;
     padding: 12px 14px;
   }
@@ -495,10 +502,10 @@ function buildSnapshotHtml(payload) {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: .1em;
-    color: var(--muted);
+    color: #73879c;
     margin-bottom: 5px;
   }
-  .meta-value { font-size: 13px; font-weight: 700; line-height: 1.4; }
+  .meta-value { font-size: 13px; font-weight: 700; line-height: 1.4; color: #162b3e; }
   .summary-strip {
     margin-top: 16px;
     display: grid;
@@ -506,22 +513,23 @@ function buildSnapshotHtml(payload) {
     gap: 14px;
   }
   .summary-card {
-    background: linear-gradient(180deg, #f9fbfe 0%, #f5f9fc 100%);
-    border: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(242, 247, 251, 0.96) 0%, rgba(235, 242, 248, 0.96) 100%);
+    border: 1px solid rgba(188, 203, 218, 0.88);
     border-radius: 16px;
     padding: 14px 16px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.55);
   }
   .summary-title {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: .12em;
-    color: var(--muted);
+    color: #70859a;
     margin-bottom: 8px;
   }
   .summary-body {
     font-size: 14px;
     line-height: 1.55;
-    color: var(--ink);
+    color: #13283b;
   }
   .summary-kpis { display: grid; gap: 8px; }
   .summary-kpi-row {
@@ -529,6 +537,7 @@ function buildSnapshotHtml(payload) {
     justify-content: space-between;
     gap: 12px;
     font-size: 13px;
+    color: #24384c;
   }
   .summary-kpi-row span:last-child { font-weight: 800; }
   .panel { padding: 18px 20px; }
@@ -536,7 +545,7 @@ function buildSnapshotHtml(payload) {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: .12em;
-    color: var(--muted);
+    color: #70859a;
     margin-bottom: 10px;
   }
   .metric-grid {
@@ -545,22 +554,24 @@ function buildSnapshotHtml(payload) {
     gap: 10px;
   }
   .metric {
-    background: var(--panel-soft);
-    border: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(242, 247, 251, 0.98) 0%, rgba(234, 241, 247, 0.98) 100%);
+    border: 1px solid rgba(188, 203, 218, 0.84);
     border-radius: 14px;
     padding: 12px 13px;
+    box-shadow: var(--shadow-soft);
   }
   .metric-label {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: .1em;
-    color: var(--muted);
+    color: #6f8398;
     margin-bottom: 8px;
   }
   .metric-value {
     font-size: 22px;
     font-weight: 800;
     line-height: 1;
+    color: #13283b;
   }
   .executionOverviewGrid {
     display: grid;
@@ -569,15 +580,16 @@ function buildSnapshotHtml(payload) {
   }
   .executionSummaryCard,
   .executionStatusCard {
-    background: linear-gradient(180deg, #f9fbfe 0%, #f5f9fc 100%);
-    border: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(244, 248, 252, 0.98) 0%, rgba(236, 242, 248, 0.98) 100%);
+    border: 1px solid rgba(188, 203, 218, 0.86);
     border-radius: 16px;
     padding: 16px;
+    box-shadow: var(--shadow-soft);
   }
   .executionLead {
     font-size: 15px;
     line-height: 1.6;
-    color: var(--ink);
+    color: #13283b;
     margin-bottom: 14px;
   }
   .executionStatStack {
@@ -590,7 +602,7 @@ function buildSnapshotHtml(payload) {
     gap: 14px;
     align-items: flex-start;
     padding: 10px 0;
-    border-top: 1px solid rgba(19,34,55,0.08);
+    border-top: 1px solid rgba(16,33,50,0.08);
   }
   .executionStatRow:first-child {
     border-top: none;
@@ -600,6 +612,7 @@ function buildSnapshotHtml(payload) {
     font-size: 13px;
     font-weight: 800;
     margin-bottom: 3px;
+    color: #173047;
   }
   .executionStatDetail {
     font-size: 12px;
@@ -610,6 +623,7 @@ function buildSnapshotHtml(payload) {
     font-size: 14px;
     font-weight: 800;
     white-space: nowrap;
+    color: #102132;
   }
   .statusBreakdownStack {
     display: grid;
@@ -631,6 +645,7 @@ function buildSnapshotHtml(payload) {
     gap: 8px;
     font-size: 13px;
     font-weight: 800;
+    color: #173047;
   }
   .statusSwatch {
     width: 12px;
@@ -645,6 +660,7 @@ function buildSnapshotHtml(payload) {
   .statusBreakdownValue {
     font-size: 13px;
     font-weight: 800;
+    color: #13283b;
   }
   .statusBreakdownValue span {
     color: var(--muted);
@@ -654,8 +670,9 @@ function buildSnapshotHtml(payload) {
   .statusBreakdownBarTrack {
     height: 10px;
     border-radius: 999px;
-    background: #e7eef5;
+    background: #dee8f1;
     overflow: hidden;
+    box-shadow: inset 0 1px 1px rgba(16,33,50,0.04);
   }
   .statusBreakdownBarFill {
     height: 100%;
@@ -697,9 +714,9 @@ function buildSnapshotHtml(payload) {
     min-height: 30px;
     padding: 0 12px;
     border-radius: 999px;
-    background: #f8fbff;
-    border: 1px solid var(--line);
-    color: var(--ink);
+    background: #edf3f8;
+    border: 1px solid rgba(188, 203, 218, 0.88);
+    color: #203648;
     font-size: 12px;
     font-weight: 700;
   }
@@ -715,7 +732,7 @@ function buildSnapshotHtml(payload) {
   }
   thead { display: table-header-group; }
   th, td {
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid rgba(188, 203, 218, 0.88);
     padding: 10px 8px;
     text-align: left;
     vertical-align: top;
@@ -724,12 +741,12 @@ function buildSnapshotHtml(payload) {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: .08em;
-    color: var(--muted);
+    color: #70859a;
     white-space: nowrap;
   }
-  tr:nth-child(even) td { background: rgba(248, 251, 255, 0.6); }
-  .store-id { font-weight: 800; color: var(--ink); }
-  .location-main { line-height: 1.45; }
+  tr:nth-child(even) td { background: rgba(236, 243, 248, 0.56); }
+  .store-id { font-weight: 800; color: #13283b; }
+  .location-main { line-height: 1.45; color: #203648; }
   .status {
     display: inline-flex;
     align-items: center;
@@ -747,7 +764,7 @@ function buildSnapshotHtml(payload) {
   .status-rescheduled { background: var(--rescheduled); color: #3c2400; }
   .status-closed { background: var(--closed); }
   .reason-text,
-  .activity-summary-inline { color: var(--ink); line-height: 1.45; }
+  .activity-summary-inline { color: #203648; line-height: 1.45; }
   .activity-time-inline {
     font-weight: 700;
     margin-bottom: 2px;
@@ -763,22 +780,22 @@ function buildSnapshotHtml(payload) {
     min-height: 24px;
     padding: 0 8px;
     border-radius: 999px;
-    background: #eef4fa;
-    border: 1px solid var(--line);
+    background: #e7eef5;
+    border: 1px solid rgba(188, 203, 218, 0.88);
     font-weight: 800;
     color: var(--muted);
   }
   .count-pill.has-data {
-    background: #e9f7ef;
+    background: #e6f4eb;
     color: #1e5b34;
-    border-color: #cfe8d9;
+    border-color: #c6decf;
   }
   .activity-row {
     display: grid;
     grid-template-columns: 96px minmax(0, 1fr);
     gap: 12px;
     padding: 10px 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid rgba(188, 203, 218, 0.88);
   }
   .activity-row:last-child { border-bottom: none; }
   .activity-time {
@@ -790,6 +807,7 @@ function buildSnapshotHtml(payload) {
     font-size: 13px;
     font-weight: 700;
     margin-bottom: 3px;
+    color: #173047;
   }
   .activity-detail {
     color: var(--muted);
@@ -799,13 +817,14 @@ function buildSnapshotHtml(payload) {
   .empty-state-card {
     border: 1px dashed var(--line-strong);
     border-radius: 14px;
-    background: var(--panel-soft);
+    background: rgba(239, 245, 250, 0.92);
     padding: 16px;
   }
   .empty-state-title {
     font-size: 14px;
     font-weight: 800;
     margin-bottom: 6px;
+    color: #173047;
   }
   .empty-state-copy {
     font-size: 13px;
@@ -819,16 +838,36 @@ function buildSnapshotHtml(payload) {
   }
   .print-only { display: none; }
   @media print {
-    body { background: #fff; }
-    .page { max-width: none; padding: 10mm; gap: 10px; }
+    body {
+      background: #fff;
+    }
+    .page {
+      max-width: none;
+      padding: 10mm;
+      gap: 10px;
+    }
+    .utility-bar,
+    .hero,
+    .panel {
+      box-shadow: none;
+      backdrop-filter: none;
+      background: #fff;
+      border-color: #d6dce3;
+    }
+    .summary-card,
+    .executionSummaryCard,
+    .executionStatusCard,
+    .metric,
+    .meta-card {
+      background: #fff;
+      box-shadow: none;
+    }
     .utility-bar {
       position: static;
-      box-shadow: none;
       page-break-inside: avoid;
     }
     .hero,
     .panel {
-      box-shadow: none;
       page-break-inside: avoid;
     }
     .print-only { display: block; }
