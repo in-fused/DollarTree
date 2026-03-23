@@ -449,6 +449,10 @@ async function loadActiveProject() {
     bindSnapshotExportUI();
   }
 
+  if (typeof bindAnalyticsExportControls === "function") {
+    bindAnalyticsExportControls();
+  }
+
   if (currentModalStoreId) {
     currentModalStoreId = null;
     clearPhotoUI();

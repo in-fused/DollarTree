@@ -137,6 +137,10 @@ function updateAuthUI() {
   if (typeof bindSnapshotExportUI === "function") {
     bindSnapshotExportUI();
   }
+
+  if (typeof bindAnalyticsExportControls === "function") {
+    bindAnalyticsExportControls();
+  }
 }
 
 function updateWriteAccessUI() {

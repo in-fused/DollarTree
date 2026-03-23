@@ -21,6 +21,7 @@ map.on("load", async () => {
   bindLightboxUI();
   bindMobileExecutiveSummary();
   bindSnapshotExportUI();
+  bindAnalyticsExportControls();
 
   await loadProjects();
   await loadActiveProject();
@@ -31,4 +32,5 @@ map.on("load", async () => {
   updateNationalOverviewUI();
   updateWorkspaceViewUI();
   bindSnapshotExportUI();
+  bindAnalyticsExportControls();
 });
