@@ -61,7 +61,7 @@ function buildStoreAnalyticsMaps(filteredIds) {
   });
 
   activityFeed.forEach(item => {
-    const storeId = String(item.store_id || "");
+    const storeId = String(item.store_id || '');
     if (!filteredIds.has(storeId)) return;
     upsert(activityByStore, storeId);
     markRecent(storeId, item.timestamp || null);
@@ -89,29 +89,29 @@ function getScopeMetrics() {
 
   filteredStores.forEach(store => {
     const storeId = String(store.store_id);
-    const status = statusMap[storeId] || getStatusState("active");
+    const status = statusMap[storeId] || getStatusState('active');
     const statusCode = normalizeStatusCode(status.status_code);
     const noteCount = notesByStore.get(storeId) || 0;
     const photoCount = photosByStore.get(storeId) || 0;
     const activityCount = activityByStore.get(storeId) || 0;
     const hasRecentActivity = recentActivityByStore.get(storeId) === true;
-    const hasReason = String(status.status_reason || "").trim().length > 0;
-    const integrityIssues = typeof getStoreIntegrityIssues === "function"
+    const hasReason = String(status.status_reason || '').trim().length > 0;
+    const integrityIssues = typeof getStoreIntegrityIssues === 'function'
       ? getStoreIntegrityIssues(store, statusMap)
       : [];
 
-    if (statusCode === "completed") completed += 1;
-    else if (statusCode === "closed") closed += 1;
-    else if (statusCode === "rescheduled") rescheduled += 1;
+    if (statusCode === 'completed') completed += 1;
+    else if (statusCode === 'closed') closed += 1;
+    else if (statusCode === 'rescheduled') rescheduled += 1;
     else active += 1;
 
     if (integrityIssues.length > 0) integrityIssueCount += 1;
     if (noteCount === 0 && photoCount === 0 && activityCount === 0) storesWithNoUpdates += 1;
     if (noteCount > 0 && photoCount === 0) storesWithNotesNoPhotos += 1;
     if (photoCount > 0 && noteCount === 0) storesWithPhotosNoNotes += 1;
-    if (statusCode === "active" && noteCount === 0 && photoCount === 0 && activityCount === 0) stalledActiveCount += 1;
-    if (statusCode === "rescheduled" && !hasReason) rescheduledNoReasonCount += 1;
-    if (statusCode === "rescheduled" && !hasRecentActivity) rescheduledNoRecentFollowUpCount += 1;
+    if (statusCode === 'active' && noteCount === 0 && photoCount === 0 && activityCount === 0) stalledActiveCount += 1;
+    if (statusCode === 'rescheduled' && !hasReason) rescheduledNoReasonCount += 1;
+    if (statusCode === 'rescheduled' && !hasRecentActivity) rescheduledNoRecentFollowUpCount += 1;
   });
 
   const totalStores = filteredStores.length;
@@ -130,7 +130,7 @@ function getScopeMetrics() {
   const integrityIssueRate = totalStores > 0 ? (integrityIssueCount / totalStores) * 100 : 0;
 
   const completedEvents = activityFeed.filter(item =>
-    item.type === "status-completed" && filteredIds.has(String(item.store_id))
+    item.type === 'status-completed' && filteredIds.has(String(item.store_id))
   );
 
   const completedToday = completedEvents.filter(item => isToday(item.timestamp)).length;
@@ -177,47 +177,83 @@ function getScopeMetrics() {
 
 function getProjectAnalyticsSnapshot() {
   const metrics = getScopeMetrics();
+  const generatedAt = new Date().toISOString();
+  const scopeLabel = getCurrentScopeLabel(metrics);
+
+  const statusCounts = {
+    totalStores: metrics.totalStores,
+    active: metrics.active,
+    rescheduled: metrics.rescheduled,
+    completed: metrics.completed,
+    closed: metrics.closed,
+    openWorkCount: metrics.openWorkCount
+  };
+
+  const coverage = {
+    noteCoverageCount: metrics.noteCoverageCount,
+    photoCoverageCount: metrics.photoCoverageCount,
+    activityCoverageCount: metrics.activityCoverageCount,
+    recentActivityCoverageCount: metrics.recentActivityCoverageCount,
+    noteCoverageRate: Number(metrics.noteCoverageRate.toFixed(2)),
+    photoCoverageRate: Number(metrics.photoCoverageRate.toFixed(2)),
+    activityCoverageRate: Number(metrics.activityCoverageRate.toFixed(2)),
+    recentActivityCoverageRate: Number(metrics.recentActivityCoverageRate.toFixed(2))
+  };
+
+  const attention = {
+    attentionNeededCount: metrics.attentionNeededCount,
+    integrityIssueCount: metrics.integrityIssueCount,
+    integrityIssueRate: Number(metrics.integrityIssueRate.toFixed(2)),
+    storesWithNoUpdates: metrics.storesWithNoUpdates,
+    storesWithNotesNoPhotos: metrics.storesWithNotesNoPhotos,
+    storesWithPhotosNoNotes: metrics.storesWithPhotosNoNotes,
+    stalledActiveCount: metrics.stalledActiveCount,
+    rescheduledNoReasonCount: metrics.rescheduledNoReasonCount,
+    rescheduledNoRecentFollowUpCount: metrics.rescheduledNoRecentFollowUpCount
+  };
+
+  const execution = {
+    completionRate: Number(metrics.completionRate.toFixed(2)),
+    actionableRate: Number(metrics.actionableRate.toFixed(2)),
+    completedToday: metrics.completedToday,
+    avgCompletedPerDay: Number(metrics.avgPerDay.toFixed(2)),
+    etaDays: metrics.etaDays !== null ? Number(metrics.etaDays.toFixed(2)) : null
+  };
+
   return {
     projectId: currentProjectId,
     projectName: currentProjectMeta?.name || currentProjectId,
-    generatedAt: new Date().toISOString(),
-    scopeLabel: getCurrentScopeLabel(metrics),
+    projectSourceLabel: currentProjectMeta?.sourceLabel || '',
+    generatedAt,
+    scopeLabel,
+    currentView: currentWorkspaceView,
+    nationalOverviewEnabled,
+    filters: {
+      region: activeFilters.region || '',
+      territory: activeFilters.territory || '',
+      state: activeFilters.state || '',
+      showRemovedStores: showRemovedStores === true
+    },
     metrics: {
-      totalStores: metrics.totalStores,
-      active: metrics.active,
-      rescheduled: metrics.rescheduled,
-      completed: metrics.completed,
-      closed: metrics.closed,
-      openWorkCount: metrics.openWorkCount,
-      completionRate: Number(metrics.completionRate.toFixed(2)),
-      actionableRate: Number(metrics.actionableRate.toFixed(2)),
-      noteCoverageRate: Number(metrics.noteCoverageRate.toFixed(2)),
-      photoCoverageRate: Number(metrics.photoCoverageRate.toFixed(2)),
-      activityCoverageRate: Number(metrics.activityCoverageRate.toFixed(2)),
-      recentActivityCoverageRate: Number(metrics.recentActivityCoverageRate.toFixed(2)),
-      integrityIssueCount: metrics.integrityIssueCount,
-      integrityIssueRate: Number(metrics.integrityIssueRate.toFixed(2)),
-      storesWithNoUpdates: metrics.storesWithNoUpdates,
-      storesWithNotesNoPhotos: metrics.storesWithNotesNoPhotos,
-      storesWithPhotosNoNotes: metrics.storesWithPhotosNoNotes,
-      stalledActiveCount: metrics.stalledActiveCount,
-      rescheduledNoReasonCount: metrics.rescheduledNoReasonCount,
-      rescheduledNoRecentFollowUpCount: metrics.rescheduledNoRecentFollowUpCount,
-      completedToday: metrics.completedToday,
-      avgCompletedPerDay: Number(metrics.avgPerDay.toFixed(2)),
-      etaDays: metrics.etaDays !== null ? Number(metrics.etaDays.toFixed(2)) : null,
-      attentionNeededCount: metrics.attentionNeededCount
-    }
+      ...statusCounts,
+      ...coverage,
+      ...attention,
+      ...execution
+    },
+    statusCounts,
+    coverage,
+    attention,
+    execution
   };
 }
 
 function buildOperationalSummary(metrics) {
-  if (metrics.totalStores === 0) return "No stores loaded";
+  if (metrics.totalStores === 0) return 'No stores loaded';
   return `${metrics.totalStores.toLocaleString()} stores • ${metrics.completed.toLocaleString()} completed • ${metrics.openWorkCount.toLocaleString()} open work • ${metrics.attentionNeededCount.toLocaleString()} attention signals`;
 }
 
 function buildExecutiveSummary(metrics) {
-  if (metrics.totalStores === 0) return "No mapped stores currently in scope.";
+  if (metrics.totalStores === 0) return 'No mapped stores currently in scope.';
   return `${formatPercent(metrics.completionRate)} actionable completion across ${metrics.totalStores.toLocaleString()} stores, ${formatPercent(metrics.photoCoverageRate)} photo coverage, ${formatPercent(metrics.noteCoverageRate)} note coverage, and ${metrics.attentionNeededCount.toLocaleString()} attention signals requiring follow-up.`;
 }
 
@@ -242,7 +278,7 @@ function getCurrentScopeLabel(metrics) {
 }
 
 function getWorkspaceProgressContext(metrics) {
-  if (metrics.totalStores === 0) return "Awaiting project data";
+  if (metrics.totalStores === 0) return 'Awaiting project data';
   if (metrics.avgPerDay > 0 && metrics.etaDays !== null) {
     return `${metrics.avgPerDay.toFixed(1)}/day pace • ETA ${formatEta(metrics.etaDays)} • ${formatPercent(metrics.recentActivityCoverageRate)} recent follow-up coverage`;
   }
@@ -251,10 +287,10 @@ function getWorkspaceProgressContext(metrics) {
 
 function renderAnalyticsBars(metrics) {
   const bars = [
-    ["analyticsCompletionBar", metrics.completionRate],
-    ["analyticsNoteCoverageBar", metrics.noteCoverageRate],
-    ["analyticsPhotoCoverageBar", metrics.photoCoverageRate],
-    ["analyticsRecentCoverageBar", metrics.recentActivityCoverageRate]
+    ['analyticsCompletionBar', metrics.completionRate],
+    ['analyticsNoteCoverageBar', metrics.noteCoverageRate],
+    ['analyticsPhotoCoverageBar', metrics.photoCoverageRate],
+    ['analyticsRecentCoverageBar', metrics.recentActivityCoverageRate]
   ];
 
   bars.forEach(([id, value]) => {
@@ -265,22 +301,22 @@ function renderAnalyticsBars(metrics) {
 
 function updateHeaderMetaAndSummaries() {
   const metrics = getScopeMetrics();
-  setText("headerScopeSummary", getCurrentScopeLabel(metrics));
-  setText("headerOperationalSummary", buildOperationalSummary(metrics));
-  setText("headerViewModeText", currentWorkspaceView === "photos" ? "Photo Evidence Review" : "Map Operations");
-  setText("headerLastUpdatedText", formatLastUpdated(lastDataRefreshAt));
-  setText("workspaceProgressContext", getWorkspaceProgressContext(metrics));
-  setText("mapExecutiveSummaryLine", buildExecutiveSummary(metrics));
-  setText("photoLibraryScopeBadge", metrics.totalStores > 0 ? `${metrics.totalStores.toLocaleString()} in scope` : "No Stores");
-  setText("photoLibraryModeBadge", currentPhotoLibrarySelection ? "Inspection" : "Review");
+  setText('headerScopeSummary', getCurrentScopeLabel(metrics));
+  setText('headerOperationalSummary', buildOperationalSummary(metrics));
+  setText('headerViewModeText', currentWorkspaceView === 'photos' ? 'Photo Evidence Review' : 'Map Operations');
+  setText('headerLastUpdatedText', formatLastUpdated(lastDataRefreshAt));
+  setText('workspaceProgressContext', getWorkspaceProgressContext(metrics));
+  setText('mapExecutiveSummaryLine', buildExecutiveSummary(metrics));
+  setText('photoLibraryScopeBadge', metrics.totalStores > 0 ? `${metrics.totalStores.toLocaleString()} in scope` : 'No Stores');
+  setText('photoLibraryModeBadge', currentPhotoLibrarySelection ? 'Inspection' : 'Review');
 
-  setText("analyticsOpenWorkValue", `${metrics.openWorkCount.toLocaleString()} open`);
-  setText("analyticsAttentionValue", `${metrics.attentionNeededCount.toLocaleString()} flagged`);
-  setText("analyticsCompletionValue", formatPercent(metrics.completionRate));
-  setText("analyticsCompletionValueMirror", formatPercent(metrics.completionRate));
-  setText("analyticsCoverageValue", `${formatPercent(metrics.noteCoverageRate)} notes • ${formatPercent(metrics.photoCoverageRate)} photos`);
-  setText("analyticsAttentionLine", `${metrics.stalledActiveCount.toLocaleString()} active with no updates • ${metrics.rescheduledNoReasonCount.toLocaleString()} rescheduled with no reason • ${metrics.integrityIssueCount.toLocaleString()} integrity issues`);
-  setText("analyticsRecentLine", `${metrics.recentActivityCoverageCount.toLocaleString()} stores touched in the last ${RECENT_ACTIVITY_WINDOW_DAYS} days`);
+  setText('analyticsOpenWorkValue', `${metrics.openWorkCount.toLocaleString()} open`);
+  setText('analyticsAttentionValue', `${metrics.attentionNeededCount.toLocaleString()} flagged`);
+  setText('analyticsCompletionValue', formatPercent(metrics.completionRate));
+  setText('analyticsCompletionValueMirror', formatPercent(metrics.completionRate));
+  setText('analyticsCoverageValue', `${formatPercent(metrics.noteCoverageRate)} notes • ${formatPercent(metrics.photoCoverageRate)} photos`);
+  setText('analyticsAttentionLine', `${metrics.stalledActiveCount.toLocaleString()} active with no updates • ${metrics.rescheduledNoReasonCount.toLocaleString()} rescheduled with no reason • ${metrics.integrityIssueCount.toLocaleString()} integrity issues`);
+  setText('analyticsRecentLine', `${metrics.recentActivityCoverageCount.toLocaleString()} stores touched in the last ${RECENT_ACTIVITY_WINDOW_DAYS} days`);
   renderAnalyticsBars(metrics);
   updateMobileExecutiveSummaryUI();
 }
@@ -288,22 +324,22 @@ function updateHeaderMetaAndSummaries() {
 function updateHeaderDashboard() {
   const metrics = getScopeMetrics();
 
-  setText("dashboardProjectName", currentProjectMeta?.name || currentProjectId);
+  setText('dashboardProjectName', currentProjectMeta?.name || currentProjectId);
   setText(
-    "dashboardProjectSubline",
-    `Operational visibility • ${currentProjectMeta?.sourceLabel || "Project ready"} • ${nationalOverviewEnabled ? "National Overview" : "Project View"}`
+    'dashboardProjectSubline',
+    `Operational visibility • ${currentProjectMeta?.sourceLabel || 'Project ready'} • ${nationalOverviewEnabled ? 'National Overview' : 'Project View'}`
   );
-  setText("dashboardTotalStores", metrics.totalStores.toLocaleString());
-  setText("dashboardCompletedStores", metrics.completed.toLocaleString());
-  setText("dashboardActiveStores", metrics.active.toLocaleString());
-  setText("dashboardClosedStores", metrics.closed.toLocaleString());
-  setText("dashboardStoresToday", metrics.completedToday.toLocaleString());
-  setText("dashboardAvgPerDay", metrics.avgPerDay > 0 ? metrics.avgPerDay.toFixed(1) : "—");
-  setText("dashboardPhotoCount", metrics.filteredPhotoCount.toLocaleString());
-  setText("dashboardEta", metrics.etaDays !== null ? formatEta(metrics.etaDays) : "—");
-  setText("dashboardProgressLabel", `${formatPercent(metrics.completionRate)} complete • ${formatPercent(metrics.actionableRate)} open work`);
+  setText('dashboardTotalStores', metrics.totalStores.toLocaleString());
+  setText('dashboardCompletedStores', metrics.completed.toLocaleString());
+  setText('dashboardActiveStores', metrics.active.toLocaleString());
+  setText('dashboardClosedStores', metrics.closed.toLocaleString());
+  setText('dashboardStoresToday', metrics.completedToday.toLocaleString());
+  setText('dashboardAvgPerDay', metrics.avgPerDay > 0 ? metrics.avgPerDay.toFixed(1) : '—');
+  setText('dashboardPhotoCount', metrics.filteredPhotoCount.toLocaleString());
+  setText('dashboardEta', metrics.etaDays !== null ? formatEta(metrics.etaDays) : '—');
+  setText('dashboardProgressLabel', `${formatPercent(metrics.completionRate)} complete • ${formatPercent(metrics.actionableRate)} open work`);
 
-  const fill = document.getElementById("dashboardProgressFill");
+  const fill = document.getElementById('dashboardProgressFill');
   if (fill) fill.style.width = `${metrics.completionRate}%`;
 
   updateHeaderMetaAndSummaries();
@@ -312,40 +348,40 @@ function updateHeaderDashboard() {
 function updateScopeSummary() {
   const metrics = getScopeMetrics();
 
-  setText("scopeStoreCountPill", metrics.totalStores.toLocaleString());
-  setText("scopeVisibleStores", metrics.totalStores.toLocaleString());
-  setText("scopeVisibleCompleted", metrics.completed.toLocaleString());
-  setText("scopeVisibleActive", metrics.active.toLocaleString());
-  setText("scopeVisibleClosed", metrics.closed.toLocaleString());
-  setText("scopeVisibleRescheduled", metrics.rescheduled.toLocaleString());
-  setText("scopeVisibleNoUpdates", metrics.storesWithNoUpdates.toLocaleString());
-  setText("scopeVisibleNoteCoverage", formatPercent(metrics.noteCoverageRate));
-  setText("scopeVisiblePhotoCoverage", formatPercent(metrics.photoCoverageRate));
-  setText("scopeVisibleAttention", metrics.attentionNeededCount.toLocaleString());
+  setText('scopeStoreCountPill', metrics.totalStores.toLocaleString());
+  setText('scopeVisibleStores', metrics.totalStores.toLocaleString());
+  setText('scopeVisibleCompleted', metrics.completed.toLocaleString());
+  setText('scopeVisibleActive', metrics.active.toLocaleString());
+  setText('scopeVisibleClosed', metrics.closed.toLocaleString());
+  setText('scopeVisibleRescheduled', metrics.rescheduled.toLocaleString());
+  setText('scopeVisibleNoUpdates', metrics.storesWithNoUpdates.toLocaleString());
+  setText('scopeVisibleNoteCoverage', formatPercent(metrics.noteCoverageRate));
+  setText('scopeVisiblePhotoCoverage', formatPercent(metrics.photoCoverageRate));
+  setText('scopeVisibleAttention', metrics.attentionNeededCount.toLocaleString());
 }
 
 function updateIntelRail() {
   const metrics = getScopeMetrics();
 
-  setText("intelScopeMode", nationalOverviewEnabled ? "National" : "Project");
-  setText("intelVisibleStores", metrics.totalStores.toLocaleString());
-  setText("intelCompletionRate", formatPercent(metrics.completionRate));
-  setText("intelPhotoCount", metrics.filteredPhotoCount.toLocaleString());
-  setText("intelEtaValue", metrics.etaDays !== null ? formatEta(metrics.etaDays) : "—");
-  setText("intelCompletedStores", metrics.completed.toLocaleString());
-  setText("intelActiveStores", metrics.active.toLocaleString());
-  setText("intelClosedStores", metrics.closed.toLocaleString());
-  setText("intelCompletedToday", metrics.completedToday.toLocaleString());
-  setText("intelRescheduledStores", metrics.rescheduled.toLocaleString());
-  setText("intelOpenWorkStores", metrics.openWorkCount.toLocaleString());
-  setText("intelNoteCoverage", formatPercent(metrics.noteCoverageRate));
-  setText("intelRecentCoverage", formatPercent(metrics.recentActivityCoverageRate));
-  setText("intelAttentionCount", metrics.attentionNeededCount.toLocaleString());
-  setText("intelIntegrityIssues", metrics.integrityIssueCount.toLocaleString());
-  setText("intelNoUpdates", metrics.storesWithNoUpdates.toLocaleString());
-  setText("intelNotesNoPhotos", metrics.storesWithNotesNoPhotos.toLocaleString());
-  setText("intelPhotosNoNotes", metrics.storesWithPhotosNoNotes.toLocaleString());
-  setText("intelHealthSummary", `${metrics.stalledActiveCount.toLocaleString()} stalled active • ${metrics.rescheduledNoRecentFollowUpCount.toLocaleString()} rescheduled lacking recent follow-up`);
+  setText('intelScopeMode', nationalOverviewEnabled ? 'National' : 'Project');
+  setText('intelVisibleStores', metrics.totalStores.toLocaleString());
+  setText('intelCompletionRate', formatPercent(metrics.completionRate));
+  setText('intelPhotoCount', metrics.filteredPhotoCount.toLocaleString());
+  setText('intelEtaValue', metrics.etaDays !== null ? formatEta(metrics.etaDays) : '—');
+  setText('intelCompletedStores', metrics.completed.toLocaleString());
+  setText('intelActiveStores', metrics.active.toLocaleString());
+  setText('intelClosedStores', metrics.closed.toLocaleString());
+  setText('intelCompletedToday', metrics.completedToday.toLocaleString());
+  setText('intelRescheduledStores', metrics.rescheduled.toLocaleString());
+  setText('intelOpenWorkStores', metrics.openWorkCount.toLocaleString());
+  setText('intelNoteCoverage', formatPercent(metrics.noteCoverageRate));
+  setText('intelRecentCoverage', formatPercent(metrics.recentActivityCoverageRate));
+  setText('intelAttentionCount', metrics.attentionNeededCount.toLocaleString());
+  setText('intelIntegrityIssues', metrics.integrityIssueCount.toLocaleString());
+  setText('intelNoUpdates', metrics.storesWithNoUpdates.toLocaleString());
+  setText('intelNotesNoPhotos', metrics.storesWithNotesNoPhotos.toLocaleString());
+  setText('intelPhotosNoNotes', metrics.storesWithPhotosNoNotes.toLocaleString());
+  setText('intelHealthSummary', `${metrics.stalledActiveCount.toLocaleString()} stalled active • ${metrics.rescheduledNoRecentFollowUpCount.toLocaleString()} rescheduled lacking recent follow-up`);
 
   if (!currentSelectedStoreId) {
     resetSelectedStorePanel();
