@@ -29,7 +29,7 @@ function bindSnapshotExportUI() {
   const button = ensureSnapshotExportButton();
   if (button) {
     button.disabled = !isSignedIn();
-    button.title = isSignedIn() ? "Download a read-only project snapshot" : "Sign in to export a snapshot";
+    button.title = isSignedIn() ? "Open a read-only executive snapshot" : "Sign in to export a snapshot";
   }
 }
 
@@ -362,7 +362,8 @@ function buildSnapshotHtml(payload) {
     mapSvg,
     rows,
     operationalSummary,
-    productLabel
+    productLabel,
+    returnUrl
   } = payload;
 
   return `<!DOCTYPE html>
@@ -387,6 +388,7 @@ function buildSnapshotHtml(payload) {
     --shadow: 0 14px 34px rgba(19, 34, 55, 0.06);
   }
   * { box-sizing: border-box; }
+  html { background: var(--bg); }
   body {
     margin: 0;
     background: var(--bg);
@@ -415,6 +417,9 @@ function buildSnapshotHtml(payload) {
     padding: 22px 24px;
   }
   .utility-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     padding: 14px 18px;
     display: flex;
     justify-content: space-between;
@@ -440,6 +445,7 @@ function buildSnapshotHtml(payload) {
     flex-wrap: wrap;
     gap: 8px;
     justify-content: flex-end;
+    align-items: center;
   }
   .utility-chip {
     display: inline-flex;
@@ -454,6 +460,22 @@ function buildSnapshotHtml(payload) {
     font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
+  }
+  .utility-btn {
+    appearance: none;
+    border: 1px solid var(--line-strong);
+    background: #102032;
+    color: #fff;
+    min-height: 38px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .utility-btn.secondary {
+    background: #fff;
+    color: var(--ink);
   }
   .hero-top {
     display: flex;
@@ -573,10 +595,6 @@ function buildSnapshotHtml(payload) {
     font-size: 22px;
     font-weight: 800;
     line-height: 1;
-  }
-  .subtle {
-    color: var(--muted);
-    line-height: 1.5;
   }
   .legend {
     display: flex;
@@ -749,6 +767,7 @@ function buildSnapshotHtml(payload) {
     body { background: #fff; }
     .page { max-width: none; padding: 10mm; gap: 10px; }
     .utility-bar {
+      position: static;
       box-shadow: none;
       page-break-inside: avoid;
     }
@@ -777,13 +796,14 @@ function buildSnapshotHtml(payload) {
 </head>
 <body>
   <div class="page">
-    <section class="utility-bar">
+    <section class="utility-bar no-print">
       <div class="utility-copy">
-        <div class="utility-title">Executive snapshot ready for stakeholder delivery</div>
-        <div class="utility-subtitle">Use your browser’s Print action to save as PDF. Generated from live project data for the selected scope at ${escapeSnapshotHtml(generatedAt)}.</div>
+        <div class="utility-title">Executive snapshot ready for review, sharing, and PDF export</div>
+        <div class="utility-subtitle">Generated from live project data for the selected scope at ${escapeSnapshotHtml(generatedAt)}. Use Print to save as PDF, or return to the app when finished.</div>
       </div>
       <div class="utility-actions">
-        <span class="utility-chip">Print / Save as PDF</span>
+        <button id="snapshotReturnBtn" class="utility-btn secondary" type="button">Return to App</button>
+        <button id="snapshotPrintBtn" class="utility-btn" type="button">Print / Save as PDF</button>
         <span class="utility-chip">${escapeSnapshotHtml(scopeMeta.scopeLabel)}</span>
         <span class="utility-chip">${escapeSnapshotHtml(generatedTimeLabel)}</span>
       </div>
@@ -884,6 +904,38 @@ function buildSnapshotHtml(payload) {
 
     <div class="print-only footnote">Generated from live project data via ${escapeSnapshotHtml(productLabel)} on ${escapeSnapshotHtml(generatedAt)}.</div>
   </div>
+
+  <script>
+    (function () {
+      const returnUrl = ${JSON.stringify(returnUrl)};
+      const printBtn = document.getElementById("snapshotPrintBtn");
+      const returnBtn = document.getElementById("snapshotReturnBtn");
+
+      if (printBtn) {
+        printBtn.addEventListener("click", function () {
+          window.print();
+        });
+      }
+
+      if (returnBtn) {
+        returnBtn.addEventListener("click", function () {
+          try {
+            if (document.referrer && document.referrer !== location.href) {
+              window.location.href = document.referrer;
+              return;
+            }
+          } catch (_error) {}
+
+          if (returnUrl) {
+            window.location.href = returnUrl;
+            return;
+          }
+
+          window.location.reload();
+        });
+      }
+    })();
+  </script>
 </body>
 </html>`;
 }
@@ -901,15 +953,10 @@ function exportProjectSnapshot() {
   const operationalSummary = document.getElementById("headerOperationalSummary")?.textContent
     || `${metrics.total.toLocaleString()} stores in scope with ${metrics.completed.toLocaleString()} completed, ${metrics.rescheduled.toLocaleString()} rescheduled, and ${metrics.closed.toLocaleString()} closed.`;
   const productLabel = "Route Builder Executive Snapshot";
+  const returnUrl = window.location.href;
 
-  const snapshotWindow = window.open("", "_blank", "noopener,noreferrer,width=1280,height=960");
-  if (!snapshotWindow) {
-    alert("Unable to open the snapshot export window. Please allow pop-ups for this site.");
-    return;
-  }
-
-  snapshotWindow.document.open();
-  snapshotWindow.document.write(buildSnapshotHtml({
+  document.open();
+  document.write(buildSnapshotHtml({
     generatedAt,
     generatedTimeLabel,
     projectTitle,
@@ -919,7 +966,8 @@ function exportProjectSnapshot() {
     mapSvg,
     rows,
     operationalSummary,
-    productLabel
+    productLabel,
+    returnUrl
   }));
-  snapshotWindow.document.close();
+  document.close();
 }
