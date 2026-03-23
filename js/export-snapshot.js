@@ -187,6 +187,11 @@ function mercatorY(lat) {
   return Math.log(Math.tan((Math.PI / 4) + (rad / 2)));
 }
 
+function buildStaticMarkerToken(row) {
+  const color = getStatusColor(row.statusCode).replace("#", "");
+  return `pin-s+${color}(${Number(row.lng).toFixed(5)},${Number(row.lat).toFixed(5)})`;
+}
+
 function getSnapshotMapData(rows, width = 1100, height = 520, padding = 48) {
   const mappedRows = rows.filter(row => Number.isFinite(row.lng) && Number.isFinite(row.lat));
 
@@ -215,7 +220,7 @@ function getSnapshotMapData(rows, width = 1100, height = 520, padding = 48) {
   const innerWidth = width - (padding * 2);
   const innerHeight = height - (padding * 2);
 
-  const points = mappedRows.map(row => {
+  const overlayPoints = mappedRows.map(row => {
     const xRatio = (row.lng - minLng) / (maxLng - minLng || 1);
     const currentY = mercatorY(row.lat);
     const yRatio = (currentY - mercatorMinY) / (mercatorMaxY - mercatorMinY || 1);
@@ -236,16 +241,30 @@ function getSnapshotMapData(rows, width = 1100, height = 520, padding = 48) {
     maxLat.toFixed(5)
   ].join(",");
   const encodedBbox = encodeURIComponent(`[${bbox}]`);
-  const mapUrl = accessToken
+
+  const baseStaticMapUrl = accessToken
     ? `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${encodedBbox}/${width}x${height}?padding=${padding},${padding},${padding},${padding}&logo=false&attribution=false&access_token=${encodeURIComponent(accessToken)}`
     : "";
+
+  let nativeMarkerMapUrl = "";
+  if (accessToken) {
+    const markerTokens = mappedRows.map(buildStaticMarkerToken);
+    const overlayPath = markerTokens.join(",");
+    const candidateUrl = `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${overlayPath}/${encodedBbox}/${width}x${height}?padding=${padding},${padding},${padding},${padding}&logo=false&attribution=false&access_token=${encodeURIComponent(accessToken)}`;
+
+    if (candidateUrl.length <= 7500) {
+      nativeMarkerMapUrl = candidateUrl;
+    }
+  }
 
   return {
     width,
     height,
     padding,
-    points,
-    mapUrl
+    overlayPoints,
+    baseStaticMapUrl,
+    nativeMarkerMapUrl,
+    usesNativeMarkers: Boolean(nativeMarkerMapUrl)
   };
 }
 
@@ -261,7 +280,17 @@ function buildSnapshotMapMarkup(rows, width = 1100, height = 520) {
     `;
   }
 
-  const markers = mapData.points.map(point => `
+  if (mapData.usesNativeMarkers) {
+    return `
+      <div class="snapshotMapFrame" style="width:${mapData.width}px; height:${mapData.height}px;">
+        <img class="snapshotMapImage" src="${escapeSnapshotHtml(mapData.nativeMarkerMapUrl)}" alt="Geographic project footprint overview map with status markers" />
+        <div class="snapshotMapTopline">Geographic scope footprint</div>
+        <div class="snapshotMapCaption">Status markers are rendered directly into the geographic static map for improved alignment fidelity across the current export scope.</div>
+      </div>
+    `;
+  }
+
+  const markers = mapData.overlayPoints.map(point => `
     <div
       class="snapshotMapMarker"
       style="left:${point.x.toFixed(2)}px; top:${point.y.toFixed(2)}px; --marker-color:${escapeSnapshotHtml(point.fill)};"
@@ -270,8 +299,8 @@ function buildSnapshotMapMarkup(rows, width = 1100, height = 520) {
     </div>
   `).join("");
 
-  const background = mapData.mapUrl
-    ? `<img class="snapshotMapImage" src="${escapeSnapshotHtml(mapData.mapUrl)}" alt="Geographic project footprint overview map" />`
+  const background = mapData.baseStaticMapUrl
+    ? `<img class="snapshotMapImage" src="${escapeSnapshotHtml(mapData.baseStaticMapUrl)}" alt="Geographic project footprint overview map" />`
     : `<div class="snapshotMapBackgroundFallback"></div>`;
 
   return `
@@ -281,7 +310,7 @@ function buildSnapshotMapMarkup(rows, width = 1100, height = 520) {
         ${markers}
       </div>
       <div class="snapshotMapTopline">Geographic scope footprint</div>
-      <div class="snapshotMapCaption">Store markers are positioned from live latitude/longitude coordinates across the current export scope.</div>
+      <div class="snapshotMapCaption">Store markers are positioned from current-scope geographic coordinates using fitted bounds sized for the static export view.</div>
     </div>
   `;
 }
