@@ -449,6 +449,7 @@ async function loadActiveProject() {
     bindSnapshotExportUI();
   }
 
+
   if (currentModalStoreId) {
     currentModalStoreId = null;
     clearPhotoUI();

@@ -1073,3 +1073,241 @@ function exportProjectSnapshot() {
   }));
   document.close();
 }
+
+function slugifyExportName(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-") || "export";
+}
+
+function buildAnalyticsExportBaseName() {
+  const snapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
+  const projectName = snapshot.projectName || currentProjectMeta?.name || currentProjectId || "project";
+  const scopeLabel = snapshot.scopeLabel || document.getElementById("headerScopeSummary")?.textContent || "scope";
+  const generatedAt = snapshot.generatedAt ? new Date(snapshot.generatedAt) : new Date();
+  const dateStamp = Number.isNaN(generatedAt.getTime())
+    ? new Date().toISOString().slice(0, 10)
+    : generatedAt.toISOString().slice(0, 10);
+
+  return `${slugifyExportName(projectName)}-${slugifyExportName(scopeLabel)}-analytics-${dateStamp}`;
+}
+
+function downloadExportBlob(filename, blob) {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+}
+
+function downloadExportText(filename, text, mimeType) {
+  downloadExportBlob(filename, new Blob([text], { type: mimeType || "text/plain;charset=utf-8" }));
+}
+
+function buildAnalyticsCsvRows() {
+  const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
+  const scopeMeta = getSnapshotScopeMeta(filteredStores);
+  const rows = getSnapshotRows(filteredStores);
+  const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
+  const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
+  const analyticsMetrics = analyticsSnapshot.metrics || {};
+  const generatedAt = analyticsSnapshot.generatedAt || new Date().toISOString();
+  const projectId = analyticsSnapshot.projectId || currentProjectId || "";
+  const projectName = analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot";
+  const scopeLabel = analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel;
+
+  const csvRows = [
+    {
+      rowType: "project_summary",
+      projectId,
+      projectName,
+      generatedAt,
+      scopeLabel,
+      scopeDescription: scopeMeta.scopeDescription,
+      totalStores: analyticsMetrics.totalStores ?? snapshotMetrics.total,
+      active: analyticsMetrics.active ?? snapshotMetrics.active,
+      rescheduled: analyticsMetrics.rescheduled ?? snapshotMetrics.rescheduled,
+      completed: analyticsMetrics.completed ?? snapshotMetrics.completed,
+      closed: analyticsMetrics.closed ?? snapshotMetrics.closed,
+      openWorkCount: analyticsMetrics.openWorkCount ?? Math.max(0, snapshotMetrics.total - snapshotMetrics.completed - snapshotMetrics.closed),
+      completionRate: analyticsMetrics.completionRate ?? Number(snapshotMetrics.completionRate.toFixed(2)),
+      actionableRate: analyticsMetrics.actionableRate ?? null,
+      noteCoverageRate: analyticsMetrics.noteCoverageRate ?? Number(snapshotMetrics.noteCoverageRate.toFixed(2)),
+      photoCoverageRate: analyticsMetrics.photoCoverageRate ?? Number(snapshotMetrics.photoCoverageRate.toFixed(2)),
+      activityCoverageRate: analyticsMetrics.activityCoverageRate ?? Number(snapshotMetrics.activityCoverageRate.toFixed(2)),
+      recentActivityCoverageRate: analyticsMetrics.recentActivityCoverageRate ?? null,
+      integrityIssueCount: analyticsMetrics.integrityIssueCount ?? null,
+      integrityIssueRate: analyticsMetrics.integrityIssueRate ?? null,
+      storesWithNoUpdates: analyticsMetrics.storesWithNoUpdates ?? null,
+      storesWithNotesNoPhotos: analyticsMetrics.storesWithNotesNoPhotos ?? null,
+      storesWithPhotosNoNotes: analyticsMetrics.storesWithPhotosNoNotes ?? null,
+      stalledActiveCount: analyticsMetrics.stalledActiveCount ?? null,
+      rescheduledNoReasonCount: analyticsMetrics.rescheduledNoReasonCount ?? null,
+      rescheduledNoRecentFollowUpCount: analyticsMetrics.rescheduledNoRecentFollowUpCount ?? null,
+      completedToday: analyticsMetrics.completedToday ?? null,
+      avgCompletedPerDay: analyticsMetrics.avgCompletedPerDay ?? null,
+      etaDays: analyticsMetrics.etaDays ?? null,
+      attentionNeededCount: analyticsMetrics.attentionNeededCount ?? null,
+      snapshotNotes: snapshotMetrics.notes,
+      snapshotPhotos: snapshotMetrics.photos,
+      storesWithNotes: snapshotMetrics.storesWithNotes,
+      storesWithPhotos: snapshotMetrics.storesWithPhotos,
+      storesWithRecentActivity: snapshotMetrics.storesWithRecentActivity,
+      actionableTotal: snapshotMetrics.actionableTotal,
+      storeId: "",
+      address: "",
+      statusCode: "",
+      statusLabel: "",
+      rescheduleReason: "",
+      noteCount: "",
+      photoCount: "",
+      hasNotes: "",
+      hasPhotos: "",
+      hasActivity: "",
+      activityLabel: "",
+      activitySummary: "",
+      activityTimestampValue: ""
+    },
+    ...rows.map(row => ({
+      rowType: "store_detail",
+      projectId,
+      projectName,
+      generatedAt,
+      scopeLabel,
+      scopeDescription: scopeMeta.scopeDescription,
+      totalStores: snapshotMetrics.total,
+      active: snapshotMetrics.active,
+      rescheduled: snapshotMetrics.rescheduled,
+      completed: snapshotMetrics.completed,
+      closed: snapshotMetrics.closed,
+      openWorkCount: analyticsMetrics.openWorkCount ?? Math.max(0, snapshotMetrics.total - snapshotMetrics.completed - snapshotMetrics.closed),
+      completionRate: Number(snapshotMetrics.completionRate.toFixed(2)),
+      actionableRate: analyticsMetrics.actionableRate ?? null,
+      noteCoverageRate: Number(snapshotMetrics.noteCoverageRate.toFixed(2)),
+      photoCoverageRate: Number(snapshotMetrics.photoCoverageRate.toFixed(2)),
+      activityCoverageRate: Number(snapshotMetrics.activityCoverageRate.toFixed(2)),
+      recentActivityCoverageRate: analyticsMetrics.recentActivityCoverageRate ?? null,
+      integrityIssueCount: analyticsMetrics.integrityIssueCount ?? null,
+      integrityIssueRate: analyticsMetrics.integrityIssueRate ?? null,
+      storesWithNoUpdates: analyticsMetrics.storesWithNoUpdates ?? null,
+      storesWithNotesNoPhotos: analyticsMetrics.storesWithNotesNoPhotos ?? null,
+      storesWithPhotosNoNotes: analyticsMetrics.storesWithPhotosNoNotes ?? null,
+      stalledActiveCount: analyticsMetrics.stalledActiveCount ?? null,
+      rescheduledNoReasonCount: analyticsMetrics.rescheduledNoReasonCount ?? null,
+      rescheduledNoRecentFollowUpCount: analyticsMetrics.rescheduledNoRecentFollowUpCount ?? null,
+      completedToday: analyticsMetrics.completedToday ?? null,
+      avgCompletedPerDay: analyticsMetrics.avgCompletedPerDay ?? null,
+      etaDays: analyticsMetrics.etaDays ?? null,
+      attentionNeededCount: analyticsMetrics.attentionNeededCount ?? null,
+      snapshotNotes: snapshotMetrics.notes,
+      snapshotPhotos: snapshotMetrics.photos,
+      storesWithNotes: snapshotMetrics.storesWithNotes,
+      storesWithPhotos: snapshotMetrics.storesWithPhotos,
+      storesWithRecentActivity: snapshotMetrics.storesWithRecentActivity,
+      actionableTotal: snapshotMetrics.actionableTotal,
+      storeId: row.storeId,
+      address: row.address,
+      statusCode: row.statusCode,
+      statusLabel: row.statusLabel,
+      rescheduleReason: row.rescheduleReason,
+      noteCount: row.noteCount,
+      photoCount: row.photoCount,
+      hasNotes: row.hasNotes,
+      hasPhotos: row.hasPhotos,
+      hasActivity: row.hasActivity,
+      activityLabel: row.activityLabel,
+      activitySummary: row.activitySummary,
+      activityTimestampValue: row.activityTimestampValue
+    }))
+  ];
+
+  return csvRows;
+}
+
+function escapeCsvValue(value) {
+  const stringValue = value == null ? "" : String(value);
+  if (/[,"\n\r]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+  return stringValue;
+}
+
+function serializeAnalyticsSnapshotToCsv() {
+  const rows = buildAnalyticsCsvRows();
+  if (!rows.length) return "";
+
+  const headers = Array.from(rows.reduce((set, row) => {
+    Object.keys(row).forEach(key => set.add(key));
+    return set;
+  }, new Set()));
+
+  const lines = [headers.map(escapeCsvValue).join(",")];
+  rows.forEach(row => {
+    lines.push(headers.map(header => escapeCsvValue(row[header])).join(","));
+  });
+
+  return lines.join("\r\n");
+}
+
+function exportProjectAnalyticsCsv() {
+  const filename = `${buildAnalyticsExportBaseName()}.csv`;
+  const csv = serializeAnalyticsSnapshotToCsv();
+  downloadExportText(filename, csv, "text/csv;charset=utf-8");
+}
+
+function exportProjectAnalyticsJson() {
+  const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
+  const scopeMeta = getSnapshotScopeMeta(filteredStores);
+  const rows = getSnapshotRows(filteredStores);
+  const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
+  const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
+  const payload = {
+    ...analyticsSnapshot,
+    scopeMeta,
+    snapshotMetrics,
+    rows
+  };
+
+  const filename = `${buildAnalyticsExportBaseName()}.json`;
+  downloadExportText(filename, `${JSON.stringify(payload, null, 2)}\n`, "application/json;charset=utf-8");
+}
+
+function bindAnalyticsExportControls() {
+  const controls = [
+    ["exportAnalyticsCsvBtn", exportProjectAnalyticsCsv, "Export analytics CSV"],
+    ["exportAnalyticsJsonBtn", exportProjectAnalyticsJson, "Export analytics JSON"]
+  ];
+
+  controls.forEach(([id, handler, enabledTitle]) => {
+    const button = document.getElementById(id);
+    if (!button) return;
+
+    if (!button.dataset.boundAnalyticsExport) {
+      button.addEventListener("click", handler);
+      button.dataset.boundAnalyticsExport = "true";
+    }
+
+    button.disabled = !isSignedIn();
+    button.title = isSignedIn() ? enabledTitle : "Sign in to export analytics";
+  });
+}
+
+window.slugifyExportName = slugifyExportName;
+window.buildAnalyticsExportBaseName = buildAnalyticsExportBaseName;
+window.downloadExportBlob = downloadExportBlob;
+window.downloadExportText = downloadExportText;
+window.buildAnalyticsCsvRows = buildAnalyticsCsvRows;
+window.escapeCsvValue = escapeCsvValue;
+window.serializeAnalyticsSnapshotToCsv = serializeAnalyticsSnapshotToCsv;
+window.exportProjectAnalyticsCsv = exportProjectAnalyticsCsv;
+window.exportProjectAnalyticsJson = exportProjectAnalyticsJson;
+window.bindAnalyticsExportControls = bindAnalyticsExportControls;
+
+bindAnalyticsExportControls();
