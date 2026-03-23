@@ -1,6 +1,3 @@
-const ROUTE_LINE_SOURCE_ID = "route-line";
-const ROUTE_LINE_LAYER_ID = "route-line-layer";
-
 /* ================= LOGO / MOBILE ================= */
 
 function bindLogoHome() {
@@ -263,73 +260,12 @@ function createGeoJson(stores) {
   };
 }
 
-function createRouteLineGeoJson() {
-  const coordinates = (selectedRouteStops || [])
-    .map(storeId => getStoreById(storeId, { includeRemoved: showRemovedStores === true }))
-    .filter(store => store && Number.isFinite(store.lng) && Number.isFinite(store.lat))
-    .map(store => [store.lng, store.lat]);
-
-  if (coordinates.length < 2) {
-    return {
-      type: "FeatureCollection",
-      features: []
-    };
-  }
-
-  return {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "LineString",
-          coordinates
-        }
-      }
-    ]
-  };
-}
-
-function ensureRouteLineSourceAndLayer() {
-  if (!map.getSource(ROUTE_LINE_SOURCE_ID)) {
-    map.addSource(ROUTE_LINE_SOURCE_ID, {
-      type: "geojson",
-      data: createRouteLineGeoJson()
-    });
-  }
-
-  if (!map.getLayer(ROUTE_LINE_LAYER_ID)) {
-    map.addLayer({
-      id: ROUTE_LINE_LAYER_ID,
-      type: "line",
-      source: ROUTE_LINE_SOURCE_ID,
-      layout: {
-        "line-cap": "round",
-        "line-join": "round"
-      },
-      paint: {
-        "line-color": "rgba(255,255,255,0.82)",
-        "line-width": 4,
-        "line-opacity": 0.78,
-        "line-dasharray": [2, 1.4]
-      }
-    });
-  }
-}
-
-function updateRouteLineOnMap() {
-  const source = map.getSource(ROUTE_LINE_SOURCE_ID);
-  if (!source) return;
-  source.setData(createRouteLineGeoJson());
-}
-
 function getClusterDominantStatusColorExpression() {
   /*
-    Tie-break priority intentionally favors operationally urgent states before completed.
-    Order: closed > rescheduled > active > completed when counts are equal.
-    This keeps rescheduled/closed clusters visually distinct instead of collapsing back
-    into a completion-only interpretation.
+    Tie-break priority prefers more operationally urgent states when counts are equal:
+    closed > rescheduled > active > completed.
+    This keeps rescheduled and closed clusters visually distinct instead of collapsing
+    back into the older completion-only heuristic.
   */
   return [
     "case",
@@ -362,7 +298,7 @@ function buildMap() {
     type: "geojson",
     data: geojsonData,
     cluster: true,
-    clusterRadius: 54,
+    clusterRadius: 50,
     clusterProperties: {
       activeCount: [
         "+",
@@ -393,15 +329,14 @@ function buildMap() {
       "circle-radius": [
         "step",
         ["get", "point_count"],
-        24,
-        10, 28,
-        25, 32,
-        50, 36,
-        100, 42
+        28,
+        10, 30,
+        25, 33,
+        50, 36
       ],
       "circle-color": getClusterDominantStatusColorExpression(),
       "circle-stroke-width": 2,
-      "circle-stroke-color": "rgba(255,255,255,0.2)",
+      "circle-stroke-color": "rgba(255,255,255,0.18)",
       "circle-opacity": 0.92
     }
   });
@@ -416,9 +351,9 @@ function buildMap() {
       "text-size": [
         "step",
         ["get", "point_count"],
-        13,
-        25, 14,
-        100, 15
+        14,
+        25, 15,
+        100, 16
       ]
     },
     paint: {
@@ -481,9 +416,6 @@ function buildMap() {
     }
   });
 
-  ensureRouteLineSourceAndLayer();
-  updateRouteLineOnMap();
-
   map.on("click", "points", handleStorePointClick);
   map.on("click", "clusters", handleClusterClick);
 
@@ -510,8 +442,6 @@ function rebuildFullMap() {
   if (!map.getSource("stores")) return;
   geojsonData = createGeoJson(getFilteredStores());
   map.getSource("stores").setData(geojsonData);
-  ensureRouteLineSourceAndLayer();
-  updateRouteLineOnMap();
   ensureActivePulseAnimation();
 }
 
