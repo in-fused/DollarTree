@@ -231,6 +231,36 @@ function ensureActivePulseAnimation() {
   activePointPulseAnimationId = requestAnimationFrame(step);
 }
 
+function getDominantClusterStatusColorExpression() {
+  return [
+    "case",
+    [
+      "all",
+      [">", ["get", "activeCount"], ["get", "rescheduledCount"]],
+      [">", ["get", "activeCount"], ["get", "completedCount"]],
+      [">", ["get", "activeCount"], ["get", "closedCount"]]
+    ],
+    "#64b5f6",
+    [
+      "all",
+      [">=", ["get", "rescheduledCount"], ["get", "activeCount"]],
+      [">", ["get", "rescheduledCount"], ["get", "completedCount"]],
+      [">", ["get", "rescheduledCount"], ["get", "closedCount"]]
+    ],
+    "#ff9900",
+    [
+      "all",
+      [">=", ["get", "completedCount"], ["get", "activeCount"]],
+      [">=", ["get", "completedCount"], ["get", "rescheduledCount"]],
+      [">", ["get", "completedCount"], ["get", "closedCount"]]
+    ],
+    "#2ecc71",
+    [">", ["get", "closedCount"], 0],
+    "#ff2d2d",
+    "#64b5f6"
+  ];
+}
+
 function createGeoJson(stores) {
   const geoAudit = getGeoAuditConfig(stores);
 
@@ -260,35 +290,6 @@ function createGeoJson(stores) {
   };
 }
 
-function getClusterDominantStatusColorExpression() {
-  /*
-    Tie-break priority prefers the more operationally urgent non-complete states first
-    when counts are equal: closed > rescheduled > active > completed.
-  */
-  return [
-    "case",
-    [
-      "all",
-      [">=", ["get", "closedCount"], ["get", "rescheduledCount"]],
-      [">=", ["get", "closedCount"], ["get", "activeCount"]],
-      [">=", ["get", "closedCount"], ["get", "completedCount"]]
-    ], "#ff2d2d",
-    [
-      "all",
-      [">=", ["get", "rescheduledCount"], ["get", "activeCount"]],
-      [">=", ["get", "rescheduledCount"], ["get", "completedCount"]],
-      [">=", ["get", "rescheduledCount"], ["get", "closedCount"]]
-    ], "#ff9900",
-    [
-      "all",
-      [">=", ["get", "activeCount"], ["get", "completedCount"]],
-      [">=", ["get", "activeCount"], ["get", "rescheduledCount"]],
-      [">=", ["get", "activeCount"], ["get", "closedCount"]]
-    ], "#64b5f6",
-    "#2ecc71"
-  ];
-}
-
 function buildMap() {
   geojsonData = createGeoJson(getFilteredStores());
 
@@ -308,11 +309,11 @@ function buildMap() {
       ],
       completedCount: [
         "+",
-        ["case", ["==", ["get", "status_code"], "completed"], 1, 0]
+        ["case", ["==", ["get", "completed"], true], 1, 0]
       ],
       closedCount: [
         "+",
-        ["case", ["==", ["get", "status_code"], "closed"], 1, 0]
+        ["case", ["==", ["get", "closed"], true], 1, 0]
       ],
       totalCount: ["+", 1]
     }
@@ -332,7 +333,7 @@ function buildMap() {
         25, 33,
         50, 36
       ],
-      "circle-color": getClusterDominantStatusColorExpression(),
+      "circle-color": getDominantClusterStatusColorExpression(),
       "circle-stroke-width": 2,
       "circle-stroke-color": "rgba(255,255,255,0.18)",
       "circle-opacity": 0.92
@@ -350,8 +351,8 @@ function buildMap() {
         "step",
         ["get", "point_count"],
         14,
-        25, 15,
-        100, 16
+        10, 15,
+        25, 16
       ]
     },
     paint: {
