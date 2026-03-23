@@ -1169,8 +1169,18 @@ function buildAnalyticsExportPayload() {
   const rows = getSnapshotRows(filteredStores);
   const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
   const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
+  const exportSummary = {
+    rowCount: rows.length + 1,
+    storeRowCount: rows.length,
+    includesProjectSummaryRow: true,
+    includesStoreDetailRows: rows.length > 0,
+    scopeDescription: scopeMeta.scopeDescription
+  };
 
   return {
+    exportType: "analytics_export",
+    schemaVersion: "11.1c",
+    exportSummary,
     projectId: analyticsSnapshot.projectId || currentProjectId || "",
     projectName: analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot",
     generatedAt: analyticsSnapshot.generatedAt || new Date().toISOString(),
