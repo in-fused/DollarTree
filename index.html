@@ -213,6 +213,31 @@
             <div class="scopeSummaryLabel">Visible Closed</div>
             <div id="scopeVisibleClosed" class="scopeSummaryValue">0</div>
           </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Visible Rescheduled</div>
+            <div id="scopeVisibleRescheduled" class="scopeSummaryValue">0</div>
+          </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">No Updates Yet</div>
+            <div id="scopeVisibleNoUpdates" class="scopeSummaryValue">0</div>
+          </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Note Coverage</div>
+            <div id="scopeVisibleNoteCoverage" class="scopeSummaryValue">0%</div>
+          </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Photo Coverage</div>
+            <div id="scopeVisiblePhotoCoverage" class="scopeSummaryValue">0%</div>
+          </div>
+
+          <div class="scopeSummaryCard">
+            <div class="scopeSummaryLabel">Attention Needed</div>
+            <div id="scopeVisibleAttention" class="scopeSummaryValue">0</div>
+          </div>
         </div>
       </div>
 
@@ -351,15 +376,56 @@
           </div>
 
           <div class="mapLegendCard" id="mapLegendCard">
-            <div class="mapLegendTitle">Cluster Heat Key</div>
-            <div class="mapLegendRow"><span class="legendDot legendRed"></span><span>Low completion</span></div>
-            <div class="mapLegendRow"><span class="legendDot legendOrange"></span><span>Mid progress</span></div>
-            <div class="mapLegendRow"><span class="legendDot legendGreen"></span><span>Mostly complete</span></div>
+            <div class="mapLegendTitle">Cluster Status Key</div>
+            <div class="mapLegendRow"><span class="legendDot legendBlue"></span><span>Active dominant</span></div>
+            <div class="mapLegendRow"><span class="legendDot legendOrange"></span><span>Rescheduled dominant</span></div>
+            <div class="mapLegendRow"><span class="legendDot legendGreen"></span><span>Completed dominant</span></div>
+            <div class="mapLegendRow"><span class="legendDot legendRed"></span><span>Closed dominant</span></div>
           </div>
 
           <div class="mapExecutiveCallout" id="mapExecutiveCallout">
             <div class="mapExecutiveCalloutEyebrow">Operational Summary</div>
             <div id="mapExecutiveSummaryLine" class="mapExecutiveSummaryLine">Loading store execution summary…</div>
+            <div class="mapExecutiveKpiRow">
+              <div class="mapExecutiveKpiCard">
+                <div class="mapExecutiveKpiLabel">Open Work</div>
+                <div id="analyticsOpenWorkValue" class="mapExecutiveKpiValue">0 open</div>
+              </div>
+              <div class="mapExecutiveKpiCard attention">
+                <div class="mapExecutiveKpiLabel">Attention</div>
+                <div id="analyticsAttentionValue" class="mapExecutiveKpiValue">0 flagged</div>
+              </div>
+            </div>
+            <div class="mapExecutiveKpiRow compact">
+              <div class="mapExecutiveMiniStat">
+                <span class="mapExecutiveMiniLabel">Completion</span>
+                <span id="analyticsCompletionValue" class="mapExecutiveMiniValue">0.0%</span>
+              </div>
+              <div class="mapExecutiveMiniStat">
+                <span class="mapExecutiveMiniLabel">Coverage</span>
+                <span id="analyticsCoverageValue" class="mapExecutiveMiniValue">0.0% notes • 0.0% photos</span>
+              </div>
+            </div>
+            <div class="analyticsBarStack">
+              <div class="analyticsBarGroup">
+                <div class="analyticsBarLabelRow"><span>Completion</span><span id="analyticsCompletionValueMirror">Actionable delivery</span></div>
+                <div class="analyticsBarTrack"><div id="analyticsCompletionBar" class="analyticsBarFill statusCompleted"></div></div>
+              </div>
+              <div class="analyticsBarGroup">
+                <div class="analyticsBarLabelRow"><span>Note Coverage</span><span>Follow-up logging</span></div>
+                <div class="analyticsBarTrack"><div id="analyticsNoteCoverageBar" class="analyticsBarFill statusRescheduled"></div></div>
+              </div>
+              <div class="analyticsBarGroup">
+                <div class="analyticsBarLabelRow"><span>Photo Coverage</span><span>Evidence capture</span></div>
+                <div class="analyticsBarTrack"><div id="analyticsPhotoCoverageBar" class="analyticsBarFill statusActive"></div></div>
+              </div>
+              <div class="analyticsBarGroup">
+                <div class="analyticsBarLabelRow"><span>Recent Follow-up</span><span>Last 14 days</span></div>
+                <div class="analyticsBarTrack"><div id="analyticsRecentCoverageBar" class="analyticsBarFill statusClosed"></div></div>
+              </div>
+            </div>
+            <div id="analyticsAttentionLine" class="mapExecutiveDetailLine">Loading attention signals…</div>
+            <div id="analyticsRecentLine" class="mapExecutiveDetailLine muted">Loading recent follow-up coverage…</div>
           </div>
 
           <div id="map"></div>
@@ -569,6 +635,71 @@
               <div class="scopeSummaryLabel">Completed Today</div>
               <div id="intelCompletedToday" class="scopeSummaryValue">0</div>
             </div>
+
+            <div class="scopeSummaryCard">
+              <div class="scopeSummaryLabel">Rescheduled</div>
+              <div id="intelRescheduledStores" class="scopeSummaryValue">0</div>
+            </div>
+
+            <div class="scopeSummaryCard">
+              <div class="scopeSummaryLabel">Open Work</div>
+              <div id="intelOpenWorkStores" class="scopeSummaryValue">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel intelPanel">
+          <div class="panelHeaderRow">
+            <h3>Execution Health</h3>
+            <div class="panelHeaderTag">Coverage</div>
+          </div>
+
+          <div class="intelMetricGrid">
+            <div class="intelMetricCard">
+              <div class="intelMetricLabel">Note Coverage</div>
+              <div id="intelNoteCoverage" class="intelMetricValue">0%</div>
+            </div>
+
+            <div class="intelMetricCard">
+              <div class="intelMetricLabel">Recent Follow-up</div>
+              <div id="intelRecentCoverage" class="intelMetricValue">0%</div>
+            </div>
+
+            <div class="intelMetricCard">
+              <div class="intelMetricLabel">Attention Needed</div>
+              <div id="intelAttentionCount" class="intelMetricValue">0</div>
+            </div>
+
+            <div class="intelMetricCard">
+              <div class="intelMetricLabel">Integrity Issues</div>
+              <div id="intelIntegrityIssues" class="intelMetricValue">0</div>
+            </div>
+          </div>
+
+          <div id="intelHealthSummary" class="routeMetricDetail">Execution health summary unavailable.</div>
+        </div>
+
+        <div class="panel intelPanel">
+          <div class="panelHeaderRow">
+            <h3>Attention Needed</h3>
+            <div class="panelHeaderTag">Follow-up</div>
+          </div>
+
+          <div class="scopeSummaryGrid scopeSummaryGridIntel">
+            <div class="scopeSummaryCard">
+              <div class="scopeSummaryLabel">No Updates Yet</div>
+              <div id="intelNoUpdates" class="scopeSummaryValue">0</div>
+            </div>
+
+            <div class="scopeSummaryCard">
+              <div class="scopeSummaryLabel">Notes, No Photos</div>
+              <div id="intelNotesNoPhotos" class="scopeSummaryValue">0</div>
+            </div>
+
+            <div class="scopeSummaryCard">
+              <div class="scopeSummaryLabel">Photos, No Notes</div>
+              <div id="intelPhotosNoNotes" class="scopeSummaryValue">0</div>
+            </div>
           </div>
         </div>
 
@@ -614,7 +745,7 @@
       <h4>Store Photos</h4>
 
       <div class="photoUploadRow">
-        <input id="photoInput" type="file" accept="image/*" />
+        <input id="photoInput" type="file" accept="image/*" capture="environment" />
         <button id="uploadPhotoBtn" class="btnComplete" type="button">Upload Photo</button>
       </div>
 
@@ -647,7 +778,6 @@
 <script src="js/modal-store.js"></script>
 <script src="js/photos.js"></script>
 <script src="js/activity.js"></script>
-<script src="js/export-snapshot.js"></script>
 <script src="js/route-builder.js"></script>
 <script src="js/bootstrap.js"></script>
 </body>
