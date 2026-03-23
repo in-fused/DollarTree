@@ -262,17 +262,15 @@ function createGeoJson(stores) {
 
 function getClusterDominantStatusColorExpression() {
   /*
-    Tie-break priority prefers more urgent operational states when counts are equal:
-    closed > rescheduled > active > completed.
-    This keeps rescheduled and closed clusters distinct instead of collapsing back
-    into the old completion-only heuristic.
+    Tie-break priority prefers the more operationally urgent non-complete states first
+    when counts are equal: closed > rescheduled > active > completed.
   */
   return [
     "case",
     [
       "all",
-      [">=", ["get", "closedCount"], ["get", "activeCount"]],
       [">=", ["get", "closedCount"], ["get", "rescheduledCount"]],
+      [">=", ["get", "closedCount"], ["get", "activeCount"]],
       [">=", ["get", "closedCount"], ["get", "completedCount"]]
     ], "#ff2d2d",
     [
