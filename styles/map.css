@@ -80,6 +80,7 @@
   flex-shrink: 0;
 }
 
+.legendBlue { background: #64b5f6; }
 .legendRed { background: var(--red); }
 .legendOrange { background: var(--orange); }
 .legendGreen { background: var(--green); }
@@ -110,6 +111,95 @@
   font-size: 13px;
   line-height: 1.45;
   color: rgba(255,255,255,0.94);
+}
+
+.mapExecutiveKpiRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mapExecutiveKpiRow.compact {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.mapExecutiveKpiCard,
+.mapExecutiveMiniStat {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 9px 10px;
+}
+
+.mapExecutiveKpiCard.attention {
+  border-color: rgba(255, 196, 92, 0.26);
+}
+
+.mapExecutiveKpiLabel,
+.mapExecutiveMiniLabel,
+.analyticsBarLabelRow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.66;
+}
+
+.mapExecutiveKpiValue,
+.mapExecutiveMiniValue {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.96);
+}
+
+.analyticsBarStack {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.analyticsBarGroup {
+  display: grid;
+  gap: 4px;
+}
+
+.analyticsBarLabelRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.analyticsBarTrack {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+
+.analyticsBarFill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+
+.analyticsBarFill.statusCompleted { background: #2ecc71; }
+.analyticsBarFill.statusRescheduled { background: #ff9900; }
+.analyticsBarFill.statusActive { background: #64b5f6; }
+.analyticsBarFill.statusClosed { background: #ff2d2d; }
+
+.mapExecutiveDetailLine {
+  margin-top: 9px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(255,255,255,0.86);
+}
+
+.mapExecutiveDetailLine.muted {
+  color: rgba(255,255,255,0.68);
 }
 
 .mapExecutiveCallout.mobile-collapsible {
@@ -179,7 +269,6 @@ body.executive-mode .mapExecutiveCallout.mobile-collapsible.expanded .mapExecuti
   margin-top: 0;
   box-shadow: 0 12px 24px rgba(0,0,0,0.22);
 }
-
 
 .mapIntegrityTag {
   border-color: rgba(255, 196, 92, 0.34);
