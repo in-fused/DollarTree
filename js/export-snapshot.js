@@ -1049,44 +1049,73 @@ function buildSnapshotHtml(payload) {
   }
   .print-only { display: none; }
   @media print {
-    [data-evidence-card] { page-break-inside: avoid; }
-    [data-evidence-card] .evidence-expanded { display: block !important; }
-
-    body {
-      background: #fff;
-    }
-    .page {
-      max-width: none;
-      padding: 10mm;
-      gap: 10px;
-    }
-    .utility-bar,
-    .hero,
-    .panel {
-      box-shadow: none;
-      backdrop-filter: none;
-      background: #fff;
-      border-color: #d6dce3;
-    }
-    .summary-card,
-    .executionSummaryCard,
-    .executionStatusCard,
-    .metric,
-    .meta-card {
-      background: #fff;
-      box-shadow: none;
-    }
-    .utility-bar {
-      position: static;
-      page-break-inside: avoid;
-    }
-    .hero,
-    .panel {
-      page-break-inside: avoid;
-    }
-    .print-only { display: block; }
-    .no-print { display: none !important; }
+  /* Allow large sections to flow naturally */
+  .hero,
+  .panel,
+  .summary-strip,
+  .executionOverviewGrid,
+  .two-col {
+    page-break-inside: auto;
   }
+
+  /* ONLY protect small atomic components */
+  [data-evidence-card],
+  .metric,
+  .executionStatRow,
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Prevent ugly orphan headers */
+  h1, h2, h3, .panel-eyebrow {
+    page-break-after: avoid;
+  }
+
+  /* Keep tables clean */
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Existing styles (keep these) */
+  body {
+    background: #fff;
+  }
+
+  .page {
+    max-width: none;
+    padding: 10mm;
+    gap: 10px;
+  }
+
+  .utility-bar,
+  .hero,
+  .panel {
+    box-shadow: none;
+    backdrop-filter: none;
+    background: #fff;
+    border-color: #d6dce3;
+  }
+
+  .summary-card,
+  .executionSummaryCard,
+  .executionStatusCard,
+  .metric,
+  .meta-card {
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .utility-bar {
+    position: static;
+  }
+
+  .print-only { display: block; }
+  .no-print { display: none !important; }
+}
   @media (max-width: 1020px) {
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .summary-strip,
