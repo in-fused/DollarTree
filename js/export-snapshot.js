@@ -1266,6 +1266,124 @@ function buildAnalyticsExportPreflight(payload) {
   };
 }
 
+function isSupportedAnalyticsExportPayload(payload) {
+  return Boolean(
+    payload &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    payload.exportType === "analytics_export" &&
+    payload.exportFormat === "route_builder_analytics" &&
+    typeof payload.schemaVersion === "string" &&
+    payload.schemaVersion.trim() !== "" &&
+    Array.isArray(payload.rows)
+  );
+}
+
+function getAnalyticsExportSupportedRowTypes(payload) {
+  const rowSchema = payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload.rowSchema || {})
+    : {};
+
+  return [rowSchema.summaryRowType, rowSchema.detailRowType]
+    .map(value => String(value || "").trim())
+    .filter((value, index, array) => value && array.indexOf(value) === index);
+}
+
+function summarizeAnalyticsExportPayload(payload) {
+  const isSupported = isSupportedAnalyticsExportPayload(payload);
+  const exportCounts = payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload.exportCounts || {})
+    : {};
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+
+  return {
+    isSupported,
+    schemaVersion: payload?.schemaVersion || "",
+    exportFormat: payload?.exportFormat || "",
+    projectId: payload?.projectId || "",
+    projectName: payload?.projectName || "",
+    scopeLabel: payload?.scopeLabel || "",
+    totalRows: exportCounts.totalRows ?? rows.length,
+    detailRows: exportCounts.detailRows ?? rows.filter(row => row?.rowType === "store_detail").length,
+    summaryRows: exportCounts.summaryRows ?? rows.filter(row => row?.rowType === "project_summary").length,
+    hasRows: rows.length > 0,
+    hasMetrics: Boolean(payload && typeof payload.metrics === "object" && payload.metrics !== null && !Array.isArray(payload.metrics)),
+    hasScopeMeta: Boolean(payload && typeof payload.scopeMeta === "object" && payload.scopeMeta !== null && !Array.isArray(payload.scopeMeta)),
+    supportedRowTypes: getAnalyticsExportSupportedRowTypes(payload)
+  };
+}
+
+function validateAnalyticsExportPayloadShape(payload) {
+  const errors = [];
+  const warnings = [];
+  const isObject = Boolean(payload && typeof payload === "object" && !Array.isArray(payload));
+
+  if (!isObject) {
+    errors.push("payload missing or not object");
+  }
+
+  if (!isObject || payload.exportType !== "analytics_export") {
+    errors.push("wrong exportType");
+  }
+
+  if (!isObject || payload.exportFormat !== "route_builder_analytics") {
+    errors.push("wrong exportFormat");
+  }
+
+  if (!isObject || typeof payload.schemaVersion !== "string" || payload.schemaVersion.trim() === "") {
+    errors.push("missing schemaVersion");
+  }
+
+  if (!isObject || !Array.isArray(payload.rows)) {
+    errors.push("missing rows array");
+  }
+
+  if (!isObject || !payload.projectId) {
+    warnings.push("missing projectId");
+  }
+
+  if (!isObject || !payload.projectName) {
+    warnings.push("missing projectName");
+  }
+
+  if (!isObject || !payload.scopeLabel) {
+    warnings.push("missing scopeLabel");
+  }
+
+  if (!isObject || typeof payload.metrics !== "object" || payload.metrics === null || Array.isArray(payload.metrics)) {
+    warnings.push("missing metrics object");
+  }
+
+  if (!isObject || typeof payload.scopeMeta !== "object" || payload.scopeMeta === null || Array.isArray(payload.scopeMeta)) {
+    warnings.push("missing scopeMeta");
+  }
+
+  if (!Array.isArray(payload?.rows) || payload.rows.length === 0) {
+    warnings.push("rows array empty");
+  }
+
+  const supportedRowTypes = getAnalyticsExportSupportedRowTypes(payload);
+  if (supportedRowTypes.length < 2) {
+    warnings.push("rowSchema missing summary/detail row types");
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings
+  };
+}
+
+function buildAnalyticsExportImportReadiness(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+
+  return {
+    summary: summarizeAnalyticsExportPayload(exportPayload),
+    validation: validateAnalyticsExportPayloadShape(exportPayload),
+    preflight: buildAnalyticsExportPreflight(exportPayload)
+  };
+}
+
 function downloadExportBlob(filename, blob) {
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -1453,6 +1571,11 @@ Object.assign(window, {
   estimateAnalyticsCsvBytes,
   estimateAnalyticsJsonBytes,
   buildAnalyticsExportPreflight,
+  isSupportedAnalyticsExportPayload,
+  getAnalyticsExportSupportedRowTypes,
+  summarizeAnalyticsExportPayload,
+  validateAnalyticsExportPayloadShape,
+  buildAnalyticsExportImportReadiness,
   downloadExportBlob,
   downloadExportText,
   buildAnalyticsCsvRows,
