@@ -177,17 +177,21 @@ function getStatusColor(statusCode) {
   return "#64b5f6";
 }
 
-function buildSnapshotMapSvg(rows, width = 1100, height = 520) {
+function clampLatitude(lat) {
+  return Math.max(-85, Math.min(85, lat));
+}
+
+function mercatorY(lat) {
+  const clampedLat = clampLatitude(lat);
+  const rad = clampedLat * Math.PI / 180;
+  return Math.log(Math.tan((Math.PI / 4) + (rad / 2)));
+}
+
+function getSnapshotMapData(rows, width = 1100, height = 520, padding = 48) {
   const mappedRows = rows.filter(row => Number.isFinite(row.lng) && Number.isFinite(row.lat));
+
   if (mappedRows.length === 0) {
-    return `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Project scope map snapshot">
-        <rect width="100%" height="100%" fill="#0b1320" rx="24"/>
-        <rect x="38" y="38" width="${width - 76}" height="${height - 76}" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" rx="20"/>
-        <text x="50%" y="44%" dominant-baseline="middle" text-anchor="middle" fill="#dce8f5" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="700">No mappable store coordinates in current scope</text>
-        <text x="50%" y="53%" dominant-baseline="middle" text-anchor="middle" fill="rgba(220,232,245,0.74)" font-family="Inter,Arial,sans-serif" font-size="16">The snapshot still includes metrics, store detail, and recent activity for stakeholder review.</text>
-      </svg>
-    `;
+    return null;
   }
 
   let minLng = Math.min(...mappedRows.map(row => row.lng));
@@ -196,58 +200,89 @@ function buildSnapshotMapSvg(rows, width = 1100, height = 520) {
   let maxLat = Math.max(...mappedRows.map(row => row.lat));
 
   if (minLng === maxLng) {
-    minLng -= 0.02;
-    maxLng += 0.02;
+    minLng -= 0.3;
+    maxLng += 0.3;
   }
 
   if (minLat === maxLat) {
-    minLat -= 0.02;
-    maxLat += 0.02;
+    minLat -= 0.3;
+    maxLat += 0.3;
   }
 
-  const pad = 42;
-  const innerWidth = width - (pad * 2);
-  const innerHeight = height - (pad * 2);
-  const project = (lng, lat) => {
-    const x = pad + ((lng - minLng) / (maxLng - minLng)) * innerWidth;
-    const y = pad + (1 - ((lat - minLat) / (maxLat - minLat))) * innerHeight;
-    return { x, y };
+  const mercatorMinY = mercatorY(maxLat);
+  const mercatorMaxY = mercatorY(minLat);
+
+  const innerWidth = width - (padding * 2);
+  const innerHeight = height - (padding * 2);
+
+  const points = mappedRows.map(row => {
+    const xRatio = (row.lng - minLng) / (maxLng - minLng || 1);
+    const currentY = mercatorY(row.lat);
+    const yRatio = (currentY - mercatorMinY) / (mercatorMaxY - mercatorMinY || 1);
+
+    return {
+      ...row,
+      fill: getStatusColor(row.statusCode),
+      x: padding + (xRatio * innerWidth),
+      y: padding + (yRatio * innerHeight)
+    };
+  });
+
+  const accessToken = typeof mapboxgl !== "undefined" ? mapboxgl.accessToken : "";
+  const bbox = [
+    minLng.toFixed(5),
+    minLat.toFixed(5),
+    maxLng.toFixed(5),
+    maxLat.toFixed(5)
+  ].join(",");
+  const encodedBbox = encodeURIComponent(`[${bbox}]`);
+  const mapUrl = accessToken
+    ? `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${encodedBbox}/${width}x${height}?padding=${padding},${padding},${padding},${padding}&logo=false&attribution=false&access_token=${encodeURIComponent(accessToken)}`
+    : "";
+
+  return {
+    width,
+    height,
+    padding,
+    points,
+    mapUrl
   };
+}
 
-  const points = mappedRows.map(row => ({
-    ...row,
-    ...project(row.lng, row.lat),
-    fill: getStatusColor(row.statusCode)
-  }));
+function buildSnapshotMapMarkup(rows, width = 1100, height = 520) {
+  const mapData = getSnapshotMapData(rows, width, height, 48);
 
-  const gridLines = Array.from({ length: 5 }).map((_, index) => {
-    const x = pad + (innerWidth / 4) * index;
-    const y = pad + (innerHeight / 4) * index;
+  if (!mapData) {
     return `
-      <line x1="${x}" y1="${pad}" x2="${x}" y2="${height - pad}" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
-      <line x1="${pad}" y1="${y}" x2="${width - pad}" y2="${y}" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+      <div class="snapshotMapFallback">
+        <div class="snapshotMapFallbackTitle">No mappable store coordinates in current scope</div>
+        <div class="snapshotMapFallbackText">The snapshot still includes metrics, store detail, and recent activity for stakeholder review.</div>
+      </div>
     `;
-  }).join("");
+  }
 
-  const circles = points.map(point => `
-    <circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="7.5" fill="${point.fill}" stroke="rgba(255,255,255,0.86)" stroke-width="1.75" />
+  const markers = mapData.points.map(point => `
+    <div
+      class="snapshotMapMarker"
+      style="left:${point.x.toFixed(2)}px; top:${point.y.toFixed(2)}px; --marker-color:${escapeSnapshotHtml(point.fill)};"
+      title="Store ${escapeSnapshotHtml(point.storeId)} · ${escapeSnapshotHtml(point.statusLabel)}"
+      aria-label="Store ${escapeSnapshotHtml(point.storeId)} ${escapeSnapshotHtml(point.statusLabel)}">
+    </div>
   `).join("");
 
+  const background = mapData.mapUrl
+    ? `<img class="snapshotMapImage" src="${escapeSnapshotHtml(mapData.mapUrl)}" alt="Geographic project footprint overview map" />`
+    : `<div class="snapshotMapBackgroundFallback"></div>`;
+
   return `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Project scope map snapshot">
-      <defs>
-        <linearGradient id="snapshotBg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#102032" />
-          <stop offset="100%" stop-color="#09131f" />
-        </linearGradient>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#snapshotBg)" rx="24" />
-      <rect x="${pad}" y="${pad}" width="${innerWidth}" height="${innerHeight}" rx="20" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" />
-      ${gridLines}
-      ${circles}
-      <text x="${pad}" y="28" fill="#dce8f5" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700">Scope map overview</text>
-      <text x="${width - pad}" y="28" text-anchor="end" fill="rgba(220,232,245,0.74)" font-family="Inter,Arial,sans-serif" font-size="13">Presentation-ready operational snapshot</text>
-    </svg>
+    <div class="snapshotMapFrame" style="width:${mapData.width}px; height:${mapData.height}px;">
+      ${background}
+      <div class="snapshotMapOverlay">
+        ${markers}
+      </div>
+      <div class="snapshotMapTopline">Geographic scope footprint</div>
+      <div class="snapshotMapCaption">Store markers are positioned from live latitude/longitude coordinates across the current export scope.</div>
+    </div>
   `;
 }
 
@@ -359,7 +394,7 @@ function buildSnapshotHtml(payload) {
     projectId,
     scopeMeta,
     metrics,
-    mapSvg,
+    mapMarkup,
     rows,
     operationalSummary,
     productLabel,
@@ -595,6 +630,96 @@ function buildSnapshotHtml(payload) {
     font-size: 22px;
     font-weight: 800;
     line-height: 1;
+  }
+  .snapshotMapFrame {
+    position: relative;
+    width: 100%;
+    max-width: 1100px;
+    height: auto;
+    aspect-ratio: 1100 / 520;
+    overflow: hidden;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    background: #dfe8f2;
+  }
+  .snapshotMapImage,
+  .snapshotMapBackgroundFallback,
+  .snapshotMapOverlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .snapshotMapImage {
+    object-fit: cover;
+    background: #dfe8f2;
+  }
+  .snapshotMapBackgroundFallback {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02)),
+      linear-gradient(135deg, #eef4fa 0%, #d7e5f0 100%);
+  }
+  .snapshotMapOverlay {
+    pointer-events: none;
+  }
+  .snapshotMapMarker {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    margin-left: -7px;
+    margin-top: -7px;
+    border-radius: 999px;
+    background: var(--marker-color);
+    border: 2px solid rgba(255,255,255,0.95);
+    box-shadow: 0 0 0 1px rgba(19,34,55,0.18), 0 4px 8px rgba(19,34,55,0.22);
+  }
+  .snapshotMapTopline {
+    position: absolute;
+    top: 14px;
+    left: 16px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid rgba(19,34,55,0.08);
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--ink);
+    z-index: 2;
+  }
+  .snapshotMapCaption {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.9);
+    border: 1px solid rgba(19,34,55,0.08);
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.4;
+    z-index: 2;
+  }
+  .snapshotMapFallback {
+    min-height: 280px;
+    border-radius: 18px;
+    border: 1px dashed var(--line-strong);
+    background: var(--panel-soft);
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 8px;
+    padding: 24px;
+    text-align: center;
+  }
+  .snapshotMapFallbackTitle {
+    font-size: 18px;
+    font-weight: 800;
+  }
+  .snapshotMapFallbackText {
+    color: var(--muted);
+    max-width: 640px;
+    line-height: 1.5;
   }
   .legend {
     display: flex;
@@ -864,14 +989,14 @@ function buildSnapshotHtml(payload) {
 
     <section class="panel">
       <div class="panel-eyebrow">Map Overview</div>
-      ${mapSvg}
+      ${mapMarkup}
       <div class="legend" style="margin-top:14px;">
         <div class="legend-item"><span class="dot" style="background:var(--active)"></span>Active</div>
         <div class="legend-item"><span class="dot" style="background:var(--completed)"></span>Completed</div>
         <div class="legend-item"><span class="dot" style="background:var(--rescheduled)"></span>Rescheduled</div>
         <div class="legend-item"><span class="dot" style="background:var(--closed)"></span>Closed</div>
       </div>
-      <div class="footnote" style="margin-top:10px;">Map colors align to execution status for presentation-ready review. Rescheduled stores remain distinct from active work.</div>
+      <div class="footnote" style="margin-top:10px;">Map markers are placed from current-scope geographic coordinates and colored by execution status for stakeholder-ready footprint review.</div>
     </section>
 
     <section class="two-col">
@@ -947,7 +1072,7 @@ function exportProjectSnapshot() {
   const generatedAt = generatedDate.toLocaleString();
   const generatedTimeLabel = `Generated ${generatedDate.toLocaleDateString()} • ${generatedDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
   const projectTitle = currentProjectMeta?.name || currentProjectId || "Project Snapshot";
-  const mapSvg = buildSnapshotMapSvg(rows);
+  const mapMarkup = buildSnapshotMapMarkup(rows);
   const operationalSummary = document.getElementById("headerOperationalSummary")?.textContent
     || `${metrics.total.toLocaleString()} stores in scope with ${metrics.completed.toLocaleString()} completed, ${metrics.rescheduled.toLocaleString()} rescheduled, and ${metrics.closed.toLocaleString()} closed.`;
   const productLabel = "Route Builder Executive Snapshot";
@@ -961,7 +1086,7 @@ function exportProjectSnapshot() {
     projectId: currentProjectId,
     scopeMeta,
     metrics,
-    mapSvg,
+    mapMarkup,
     rows,
     operationalSummary,
     productLabel,
