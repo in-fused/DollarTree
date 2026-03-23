@@ -1083,14 +1083,42 @@ function slugifyExportName(value) {
     .replace(/-{2,}/g, "-") || "export";
 }
 
+function buildAnalyticsExportPayload() {
+  const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
+  const scopeMeta = getSnapshotScopeMeta(filteredStores);
+  const rows = getSnapshotRows(filteredStores);
+  const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
+  const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
+  const exportSummary = {
+    rowCount: rows.length + 1,
+    storeRowCount: rows.length,
+    includesProjectSummaryRow: true,
+    includesStoreDetailRows: rows.length > 0,
+    scopeDescription: scopeMeta.scopeDescription
+  };
+
+  return {
+    exportType: "analytics_export",
+    schemaVersion: "11.1c",
+    exportSummary,
+    projectId: analyticsSnapshot.projectId || currentProjectId || "",
+    projectName: analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot",
+    generatedAt: analyticsSnapshot.generatedAt || new Date().toISOString(),
+    scopeLabel: analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel,
+    metrics: analyticsSnapshot.metrics || {},
+    scopeMeta,
+    snapshotMetrics,
+    rows
+  };
+}
+
 function buildAnalyticsExportBaseName() {
-  const snapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
-  const projectName = snapshot.projectName || currentProjectMeta?.name || currentProjectId || "project";
-  const scopeLabel = snapshot.scopeLabel || document.getElementById("headerScopeSummary")?.textContent || "scope";
-  const generatedAt = snapshot.generatedAt ? new Date(snapshot.generatedAt) : new Date();
-  const dateStamp = Number.isNaN(generatedAt.getTime())
-    ? new Date().toISOString().slice(0, 10)
-    : generatedAt.toISOString().slice(0, 10);
+  const payload = buildAnalyticsExportPayload();
+  const projectName = payload.projectName || "project";
+  const scopeLabel = payload.scopeLabel || "scope";
+  const generatedAt = payload.generatedAt ? new Date(payload.generatedAt) : new Date();
+  const safeGeneratedAt = Number.isNaN(generatedAt.getTime()) ? new Date() : generatedAt;
+  const dateStamp = safeGeneratedAt.toISOString().slice(0, 10);
 
   return `${slugifyExportName(projectName)}-${slugifyExportName(scopeLabel)}-analytics-${dateStamp}`;
 }
@@ -1170,35 +1198,6 @@ function normalizeAnalyticsExportValue(value) {
 
 function normalizeAnalyticsExportBoolean(value) {
   return value === true ? "true" : "false";
-}
-
-function buildAnalyticsExportPayload() {
-  const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
-  const scopeMeta = getSnapshotScopeMeta(filteredStores);
-  const rows = getSnapshotRows(filteredStores);
-  const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
-  const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
-  const exportSummary = {
-    rowCount: rows.length + 1,
-    storeRowCount: rows.length,
-    includesProjectSummaryRow: true,
-    includesStoreDetailRows: rows.length > 0,
-    scopeDescription: scopeMeta.scopeDescription
-  };
-
-  return {
-    exportType: "analytics_export",
-    schemaVersion: "11.1c",
-    exportSummary,
-    projectId: analyticsSnapshot.projectId || currentProjectId || "",
-    projectName: analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot",
-    generatedAt: analyticsSnapshot.generatedAt || new Date().toISOString(),
-    scopeLabel: analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel,
-    metrics: analyticsSnapshot.metrics || {},
-    scopeMeta,
-    snapshotMetrics,
-    rows
-  };
 }
 
 function buildAnalyticsCsvRows() {
@@ -1354,10 +1353,10 @@ function bindAnalyticsExportControls() {
 }
 
 window.slugifyExportName = slugifyExportName;
+window.buildAnalyticsExportPayload = buildAnalyticsExportPayload;
 window.buildAnalyticsExportBaseName = buildAnalyticsExportBaseName;
 window.downloadExportBlob = downloadExportBlob;
 window.downloadExportText = downloadExportText;
-window.buildAnalyticsExportPayload = buildAnalyticsExportPayload;
 window.buildAnalyticsCsvRows = buildAnalyticsCsvRows;
 window.escapeCsvValue = escapeCsvValue;
 window.serializeAnalyticsSnapshotToCsv = serializeAnalyticsSnapshotToCsv;
