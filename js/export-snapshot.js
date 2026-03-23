@@ -1112,11 +1112,11 @@ function buildAnalyticsExportPayload() {
   };
 }
 
-function buildAnalyticsExportBaseName() {
-  const payload = buildAnalyticsExportPayload();
-  const projectName = payload.projectName || "project";
-  const scopeLabel = payload.scopeLabel || "scope";
-  const generatedAt = payload.generatedAt ? new Date(payload.generatedAt) : new Date();
+function buildAnalyticsExportBaseName(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  const projectName = exportPayload.projectName || "project";
+  const scopeLabel = exportPayload.scopeLabel || "scope";
+  const generatedAt = exportPayload.generatedAt ? new Date(exportPayload.generatedAt) : new Date();
   const safeGeneratedAt = Number.isNaN(generatedAt.getTime()) ? new Date() : generatedAt;
   const dateStamp = safeGeneratedAt.toISOString().slice(0, 10);
 
@@ -1200,8 +1200,8 @@ function normalizeAnalyticsExportBoolean(value) {
   return value === true ? "true" : "false";
 }
 
-function buildAnalyticsCsvRows() {
-  const payload = buildAnalyticsExportPayload();
+function buildAnalyticsCsvRows(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
   const {
     projectId,
     projectName,
@@ -1211,7 +1211,7 @@ function buildAnalyticsCsvRows() {
     scopeMeta,
     snapshotMetrics,
     rows
-  } = payload;
+  } = exportPayload;
 
   const buildBaseRow = () => ({
     rowType: "",
@@ -1298,8 +1298,8 @@ function escapeCsvValue(value) {
   return stringValue;
 }
 
-function serializeAnalyticsSnapshotToCsv() {
-  const rows = buildAnalyticsCsvRows();
+function serializeAnalyticsSnapshotToCsv(payload) {
+  const rows = buildAnalyticsCsvRows(payload);
   if (!rows.length) return "";
 
   const lines = [ANALYTICS_CSV_HEADERS.map(escapeCsvValue).join(",")];
@@ -1312,8 +1312,9 @@ function serializeAnalyticsSnapshotToCsv() {
 
 function exportProjectAnalyticsCsv() {
   try {
-    const filename = `${buildAnalyticsExportBaseName()}.csv`;
-    const csv = serializeAnalyticsSnapshotToCsv();
+    const payload = buildAnalyticsExportPayload();
+    const filename = `${buildAnalyticsExportBaseName(payload)}.csv`;
+    const csv = serializeAnalyticsSnapshotToCsv(payload);
     downloadExportText(filename, csv, "text/csv;charset=utf-8");
   } catch (error) {
     console.error(error);
@@ -1324,7 +1325,7 @@ function exportProjectAnalyticsCsv() {
 function exportProjectAnalyticsJson() {
   try {
     const payload = buildAnalyticsExportPayload();
-    const filename = `${buildAnalyticsExportBaseName()}.json`;
+    const filename = `${buildAnalyticsExportBaseName(payload)}.json`;
     downloadExportText(filename, `${JSON.stringify(payload, null, 2)}\n`, "application/json;charset=utf-8");
   } catch (error) {
     console.error(error);
