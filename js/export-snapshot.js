@@ -314,11 +314,13 @@ function getSnapshotStorePhotos(storeId) {
     .sort((a, b) => b.timestampValue - a.timestampValue);
 }
 
-function getSnapshotLatestNotePreview(notes) {
+function getSnapshotLatestNotePreview(notes, photos = []) {
   const latestNote = Array.isArray(notes) && notes.length ? notes[0] : null;
   if (!latestNote) {
     return {
-      preview: "No field notes captured for this store in the current scope.",
+      preview: Array.isArray(photos) && photos.length
+        ? "No field notes captured. Photo evidence available."
+        : "No field notes captured for this store in the current scope.",
       timestampLabel: "",
       timestampValue: 0
     };
@@ -330,6 +332,44 @@ function getSnapshotLatestNotePreview(notes) {
     timestampLabel: latestNote.created_at ? formatActivityTime(latestNote.created_at) : "",
     timestampValue: getTimestampValue(latestNote.created_at)
   };
+}
+
+function getSnapshotEvidenceRows(filteredStores) {
+  return filteredStores
+    .map((store, index) => {
+      const storeId = String(store.store_id);
+      const notes = getSnapshotStoreNotes(storeId);
+      const photos = getSnapshotStorePhotos(storeId);
+      if (!notes.length && !photos.length) return null;
+
+      const notePreview = getSnapshotLatestNotePreview(notes, photos);
+      const latestPhotoTimestampValue = photos.length ? photos[0].timestampValue : 0;
+      const latestEvidenceTimestampValue = Math.max(notePreview.timestampValue, latestPhotoTimestampValue, 0);
+      const hasBoth = notes.length > 0 && photos.length > 0;
+      const statusCode = getSnapshotStatusCode(store);
+
+      return {
+        originalIndex: index,
+        storeId,
+        address: store.full_address || [store.city, store.state].filter(Boolean).join(", ") || "No address on file",
+        statusCode,
+        statusLabel: getStatusDisplayLabel(statusCode),
+        noteCount: notes.length,
+        photoCount: photos.length,
+        notes,
+        photos,
+        latestNotePreview: notePreview.preview,
+        latestNoteTimestampLabel: notePreview.timestampLabel,
+        latestEvidenceTimestampValue,
+        sortGroup: hasBoth ? 0 : 1
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.sortGroup !== b.sortGroup) return a.sortGroup - b.sortGroup;
+      if (a.latestEvidenceTimestampValue !== b.latestEvidenceTimestampValue) return b.latestEvidenceTimestampValue - a.latestEvidenceTimestampValue;
+      return a.originalIndex - b.originalIndex;
+    });
 }
 
 function getSnapshotEvidenceRows(filteredStores) {
