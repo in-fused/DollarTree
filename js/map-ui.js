@@ -1,3 +1,6 @@
+const ROUTE_LINE_SOURCE_ID = "route-line";
+const ROUTE_LINE_LAYER_ID = "route-line-layer";
+
 /* ================= LOGO / MOBILE ================= */
 
 function bindLogoHome() {
@@ -260,11 +263,73 @@ function createGeoJson(stores) {
   };
 }
 
+function createRouteLineGeoJson() {
+  const coordinates = (selectedRouteStops || [])
+    .map(storeId => getStoreById(storeId, { includeRemoved: showRemovedStores === true }))
+    .filter(store => store && Number.isFinite(store.lng) && Number.isFinite(store.lat))
+    .map(store => [store.lng, store.lat]);
+
+  if (coordinates.length < 2) {
+    return {
+      type: "FeatureCollection",
+      features: []
+    };
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates
+        }
+      }
+    ]
+  };
+}
+
+function ensureRouteLineSourceAndLayer() {
+  if (!map.getSource(ROUTE_LINE_SOURCE_ID)) {
+    map.addSource(ROUTE_LINE_SOURCE_ID, {
+      type: "geojson",
+      data: createRouteLineGeoJson()
+    });
+  }
+
+  if (!map.getLayer(ROUTE_LINE_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_LINE_LAYER_ID,
+      type: "line",
+      source: ROUTE_LINE_SOURCE_ID,
+      layout: {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      paint: {
+        "line-color": "rgba(255,255,255,0.82)",
+        "line-width": 4,
+        "line-opacity": 0.78,
+        "line-dasharray": [2, 1.4]
+      }
+    });
+  }
+}
+
+function updateRouteLineOnMap() {
+  const source = map.getSource(ROUTE_LINE_SOURCE_ID);
+  if (!source) return;
+  source.setData(createRouteLineGeoJson());
+}
+
 function getClusterDominantStatusColorExpression() {
   /*
-    Tie-break priority intentionally prefers the more operationally urgent non-complete states
-    before completed when counts are equal. This keeps rescheduled/closed clusters from visually
-    disappearing behind a generic completion-only heuristic.
+    Tie-break priority intentionally favors operationally urgent states before completed.
+    Order: closed > rescheduled > active > completed when counts are equal.
+    This keeps rescheduled/closed clusters visually distinct instead of collapsing back
+    into a completion-only interpretation.
   */
   return [
     "case",
@@ -416,6 +481,9 @@ function buildMap() {
     }
   });
 
+  ensureRouteLineSourceAndLayer();
+  updateRouteLineOnMap();
+
   map.on("click", "points", handleStorePointClick);
   map.on("click", "clusters", handleClusterClick);
 
@@ -442,6 +510,8 @@ function rebuildFullMap() {
   if (!map.getSource("stores")) return;
   geojsonData = createGeoJson(getFilteredStores());
   map.getSource("stores").setData(geojsonData);
+  ensureRouteLineSourceAndLayer();
+  updateRouteLineOnMap();
   ensureActivePulseAnimation();
 }
 
