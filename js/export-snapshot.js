@@ -1083,6 +1083,8 @@ function slugifyExportName(value) {
     .replace(/-{2,}/g, "-") || "export";
 }
 
+const ANALYTICS_EXPORT_SCHEMA_VERSION = "11.1c";
+
 function buildAnalyticsExportPayload() {
   const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
   const scopeMeta = getSnapshotScopeMeta(filteredStores);
@@ -1099,7 +1101,7 @@ function buildAnalyticsExportPayload() {
 
   return {
     exportType: "analytics_export",
-    schemaVersion: "11.1c",
+    schemaVersion: ANALYTICS_EXPORT_SCHEMA_VERSION,
     exportSummary,
     projectId: analyticsSnapshot.projectId || currentProjectId || "",
     projectName: analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot",
@@ -1354,16 +1356,18 @@ function bindAnalyticsExportControls() {
   });
 }
 
-window.slugifyExportName = slugifyExportName;
-window.buildAnalyticsExportPayload = buildAnalyticsExportPayload;
-window.buildAnalyticsExportBaseName = buildAnalyticsExportBaseName;
-window.downloadExportBlob = downloadExportBlob;
-window.downloadExportText = downloadExportText;
-window.buildAnalyticsCsvRows = buildAnalyticsCsvRows;
-window.escapeCsvValue = escapeCsvValue;
-window.serializeAnalyticsSnapshotToCsv = serializeAnalyticsSnapshotToCsv;
-window.exportProjectAnalyticsCsv = exportProjectAnalyticsCsv;
-window.exportProjectAnalyticsJson = exportProjectAnalyticsJson;
-window.bindAnalyticsExportControls = bindAnalyticsExportControls;
+Object.assign(window, {
+  slugifyExportName,
+  buildAnalyticsExportPayload,
+  buildAnalyticsExportBaseName,
+  downloadExportBlob,
+  downloadExportText,
+  buildAnalyticsCsvRows,
+  escapeCsvValue,
+  serializeAnalyticsSnapshotToCsv,
+  exportProjectAnalyticsCsv,
+  exportProjectAnalyticsJson,
+  bindAnalyticsExportControls
+});
 
 bindAnalyticsExportControls();
