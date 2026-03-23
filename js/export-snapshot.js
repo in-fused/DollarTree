@@ -1163,17 +1163,37 @@ const ANALYTICS_CSV_HEADERS = [
   "activityTimestampValue"
 ];
 
-function buildAnalyticsCsvRows() {
+function buildAnalyticsExportPayload() {
   const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
   const scopeMeta = getSnapshotScopeMeta(filteredStores);
   const rows = getSnapshotRows(filteredStores);
   const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
   const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
-  const analyticsMetrics = analyticsSnapshot.metrics || {};
-  const generatedAt = analyticsSnapshot.generatedAt || new Date().toISOString();
-  const projectId = analyticsSnapshot.projectId || currentProjectId || "";
-  const projectName = analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot";
-  const scopeLabel = analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel;
+
+  return {
+    projectId: analyticsSnapshot.projectId || currentProjectId || "",
+    projectName: analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot",
+    generatedAt: analyticsSnapshot.generatedAt || new Date().toISOString(),
+    scopeLabel: analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel,
+    metrics: analyticsSnapshot.metrics || {},
+    scopeMeta,
+    snapshotMetrics,
+    rows
+  };
+}
+
+function buildAnalyticsCsvRows() {
+  const payload = buildAnalyticsExportPayload();
+  const {
+    projectId,
+    projectName,
+    generatedAt,
+    scopeLabel,
+    metrics,
+    scopeMeta,
+    snapshotMetrics,
+    rows
+  } = payload;
 
   const buildBaseRow = () => ({
     rowType: "",
@@ -1182,30 +1202,30 @@ function buildAnalyticsCsvRows() {
     generatedAt,
     scopeLabel,
     scopeDescription: scopeMeta.scopeDescription,
-    totalStores: analyticsMetrics.totalStores ?? snapshotMetrics.total,
-    active: analyticsMetrics.active ?? snapshotMetrics.active,
-    rescheduled: analyticsMetrics.rescheduled ?? snapshotMetrics.rescheduled,
-    completed: analyticsMetrics.completed ?? snapshotMetrics.completed,
-    closed: analyticsMetrics.closed ?? snapshotMetrics.closed,
-    openWorkCount: analyticsMetrics.openWorkCount ?? Math.max(0, snapshotMetrics.total - snapshotMetrics.completed - snapshotMetrics.closed),
-    completionRate: analyticsMetrics.completionRate ?? Number(snapshotMetrics.completionRate.toFixed(2)),
-    actionableRate: analyticsMetrics.actionableRate ?? null,
-    noteCoverageRate: analyticsMetrics.noteCoverageRate ?? Number(snapshotMetrics.noteCoverageRate.toFixed(2)),
-    photoCoverageRate: analyticsMetrics.photoCoverageRate ?? Number(snapshotMetrics.photoCoverageRate.toFixed(2)),
-    activityCoverageRate: analyticsMetrics.activityCoverageRate ?? Number(snapshotMetrics.activityCoverageRate.toFixed(2)),
-    recentActivityCoverageRate: analyticsMetrics.recentActivityCoverageRate ?? null,
-    integrityIssueCount: analyticsMetrics.integrityIssueCount ?? null,
-    integrityIssueRate: analyticsMetrics.integrityIssueRate ?? null,
-    storesWithNoUpdates: analyticsMetrics.storesWithNoUpdates ?? null,
-    storesWithNotesNoPhotos: analyticsMetrics.storesWithNotesNoPhotos ?? null,
-    storesWithPhotosNoNotes: analyticsMetrics.storesWithPhotosNoNotes ?? null,
-    stalledActiveCount: analyticsMetrics.stalledActiveCount ?? null,
-    rescheduledNoReasonCount: analyticsMetrics.rescheduledNoReasonCount ?? null,
-    rescheduledNoRecentFollowUpCount: analyticsMetrics.rescheduledNoRecentFollowUpCount ?? null,
-    completedToday: analyticsMetrics.completedToday ?? null,
-    avgCompletedPerDay: analyticsMetrics.avgCompletedPerDay ?? null,
-    etaDays: analyticsMetrics.etaDays ?? null,
-    attentionNeededCount: analyticsMetrics.attentionNeededCount ?? null,
+    totalStores: metrics.totalStores ?? snapshotMetrics.total,
+    active: metrics.active ?? snapshotMetrics.active,
+    rescheduled: metrics.rescheduled ?? snapshotMetrics.rescheduled,
+    completed: metrics.completed ?? snapshotMetrics.completed,
+    closed: metrics.closed ?? snapshotMetrics.closed,
+    openWorkCount: metrics.openWorkCount ?? Math.max(0, snapshotMetrics.total - snapshotMetrics.completed - snapshotMetrics.closed),
+    completionRate: metrics.completionRate ?? Number(snapshotMetrics.completionRate.toFixed(2)),
+    actionableRate: metrics.actionableRate ?? null,
+    noteCoverageRate: metrics.noteCoverageRate ?? Number(snapshotMetrics.noteCoverageRate.toFixed(2)),
+    photoCoverageRate: metrics.photoCoverageRate ?? Number(snapshotMetrics.photoCoverageRate.toFixed(2)),
+    activityCoverageRate: metrics.activityCoverageRate ?? Number(snapshotMetrics.activityCoverageRate.toFixed(2)),
+    recentActivityCoverageRate: metrics.recentActivityCoverageRate ?? null,
+    integrityIssueCount: metrics.integrityIssueCount ?? null,
+    integrityIssueRate: metrics.integrityIssueRate ?? null,
+    storesWithNoUpdates: metrics.storesWithNoUpdates ?? null,
+    storesWithNotesNoPhotos: metrics.storesWithNotesNoPhotos ?? null,
+    storesWithPhotosNoNotes: metrics.storesWithPhotosNoNotes ?? null,
+    stalledActiveCount: metrics.stalledActiveCount ?? null,
+    rescheduledNoReasonCount: metrics.rescheduledNoReasonCount ?? null,
+    rescheduledNoRecentFollowUpCount: metrics.rescheduledNoRecentFollowUpCount ?? null,
+    completedToday: metrics.completedToday ?? null,
+    avgCompletedPerDay: metrics.avgCompletedPerDay ?? null,
+    etaDays: metrics.etaDays ?? null,
+    attentionNeededCount: metrics.attentionNeededCount ?? null,
     snapshotNotes: snapshotMetrics.notes,
     snapshotPhotos: snapshotMetrics.photos,
     storesWithNotes: snapshotMetrics.storesWithNotes,
@@ -1285,22 +1305,7 @@ function exportProjectAnalyticsCsv() {
 
 function exportProjectAnalyticsJson() {
   try {
-    const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
-    const scopeMeta = getSnapshotScopeMeta(filteredStores);
-    const rows = getSnapshotRows(filteredStores);
-    const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
-    const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
-    const payload = {
-      projectId: analyticsSnapshot.projectId || currentProjectId || "",
-      projectName: analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot",
-      generatedAt: analyticsSnapshot.generatedAt || new Date().toISOString(),
-      scopeLabel: analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel,
-      metrics: analyticsSnapshot.metrics || {},
-      scopeMeta,
-      snapshotMetrics,
-      rows
-    };
-
+    const payload = buildAnalyticsExportPayload();
     const filename = `${buildAnalyticsExportBaseName()}.json`;
     downloadExportText(filename, `${JSON.stringify(payload, null, 2)}\n`, "application/json;charset=utf-8");
   } catch (error) {
@@ -1333,6 +1338,7 @@ window.slugifyExportName = slugifyExportName;
 window.buildAnalyticsExportBaseName = buildAnalyticsExportBaseName;
 window.downloadExportBlob = downloadExportBlob;
 window.downloadExportText = downloadExportText;
+window.buildAnalyticsExportPayload = buildAnalyticsExportPayload;
 window.buildAnalyticsCsvRows = buildAnalyticsCsvRows;
 window.escapeCsvValue = escapeCsvValue;
 window.serializeAnalyticsSnapshotToCsv = serializeAnalyticsSnapshotToCsv;
