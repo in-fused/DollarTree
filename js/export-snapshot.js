@@ -1110,6 +1110,25 @@ function buildAnalyticsExportPayload() {
       detailRowType: "store_detail"
     },
     exportSummary,
+    exportCounts: {
+      totalRows: rows.length + 1,
+      summaryRows: 1,
+      detailRows: rows.length
+    },
+    exportIntegrity: {
+      hasRows: rows.length + 1 > 0,
+      hasSummaryRow: true,
+      hasDetailRows: rows.length > 0,
+      csvHeaderCount: ANALYTICS_CSV_HEADERS.length,
+      schemaVersion: ANALYTICS_EXPORT_SCHEMA_VERSION
+    },
+    ingestionHints: {
+      preferredKeyField: "storeId",
+      preferredTimestampField: "generatedAt",
+      preferredRowTypeField: "rowType",
+      supportsSummaryRow: true,
+      supportsDetailRows: true
+    },
     projectId: analyticsSnapshot.projectId || currentProjectId || "",
     projectName: analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot",
     generatedAt: analyticsSnapshot.generatedAt || new Date().toISOString(),
