@@ -1083,71 +1083,7 @@ function slugifyExportName(value) {
     .replace(/-{2,}/g, "-") || "export";
 }
 
-const ANALYTICS_EXPORT_SCHEMA_VERSION = "11.1c";
-
-function buildAnalyticsExportPayload() {
-  const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
-  const scopeMeta = getSnapshotScopeMeta(filteredStores);
-  const rows = getSnapshotRows(filteredStores);
-  const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
-  const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
-  const exportSummary = {
-    rowCount: rows.length + 1,
-    storeRowCount: rows.length,
-    includesProjectSummaryRow: true,
-    includesStoreDetailRows: rows.length > 0,
-    scopeDescription: scopeMeta.scopeDescription
-  };
-
-  return {
-    exportType: "analytics_export",
-    schemaVersion: ANALYTICS_EXPORT_SCHEMA_VERSION,
-    exportFormat: "route_builder_analytics",
-    exportedBy: "Route Builder",
-    exportedAtLocal: new Date().toLocaleString(),
-    rowSchema: {
-      summaryRowType: "project_summary",
-      detailRowType: "store_detail"
-    },
-    exportSummary,
-    projectId: analyticsSnapshot.projectId || currentProjectId || "",
-    projectName: analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot",
-    generatedAt: analyticsSnapshot.generatedAt || new Date().toISOString(),
-    scopeLabel: analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel,
-    metrics: analyticsSnapshot.metrics || {},
-    scopeMeta,
-    snapshotMetrics,
-    rows
-  };
-}
-
-function buildAnalyticsExportBaseName(payload) {
-  const exportPayload = payload || buildAnalyticsExportPayload();
-  const projectName = exportPayload.projectName || "project";
-  const scopeLabel = exportPayload.scopeLabel || "scope";
-  const generatedAt = exportPayload.generatedAt ? new Date(exportPayload.generatedAt) : new Date();
-  const safeGeneratedAt = Number.isNaN(generatedAt.getTime()) ? new Date() : generatedAt;
-  const dateStamp = safeGeneratedAt.toISOString().slice(0, 10);
-
-  return `${slugifyExportName(projectName)}-${slugifyExportName(scopeLabel)}-analytics-${dateStamp}`;
-}
-
-function downloadExportBlob(filename, blob) {
-  const objectUrl = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = objectUrl;
-  link.download = filename;
-  link.rel = "noopener";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-}
-
-function downloadExportText(filename, text, mimeType) {
-  downloadExportBlob(filename, new Blob([text], { type: mimeType || "text/plain;charset=utf-8" }));
-}
-
+const ANALYTICS_EXPORT_SCHEMA_VERSION = "11.1k-bundled";
 const ANALYTICS_CSV_HEADERS = [
   "rowType",
   "projectId",
@@ -1199,6 +1135,152 @@ const ANALYTICS_CSV_HEADERS = [
   "activitySummary",
   "activityTimestampValue"
 ];
+
+function buildAnalyticsExportPayload() {
+  const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
+  const scopeMeta = getSnapshotScopeMeta(filteredStores);
+  const rows = getSnapshotRows(filteredStores);
+  const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
+  const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
+  const projectId = analyticsSnapshot.projectId || currentProjectId || "";
+  const projectName = analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot";
+  const generatedAt = analyticsSnapshot.generatedAt || new Date().toISOString();
+  const scopeLabel = analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel;
+  const metrics = analyticsSnapshot.metrics || {};
+  const totalRows = rows.length + 1;
+  const detailRows = rows.length;
+
+  return {
+    exportType: "analytics_export",
+    schemaVersion: ANALYTICS_EXPORT_SCHEMA_VERSION,
+    exportFormat: "route_builder_analytics",
+    exportedBy: "Route Builder",
+    exportedAtLocal: new Date().toLocaleString(),
+    exportReady: true,
+    exportMode: "manual_download",
+    transport: "browser_blob_download",
+    payloadHealth: {
+      hasProjectId: Boolean(projectId),
+      hasProjectName: Boolean(projectName),
+      hasScopeLabel: Boolean(scopeLabel),
+      hasRows: totalRows > 0,
+      hasMetricsObject: Boolean(metrics && typeof metrics === "object" && !Array.isArray(metrics))
+    },
+    rowSchema: {
+      summaryRowType: "project_summary",
+      detailRowType: "store_detail"
+    },
+    exportSummary: {
+      rowCount: totalRows,
+      storeRowCount: detailRows,
+      includesProjectSummaryRow: true,
+      includesStoreDetailRows: detailRows > 0,
+      scopeDescription: scopeMeta.scopeDescription
+    },
+    exportCounts: {
+      totalRows,
+      summaryRows: 1,
+      detailRows
+    },
+    exportIntegrity: {
+      hasRows: totalRows > 0,
+      hasSummaryRow: true,
+      hasDetailRows: detailRows > 0,
+      csvHeaderCount: ANALYTICS_CSV_HEADERS.length,
+      schemaVersion: ANALYTICS_EXPORT_SCHEMA_VERSION
+    },
+    ingestionHints: {
+      preferredKeyField: "storeId",
+      preferredTimestampField: "generatedAt",
+      preferredRowTypeField: "rowType",
+      supportsSummaryRow: true,
+      supportsDetailRows: true
+    },
+    projectId,
+    projectName,
+    generatedAt,
+    scopeLabel,
+    metrics,
+    scopeMeta,
+    snapshotMetrics,
+    rows
+  };
+}
+
+function buildAnalyticsExportBaseName(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  const projectName = exportPayload.projectName || "project";
+  const scopeLabel = exportPayload.scopeLabel || "scope";
+  const generatedAt = exportPayload.generatedAt ? new Date(exportPayload.generatedAt) : new Date();
+  const safeGeneratedAt = Number.isNaN(generatedAt.getTime()) ? new Date() : generatedAt;
+  const dateStamp = safeGeneratedAt.toISOString().slice(0, 10);
+
+  return `${slugifyExportName(projectName)}-${slugifyExportName(scopeLabel)}-analytics-${dateStamp}`;
+}
+
+function buildAnalyticsExportManifest(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  const exportCounts = exportPayload.exportCounts || {};
+  const ingestionHints = exportPayload.ingestionHints || {};
+  const exportIntegrity = exportPayload.exportIntegrity || {};
+
+  return {
+    exportType: exportPayload.exportType,
+    schemaVersion: exportPayload.schemaVersion,
+    exportFormat: exportPayload.exportFormat,
+    exportedBy: exportPayload.exportedBy,
+    generatedAt: exportPayload.generatedAt,
+    exportedAtLocal: exportPayload.exportedAtLocal,
+    projectId: exportPayload.projectId,
+    projectName: exportPayload.projectName,
+    scopeLabel: exportPayload.scopeLabel,
+    totalRows: exportCounts.totalRows,
+    summaryRows: exportCounts.summaryRows,
+    detailRows: exportCounts.detailRows,
+    csvHeaderCount: exportIntegrity.csvHeaderCount,
+    supportsSummaryRow: ingestionHints.supportsSummaryRow === true,
+    supportsDetailRows: ingestionHints.supportsDetailRows === true
+  };
+}
+
+function estimateAnalyticsCsvBytes(payload) {
+  return new Blob([serializeAnalyticsSnapshotToCsv(payload)], { type: "text/csv;charset=utf-8" }).size;
+}
+
+function estimateAnalyticsJsonBytes(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  return new Blob([`${JSON.stringify(exportPayload, null, 2)}\n`], { type: "application/json;charset=utf-8" }).size;
+}
+
+function buildAnalyticsExportPreflight(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  const estimatedCsvBytes = estimateAnalyticsCsvBytes(exportPayload);
+  const estimatedJsonBytes = estimateAnalyticsJsonBytes(exportPayload);
+
+  return {
+    manifest: buildAnalyticsExportManifest(exportPayload),
+    estimatedCsvBytes,
+    estimatedJsonBytes,
+    estimatedCsvKilobytes: Number((estimatedCsvBytes / 1024).toFixed(2)),
+    estimatedJsonKilobytes: Number((estimatedJsonBytes / 1024).toFixed(2))
+  };
+}
+
+function downloadExportBlob(filename, blob) {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+}
+
+function downloadExportText(filename, text, mimeType) {
+  downloadExportBlob(filename, new Blob([text], { type: mimeType || "text/plain;charset=utf-8" }));
+}
 
 function normalizeAnalyticsExportValue(value) {
   if (value === undefined || value === null) return "";
@@ -1367,6 +1449,10 @@ Object.assign(window, {
   slugifyExportName,
   buildAnalyticsExportPayload,
   buildAnalyticsExportBaseName,
+  buildAnalyticsExportManifest,
+  estimateAnalyticsCsvBytes,
+  estimateAnalyticsJsonBytes,
+  buildAnalyticsExportPreflight,
   downloadExportBlob,
   downloadExportText,
   buildAnalyticsCsvRows,
