@@ -20,6 +20,7 @@ map.on("load", async () => {
   bindPhotoUI();
   bindLightboxUI();
   bindMobileExecutiveSummary();
+  bindSnapshotExportUI();
 
   await loadProjects();
   await loadActiveProject();
@@ -29,4 +30,5 @@ map.on("load", async () => {
   updateExecutiveModeUI();
   updateNationalOverviewUI();
   updateWorkspaceViewUI();
+  bindSnapshotExportUI();
 });

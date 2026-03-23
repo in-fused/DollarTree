@@ -28,6 +28,10 @@ async function initializeAuth() {
 
     updateAuthUI();
     updateWriteAccessUI();
+
+    if (typeof bindSnapshotExportUI === "function") {
+      bindSnapshotExportUI();
+    }
   });
 }
 
@@ -133,6 +137,10 @@ function updateAuthUI() {
   }
 
   updateWriteAccessUI();
+
+  if (typeof bindSnapshotExportUI === "function") {
+    bindSnapshotExportUI();
+  }
 }
 
 function updateWriteAccessUI() {

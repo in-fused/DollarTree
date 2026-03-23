@@ -1,48 +1,5 @@
 /* ================= PROJECTS / HYDRATION ================= */
 
-function normalizeProjectText(value) {
-  const normalized = value === undefined || value === null ? "" : String(value).trim();
-  return normalized || null;
-}
-
-function normalizeProjectCoordinate(...values) {
-  for (const value of values) {
-    if (value === undefined || value === null || String(value).trim() === "") continue;
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return null;
-}
-
-function normalizeHydratedStoreRow(store) {
-  const address = normalizeProjectText(store?.address || store?.address1 || store?.street);
-  const city = normalizeProjectText(store?.city);
-  const state = normalizeProjectText(store?.state || store?.province);
-  const zip = normalizeProjectText(store?.zip || store?.postcode || store?.postal_code);
-  const fullAddress = normalizeProjectText(store?.full_address)
-    || [address, city, state, zip].filter(Boolean).join(", ")
-    || null;
-
-  return {
-    ...store,
-    store_id: String(store?.store_id || store?.store_number || store?.location_id || "").trim(),
-    store_name: normalizeProjectText(store?.store_name || store?.location_name || store?.name),
-    customer_id: normalizeProjectText(store?.customer_id || store?.customer_number),
-    full_address: fullAddress,
-    region: normalizeProjectText(store?.region),
-    territory: normalizeProjectText(store?.territory),
-    state,
-    city,
-    district: normalizeProjectText(store?.district),
-    division: normalizeProjectText(store?.division),
-    market: normalizeProjectText(store?.market),
-    lat: normalizeProjectCoordinate(store?.lat, store?.latitude),
-    lng: normalizeProjectCoordinate(store?.lng, store?.lon, store?.long, store?.longitude),
-    is_removed: store?.is_removed === true,
-    removed_at: store?.removed_at || null
-  };
-}
-
 function getStoreById(storeId, options = {}) {
   const includeRemoved = options.includeRemoved === true;
   const normalizedStoreId = String(storeId);
@@ -189,6 +146,7 @@ function ensureProjectLifecycleControls() {
 
 async function loadProjects() {
   ensureProjectLifecycleControls();
+  bindSnapshotExportUI();
 
   const allProjects = await dataLayer.loadProjects();
   projectList = showArchivedProjects
@@ -219,6 +177,7 @@ async function loadProjects() {
 
   select.value = currentProjectId;
   updateProjectLifecycleControls();
+  bindSnapshotExportUI();
 }
 
 function bindProjectSelector() {
@@ -238,9 +197,12 @@ function bindProjectSelector() {
 async function hydrate() {
   const hydrated = await dataLayer.hydrateProject(currentProjectId, currentProjectMeta);
 
-  storeData = (hydrated.stores || [])
-    .map(normalizeHydratedStoreRow)
-    .filter(store => !!store.store_id);
+  allStoreData = (hydrated.stores || []).map(store => ({
+    ...normalizeStoreRecord(store),
+    is_removed: store?.is_removed === true,
+    removed_at: store?.removed_at || null
+  }));
+  storeData = [...allStoreData];
   statusRowsCache = hydrated.statusRows;
   noteRowsCache = hydrated.noteRows;
   photoRowsCache = hydrated.photoRows;
@@ -258,7 +220,18 @@ async function hydrate() {
     statusMap[key] = getStatusStateFromRow(row);
   });
 
-  statusMap = ensureStatusIntegrity(storeData, statusMap);
+  statusMap = ensureStatusIntegrity(allStoreData, statusMap);
+
+  Object.keys(statusMap).forEach(key => {
+    statusMap[key] = {
+      ...getStatusState(
+        statusMap[key]?.status_code || deriveLegacyStatusCode(statusMap[key]?.completed === true, statusMap[key]?.closed === true),
+        statusMap[key]?.status_reason || ""
+      ),
+      completed: statusMap[key]?.completed === true || normalizeStatusCode(statusMap[key]?.status_code) === "completed",
+      closed: statusMap[key]?.closed === true || normalizeStatusCode(statusMap[key]?.status_code) === "closed"
+    };
+  });
 
   if (hydrated.noteError) {
     console.error("Supabase store_notes error:", hydrated.noteError);
@@ -271,6 +244,13 @@ async function hydrate() {
   if (hydrated.activityEventError) {
     console.error("Supabase activity_events error:", hydrated.activityEventError);
   }
+
+  currentProjectMeta = {
+    ...currentProjectMeta,
+    backendKind: String(currentProjectMeta?.sourceLabel || "").toLowerCase().includes("supabase")
+      ? "supabase"
+      : "fallback"
+  };
 }
 
 function getHydratedStatusEventType(row) {
@@ -425,6 +405,7 @@ async function hydrateActivityFeed() {
 
 async function loadActiveProject() {
   ensureProjectLifecycleControls();
+  bindSnapshotExportUI();
 
   currentProjectMeta = projectList.find(project => project.project_id === currentProjectId) || {
     project_id: currentProjectId,
@@ -466,6 +447,7 @@ async function loadActiveProject() {
   resetPhotoLibraryDetail();
   renderPhotoLibrary();
   updateWorkspaceViewUI();
+  bindSnapshotExportUI();
 
   if (currentModalStoreId) {
     currentModalStoreId = null;
@@ -474,21 +456,12 @@ async function loadActiveProject() {
 }
 
 function updateProjectSourceTag() {
-  const tags = [currentProjectMeta?.name || currentProjectId, currentProjectMeta?.sourceLabel || "Project ready"];
+  const sourceLabel = currentProjectMeta?.sourceLabel || "Project ready";
+  const archiveLabel = currentProjectMeta?.is_archived === true ? " • Archived" : "";
+  const removalLabel = showRemovedStores === true ? " • Removed Visible" : "";
+  const updatedLabel = lastDataRefreshAt ? ` • Updated ${formatLastUpdated(lastDataRefreshAt)}` : "";
+  const text = `${currentProjectMeta?.name || currentProjectId} · ${sourceLabel}${archiveLabel}${removalLabel}${updatedLabel}`;
 
-  if (currentProjectMeta?.is_archived === true) {
-    tags.push("Archived");
-  }
-
-  if (showRemovedStores === true) {
-    tags.push("Removed Visible");
-  }
-
-  if (lastDataRefreshAt) {
-    tags.push(`Updated ${formatLastUpdated(lastDataRefreshAt)}`);
-  }
-
-  const text = tags.filter(Boolean).join(" • ");
   setText("projectSourceTag", text);
-  setText("projectSourceTagInline", text);
+  setText("projectSourceTagInline", `${sourceLabel}${archiveLabel}`);
 }
