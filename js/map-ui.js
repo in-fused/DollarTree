@@ -236,27 +236,27 @@ function getDominantClusterStatusColorExpression() {
     "case",
     [
       "all",
-      [">", ["get", "activeCount"], ["get", "rescheduledCount"]],
-      [">", ["get", "activeCount"], ["get", "completedCount"]],
-      [">", ["get", "activeCount"], ["get", "closedCount"]]
+      [">=", ["get", "closedCount"], ["get", "rescheduledCount"]],
+      [">=", ["get", "closedCount"], ["get", "activeCount"]],
+      [">=", ["get", "closedCount"], ["get", "completedCount"]],
+      [">", ["get", "closedCount"], 0]
     ],
-    "#64b5f6",
+    "#ff2d2d",
     [
       "all",
       [">=", ["get", "rescheduledCount"], ["get", "activeCount"]],
-      [">", ["get", "rescheduledCount"], ["get", "completedCount"]],
-      [">", ["get", "rescheduledCount"], ["get", "closedCount"]]
+      [">=", ["get", "rescheduledCount"], ["get", "completedCount"]],
+      [">", ["get", "rescheduledCount"], 0]
     ],
     "#ff9900",
     [
       "all",
-      [">=", ["get", "completedCount"], ["get", "activeCount"]],
-      [">=", ["get", "completedCount"], ["get", "rescheduledCount"]],
-      [">", ["get", "completedCount"], ["get", "closedCount"]]
+      [">=", ["get", "activeCount"], ["get", "completedCount"]],
+      [">", ["get", "activeCount"], 0]
     ],
+    "#64b5f6",
+    [">", ["get", "completedCount"], 0],
     "#2ecc71",
-    [">", ["get", "closedCount"], 0],
-    "#ff2d2d",
     "#64b5f6"
   ];
 }
@@ -309,11 +309,11 @@ function buildMap() {
       ],
       completedCount: [
         "+",
-        ["case", ["==", ["get", "completed"], true], 1, 0]
+        ["case", ["==", ["get", "status_code"], "completed"], 1, 0]
       ],
       closedCount: [
         "+",
-        ["case", ["==", ["get", "closed"], true], 1, 0]
+        ["case", ["==", ["get", "status_code"], "closed"], 1, 0]
       ],
       totalCount: ["+", 1]
     }
