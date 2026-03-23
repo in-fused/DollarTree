@@ -146,7 +146,6 @@ function ensureProjectLifecycleControls() {
 
 async function loadProjects() {
   ensureProjectLifecycleControls();
-  bindSnapshotExportUI();
 
   const allProjects = await dataLayer.loadProjects();
   projectList = showArchivedProjects
@@ -177,7 +176,6 @@ async function loadProjects() {
 
   select.value = currentProjectId;
   updateProjectLifecycleControls();
-  bindSnapshotExportUI();
 }
 
 function bindProjectSelector() {
@@ -405,7 +403,6 @@ async function hydrateActivityFeed() {
 
 async function loadActiveProject() {
   ensureProjectLifecycleControls();
-  bindSnapshotExportUI();
 
   currentProjectMeta = projectList.find(project => project.project_id === currentProjectId) || {
     project_id: currentProjectId,
@@ -447,7 +444,10 @@ async function loadActiveProject() {
   resetPhotoLibraryDetail();
   renderPhotoLibrary();
   updateWorkspaceViewUI();
-  bindSnapshotExportUI();
+
+  if (typeof bindSnapshotExportUI === "function") {
+    bindSnapshotExportUI();
+  }
 
   if (currentModalStoreId) {
     currentModalStoreId = null;
