@@ -1365,13 +1365,16 @@ function buildSnapshotHtml(payload) {
       }
 
       clickablePhotos.forEach(photo => {
-        photo.addEventListener("click", function () {
+        photo.addEventListener("click", function (event) {
+          event.preventDefault();
+          event.stopPropagation();
           openPhotoModal(photo.dataset.fullImage);
         });
 
         photo.addEventListener("keydown", function (event) {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
+            event.stopPropagation();
             openPhotoModal(photo.dataset.fullImage);
           }
         });
