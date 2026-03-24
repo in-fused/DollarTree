@@ -372,44 +372,6 @@ function getSnapshotEvidenceRows(filteredStores) {
     });
 }
 
-function getSnapshotEvidenceRows(filteredStores) {
-  return filteredStores
-    .map((store, index) => {
-      const storeId = String(store.store_id);
-      const notes = getSnapshotStoreNotes(storeId);
-      const photos = getSnapshotStorePhotos(storeId);
-      if (!notes.length && !photos.length) return null;
-
-      const notePreview = getSnapshotLatestNotePreview(notes);
-      const latestPhotoTimestampValue = photos.length ? photos[0].timestampValue : 0;
-      const latestEvidenceTimestampValue = Math.max(notePreview.timestampValue, latestPhotoTimestampValue, 0);
-      const hasBoth = notes.length > 0 && photos.length > 0;
-      const statusCode = getSnapshotStatusCode(store);
-
-      return {
-        originalIndex: index,
-        storeId,
-        address: store.full_address || [store.city, store.state].filter(Boolean).join(", ") || "No address on file",
-        statusCode,
-        statusLabel: getStatusDisplayLabel(statusCode),
-        noteCount: notes.length,
-        photoCount: photos.length,
-        notes,
-        photos,
-        latestNotePreview: notePreview.preview,
-        latestNoteTimestampLabel: notePreview.timestampLabel,
-        latestEvidenceTimestampValue,
-        sortGroup: hasBoth ? 0 : 1
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => {
-      if (a.sortGroup !== b.sortGroup) return a.sortGroup - b.sortGroup;
-      if (a.latestEvidenceTimestampValue !== b.latestEvidenceTimestampValue) return b.latestEvidenceTimestampValue - a.latestEvidenceTimestampValue;
-      return a.originalIndex - b.originalIndex;
-    });
-}
-
 function buildSnapshotEvidenceNotes(notes) {
   if (!notes.length) {
     return `<div class="evidence-empty-mini">No field notes logged.</div>`;
@@ -434,8 +396,12 @@ function buildSnapshotEvidencePhotoRail(photos, variant = "compact") {
       <img
         class="evidence-photo evidence-photo-${escapeSnapshotHtml(variant)}"
         src="${escapeSnapshotHtml(photo.imageUrl)}"
+        data-full-image="${escapeSnapshotHtml(photo.imageUrl)}"
         alt="Store evidence photo ${index + 1}"
         loading="lazy"
+        tabindex="0"
+        role="button"
+        aria-label="Open evidence photo ${index + 1}"
         onerror="this.closest('.evidence-photo-shell').classList.add('is-broken'); this.remove();"
       />
       <div class="evidence-photo-fallback">Image unavailable</div>
@@ -444,7 +410,6 @@ function buildSnapshotEvidencePhotoRail(photos, variant = "compact") {
 }
 
 function buildSnapshotEvidenceCards(evidenceRows) {
-
   if (!evidenceRows.length) {
     return `
       <div class="empty-state-card">
@@ -505,10 +470,29 @@ function buildSnapshotNarrative(payload) {
   const { metrics, scopeMeta } = payload;
 
   if (metrics.total === 0) {
-    return `This snapshot was generated from live project data with no stores currently visible in the selected ${scopeMeta.scopeLabel.toLowerCase()}.`;
+    return `No stores are currently visible in the selected ${scopeMeta.scopeLabel.toLowerCase()} scope.`;
   }
 
-  return `${metrics.total.toLocaleString()} stores are currently in scope. Actionable completion is ${metrics.completionRate.toFixed(1)}%, with ${metrics.storesWithPhotos.toLocaleString()} stores carrying photo evidence and ${metrics.storesWithRecentActivity.toLocaleString()} stores showing recent logged activity.`;
+  return `${metrics.completionRate.toFixed(1)}% of ${metrics.total.toLocaleString()} scoped stores are complete, with notes in ${metrics.storesWithNotes.toLocaleString()} stores, photo evidence in ${metrics.storesWithPhotos.toLocaleString()}, and recent activity in ${metrics.storesWithRecentActivity.toLocaleString()} stores.`;
+}
+
+function buildSnapshotHeroSummary(payload) {
+  const { metrics } = payload;
+  if (metrics.total === 0) {
+    return "No scoped stores are currently visible in this export.";
+  }
+
+  return `${metrics.completionRate.toFixed(1)}% completion across ${metrics.total.toLocaleString()} scoped stores • ${metrics.active.toLocaleString()} active • ${metrics.rescheduled.toLocaleString()} rescheduled • ${metrics.closed.toLocaleString()} closed`;
+}
+
+function getSnapshotReportIdentity(payload) {
+  const { projectTitle, scopeMeta, generatedAt } = payload;
+  return {
+    reportTitle: "Dollar Tree Executive Field Report",
+    reportSubtitle: `${projectTitle} · ${scopeMeta.scopeLabel} Management Snapshot`,
+    preparedBy: "Prepared via Route Builder",
+    generatedAtLabel: generatedAt
+  };
 }
 
 function buildSnapshotHtml(payload) {
@@ -525,6 +509,8 @@ function buildSnapshotHtml(payload) {
     productLabel,
     returnUrl
   } = payload;
+
+  const reportIdentity = getSnapshotReportIdentity(payload);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -960,6 +946,58 @@ function buildSnapshotHtml(payload) {
     color: #1e5b34;
     border-color: #c6decf;
   }
+  .cover-page {
+    background: linear-gradient(180deg, rgba(248, 251, 254, 0.99) 0%, rgba(239, 246, 252, 0.99) 100%);
+    border: 1px solid rgba(188, 203, 218, 0.92);
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow: var(--shadow);
+  }
+  .cover-kicker {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #6b8095;
+    margin-bottom: 10px;
+  }
+  .cover-title {
+    margin: 0;
+    font-size: 34px;
+    line-height: 1.08;
+    letter-spacing: -.02em;
+    color: #102132;
+  }
+  .cover-subtitle {
+    margin-top: 8px;
+    font-size: 16px;
+    color: #203648;
+    font-weight: 700;
+  }
+  .cover-meta-grid {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .cover-meta-item {
+    background: rgba(236, 243, 248, 0.92);
+    border: 1px solid rgba(188, 203, 218, 0.88);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: grid;
+    gap: 4px;
+  }
+  .cover-meta-item span {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #6f8398;
+  }
+  .cover-meta-item strong {
+    font-size: 13px;
+    color: #13283b;
+    line-height: 1.4;
+  }
   .evidence-card {
     border: 1px solid rgba(188, 203, 218, 0.88);
     border-radius: 16px;
@@ -994,7 +1032,13 @@ function buildSnapshotHtml(payload) {
   }
   .evidence-photo-shell-compact { width: 68px; height: 68px; }
   .evidence-photo-shell-expanded { min-height: 124px; }
-  .evidence-photo { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .evidence-photo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: zoom-in;
+  }
   .evidence-photo-expanded { aspect-ratio: 4 / 3; }
   .evidence-photo-fallback {
     display: none;
@@ -1010,6 +1054,56 @@ function buildSnapshotHtml(payload) {
   }
   .evidence-photo-shell.is-broken .evidence-photo-fallback { display: flex; }
   .evidence-expand-hint { font-size: 11px; color: var(--muted); font-weight: 700; }
+  .photo-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(6, 16, 24, 0.84);
+  }
+  .photo-modal.is-open {
+    display: flex;
+  }
+  .photo-modal-content {
+    position: relative;
+    width: min(96vw, 1200px);
+    max-height: 92vh;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(7, 18, 28, 0.9);
+    border: 1px solid rgba(255,255,255,0.16);
+    box-shadow: 0 18px 48px rgba(0,0,0,0.46);
+  }
+  .photo-modal-image {
+    display: block;
+    width: 100%;
+    max-height: 92vh;
+    object-fit: contain;
+    background: #0a1622;
+  }
+  .photo-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(255,255,255,0.32);
+    border-radius: 999px;
+    background: rgba(0,0,0,0.46);
+    color: #fff;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .photo-modal-close:hover { background: rgba(0,0,0,0.62); }
   .evidence-expanded {
     padding: 0 16px 16px;
     border-top: 1px solid rgba(188, 203, 218, 0.88);
@@ -1025,6 +1119,23 @@ function buildSnapshotHtml(payload) {
   .evidence-note-text { font-size: 13px; line-height: 1.55; color: #203648; }
   .evidence-photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .evidence-empty-mini { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .prepared-footer {
+    border: 1px solid rgba(188, 203, 218, 0.88);
+    border-radius: 14px;
+    background: rgba(244, 248, 252, 0.96);
+    padding: 12px 14px;
+  }
+  .prepared-footer-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: #173047;
+    margin-bottom: 4px;
+  }
+  .prepared-footer-subtitle {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
   .empty-state-card {
     border: 1px dashed var(--line-strong);
     border-radius: 14px;
@@ -1049,80 +1160,53 @@ function buildSnapshotHtml(payload) {
   }
   .print-only { display: none; }
   @media print {
-  /* Allow large sections to flow naturally */
-  .hero,
-  .panel,
-  .summary-strip,
-  .executionOverviewGrid,
-  .two-col {
-    page-break-inside: auto;
+    .photo-modal { display: none !important; }
+    [data-evidence-card] { page-break-inside: avoid; }
+    [data-evidence-card] .evidence-expanded { display: block !important; }
+    .cover-page { page-break-after: always; }
+    body {
+      background: #fff;
+    }
+    .page {
+      max-width: none;
+      padding: 10mm;
+      gap: 10px;
+    }
+    .utility-bar,
+    .hero,
+    .panel {
+      box-shadow: none;
+      backdrop-filter: none;
+      background: #fff;
+      border-color: #d6dce3;
+    }
+    .summary-card,
+    .executionSummaryCard,
+    .executionStatusCard,
+    .metric,
+    .meta-card {
+      background: #fff;
+      box-shadow: none;
+    }
+    .utility-bar {
+      position: static;
+      page-break-inside: avoid;
+    }
+    .hero,
+    .panel {
+      page-break-inside: avoid;
+    }
+    .print-only { display: block; }
+    .no-print { display: none !important; }
   }
-
-  /* ONLY protect small atomic components */
-  [data-evidence-card],
-  .metric,
-  .executionStatRow,
-  tr {
-    page-break-inside: avoid;
-  }
-
-  /* Prevent ugly orphan headers */
-  h1, h2, h3, .panel-eyebrow {
-    page-break-after: avoid;
-  }
-
-  /* Keep tables clean */
-  thead {
-    display: table-header-group;
-  }
-
-  tr {
-    page-break-inside: avoid;
-  }
-
-  /* Existing styles (keep these) */
-  body {
-    background: #fff;
-  }
-
-  .page {
-    max-width: none;
-    padding: 10mm;
-    gap: 10px;
-  }
-
-  .utility-bar,
-  .hero,
-  .panel {
-    box-shadow: none;
-    backdrop-filter: none;
-    background: #fff;
-    border-color: #d6dce3;
-  }
-
-  .summary-card,
-  .executionSummaryCard,
-  .executionStatusCard,
-  .metric,
-  .meta-card {
-    background: #fff;
-    box-shadow: none;
-  }
-
-  .utility-bar {
-    position: static;
-  }
-
-  .print-only { display: block; }
-  .no-print { display: none !important; }
-}
   @media (max-width: 1020px) {
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .summary-strip,
     .executionOverviewGrid,
     .two-col,
     .evidence-expanded-grid,
-    .evidence-summary { grid-template-columns: 1fr; }
+    .evidence-summary,
+    .cover-meta-grid { grid-template-columns: 1fr; }
     .hero-top,
     .utility-bar { flex-direction: column; }
     .hero-meta { min-width: 0; width: 100%; }
@@ -1132,9 +1216,21 @@ function buildSnapshotHtml(payload) {
 </head>
 <body>
   <div class="page">
+    <section class="cover-page">
+      <div class="cover-kicker">Management Report</div>
+      <h1 class="cover-title">${escapeSnapshotHtml(reportIdentity.reportTitle)}</h1>
+      <div class="cover-subtitle">${escapeSnapshotHtml(projectTitle)}</div>
+      <div class="cover-meta-grid">
+        <div class="cover-meta-item"><span>Scope</span><strong>${escapeSnapshotHtml(scopeMeta.scopeLabel)}</strong></div>
+        <div class="cover-meta-item"><span>Coverage</span><strong>${escapeSnapshotHtml(scopeMeta.scopeDescription)}</strong></div>
+        <div class="cover-meta-item"><span>Generated</span><strong>${escapeSnapshotHtml(generatedAt)}</strong></div>
+        <div class="cover-meta-item"><span>Prepared By</span><strong>${escapeSnapshotHtml(reportIdentity.preparedBy.replace("Prepared via ", ""))}</strong></div>
+      </div>
+    </section>
+
     <section class="utility-bar no-print">
       <div class="utility-copy">
-        <div class="utility-title">Executive snapshot ready for review, sharing, and PDF export</div>
+        <div class="utility-title">Management snapshot ready for review, sharing, and PDF export</div>
         <div class="utility-subtitle">Generated from live project data for the selected scope at ${escapeSnapshotHtml(generatedAt)}. Use Print to save as PDF, or return to the app when finished.</div>
       </div>
       <div class="utility-actions">
@@ -1148,8 +1244,8 @@ function buildSnapshotHtml(payload) {
     <section class="hero">
       <div class="hero-top">
         <div>
-          <div class="hero-eyebrow">${escapeSnapshotHtml(productLabel)}</div>
-          <h1 class="hero-title">${escapeSnapshotHtml(projectTitle)}</h1>
+          <div class="hero-eyebrow">${escapeSnapshotHtml(reportIdentity.reportTitle)}</div>
+          <h1 class="hero-title">${escapeSnapshotHtml(reportIdentity.reportSubtitle)}</h1>
           <div class="hero-subtitle">${escapeSnapshotHtml(operationalSummary)}</div>
         </div>
 
@@ -1183,6 +1279,11 @@ function buildSnapshotHtml(payload) {
             <div class="summary-kpi-row"><span>Recent Activity</span><span>${metrics.storesWithRecentActivity.toLocaleString()} stores</span></div>
           </div>
         </div>
+      </div>
+
+      <div class="prepared-footer">
+        <div class="prepared-footer-title">${escapeSnapshotHtml(reportIdentity.preparedBy)}</div>
+        <div class="prepared-footer-subtitle">Generated ${escapeSnapshotHtml(reportIdentity.generatedAtLabel)} for ${escapeSnapshotHtml(scopeMeta.scopeLabel)} coverage.</div>
       </div>
     </section>
 
@@ -1225,36 +1326,41 @@ function buildSnapshotHtml(payload) {
       </div>
     </section>
 
-    <section class="two-col">
-      <div class="panel">
-        <div class="panel-eyebrow">Store Summary</div>
-        <div class="footnote" style="margin-bottom:10px;">Rows are grouped for presentation by active, rescheduled, completed, then closed status, with the most recent activity surfaced first inside each group.</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Store ID</th>
-              <th>Location</th>
-              <th>Status</th>
-              <th>Reschedule Reason</th>
-              <th>Notes</th>
-              <th>Photos</th>
-              <th>Latest Activity</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${buildSnapshotTableRows(rows)}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="panel">
-        <div class="panel-eyebrow">Field Notes & Photo Evidence</div>
-        <div class="footnote" style="margin-bottom:10px;">This section surfaces scoped store-level evidence for stakeholder review, prioritizing locations with both notes and photos and allowing deeper browser inspection without removing print readability.</div>
-        ${buildSnapshotEvidenceCards(evidenceRows || [])}
-      </div>
+    <section class="panel">
+      <div class="panel-eyebrow">Store Summary</div>
+      <div class="footnote" style="margin-bottom:10px;">Rows are grouped for presentation by active, rescheduled, completed, then closed status, with the most recent activity surfaced first inside each group.</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Store ID</th>
+            <th>Location</th>
+            <th>Status</th>
+            <th>Reschedule Reason</th>
+            <th>Notes</th>
+            <th>Photos</th>
+            <th>Latest Activity</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${buildSnapshotTableRows(rows)}
+        </tbody>
+      </table>
     </section>
 
-    <div class="print-only footnote">Generated from live project data via ${escapeSnapshotHtml(productLabel)} on ${escapeSnapshotHtml(generatedAt)}.</div>
+    <section class="panel">
+      <div class="panel-eyebrow">Field Notes & Photo Evidence</div>
+      <div class="footnote" style="margin-bottom:10px;">This section surfaces scoped store-level evidence for stakeholder review, prioritizing locations with both notes and photos and allowing deeper browser inspection without removing print readability.</div>
+      ${buildSnapshotEvidenceCards(evidenceRows || [])}
+    </section>
+
+    <div class="print-only footnote">Generated from live project data via ${escapeSnapshotHtml(reportIdentity.reportTitle)} on ${escapeSnapshotHtml(generatedAt)}.</div>
+  </div>
+
+  <div id="snapshotPhotoModal" class="photo-modal no-print" aria-hidden="true">
+    <div class="photo-modal-content" role="dialog" aria-modal="true" aria-label="Evidence photo viewer">
+      <button id="snapshotPhotoModalClose" class="photo-modal-close" type="button" aria-label="Close photo viewer">×</button>
+      <img id="snapshotPhotoModalImage" class="photo-modal-image" alt="Expanded evidence photo" />
+    </div>
   </div>
 
   <script>
@@ -1263,6 +1369,11 @@ function buildSnapshotHtml(payload) {
       const printBtn = document.getElementById("snapshotPrintBtn");
       const returnBtn = document.getElementById("snapshotReturnBtn");
       const evidenceCards = Array.from(document.querySelectorAll("[data-evidence-card]"));
+      const photoModal = document.getElementById("snapshotPhotoModal");
+      const photoModalImage = document.getElementById("snapshotPhotoModalImage");
+      const photoModalClose = document.getElementById("snapshotPhotoModalClose");
+      const evidencePhotoSelector = ".evidence-photo";
+
       const applyEvidencePrintState = (openAll) => {
         evidenceCards.forEach(card => {
           if (openAll) {
@@ -1274,6 +1385,20 @@ function buildSnapshotHtml(payload) {
         });
       };
 
+      const closePhotoModal = () => {
+        if (!photoModal || !photoModalImage) return;
+        photoModal.classList.remove("is-open");
+        photoModal.setAttribute("aria-hidden", "true");
+        photoModalImage.removeAttribute("src");
+      };
+
+      const openPhotoModal = (imageUrl) => {
+        if (!photoModal || !photoModalImage || !imageUrl) return;
+        photoModalImage.src = imageUrl;
+        photoModal.classList.add("is-open");
+        photoModal.setAttribute("aria-hidden", "false");
+      };
+
       if (printBtn) {
         printBtn.addEventListener("click", function () {
           window.print();
@@ -1281,6 +1406,7 @@ function buildSnapshotHtml(payload) {
       }
 
       window.addEventListener("beforeprint", function () {
+        closePhotoModal();
         applyEvidencePrintState(true);
       });
 
@@ -1303,6 +1429,47 @@ function buildSnapshotHtml(payload) {
           window.location.reload();
         });
       }
+
+      if (photoModalClose) {
+        photoModalClose.addEventListener("click", function () {
+          closePhotoModal();
+        });
+      }
+
+      if (photoModal) {
+        photoModal.addEventListener("click", function (event) {
+          if (event.target === photoModal) {
+            closePhotoModal();
+          }
+        });
+      }
+
+      document.addEventListener("click", function (event) {
+        const target = event.target.closest(evidencePhotoSelector);
+        if (!target) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        openPhotoModal(target.getAttribute("data-full-image") || target.getAttribute("src") || "");
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          closePhotoModal();
+          return;
+        }
+
+        if (event.key !== "Enter" && event.key !== " ") return;
+
+        const target = document.activeElement;
+        if (!(target instanceof Element) || !target.matches(evidencePhotoSelector)) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        openPhotoModal(target.getAttribute("data-full-image") || target.getAttribute("src") || "");
+      });
     })();
   </script>
 </body>
@@ -1319,8 +1486,7 @@ function exportProjectSnapshot() {
   const generatedAt = generatedDate.toLocaleString();
   const generatedTimeLabel = `Generated ${generatedDate.toLocaleDateString()} • ${generatedDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
   const projectTitle = currentProjectMeta?.name || currentProjectId || "Project Snapshot";
-  const operationalSummary = document.getElementById("headerOperationalSummary")?.textContent
-    || `${metrics.total.toLocaleString()} stores in scope with ${metrics.completed.toLocaleString()} completed, ${metrics.rescheduled.toLocaleString()} rescheduled, and ${metrics.closed.toLocaleString()} closed.`;
+  const operationalSummary = buildSnapshotHeroSummary({ metrics, scopeMeta });
   const productLabel = "Route Builder Executive Snapshot";
   const returnUrl = window.location.href;
 
@@ -1350,16 +1516,205 @@ function slugifyExportName(value) {
     .replace(/-{2,}/g, "-") || "export";
 }
 
-function buildAnalyticsExportBaseName() {
-  const snapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
-  const projectName = snapshot.projectName || currentProjectMeta?.name || currentProjectId || "project";
-  const scopeLabel = snapshot.scopeLabel || document.getElementById("headerScopeSummary")?.textContent || "scope";
-  const generatedAt = snapshot.generatedAt ? new Date(snapshot.generatedAt) : new Date();
-  const dateStamp = Number.isNaN(generatedAt.getTime())
-    ? new Date().toISOString().slice(0, 10)
-    : generatedAt.toISOString().slice(0, 10);
+const ANALYTICS_EXPORT_SCHEMA_VERSION = "11.1k-bundled";
+const ANALYTICS_CSV_HEADERS = [
+  "rowType", "projectId", "projectName", "generatedAt", "scopeLabel", "scopeDescription", "totalStores", "active", "rescheduled", "completed", "closed", "openWorkCount", "completionRate", "actionableRate", "noteCoverageRate", "photoCoverageRate", "activityCoverageRate", "recentActivityCoverageRate", "integrityIssueCount", "integrityIssueRate", "storesWithNoUpdates", "storesWithNotesNoPhotos", "storesWithPhotosNoNotes", "stalledActiveCount", "rescheduledNoReasonCount", "rescheduledNoRecentFollowUpCount", "completedToday", "avgCompletedPerDay", "etaDays", "attentionNeededCount", "snapshotNotes", "snapshotPhotos", "storesWithNotes", "storesWithPhotos", "storesWithRecentActivity", "actionableTotal", "storeId", "address", "statusCode", "statusLabel", "rescheduleReason", "noteCount", "photoCount", "hasNotes", "hasPhotos", "hasActivity", "activityLabel", "activitySummary", "activityTimestampValue"
+];
+
+function buildAnalyticsExportPayload() {
+  const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
+  const scopeMeta = getSnapshotScopeMeta(filteredStores);
+  const rows = getSnapshotRows(filteredStores);
+  const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
+  const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
+  const projectId = analyticsSnapshot.projectId || currentProjectId || "";
+  const projectName = analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot";
+  const generatedAt = analyticsSnapshot.generatedAt || new Date().toISOString();
+  const scopeLabel = analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel;
+  const metrics = analyticsSnapshot.metrics || {};
+  const totalRows = rows.length + 1;
+  const detailRows = rows.length;
+
+  return {
+    exportType: "analytics_export",
+    schemaVersion: ANALYTICS_EXPORT_SCHEMA_VERSION,
+    exportFormat: "route_builder_analytics",
+    exportedBy: "Route Builder",
+    exportedAtLocal: new Date().toLocaleString(),
+    exportReady: true,
+    exportMode: "manual_download",
+    transport: "browser_blob_download",
+    payloadHealth: {
+      hasProjectId: Boolean(projectId),
+      hasProjectName: Boolean(projectName),
+      hasScopeLabel: Boolean(scopeLabel),
+      hasRows: totalRows > 0,
+      hasMetricsObject: Boolean(metrics && typeof metrics === "object" && !Array.isArray(metrics))
+    },
+    rowSchema: { summaryRowType: "project_summary", detailRowType: "store_detail" },
+    exportSummary: {
+      rowCount: totalRows,
+      storeRowCount: detailRows,
+      includesProjectSummaryRow: true,
+      includesStoreDetailRows: detailRows > 0,
+      scopeDescription: scopeMeta.scopeDescription
+    },
+    exportCounts: { totalRows, summaryRows: 1, detailRows },
+    exportIntegrity: {
+      hasRows: totalRows > 0,
+      hasSummaryRow: true,
+      hasDetailRows: detailRows > 0,
+      csvHeaderCount: ANALYTICS_CSV_HEADERS.length,
+      schemaVersion: ANALYTICS_EXPORT_SCHEMA_VERSION
+    },
+    ingestionHints: {
+      preferredKeyField: "storeId",
+      preferredTimestampField: "generatedAt",
+      preferredRowTypeField: "rowType",
+      supportsSummaryRow: true,
+      supportsDetailRows: true
+    },
+    projectId,
+    projectName,
+    generatedAt,
+    scopeLabel,
+    metrics,
+    scopeMeta,
+    snapshotMetrics,
+    rows
+  };
+}
+
+function buildAnalyticsExportBaseName(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  const projectName = exportPayload.projectName || "project";
+  const scopeLabel = exportPayload.scopeLabel || "scope";
+  const generatedAt = exportPayload.generatedAt ? new Date(exportPayload.generatedAt) : new Date();
+  const safeGeneratedAt = Number.isNaN(generatedAt.getTime()) ? new Date() : generatedAt;
+  const dateStamp = safeGeneratedAt.toISOString().slice(0, 10);
 
   return `${slugifyExportName(projectName)}-${slugifyExportName(scopeLabel)}-analytics-${dateStamp}`;
+}
+
+function buildAnalyticsExportManifest(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  const exportCounts = exportPayload.exportCounts || {};
+  const ingestionHints = exportPayload.ingestionHints || {};
+  const exportIntegrity = exportPayload.exportIntegrity || {};
+
+  return {
+    exportType: exportPayload.exportType,
+    schemaVersion: exportPayload.schemaVersion,
+    exportFormat: exportPayload.exportFormat,
+    exportedBy: exportPayload.exportedBy,
+    generatedAt: exportPayload.generatedAt,
+    exportedAtLocal: exportPayload.exportedAtLocal,
+    projectId: exportPayload.projectId,
+    projectName: exportPayload.projectName,
+    scopeLabel: exportPayload.scopeLabel,
+    totalRows: exportCounts.totalRows,
+    summaryRows: exportCounts.summaryRows,
+    detailRows: exportCounts.detailRows,
+    csvHeaderCount: exportIntegrity.csvHeaderCount,
+    supportsSummaryRow: ingestionHints.supportsSummaryRow === true,
+    supportsDetailRows: ingestionHints.supportsDetailRows === true
+  };
+}
+
+function estimateAnalyticsCsvBytes(payload) {
+  return new Blob([serializeAnalyticsSnapshotToCsv(payload)], { type: "text/csv;charset=utf-8" }).size;
+}
+
+function estimateAnalyticsJsonBytes(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  return new Blob([`${JSON.stringify(exportPayload, null, 2)}\n`], { type: "application/json;charset=utf-8" }).size;
+}
+
+function buildAnalyticsExportPreflight(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  const estimatedCsvBytes = estimateAnalyticsCsvBytes(exportPayload);
+  const estimatedJsonBytes = estimateAnalyticsJsonBytes(exportPayload);
+
+  return {
+    manifest: buildAnalyticsExportManifest(exportPayload),
+    estimatedCsvBytes,
+    estimatedJsonBytes,
+    estimatedCsvKilobytes: Number((estimatedCsvBytes / 1024).toFixed(2)),
+    estimatedJsonKilobytes: Number((estimatedJsonBytes / 1024).toFixed(2))
+  };
+}
+
+function isSupportedAnalyticsExportPayload(payload) {
+  return Boolean(
+    payload &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    payload.exportType === "analytics_export" &&
+    payload.exportFormat === "route_builder_analytics" &&
+    typeof payload.schemaVersion === "string" &&
+    payload.schemaVersion.trim() !== "" &&
+    Array.isArray(payload.rows)
+  );
+}
+
+function getAnalyticsExportSupportedRowTypes(payload) {
+  const rowSchema = payload && typeof payload === "object" && !Array.isArray(payload) ? (payload.rowSchema || {}) : {};
+  return [rowSchema.summaryRowType, rowSchema.detailRowType]
+    .map(value => String(value || "").trim())
+    .filter((value, index, array) => value && array.indexOf(value) === index);
+}
+
+function summarizeAnalyticsExportPayload(payload) {
+  const isSupported = isSupportedAnalyticsExportPayload(payload);
+  const exportCounts = payload && typeof payload === "object" && !Array.isArray(payload) ? (payload.exportCounts || {}) : {};
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+
+  return {
+    isSupported,
+    schemaVersion: payload?.schemaVersion || "",
+    exportFormat: payload?.exportFormat || "",
+    projectId: payload?.projectId || "",
+    projectName: payload?.projectName || "",
+    scopeLabel: payload?.scopeLabel || "",
+    totalRows: exportCounts.totalRows ?? rows.length,
+    detailRows: exportCounts.detailRows ?? rows.filter(row => row?.rowType === "store_detail").length,
+    summaryRows: exportCounts.summaryRows ?? rows.filter(row => row?.rowType === "project_summary").length,
+    hasRows: rows.length > 0,
+    hasMetrics: Boolean(payload && typeof payload.metrics === "object" && payload.metrics !== null && !Array.isArray(payload.metrics)),
+    hasScopeMeta: Boolean(payload && typeof payload.scopeMeta === "object" && payload.scopeMeta !== null && !Array.isArray(payload.scopeMeta)),
+    supportedRowTypes: getAnalyticsExportSupportedRowTypes(payload)
+  };
+}
+
+function validateAnalyticsExportPayloadShape(payload) {
+  const errors = [];
+  const warnings = [];
+  const isObject = Boolean(payload && typeof payload === "object" && !Array.isArray(payload));
+
+  if (!isObject) errors.push("payload missing or not object");
+  if (!isObject || payload.exportType !== "analytics_export") errors.push("wrong exportType");
+  if (!isObject || payload.exportFormat !== "route_builder_analytics") errors.push("wrong exportFormat");
+  if (!isObject || typeof payload.schemaVersion !== "string" || payload.schemaVersion.trim() === "") errors.push("missing schemaVersion");
+  if (!isObject || !Array.isArray(payload.rows)) errors.push("missing rows array");
+
+  if (!isObject || !payload.projectId) warnings.push("missing projectId");
+  if (!isObject || !payload.projectName) warnings.push("missing projectName");
+  if (!isObject || !payload.scopeLabel) warnings.push("missing scopeLabel");
+  if (!isObject || typeof payload.metrics !== "object" || payload.metrics === null || Array.isArray(payload.metrics)) warnings.push("missing metrics object");
+  if (!isObject || typeof payload.scopeMeta !== "object" || payload.scopeMeta === null || Array.isArray(payload.scopeMeta)) warnings.push("missing scopeMeta");
+  if (!Array.isArray(payload?.rows) || payload.rows.length === 0) warnings.push("rows array empty");
+  if (getAnalyticsExportSupportedRowTypes(payload).length < 2) warnings.push("rowSchema missing summary/detail row types");
+
+  return { isValid: errors.length === 0, errors, warnings };
+}
+
+function buildAnalyticsExportImportReadiness(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  return {
+    summary: summarizeAnalyticsExportPayload(exportPayload),
+    validation: validateAnalyticsExportPayloadShape(exportPayload),
+    preflight: buildAnalyticsExportPreflight(exportPayload)
+  };
 }
 
 function downloadExportBlob(filename, blob) {
@@ -1378,107 +1733,56 @@ function downloadExportText(filename, text, mimeType) {
   downloadExportBlob(filename, new Blob([text], { type: mimeType || "text/plain;charset=utf-8" }));
 }
 
-const ANALYTICS_CSV_HEADERS = [
-  "rowType",
-  "projectId",
-  "projectName",
-  "generatedAt",
-  "scopeLabel",
-  "scopeDescription",
-  "totalStores",
-  "active",
-  "rescheduled",
-  "completed",
-  "closed",
-  "openWorkCount",
-  "completionRate",
-  "actionableRate",
-  "noteCoverageRate",
-  "photoCoverageRate",
-  "activityCoverageRate",
-  "recentActivityCoverageRate",
-  "integrityIssueCount",
-  "integrityIssueRate",
-  "storesWithNoUpdates",
-  "storesWithNotesNoPhotos",
-  "storesWithPhotosNoNotes",
-  "stalledActiveCount",
-  "rescheduledNoReasonCount",
-  "rescheduledNoRecentFollowUpCount",
-  "completedToday",
-  "avgCompletedPerDay",
-  "etaDays",
-  "attentionNeededCount",
-  "snapshotNotes",
-  "snapshotPhotos",
-  "storesWithNotes",
-  "storesWithPhotos",
-  "storesWithRecentActivity",
-  "actionableTotal",
-  "storeId",
-  "address",
-  "statusCode",
-  "statusLabel",
-  "rescheduleReason",
-  "noteCount",
-  "photoCount",
-  "hasNotes",
-  "hasPhotos",
-  "hasActivity",
-  "activityLabel",
-  "activitySummary",
-  "activityTimestampValue"
-];
+function normalizeAnalyticsExportValue(value) {
+  if (value === undefined || value === null) return "";
+  return value;
+}
 
-function buildAnalyticsCsvRows() {
-  const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
-  const scopeMeta = getSnapshotScopeMeta(filteredStores);
-  const rows = getSnapshotRows(filteredStores);
-  const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
-  const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
-  const analyticsMetrics = analyticsSnapshot.metrics || {};
-  const generatedAt = analyticsSnapshot.generatedAt || new Date().toISOString();
-  const projectId = analyticsSnapshot.projectId || currentProjectId || "";
-  const projectName = analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot";
-  const scopeLabel = analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel;
+function normalizeAnalyticsExportBoolean(value) {
+  return value === true ? "true" : "false";
+}
+
+function buildAnalyticsCsvRows(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  const { projectId, projectName, generatedAt, scopeLabel, metrics, scopeMeta, snapshotMetrics, rows } = exportPayload;
 
   const buildBaseRow = () => ({
     rowType: "",
-    projectId,
-    projectName,
-    generatedAt,
-    scopeLabel,
-    scopeDescription: scopeMeta.scopeDescription,
-    totalStores: analyticsMetrics.totalStores ?? snapshotMetrics.total,
-    active: analyticsMetrics.active ?? snapshotMetrics.active,
-    rescheduled: analyticsMetrics.rescheduled ?? snapshotMetrics.rescheduled,
-    completed: analyticsMetrics.completed ?? snapshotMetrics.completed,
-    closed: analyticsMetrics.closed ?? snapshotMetrics.closed,
-    openWorkCount: analyticsMetrics.openWorkCount ?? Math.max(0, snapshotMetrics.total - snapshotMetrics.completed - snapshotMetrics.closed),
-    completionRate: analyticsMetrics.completionRate ?? Number(snapshotMetrics.completionRate.toFixed(2)),
-    actionableRate: analyticsMetrics.actionableRate ?? null,
-    noteCoverageRate: analyticsMetrics.noteCoverageRate ?? Number(snapshotMetrics.noteCoverageRate.toFixed(2)),
-    photoCoverageRate: analyticsMetrics.photoCoverageRate ?? Number(snapshotMetrics.photoCoverageRate.toFixed(2)),
-    activityCoverageRate: analyticsMetrics.activityCoverageRate ?? Number(snapshotMetrics.activityCoverageRate.toFixed(2)),
-    recentActivityCoverageRate: analyticsMetrics.recentActivityCoverageRate ?? null,
-    integrityIssueCount: analyticsMetrics.integrityIssueCount ?? null,
-    integrityIssueRate: analyticsMetrics.integrityIssueRate ?? null,
-    storesWithNoUpdates: analyticsMetrics.storesWithNoUpdates ?? null,
-    storesWithNotesNoPhotos: analyticsMetrics.storesWithNotesNoPhotos ?? null,
-    storesWithPhotosNoNotes: analyticsMetrics.storesWithPhotosNoNotes ?? null,
-    stalledActiveCount: analyticsMetrics.stalledActiveCount ?? null,
-    rescheduledNoReasonCount: analyticsMetrics.rescheduledNoReasonCount ?? null,
-    rescheduledNoRecentFollowUpCount: analyticsMetrics.rescheduledNoRecentFollowUpCount ?? null,
-    completedToday: analyticsMetrics.completedToday ?? null,
-    avgCompletedPerDay: analyticsMetrics.avgCompletedPerDay ?? null,
-    etaDays: analyticsMetrics.etaDays ?? null,
-    attentionNeededCount: analyticsMetrics.attentionNeededCount ?? null,
-    snapshotNotes: snapshotMetrics.notes,
-    snapshotPhotos: snapshotMetrics.photos,
-    storesWithNotes: snapshotMetrics.storesWithNotes,
-    storesWithPhotos: snapshotMetrics.storesWithPhotos,
-    storesWithRecentActivity: snapshotMetrics.storesWithRecentActivity,
-    actionableTotal: snapshotMetrics.actionableTotal,
+    projectId: normalizeAnalyticsExportValue(projectId),
+    projectName: normalizeAnalyticsExportValue(projectName),
+    generatedAt: normalizeAnalyticsExportValue(generatedAt),
+    scopeLabel: normalizeAnalyticsExportValue(scopeLabel),
+    scopeDescription: normalizeAnalyticsExportValue(scopeMeta.scopeDescription),
+    totalStores: normalizeAnalyticsExportValue(metrics.totalStores ?? snapshotMetrics.total),
+    active: normalizeAnalyticsExportValue(metrics.active ?? snapshotMetrics.active),
+    rescheduled: normalizeAnalyticsExportValue(metrics.rescheduled ?? snapshotMetrics.rescheduled),
+    completed: normalizeAnalyticsExportValue(metrics.completed ?? snapshotMetrics.completed),
+    closed: normalizeAnalyticsExportValue(metrics.closed ?? snapshotMetrics.closed),
+    openWorkCount: normalizeAnalyticsExportValue(metrics.openWorkCount ?? Math.max(0, snapshotMetrics.total - snapshotMetrics.completed - snapshotMetrics.closed)),
+    completionRate: normalizeAnalyticsExportValue(metrics.completionRate ?? Number(snapshotMetrics.completionRate.toFixed(2))),
+    actionableRate: normalizeAnalyticsExportValue(metrics.actionableRate),
+    noteCoverageRate: normalizeAnalyticsExportValue(metrics.noteCoverageRate ?? Number(snapshotMetrics.noteCoverageRate.toFixed(2))),
+    photoCoverageRate: normalizeAnalyticsExportValue(metrics.photoCoverageRate ?? Number(snapshotMetrics.photoCoverageRate.toFixed(2))),
+    activityCoverageRate: normalizeAnalyticsExportValue(metrics.activityCoverageRate ?? Number(snapshotMetrics.activityCoverageRate.toFixed(2))),
+    recentActivityCoverageRate: normalizeAnalyticsExportValue(metrics.recentActivityCoverageRate),
+    integrityIssueCount: normalizeAnalyticsExportValue(metrics.integrityIssueCount),
+    integrityIssueRate: normalizeAnalyticsExportValue(metrics.integrityIssueRate),
+    storesWithNoUpdates: normalizeAnalyticsExportValue(metrics.storesWithNoUpdates),
+    storesWithNotesNoPhotos: normalizeAnalyticsExportValue(metrics.storesWithNotesNoPhotos),
+    storesWithPhotosNoNotes: normalizeAnalyticsExportValue(metrics.storesWithPhotosNoNotes),
+    stalledActiveCount: normalizeAnalyticsExportValue(metrics.stalledActiveCount),
+    rescheduledNoReasonCount: normalizeAnalyticsExportValue(metrics.rescheduledNoReasonCount),
+    rescheduledNoRecentFollowUpCount: normalizeAnalyticsExportValue(metrics.rescheduledNoRecentFollowUpCount),
+    completedToday: normalizeAnalyticsExportValue(metrics.completedToday),
+    avgCompletedPerDay: normalizeAnalyticsExportValue(metrics.avgCompletedPerDay),
+    etaDays: normalizeAnalyticsExportValue(metrics.etaDays),
+    attentionNeededCount: normalizeAnalyticsExportValue(metrics.attentionNeededCount),
+    snapshotNotes: normalizeAnalyticsExportValue(snapshotMetrics.notes),
+    snapshotPhotos: normalizeAnalyticsExportValue(snapshotMetrics.photos),
+    storesWithNotes: normalizeAnalyticsExportValue(snapshotMetrics.storesWithNotes),
+    storesWithPhotos: normalizeAnalyticsExportValue(snapshotMetrics.storesWithPhotos),
+    storesWithRecentActivity: normalizeAnalyticsExportValue(snapshotMetrics.storesWithRecentActivity),
+    actionableTotal: normalizeAnalyticsExportValue(snapshotMetrics.actionableTotal),
     storeId: "",
     address: "",
     statusCode: "",
@@ -1486,35 +1790,32 @@ function buildAnalyticsCsvRows() {
     rescheduleReason: "",
     noteCount: "",
     photoCount: "",
-    hasNotes: "",
-    hasPhotos: "",
-    hasActivity: "",
+    hasNotes: "false",
+    hasPhotos: "false",
+    hasActivity: "false",
     activityLabel: "",
     activitySummary: "",
     activityTimestampValue: ""
   });
 
   return [
-    {
-      ...buildBaseRow(),
-      rowType: "project_summary"
-    },
+    { ...buildBaseRow(), rowType: "project_summary" },
     ...rows.map(row => ({
       ...buildBaseRow(),
       rowType: "store_detail",
-      storeId: row.storeId,
-      address: row.address,
-      statusCode: row.statusCode,
-      statusLabel: row.statusLabel,
-      rescheduleReason: row.rescheduleReason,
-      noteCount: row.noteCount,
-      photoCount: row.photoCount,
-      hasNotes: row.hasNotes,
-      hasPhotos: row.hasPhotos,
-      hasActivity: row.hasActivity,
-      activityLabel: row.activityLabel,
-      activitySummary: row.activitySummary,
-      activityTimestampValue: row.activityTimestampValue
+      storeId: normalizeAnalyticsExportValue(row.storeId),
+      address: normalizeAnalyticsExportValue(row.address),
+      statusCode: normalizeAnalyticsExportValue(row.statusCode),
+      statusLabel: normalizeAnalyticsExportValue(row.statusLabel),
+      rescheduleReason: normalizeAnalyticsExportValue(row.rescheduleReason),
+      noteCount: normalizeAnalyticsExportValue(row.noteCount),
+      photoCount: normalizeAnalyticsExportValue(row.photoCount),
+      hasNotes: normalizeAnalyticsExportBoolean(row.hasNotes),
+      hasPhotos: normalizeAnalyticsExportBoolean(row.hasPhotos),
+      hasActivity: normalizeAnalyticsExportBoolean(row.hasActivity),
+      activityLabel: normalizeAnalyticsExportValue(row.activityLabel),
+      activitySummary: normalizeAnalyticsExportValue(row.activitySummary),
+      activityTimestampValue: normalizeAnalyticsExportValue(row.activityTimestampValue)
     }))
   ];
 }
@@ -1527,8 +1828,9 @@ function escapeCsvValue(value) {
   return stringValue;
 }
 
-function serializeAnalyticsSnapshotToCsv() {
-  const rows = buildAnalyticsCsvRows();
+function serializeAnalyticsSnapshotToCsv(payload) {
+  const exportPayload = payload || buildAnalyticsExportPayload();
+  const rows = buildAnalyticsCsvRows(exportPayload);
   if (!rows.length) return "";
 
   const lines = [ANALYTICS_CSV_HEADERS.map(escapeCsvValue).join(",")];
@@ -1541,37 +1843,23 @@ function serializeAnalyticsSnapshotToCsv() {
 
 function exportProjectAnalyticsCsv() {
   try {
-    const filename = `${buildAnalyticsExportBaseName()}.csv`;
-    const csv = serializeAnalyticsSnapshotToCsv();
+    const exportPayload = buildAnalyticsExportPayload();
+    const filename = `${buildAnalyticsExportBaseName(exportPayload)}.csv`;
+    const csv = serializeAnalyticsSnapshotToCsv(exportPayload);
     downloadExportText(filename, csv, "text/csv;charset=utf-8");
   } catch (error) {
-    console.error("Analytics CSV export failed", error);
+    console.error(error);
     alert("Analytics export failed. Please try again.");
   }
 }
 
 function exportProjectAnalyticsJson() {
   try {
-    const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
-    const scopeMeta = getSnapshotScopeMeta(filteredStores);
-    const rows = getSnapshotRows(filteredStores);
-    const snapshotMetrics = getSnapshotMetrics(filteredStores, rows);
-    const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : {};
-    const payload = {
-      projectId: analyticsSnapshot.projectId || currentProjectId || "",
-      projectName: analyticsSnapshot.projectName || currentProjectMeta?.name || currentProjectId || "Project Snapshot",
-      generatedAt: analyticsSnapshot.generatedAt || new Date().toISOString(),
-      scopeLabel: analyticsSnapshot.scopeLabel || scopeMeta.scopeLabel,
-      metrics: analyticsSnapshot.metrics || {},
-      scopeMeta,
-      snapshotMetrics,
-      rows
-    };
-
-    const filename = `${buildAnalyticsExportBaseName()}.json`;
-    downloadExportText(filename, `${JSON.stringify(payload, null, 2)}\n`, "application/json;charset=utf-8");
+    const exportPayload = buildAnalyticsExportPayload();
+    const filename = `${buildAnalyticsExportBaseName(exportPayload)}.json`;
+    downloadExportText(filename, `${JSON.stringify(exportPayload, null, 2)}\n`, "application/json;charset=utf-8");
   } catch (error) {
-    console.error("Analytics JSON export failed", error);
+    console.error(error);
     alert("Analytics export failed. Please try again.");
   }
 }
@@ -1596,15 +1884,27 @@ function bindAnalyticsExportControls() {
   });
 }
 
-window.slugifyExportName = slugifyExportName;
-window.buildAnalyticsExportBaseName = buildAnalyticsExportBaseName;
-window.downloadExportBlob = downloadExportBlob;
-window.downloadExportText = downloadExportText;
-window.buildAnalyticsCsvRows = buildAnalyticsCsvRows;
-window.escapeCsvValue = escapeCsvValue;
-window.serializeAnalyticsSnapshotToCsv = serializeAnalyticsSnapshotToCsv;
-window.exportProjectAnalyticsCsv = exportProjectAnalyticsCsv;
-window.exportProjectAnalyticsJson = exportProjectAnalyticsJson;
-window.bindAnalyticsExportControls = bindAnalyticsExportControls;
+Object.assign(window, {
+  slugifyExportName,
+  buildAnalyticsExportPayload,
+  buildAnalyticsExportBaseName,
+  buildAnalyticsExportManifest,
+  estimateAnalyticsCsvBytes,
+  estimateAnalyticsJsonBytes,
+  buildAnalyticsExportPreflight,
+  isSupportedAnalyticsExportPayload,
+  getAnalyticsExportSupportedRowTypes,
+  summarizeAnalyticsExportPayload,
+  validateAnalyticsExportPayloadShape,
+  buildAnalyticsExportImportReadiness,
+  downloadExportBlob,
+  downloadExportText,
+  buildAnalyticsCsvRows,
+  escapeCsvValue,
+  serializeAnalyticsSnapshotToCsv,
+  exportProjectAnalyticsCsv,
+  exportProjectAnalyticsJson,
+  bindAnalyticsExportControls
+});
 
 bindAnalyticsExportControls();
