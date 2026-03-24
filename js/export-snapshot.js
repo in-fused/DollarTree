@@ -396,12 +396,8 @@ function buildSnapshotEvidencePhotoRail(photos, variant = "compact") {
       <img
         class="evidence-photo evidence-photo-${escapeSnapshotHtml(variant)}"
         src="${escapeSnapshotHtml(photo.imageUrl)}"
-        data-full-image="${escapeSnapshotHtml(photo.imageUrl)}"
         alt="Store evidence photo ${index + 1}"
         loading="lazy"
-        tabindex="0"
-        role="button"
-        aria-label="Open evidence photo ${index + 1}"
         onerror="this.closest('.evidence-photo-shell').classList.add('is-broken'); this.remove();"
       />
       <div class="evidence-photo-fallback">Image unavailable</div>
@@ -476,14 +472,6 @@ function buildSnapshotNarrative(payload) {
   return `${metrics.completionRate.toFixed(1)}% of ${metrics.total.toLocaleString()} scoped stores are complete, with notes in ${metrics.storesWithNotes.toLocaleString()} stores, photo evidence in ${metrics.storesWithPhotos.toLocaleString()}, and recent activity in ${metrics.storesWithRecentActivity.toLocaleString()} stores.`;
 }
 
-function buildSnapshotHeroSummary(payload) {
-  const { metrics } = payload;
-  if (metrics.total === 0) {
-    return "No scoped stores are currently visible in this export.";
-  }
-
-  return `${metrics.completionRate.toFixed(1)}% completion across ${metrics.total.toLocaleString()} scoped stores • ${metrics.active.toLocaleString()} active • ${metrics.rescheduled.toLocaleString()} rescheduled • ${metrics.closed.toLocaleString()} closed`;
-}
 
 function getSnapshotReportIdentity(payload) {
   const { projectTitle, scopeMeta, generatedAt } = payload;
@@ -946,58 +934,6 @@ function buildSnapshotHtml(payload) {
     color: #1e5b34;
     border-color: #c6decf;
   }
-  .cover-page {
-    background: linear-gradient(180deg, rgba(248, 251, 254, 0.99) 0%, rgba(239, 246, 252, 0.99) 100%);
-    border: 1px solid rgba(188, 203, 218, 0.92);
-    border-radius: 18px;
-    padding: 28px;
-    box-shadow: var(--shadow);
-  }
-  .cover-kicker {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: .14em;
-    color: #6b8095;
-    margin-bottom: 10px;
-  }
-  .cover-title {
-    margin: 0;
-    font-size: 34px;
-    line-height: 1.08;
-    letter-spacing: -.02em;
-    color: #102132;
-  }
-  .cover-subtitle {
-    margin-top: 8px;
-    font-size: 16px;
-    color: #203648;
-    font-weight: 700;
-  }
-  .cover-meta-grid {
-    margin-top: 18px;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-  .cover-meta-item {
-    background: rgba(236, 243, 248, 0.92);
-    border: 1px solid rgba(188, 203, 218, 0.88);
-    border-radius: 12px;
-    padding: 10px 12px;
-    display: grid;
-    gap: 4px;
-  }
-  .cover-meta-item span {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    color: #6f8398;
-  }
-  .cover-meta-item strong {
-    font-size: 13px;
-    color: #13283b;
-    line-height: 1.4;
-  }
   .evidence-card {
     border: 1px solid rgba(188, 203, 218, 0.88);
     border-radius: 16px;
@@ -1032,13 +968,7 @@ function buildSnapshotHtml(payload) {
   }
   .evidence-photo-shell-compact { width: 68px; height: 68px; }
   .evidence-photo-shell-expanded { min-height: 124px; }
-  .evidence-photo {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    cursor: zoom-in;
-  }
+  .evidence-photo { display: block; width: 100%; height: 100%; object-fit: cover; }
   .evidence-photo-expanded { aspect-ratio: 4 / 3; }
   .evidence-photo-fallback {
     display: none;
@@ -1054,56 +984,6 @@ function buildSnapshotHtml(payload) {
   }
   .evidence-photo-shell.is-broken .evidence-photo-fallback { display: flex; }
   .evidence-expand-hint { font-size: 11px; color: var(--muted); font-weight: 700; }
-  .photo-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: rgba(6, 16, 24, 0.84);
-  }
-  .photo-modal.is-open {
-    display: flex;
-  }
-  .photo-modal-content {
-    position: relative;
-    width: min(96vw, 1200px);
-    max-height: 92vh;
-    display: grid;
-    place-items: center;
-    border-radius: 14px;
-    overflow: hidden;
-    background: rgba(7, 18, 28, 0.9);
-    border: 1px solid rgba(255,255,255,0.16);
-    box-shadow: 0 18px 48px rgba(0,0,0,0.46);
-  }
-  .photo-modal-image {
-    display: block;
-    width: 100%;
-    max-height: 92vh;
-    object-fit: contain;
-    background: #0a1622;
-  }
-  .photo-modal-close {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 34px;
-    height: 34px;
-    border: 1px solid rgba(255,255,255,0.32);
-    border-radius: 999px;
-    background: rgba(0,0,0,0.46);
-    color: #fff;
-    font-size: 20px;
-    line-height: 1;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .photo-modal-close:hover { background: rgba(0,0,0,0.62); }
   .evidence-expanded {
     padding: 0 16px 16px;
     border-top: 1px solid rgba(188, 203, 218, 0.88);
@@ -1136,7 +1016,7 @@ function buildSnapshotHtml(payload) {
     font-size: 12px;
     line-height: 1.45;
   }
-  .empty-state-card {
+.empty-state-card {
     border: 1px dashed var(--line-strong);
     border-radius: 14px;
     background: rgba(239, 245, 250, 0.92);
@@ -1160,10 +1040,8 @@ function buildSnapshotHtml(payload) {
   }
   .print-only { display: none; }
   @media print {
-    .photo-modal { display: none !important; }
     [data-evidence-card] { page-break-inside: avoid; }
     [data-evidence-card] .evidence-expanded { display: block !important; }
-    .cover-page { page-break-after: always; }
     body {
       background: #fff;
     }
@@ -1205,8 +1083,7 @@ function buildSnapshotHtml(payload) {
     .executionOverviewGrid,
     .two-col,
     .evidence-expanded-grid,
-    .evidence-summary,
-    .cover-meta-grid { grid-template-columns: 1fr; }
+    .evidence-summary { grid-template-columns: 1fr; }
     .hero-top,
     .utility-bar { flex-direction: column; }
     .hero-meta { min-width: 0; width: 100%; }
@@ -1216,31 +1093,6 @@ function buildSnapshotHtml(payload) {
 </head>
 <body>
   <div class="page">
-    <section class="cover-page">
-      <div class="cover-kicker">Management Report</div>
-      <h1 class="cover-title">${escapeSnapshotHtml(reportIdentity.reportTitle)}</h1>
-      <div class="cover-subtitle">${escapeSnapshotHtml(projectTitle)}</div>
-      <div class="cover-meta-grid">
-        <div class="cover-meta-item"><span>Scope</span><strong>${escapeSnapshotHtml(scopeMeta.scopeLabel)}</strong></div>
-        <div class="cover-meta-item"><span>Coverage</span><strong>${escapeSnapshotHtml(scopeMeta.scopeDescription)}</strong></div>
-        <div class="cover-meta-item"><span>Generated</span><strong>${escapeSnapshotHtml(generatedAt)}</strong></div>
-        <div class="cover-meta-item"><span>Prepared By</span><strong>${escapeSnapshotHtml(reportIdentity.preparedBy.replace("Prepared via ", ""))}</strong></div>
-      </div>
-    </section>
-
-    <section class="utility-bar no-print">
-      <div class="utility-copy">
-        <div class="utility-title">Management snapshot ready for review, sharing, and PDF export</div>
-        <div class="utility-subtitle">Generated from live project data for the selected scope at ${escapeSnapshotHtml(generatedAt)}. Use Print to save as PDF, or return to the app when finished.</div>
-      </div>
-      <div class="utility-actions">
-        <button id="snapshotReturnBtn" class="utility-btn secondary" type="button">Back to App</button>
-        <button id="snapshotPrintBtn" class="utility-btn" type="button">Print / Save as PDF</button>
-        <span class="utility-chip">${escapeSnapshotHtml(scopeMeta.scopeLabel)}</span>
-        <span class="utility-chip">${escapeSnapshotHtml(generatedTimeLabel)}</span>
-      </div>
-    </section>
-
     <section class="hero">
       <div class="hero-top">
         <div>
@@ -1287,6 +1139,19 @@ function buildSnapshotHtml(payload) {
       </div>
     </section>
 
+    <section class="utility-bar no-print">
+      <div class="utility-copy">
+        <div class="utility-title">Management snapshot ready for review, sharing, and PDF export</div>
+        <div class="utility-subtitle">Generated from live project data for the selected scope at ${escapeSnapshotHtml(generatedAt)}. Use Print to save as PDF, or return to the app when finished.</div>
+      </div>
+      <div class="utility-actions">
+        <button id="snapshotReturnBtn" class="utility-btn secondary" type="button">Back to App</button>
+        <button id="snapshotPrintBtn" class="utility-btn" type="button">Print / Save as PDF</button>
+        <span class="utility-chip">${escapeSnapshotHtml(scopeMeta.scopeLabel)}</span>
+        <span class="utility-chip">${escapeSnapshotHtml(generatedTimeLabel)}</span>
+      </div>
+    </section>
+
     <section class="panel">
       <div class="panel-eyebrow">Operational Metrics</div>
       <div class="metric-grid">
@@ -1326,41 +1191,36 @@ function buildSnapshotHtml(payload) {
       </div>
     </section>
 
-    <section class="panel">
-      <div class="panel-eyebrow">Store Summary</div>
-      <div class="footnote" style="margin-bottom:10px;">Rows are grouped for presentation by active, rescheduled, completed, then closed status, with the most recent activity surfaced first inside each group.</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Store ID</th>
-            <th>Location</th>
-            <th>Status</th>
-            <th>Reschedule Reason</th>
-            <th>Notes</th>
-            <th>Photos</th>
-            <th>Latest Activity</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${buildSnapshotTableRows(rows)}
-        </tbody>
-      </table>
-    </section>
+    <section class="two-col">
+      <div class="panel">
+        <div class="panel-eyebrow">Store Summary</div>
+        <div class="footnote" style="margin-bottom:10px;">Rows are grouped for presentation by active, rescheduled, completed, then closed status, with the most recent activity surfaced first inside each group.</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Store ID</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Reschedule Reason</th>
+              <th>Notes</th>
+              <th>Photos</th>
+              <th>Latest Activity</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${buildSnapshotTableRows(rows)}
+          </tbody>
+        </table>
+      </div>
 
-    <section class="panel">
-      <div class="panel-eyebrow">Field Notes & Photo Evidence</div>
-      <div class="footnote" style="margin-bottom:10px;">This section surfaces scoped store-level evidence for stakeholder review, prioritizing locations with both notes and photos and allowing deeper browser inspection without removing print readability.</div>
-      ${buildSnapshotEvidenceCards(evidenceRows || [])}
+      <div class="panel">
+        <div class="panel-eyebrow">Field Notes & Photo Evidence</div>
+        <div class="footnote" style="margin-bottom:10px;">This section surfaces scoped store-level evidence for stakeholder review, prioritizing locations with both notes and photos and allowing deeper browser inspection without removing print readability.</div>
+        ${buildSnapshotEvidenceCards(evidenceRows || [])}
+      </div>
     </section>
 
     <div class="print-only footnote">Generated from live project data via ${escapeSnapshotHtml(reportIdentity.reportTitle)} on ${escapeSnapshotHtml(generatedAt)}.</div>
-  </div>
-
-  <div id="snapshotPhotoModal" class="photo-modal no-print" aria-hidden="true">
-    <div class="photo-modal-content" role="dialog" aria-modal="true" aria-label="Evidence photo viewer">
-      <button id="snapshotPhotoModalClose" class="photo-modal-close" type="button" aria-label="Close photo viewer">×</button>
-      <img id="snapshotPhotoModalImage" class="photo-modal-image" alt="Expanded evidence photo" />
-    </div>
   </div>
 
   <script>
@@ -1369,11 +1229,6 @@ function buildSnapshotHtml(payload) {
       const printBtn = document.getElementById("snapshotPrintBtn");
       const returnBtn = document.getElementById("snapshotReturnBtn");
       const evidenceCards = Array.from(document.querySelectorAll("[data-evidence-card]"));
-      const photoModal = document.getElementById("snapshotPhotoModal");
-      const photoModalImage = document.getElementById("snapshotPhotoModalImage");
-      const photoModalClose = document.getElementById("snapshotPhotoModalClose");
-      const evidencePhotoSelector = ".evidence-photo";
-
       const applyEvidencePrintState = (openAll) => {
         evidenceCards.forEach(card => {
           if (openAll) {
@@ -1385,20 +1240,6 @@ function buildSnapshotHtml(payload) {
         });
       };
 
-      const closePhotoModal = () => {
-        if (!photoModal || !photoModalImage) return;
-        photoModal.classList.remove("is-open");
-        photoModal.setAttribute("aria-hidden", "true");
-        photoModalImage.removeAttribute("src");
-      };
-
-      const openPhotoModal = (imageUrl) => {
-        if (!photoModal || !photoModalImage || !imageUrl) return;
-        photoModalImage.src = imageUrl;
-        photoModal.classList.add("is-open");
-        photoModal.setAttribute("aria-hidden", "false");
-      };
-
       if (printBtn) {
         printBtn.addEventListener("click", function () {
           window.print();
@@ -1406,7 +1247,6 @@ function buildSnapshotHtml(payload) {
       }
 
       window.addEventListener("beforeprint", function () {
-        closePhotoModal();
         applyEvidencePrintState(true);
       });
 
@@ -1429,47 +1269,6 @@ function buildSnapshotHtml(payload) {
           window.location.reload();
         });
       }
-
-      if (photoModalClose) {
-        photoModalClose.addEventListener("click", function () {
-          closePhotoModal();
-        });
-      }
-
-      if (photoModal) {
-        photoModal.addEventListener("click", function (event) {
-          if (event.target === photoModal) {
-            closePhotoModal();
-          }
-        });
-      }
-
-      document.addEventListener("click", function (event) {
-        const target = event.target.closest(evidencePhotoSelector);
-        if (!target) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        openPhotoModal(target.getAttribute("data-full-image") || target.getAttribute("src") || "");
-      });
-
-      document.addEventListener("keydown", function (event) {
-        if (event.key === "Escape") {
-          closePhotoModal();
-          return;
-        }
-
-        if (event.key !== "Enter" && event.key !== " ") return;
-
-        const target = document.activeElement;
-        if (!(target instanceof Element) || !target.matches(evidencePhotoSelector)) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        openPhotoModal(target.getAttribute("data-full-image") || target.getAttribute("src") || "");
-      });
     })();
   </script>
 </body>
@@ -1486,7 +1285,8 @@ function exportProjectSnapshot() {
   const generatedAt = generatedDate.toLocaleString();
   const generatedTimeLabel = `Generated ${generatedDate.toLocaleDateString()} • ${generatedDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
   const projectTitle = currentProjectMeta?.name || currentProjectId || "Project Snapshot";
-  const operationalSummary = buildSnapshotHeroSummary({ metrics, scopeMeta });
+  const operationalSummary = document.getElementById("headerOperationalSummary")?.textContent
+    || `${metrics.total.toLocaleString()} stores in scope with ${metrics.completed.toLocaleString()} completed, ${metrics.rescheduled.toLocaleString()} rescheduled, and ${metrics.closed.toLocaleString()} closed.`;
   const productLabel = "Route Builder Executive Snapshot";
   const returnUrl = window.location.href;
 
@@ -1627,7 +1427,8 @@ function estimateAnalyticsCsvBytes(payload) {
 
 function estimateAnalyticsJsonBytes(payload) {
   const exportPayload = payload || buildAnalyticsExportPayload();
-  return new Blob([`${JSON.stringify(exportPayload, null, 2)}\n`], { type: "application/json;charset=utf-8" }).size;
+  return new Blob([`${JSON.stringify(exportPayload, null, 2)}
+`], { type: "application/json;charset=utf-8" }).size;
 }
 
 function buildAnalyticsExportPreflight(payload) {
@@ -1783,19 +1584,7 @@ function buildAnalyticsCsvRows(payload) {
     storesWithPhotos: normalizeAnalyticsExportValue(snapshotMetrics.storesWithPhotos),
     storesWithRecentActivity: normalizeAnalyticsExportValue(snapshotMetrics.storesWithRecentActivity),
     actionableTotal: normalizeAnalyticsExportValue(snapshotMetrics.actionableTotal),
-    storeId: "",
-    address: "",
-    statusCode: "",
-    statusLabel: "",
-    rescheduleReason: "",
-    noteCount: "",
-    photoCount: "",
-    hasNotes: "false",
-    hasPhotos: "false",
-    hasActivity: "false",
-    activityLabel: "",
-    activitySummary: "",
-    activityTimestampValue: ""
+    storeId: "", address: "", statusCode: "", statusLabel: "", rescheduleReason: "", noteCount: "", photoCount: "", hasNotes: "false", hasPhotos: "false", hasActivity: "false", activityLabel: "", activitySummary: "", activityTimestampValue: ""
   });
 
   return [
