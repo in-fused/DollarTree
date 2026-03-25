@@ -1,5 +1,7 @@
 /* ================= LOGO / MOBILE ================= */
 
+const EXEC_SUMMARY_COLLAPSE_KEY = "execSummaryCollapsed";
+
 function bindLogoHome() {
   const logo = document.querySelector(".brandLogoWide");
   if (!logo || logo.dataset.bound) return;
@@ -14,29 +16,77 @@ function bindLogoHome() {
   logo.dataset.bound = "true";
 }
 
+function getExecutiveSummaryCollapsedState() {
+  try {
+    const stored = sessionStorage.getItem(EXEC_SUMMARY_COLLAPSE_KEY);
+    if (stored === "true") return true;
+    if (stored === "false") return false;
+  } catch (error) {
+    // Ignore storage failures and use compact default.
+  }
+  return true;
+}
+
+function setExecutiveSummaryCollapsedState(collapsed) {
+  try {
+    sessionStorage.setItem(EXEC_SUMMARY_COLLAPSE_KEY, String(collapsed));
+  } catch (error) {
+    // Ignore storage failures.
+  }
+}
+
 function bindMobileExecutiveSummary() {
   const card = document.getElementById("mapExecutiveCallout");
-  if (!card || card.dataset.bound) return;
+  const toggle = document.getElementById("executiveSummaryToggleBtn");
+  if (!card || !toggle || toggle.dataset.bound) return;
 
-  card.addEventListener("click", () => {
-    if (!isMobileViewport() || !executiveModeEnabled) return;
-    mobileExecutiveSummaryExpanded = !mobileExecutiveSummaryExpanded;
+  toggle.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const isMobileExecutiveView = isMobileViewport() && executiveModeEnabled;
+    if (isMobileExecutiveView) {
+      mobileExecutiveSummaryExpanded = !mobileExecutiveSummaryExpanded;
+      updateMobileExecutiveSummaryUI();
+      return;
+    }
+
+    const collapsed = card.classList.contains("exec-summary-collapsed");
+    setExecutiveSummaryCollapsedState(!collapsed);
     updateMobileExecutiveSummaryUI();
   });
 
-  card.dataset.bound = "true";
+  toggle.dataset.bound = "true";
 }
 
 function updateMobileExecutiveSummaryUI() {
   const card = document.getElementById("mapExecutiveCallout");
   const line = document.getElementById("mapExecutiveSummaryLine");
-  if (!card || !line) return;
+  const details = document.getElementById("mapExecutiveDetails");
+  const toggle = document.getElementById("executiveSummaryToggleBtn");
+  if (!card || !line || !details || !toggle) return;
 
-  const shouldCollapse = isMobileViewport() && executiveModeEnabled;
+  const shouldUseMobileBehavior = isMobileViewport() && executiveModeEnabled;
+  const collapsed = shouldUseMobileBehavior
+    ? !mobileExecutiveSummaryExpanded
+    : getExecutiveSummaryCollapsedState();
 
-  card.classList.toggle("mobile-collapsible", shouldCollapse);
-  card.classList.toggle("expanded", shouldCollapse && mobileExecutiveSummaryExpanded);
-  line.classList.toggle("collapsed", shouldCollapse && !mobileExecutiveSummaryExpanded);
+  card.classList.toggle("mobile-collapsible", shouldUseMobileBehavior);
+  card.classList.toggle("expanded", shouldUseMobileBehavior && !collapsed);
+  card.classList.toggle("exec-summary-collapsed", collapsed);
+  card.classList.toggle("exec-summary-expanded", !collapsed);
+
+  line.classList.toggle("collapsed", shouldUseMobileBehavior && collapsed);
+
+  toggle.setAttribute("aria-expanded", String(!collapsed));
+  toggle.setAttribute("aria-label", collapsed ? "Expand executive summary" : "Collapse executive summary");
+  toggle.textContent = collapsed ? "Expand" : "Collapse";
+
+  details.setAttribute("aria-hidden", String(collapsed));
+
+  if (shouldUseMobileBehavior) {
+    setExecutiveSummaryCollapsedState(collapsed);
+  }
 }
 
 /* ================= EXEC / NATIONAL / SIDEBAR ================= */
@@ -231,93 +281,57 @@ function ensureActivePulseAnimation() {
   activePointPulseAnimationId = requestAnimationFrame(step);
 }
 
-function getDominantClusterStatusColorExpression() {
-  return [
-    "case",
-    [
-      "all",
-      [">=", ["get", "closedCount"], ["get", "rescheduledCount"]],
-      [">=", ["get", "closedCount"], ["get", "activeCount"]],
-      [">=", ["get", "closedCount"], ["get", "completedCount"]],
-      [">", ["get", "closedCount"], 0]
-    ],
-    "#ff2d2d",
-    [
-      "all",
-      [">=", ["get", "rescheduledCount"], ["get", "activeCount"]],
-      [">=", ["get", "rescheduledCount"], ["get", "completedCount"]],
-      [">", ["get", "rescheduledCount"], 0]
-    ],
-    "#ff9900",
-    [
-      "all",
-      [">=", ["get", "activeCount"], ["get", "completedCount"]],
-      [">", ["get", "activeCount"], 0]
-    ],
-    "#64b5f6",
-    [">", ["get", "completedCount"], 0],
-    "#2ecc71",
-    "#64b5f6"
-  ];
-}
+function applyRouteSelectionVisuals() {
+  if (!map || !map.getSource("stores")) return;
 
-function createGeoJson(stores) {
-  const geoAudit = getGeoAuditConfig(stores);
+  const selectedSet = new Set(
+    routeStops
+      .map((stop) => Number.parseInt(String(stop.storeId), 10))
+      .filter(Number.isFinite)
+  );
 
-  return {
+  const routeSet = new Set(selectedSet);
+
+  allStores.forEach((store) => {
+    const storeId = Number.parseInt(store.store_id, 10);
+    if (!Number.isFinite(storeId)) return;
+    store._routeSelected = selectedSet.has(storeId);
+    store._inRoute = routeSet.has(storeId);
+  });
+
+  const source = map.getSource("stores");
+  source.setData({
     type: "FeatureCollection",
-    features: stores
-      .filter(store => hasValidCoordinate(store?.lat) && hasValidCoordinate(store?.lng))
-      .map(store => {
-        const status = statusMap[String(store.store_id)] || getStatusState("active");
-
-        return {
-          type: "Feature",
-          properties: {
-            store_id: String(store.store_id),
-            status_code: normalizeStatusCode(status.status_code),
-            status_reason: status.status_reason || "",
-            completed: status.completed === true,
-            closed: status.closed === true,
-            ...getMappedStoreIntegrityProperties(store, statusMap, geoAudit)
-          },
-          geometry: {
-            type: "Point",
-            coordinates: [store.lng, store.lat]
-          }
-        };
-      })
-  };
+    features: allStores.map(storeToFeature)
+  });
 }
 
-function buildMap() {
-  geojsonData = createGeoJson(getFilteredStores());
+function initializeMapSourcesAndLayers() {
+  const baseFeatures = allStores.map(storeToFeature);
 
   map.addSource("stores", {
     type: "geojson",
-    data: geojsonData,
+    data: {
+      type: "FeatureCollection",
+      features: baseFeatures
+    },
     cluster: true,
-    clusterRadius: 50,
+    clusterRadius: 48,
     clusterProperties: {
-      activeCount: [
-        "+",
-        ["case", ["==", ["get", "status_code"], "active"], 1, 0]
-      ],
-      rescheduledCount: [
-        "+",
-        ["case", ["==", ["get", "status_code"], "rescheduled"], 1, 0]
-      ],
-      completedCount: [
-        "+",
-        ["case", ["==", ["get", "status_code"], "completed"], 1, 0]
-      ],
-      closedCount: [
-        "+",
-        ["case", ["==", ["get", "status_code"], "closed"], 1, 0]
-      ],
-      totalCount: ["+", 1]
+      activeCount: ["+", ["case", ["==", ["get", "status"], "active"], 1, 0]],
+      completedCount: ["+", ["case", ["==", ["get", "status"], "completed"], 1, 0]],
+      closedCount: ["+", ["case", ["==", ["get", "status"], "closed"], 1, 0]],
+      rescheduledCount: ["+", ["case", ["==", ["get", "status"], "rescheduled"], 1, 0]]
     }
   });
+
+  const clusterColorExpression = [
+    "case",
+    [">=", ["get", "activeCount"], ["max", ["get", "completedCount"], ["get", "closedCount"], ["get", "rescheduledCount"]]], "#64b5f6",
+    [">=", ["get", "rescheduledCount"], ["max", ["get", "completedCount"], ["get", "closedCount"], ["get", "activeCount"]]], "#ff9900",
+    [">=", ["get", "completedCount"], ["max", ["get", "activeCount"], ["get", "closedCount"], ["get", "rescheduledCount"]]], "#2ecc71",
+    "#ff2d2d"
+  ];
 
   map.addLayer({
     id: "clusters",
@@ -325,18 +339,18 @@ function buildMap() {
     source: "stores",
     filter: ["has", "point_count"],
     paint: {
+      "circle-color": clusterColorExpression,
       "circle-radius": [
         "step",
         ["get", "point_count"],
-        28,
-        10, 30,
-        25, 33,
-        50, 36
+        16,
+        12, 20,
+        40, 26,
+        100, 32
       ],
-      "circle-color": getDominantClusterStatusColorExpression(),
-      "circle-stroke-width": 2,
-      "circle-stroke-color": "rgba(255,255,255,0.18)",
-      "circle-opacity": 0.92
+      "circle-opacity": 0.88,
+      "circle-stroke-width": 1.8,
+      "circle-stroke-color": "rgba(255,255,255,0.22)"
     }
   });
 
@@ -346,17 +360,29 @@ function buildMap() {
     source: "stores",
     filter: ["has", "point_count"],
     layout: {
-      "text-field": "{point_count}",
-      "text-size": [
-        "step",
-        ["get", "point_count"],
-        14,
-        10, 15,
-        25, 16
-      ]
+      "text-field": "{point_count_abbreviated}",
+      "text-size": 11,
+      "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"]
     },
     paint: {
       "text-color": "#ffffff"
+    }
+  });
+
+  map.addLayer({
+    id: "route-selected-point",
+    type: "circle",
+    source: "stores",
+    filter: [
+      "all",
+      ["!", ["has", "point_count"]],
+      ["==", ["get", "inRoute"], true]
+    ],
+    paint: {
+      "circle-radius": 15,
+      "circle-color": "rgba(0,0,0,0)",
+      "circle-stroke-width": 2.2,
+      "circle-stroke-color": "#ffd166"
     }
   });
 
@@ -367,63 +393,89 @@ function buildMap() {
     filter: [
       "all",
       ["!", ["has", "point_count"]],
-      ["==", ["get", "status_code"], "active"]
+      ["==", ["get", "status"], "active"]
     ],
     paint: {
       "circle-radius": 11,
-      "circle-color": "rgba(100, 181, 246, 0.28)",
-      "circle-opacity": 0.18,
-      "circle-stroke-width": 1.5,
-      "circle-stroke-color": "rgba(100, 181, 246, 0.55)"
+      "circle-color": "#64b5f6",
+      "circle-opacity": 0.22
     }
   });
 
   map.addLayer({
-    id: "point-issue-halo",
+    id: "unclustered-point",
+    type: "circle",
+    source: "stores",
+    filter: ["!", ["has", "point_count"]],
+    paint: {
+      "circle-color": [
+        "match",
+        ["get", "status"],
+        "completed", "#2ecc71",
+        "active", "#64b5f6",
+        "rescheduled", "#ff9900",
+        "closed", "#ff2d2d",
+        "#9aa7b5"
+      ],
+      "circle-radius": 7.2,
+      "circle-stroke-width": 1.6,
+      "circle-stroke-color": "rgba(255,255,255,0.8)"
+    }
+  });
+
+  map.addLayer({
+    id: "integrity-ring",
     type: "circle",
     source: "stores",
     filter: [
       "all",
       ["!", ["has", "point_count"]],
-      ["==", ["get", "has_integrity_issue"], true]
+      [">", ["length", ["coalesce", ["get", "integrityIssues"], []]], 0]
     ],
     paint: {
-      "circle-radius": 12,
-      "circle-color": "rgba(255, 179, 71, 0.18)",
-      "circle-stroke-width": 2,
-      "circle-stroke-color": "rgba(255, 196, 92, 0.82)"
+      "circle-radius": 10.5,
+      "circle-color": "rgba(0,0,0,0)",
+      "circle-stroke-width": 1.8,
+      "circle-stroke-color": "#ffc845",
+      "circle-stroke-opacity": 0.95
     }
   });
 
   map.addLayer({
-    id: "points",
-    type: "circle",
+    id: "store-label",
+    type: "symbol",
     source: "stores",
     filter: ["!", ["has", "point_count"]],
+    layout: {
+      "text-field": ["to-string", ["get", "store_id"]],
+      "text-size": 10,
+      "text-offset": [0, 1.45],
+      "text-anchor": "top",
+      "text-allow-overlap": false
+    },
     paint: {
-      "circle-radius": 8,
-      "circle-color": [
-        "match",
-        ["get", "status_code"],
-        "completed", "#2ecc71",
-        "closed", "#ff2d2d",
-        "rescheduled", "#ff9900",
-        "#64b5f6"
-      ],
-      "circle-stroke-width": 1.5,
-      "circle-stroke-color": "rgba(255,255,255,0.35)"
+      "text-color": "rgba(233,242,255,0.95)",
+      "text-halo-color": "rgba(6,12,19,0.86)",
+      "text-halo-width": 0.9
     }
   });
 
-  map.on("click", "points", handleStorePointClick);
-  map.on("click", "clusters", handleClusterClick);
+  ensureActivePulseAnimation();
+}
 
-  map.on("mouseenter", "points", () => {
-    map.getCanvas().style.cursor = "pointer";
-  });
+function bindMapInteractions() {
+  map.on("click", "clusters", (event) => {
+    const features = map.queryRenderedFeatures(event.point, { layers: ["clusters"] });
+    const clusterId = features[0].properties.cluster_id;
 
-  map.on("mouseleave", "points", () => {
-    map.getCanvas().style.cursor = "";
+    map.getSource("stores").getClusterExpansionZoom(clusterId, (error, zoom) => {
+      if (error) return;
+
+      map.easeTo({
+        center: features[0].geometry.coordinates,
+        zoom
+      });
+    });
   });
 
   map.on("mouseenter", "clusters", () => {
@@ -434,141 +486,61 @@ function buildMap() {
     map.getCanvas().style.cursor = "";
   });
 
-  ensureActivePulseAnimation();
-}
+  map.on("click", "unclustered-point", (event) => {
+    const feature = event.features?.[0];
+    if (!feature) return;
 
-function rebuildFullMap() {
-  if (!map.getSource("stores")) return;
-  geojsonData = createGeoJson(getFilteredStores());
-  map.getSource("stores").setData(geojsonData);
-  ensureActivePulseAnimation();
-}
+    const storeId = Number.parseInt(String(feature.properties.store_id), 10);
+    if (!Number.isFinite(storeId)) return;
 
-function rebuild() {
-  rebuildFullMap();
-}
+    const store = allStores.find((candidate) => Number.parseInt(candidate.store_id, 10) === storeId);
+    if (!store) return;
 
-function handleClusterClick(e) {
-  const features = map.queryRenderedFeatures(e.point, { layers: ["clusters"] });
-  if (!features.length) return;
+    openStoreModal(store);
+  });
 
-  const clusterId = features[0].properties.cluster_id;
-  map.getSource("stores").getClusterExpansionZoom(clusterId, (err, zoom) => {
-    if (err) return;
-    map.easeTo({
-      center: features[0].geometry.coordinates,
-      zoom
-    });
+  map.on("mouseenter", "unclustered-point", () => {
+    map.getCanvas().style.cursor = "pointer";
+  });
+
+  map.on("mouseleave", "unclustered-point", () => {
+    map.getCanvas().style.cursor = "";
   });
 }
 
-function handleStorePointClick(e) {
-  const feature = e.features?.[0];
-  if (!feature) return;
-  const storeId = String(feature.properties.store_id);
-  currentSelectedStoreId = storeId;
-  updateSelectedStorePanel(storeId);
-  openStoreModal(storeId);
+function applyMapDataState() {
+  if (!map || !map.getSource("stores")) return;
+  applyRouteSelectionVisuals();
+  refreshIntegrityLayerVisibility();
 }
 
-function updateMapViewportForMode() {
-  if (currentWorkspaceView === "photos") return;
+function initializeMap() {
+  if (map) return;
 
-  const filteredStores = getFilteredStores();
-
-  if (filteredStores.length === 0) {
-    map.easeTo({
-      center: nationalOverviewEnabled ? NATIONAL_CENTER : DEFAULT_LOCAL_CENTER,
-      zoom: nationalOverviewEnabled ? NATIONAL_ZOOM : DEFAULT_LOCAL_ZOOM,
-      duration: 700
-    });
-    return;
-  }
-
-  if (nationalOverviewEnabled) {
-    fitMapToStores(filteredStores, 48, 5.5);
-    return;
-  }
-
-  if (filteredStores.length === 1) {
-    map.easeTo({
-      center: [filteredStores[0].lng, filteredStores[0].lat],
-      zoom: 12.5,
-      duration: 700
-    });
-    return;
-  }
-
-  fitMapToStores(filteredStores, 58, 8.75);
-}
-
-function fitMapToStores(stores, padding = 40, maxZoom = 8.5) {
-  if (!stores || stores.length === 0) return;
-
-  const bounds = new mapboxgl.LngLatBounds();
-
-  stores.forEach(store => {
-    if (Number.isFinite(store.lng) && Number.isFinite(store.lat)) {
-      bounds.extend([store.lng, store.lat]);
-    }
+  mapboxgl.accessToken = MAPBOX_TOKEN;
+  map = new mapboxgl.Map({
+    container: "map",
+    style: "mapbox://styles/mapbox/dark-v11",
+    center: [-81.64, 27.91],
+    zoom: 6.2,
+    attributionControl: false
   });
 
-  if (bounds.isEmpty()) return;
+  map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
 
-  map.fitBounds(bounds, {
-    padding,
-    maxZoom,
-    duration: 700
+  map.on("load", () => {
+    initializeMapSourcesAndLayers();
+    bindMapInteractions();
+    applyMapDataState();
+    updateMapViewportForMode();
   });
 }
 
-function setMapModeTags() {
-  const filteredCount = getFilteredStores().length;
-
-  setText("mapModeTag", nationalOverviewEnabled ? "National Overview" : "Project View");
-
-  const parts = [];
-  if (activeFilters.region) parts.push(activeFilters.region);
-  if (activeFilters.territory) parts.push(activeFilters.territory);
-  if (activeFilters.state) parts.push(activeFilters.state);
-  if (showRemovedStores) parts.push("Removed Visible");
-
-  setText(
-    "mapScopeTag",
-    parts.length
-      ? `${parts.join(" • ")} • ${filteredCount.toLocaleString()} stores`
-      : `${filteredCount.toLocaleString()} stores in scope`
-  );
-}
-
-/* ================= SEARCH ================= */
-
-function bindSearch() {
-  const input = document.getElementById("storeSearch");
-  if (!input || input.dataset.bound) return;
-
-  input.addEventListener("input", (e) => {
-    const value = e.target.value.trim();
-    const match = storeData.find(store => String(store.store_id) === value);
-
-    if (!match) return;
-
-    currentSelectedStoreId = String(match.store_id);
-    updateSelectedStorePanel(match.store_id);
-
-    currentWorkspaceView = "map";
-    localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
-    updateWorkspaceViewUI();
-
-    map.flyTo({
-      center: [match.lng, match.lat],
-      zoom: 14
-    });
-
-    if (window.innerWidth <= 900) {
-      document.body.classList.remove("sidebar-open");
-    }
-  });
-
-  input.dataset.bound = "true";
+function refreshMapAndOverlays() {
+  refreshMapSourceData();
+  refreshIntegrityLayerVisibility();
+  applyRouteSelectionVisuals();
+  updateMapViewportForMode();
+  updateMobileExecutiveSummaryUI();
+  setTimeout(() => map.resize(), 80);
 }
