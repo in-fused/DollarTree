@@ -385,6 +385,46 @@
   }
 
   .photoLibraryHeaderBadgeGroup {
+    width: 100%;
+  }
+
+  .photoLibraryHeaderBadge {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .photoLibraryToolbarGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .photoLibraryContent {
+    display: block;
+    min-height: auto;
+  }
+
+  .photoLibraryGridWrap {
+    overflow: visible;
+    min-height: auto;
+    padding-right: 0;
+  }
+
+  .photoLibraryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .photoLibraryCardBody {
+    padding: 9px;
+  }
+
+  .emptyStateHero {
+    min-height: 200px;
+    padding: 16px;
+  }
+
+  .emptyStateHeroTitle {
+    font-size: 16px;
+    line-height: 1.32;
   }
 
   .emptyStateHeroText {
