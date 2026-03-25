@@ -1,5 +1,7 @@
 /* ================= LOGO / MOBILE ================= */
 
+const EXEC_SUMMARY_COLLAPSE_KEY = "execSummaryCollapsed";
+
 function bindLogoHome() {
   const logo = document.querySelector(".brandLogoWide");
   if (!logo || logo.dataset.bound) return;
@@ -14,29 +16,77 @@ function bindLogoHome() {
   logo.dataset.bound = "true";
 }
 
+function getExecutiveSummaryCollapsedState() {
+  try {
+    const stored = sessionStorage.getItem(EXEC_SUMMARY_COLLAPSE_KEY);
+    if (stored === "true") return true;
+    if (stored === "false") return false;
+  } catch (error) {
+    // Ignore storage failures and use compact default.
+  }
+  return true;
+}
+
+function setExecutiveSummaryCollapsedState(collapsed) {
+  try {
+    sessionStorage.setItem(EXEC_SUMMARY_COLLAPSE_KEY, String(collapsed));
+  } catch (error) {
+    // Ignore storage failures.
+  }
+}
+
 function bindMobileExecutiveSummary() {
   const card = document.getElementById("mapExecutiveCallout");
-  if (!card || card.dataset.bound) return;
+  const toggle = document.getElementById("executiveSummaryToggleBtn");
+  if (!card || !toggle || toggle.dataset.bound) return;
 
-  card.addEventListener("click", () => {
-    if (!isMobileViewport() || !executiveModeEnabled) return;
-    mobileExecutiveSummaryExpanded = !mobileExecutiveSummaryExpanded;
+  toggle.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const isMobileExecutiveView = isMobileViewport() && executiveModeEnabled;
+    if (isMobileExecutiveView) {
+      mobileExecutiveSummaryExpanded = !mobileExecutiveSummaryExpanded;
+      updateMobileExecutiveSummaryUI();
+      return;
+    }
+
+    const collapsed = card.classList.contains("exec-summary-collapsed");
+    setExecutiveSummaryCollapsedState(!collapsed);
     updateMobileExecutiveSummaryUI();
   });
 
-  card.dataset.bound = "true";
+  toggle.dataset.bound = "true";
 }
 
 function updateMobileExecutiveSummaryUI() {
   const card = document.getElementById("mapExecutiveCallout");
   const line = document.getElementById("mapExecutiveSummaryLine");
-  if (!card || !line) return;
+  const details = document.getElementById("mapExecutiveDetails");
+  const toggle = document.getElementById("executiveSummaryToggleBtn");
+  if (!card || !line || !details || !toggle) return;
 
-  const shouldCollapse = isMobileViewport() && executiveModeEnabled;
+  const shouldUseMobileBehavior = isMobileViewport() && executiveModeEnabled;
+  const collapsed = shouldUseMobileBehavior
+    ? !mobileExecutiveSummaryExpanded
+    : getExecutiveSummaryCollapsedState();
 
-  card.classList.toggle("mobile-collapsible", shouldCollapse);
-  card.classList.toggle("expanded", shouldCollapse && mobileExecutiveSummaryExpanded);
-  line.classList.toggle("collapsed", shouldCollapse && !mobileExecutiveSummaryExpanded);
+  card.classList.toggle("mobile-collapsible", shouldUseMobileBehavior);
+  card.classList.toggle("expanded", shouldUseMobileBehavior && !collapsed);
+  card.classList.toggle("exec-summary-collapsed", collapsed);
+  card.classList.toggle("exec-summary-expanded", !collapsed);
+
+  line.classList.toggle("collapsed", shouldUseMobileBehavior && collapsed);
+
+  toggle.setAttribute("aria-expanded", String(!collapsed));
+  toggle.setAttribute("aria-label", collapsed ? "Expand executive summary" : "Collapse executive summary");
+  toggle.textContent = collapsed ? "Expand" : "Collapse";
+
+  details.setAttribute("aria-hidden", String(collapsed));
+
+  if (shouldUseMobileBehavior) {
+    setExecutiveSummaryCollapsedState(collapsed);
+  }
 }
 
 /* ================= EXEC / NATIONAL / SIDEBAR ================= */
