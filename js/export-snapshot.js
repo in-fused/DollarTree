@@ -267,27 +267,27 @@ function buildOperationalStatusRows(metrics) {
 function buildSnapshotTableRows(rows) {
   return rows.map(row => `
     <tr>
-      <td class="cell-store">
+      <td class="cell-store" data-label="Store ID">
         <div class="store-id">${escapeSnapshotHtml(row.storeId)}</div>
       </td>
-      <td class="cell-location">
+      <td class="cell-location" data-label="Location">
         <div class="location-main">${escapeSnapshotHtml(row.address)}</div>
       </td>
-      <td class="cell-status">
+      <td class="cell-status" data-label="Status">
         <span class="status status-${escapeSnapshotHtml(row.statusCode)}">${escapeSnapshotHtml(row.statusLabel)}</span>
       </td>
-      <td class="cell-reason">
+      <td class="cell-reason" data-label="Reschedule Reason">
         ${row.rescheduleReason
           ? `<div class="reason-text">${escapeSnapshotHtml(row.rescheduleReason)}</div>`
           : `<span class="muted-pill">—</span>`}
       </td>
-      <td class="cell-count">
+      <td class="cell-count" data-label="Notes">
         <span class="count-pill ${row.hasNotes ? "has-data" : ""}">${row.noteCount}</span>
       </td>
-      <td class="cell-count">
+      <td class="cell-count" data-label="Photos">
         <span class="count-pill ${row.hasPhotos ? "has-data" : ""}">${row.photoCount}</span>
       </td>
-      <td class="cell-activity">
+      <td class="cell-activity" data-label="Latest Activity">
         <div class="activity-time-inline">${escapeSnapshotHtml(row.activityLabel)}</div>
         <div class="activity-summary-inline">${escapeSnapshotHtml(row.activitySummary)}</div>
       </td>
@@ -1079,11 +1079,11 @@ function buildSnapshotHtml(payload) {
     filter: brightness(1.05);
   }
   .evidence-photo:focus-visible {
-  transform: scale(1.03);
-  filter: brightness(1.05);
-  outline: 2px solid rgba(24, 48, 72, 0.35);
-  outline-offset: 2px;
-}
+    transform: scale(1.03);
+    filter: brightness(1.05);
+    outline: 2px solid rgba(24, 48, 72, 0.35);
+    outline-offset: 2px;
+  }
   .evidence-photo-expanded { 
     aspect-ratio: 4 / 3; 
     object-fit: contain;
@@ -1248,6 +1248,24 @@ function buildSnapshotHtml(payload) {
     .snapshot-photo-modal {
       display: none !important;
     }
+    table {
+      width: 100%;
+      table-layout: auto;
+      border-collapse: collapse;
+      border-spacing: 0;
+    }
+    thead {
+      display: table-header-group;
+    }
+    tbody {
+      display: table-row-group;
+    }
+    tr,
+    td,
+    th {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
     .hero,
     .panel {
       page-break-inside: avoid;
@@ -1255,7 +1273,7 @@ function buildSnapshotHtml(payload) {
     .print-only { display: block; }
     .no-print { display: none !important; }
   }
-  @media (max-width: 1020px) {
+  @media screen and (max-width: 1020px) {
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .summary-strip,
     .executionOverviewGrid,
@@ -1266,6 +1284,58 @@ function buildSnapshotHtml(payload) {
     .utility-bar { flex-direction: column; }
     .hero-meta { min-width: 0; width: 100%; }
     .utility-actions { justify-content: flex-start; }
+    .two-col table,
+    .two-col thead,
+    .two-col tbody,
+    .two-col th,
+    .two-col td,
+    .two-col tr {
+      display: block;
+      width: 100%;
+    }
+    .two-col thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .two-col tbody td {
+      border-bottom: 1px solid rgba(211, 220, 229, 0.9);
+      padding: 8px 10px 8px 132px;
+      min-height: 34px;
+      position: relative;
+      background: #fff;
+    }
+    .two-col tbody tr:nth-child(even) td {
+      background: #fff;
+    }
+    .two-col tbody td::before {
+      content: attr(data-label);
+      position: absolute;
+      left: 10px;
+      top: 8px;
+      width: 112px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #5d7388;
+      font-weight: 800;
+    }
+    .two-col tbody tr {
+      border: 1px solid rgba(188, 203, 218, 0.94);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+    .two-col tbody tr:last-child {
+      margin-bottom: 0;
+    }
   }
 </style>
 </head>

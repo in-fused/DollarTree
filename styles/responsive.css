@@ -239,19 +239,14 @@
   .workspaceProgressTopline {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    gap: 8px;
     flex-wrap: wrap;
-    gap: 6px;
+    width: 100%;
   }
 
   .workspaceViewSwitch {
-    width: auto;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .workspaceViewSwitch .viewSwitch {
-    width: auto;
+    display: inline-flex;
+    flex: 0 0 auto;
     align-self: auto;
     flex-wrap: nowrap;
     max-width: 100%;
@@ -306,42 +301,52 @@
   }
 
   body.executive-mode .mapExecutiveCallout {
-    display: block;
-    left: 8px;
-    right: auto;
-    top: auto;
-    bottom: calc(128px + env(safe-area-inset-bottom));
-    width: min(280px, calc(100vw - 16px));
-    max-width: min(280px, calc(100vw - 16px));
-    min-height: 0;
-    padding: 8px 9px 7px;
-  }
-
-  body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveSummaryLine {
-    font-size: 12px;
-    line-height: 1.32;
-  }
-
-  body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveCompactRow {
-    margin-top: 6px;
-    gap: 6px;
-  }
-
-  body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveMiniStat.completion {
-    padding: 6px 8px;
-  }
-
-  body.executive-mode .mapExecutiveCallout.mobile-collapsible .analyticsBarLabelRow {
-    font-size: 9px;
-  }
-
-  body.executive-mode .mapExecutiveCallout.mobile-collapsible .analyticsBarTrack {
-    height: 6px;
+    display: none !important;
   }
 
   body.executive-mode .mapLegendCard {
     left: 8px;
+    right: 8px;
     bottom: calc(72px + env(safe-area-inset-bottom));
+    top: auto;
+    max-width: none;
+    width: auto;
+    min-width: 0;
+    padding: 7px 9px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  body.executive-mode .mapLegendTitle {
+    margin: 0;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+  }
+
+  body.executive-mode .mapLegendRow {
+    margin: 0;
+    font-size: 0;
+    gap: 5px;
+    line-height: 1;
+  }
+
+  body.executive-mode .mapLegendRow span:last-child {
+    font-size: 0;
+  }
+
+  body.executive-mode .mapLegendRow:nth-child(2) span:last-child::after { content: "Active"; }
+  body.executive-mode .mapLegendRow:nth-child(3) span:last-child::after { content: "Rescheduled"; }
+  body.executive-mode .mapLegendRow:nth-child(4) span:last-child::after { content: "Completed"; }
+  body.executive-mode .mapLegendRow:nth-child(5) span:last-child::after { content: "Closed"; }
+
+  body.executive-mode .mapLegendRow span:last-child::after {
+    font-size: 10px;
+    color: rgba(255,255,255,0.94);
+    font-weight: 600;
+    letter-spacing: 0;
   }
 
   .scopeSummaryGrid,
@@ -423,8 +428,7 @@
   }
 
   .emptyStateHeroTitle {
-    font-size: 16px;
-    line-height: 1.32;
+    font-size: 17px;
   }
 
   .emptyStateHeroText {
@@ -501,7 +505,7 @@
 
   body.executive-mode .floatingExecutiveExit {
     right: 8px;
-    bottom: calc(16px + env(safe-area-inset-bottom));
+    bottom: calc(12px + env(safe-area-inset-bottom));
     top: auto;
     padding: 7px 10px;
     font-size: 11px;
@@ -545,7 +549,6 @@
   .mapLegendRow {
     font-size: 10px;
   }
-
 
   .mapModeTag,
   .mapScopeTag {
