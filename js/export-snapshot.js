@@ -1248,6 +1248,10 @@ function buildSnapshotHtml(payload) {
     .print-only { display: block; }
     .no-print { display: none !important; }
   }
+  /* CRITICAL: SCREEN-ONLY MOBILE LAYOUT
+   Do NOT remove `screen` from this media query.
+   Without it, mobile table stacking will break print/PDF exports.
+*/
   @media screen and (max-width: 1020px) {
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .summary-strip,
