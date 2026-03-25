@@ -1889,9 +1889,33 @@ button:disabled {
     padding: 10px 12px 8px;
   }
 
-  body.executive-mode .mapLegendCard {
+    body.executive-mode .mapLegendCard {
     left: 10px;
-    bottom: calc(84px + env(safe-area-inset-bottom));
+    bottom: calc(4px + env(safe-area-inset-bottom));
+    padding: 6px 8px 5px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+  }
+
+  body.executive-mode .mapLegendTitle {
+    flex: 0 0 100%;
+    text-align: center;
+    margin: 0 0 1px;
+    line-height: 1.2;
+  }
+
+  body.executive-mode .mapLegendRow {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  body.executive-mode .mapLegendRow:last-child {
+    margin-right: 0;
   }
 
   .scopeSummaryGrid,
