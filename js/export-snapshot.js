@@ -1206,52 +1206,68 @@ function buildSnapshotHtml(payload) {
     cursor: pointer;
   }
 
-  .print-only { display: none; }
-  @media print {
-    [data-evidence-card] { page-break-inside: avoid; }
-    [data-evidence-card] .evidence-expanded { display: block !important; }
-    body {
-      background: #fff;
-    }
-    .page {
-      max-width: none;
-      padding: 10mm;
-      gap: 10px;
-    }
-    .utility-bar,
-    .hero,
-    .panel {
-      box-shadow: none;
-      backdrop-filter: none;
-      background: #fff;
-      border-color: #d6dce3;
-    }
-    .summary-card,
-    .executionSummaryCard,
-    .executionStatusCard,
-    .metric,
-    .meta-card {
-      background: #fff;
-      box-shadow: none;
-    }
-    .utility-bar {
-      position: static;
-      page-break-inside: avoid;
-    }
-    .snapshot-photo-modal {
-      display: none !important;
-    }
-    .hero,
-    .panel {
-      page-break-inside: avoid;
-    }
-    .print-only { display: block; }
-    .no-print { display: none !important; }
+.print-only { display: none; }
+
+@media print {
+  [data-evidence-card] { page-break-inside: avoid; }
+  [data-evidence-card] .evidence-expanded { display: block !important; }
+
+  body {
+    background: #fff;
   }
+
+  .page {
+    max-width: none;
+    padding: 10mm;
+    gap: 10px;
+  }
+
+  .utility-bar,
+  .hero,
+  .panel {
+    box-shadow: none;
+    backdrop-filter: none;
+    background: #fff;
+    border-color: #d6dce3;
+  }
+
+  .summary-card,
+  .executionSummaryCard,
+  .executionStatusCard,
+  .metric,
+  .meta-card {
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .utility-bar {
+    position: static;
+    page-break-inside: avoid;
+  }
+
+  .snapshot-photo-modal {
+    display: none !important;
+  }
+
+  .hero,
+  .panel {
+    page-break-inside: avoid;
+  }
+
+  .print-only { display: block; }
+  .no-print { display: none !important; }
+
+  table,
+  thead,
+  tbody,
+  tr,
+  td {
+    display: revert !important;
+  }
+}
   /* CRITICAL: SCREEN-ONLY MOBILE LAYOUT
    Do NOT remove `screen` from this media query.
-   Without it, mobile table stacking will break print/PDF exports.
-*/
+   Without it, mobile table stacking will break print/PDF exports.*/
   @media screen and (max-width: 1020px) {
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .summary-strip,
