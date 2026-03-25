@@ -267,27 +267,27 @@ function buildOperationalStatusRows(metrics) {
 function buildSnapshotTableRows(rows) {
   return rows.map(row => `
     <tr>
-      <td class="cell-store">
+      <td class="cell-store" data-label="Store ID">
         <div class="store-id">${escapeSnapshotHtml(row.storeId)}</div>
       </td>
-      <td class="cell-location">
+      <td class="cell-location" data-label="Location">
         <div class="location-main">${escapeSnapshotHtml(row.address)}</div>
       </td>
-      <td class="cell-status">
+      <td class="cell-status" data-label="Status">
         <span class="status status-${escapeSnapshotHtml(row.statusCode)}">${escapeSnapshotHtml(row.statusLabel)}</span>
       </td>
-      <td class="cell-reason">
+      <td class="cell-reason" data-label="Reschedule Reason">
         ${row.rescheduleReason
           ? `<div class="reason-text">${escapeSnapshotHtml(row.rescheduleReason)}</div>`
           : `<span class="muted-pill">—</span>`}
       </td>
-      <td class="cell-count">
+      <td class="cell-count" data-label="Notes">
         <span class="count-pill ${row.hasNotes ? "has-data" : ""}">${row.noteCount}</span>
       </td>
-      <td class="cell-count">
+      <td class="cell-count" data-label="Photos">
         <span class="count-pill ${row.hasPhotos ? "has-data" : ""}">${row.photoCount}</span>
       </td>
-      <td class="cell-activity">
+      <td class="cell-activity" data-label="Latest Activity">
         <div class="activity-time-inline">${escapeSnapshotHtml(row.activityLabel)}</div>
         <div class="activity-summary-inline">${escapeSnapshotHtml(row.activitySummary)}</div>
       </td>
@@ -397,6 +397,7 @@ function buildSnapshotEvidencePhotoRail(photos, variant = "compact") {
         class="evidence-photo evidence-photo-${escapeSnapshotHtml(variant)}"
         src="${escapeSnapshotHtml(photo.imageUrl)}"
         alt="Store evidence photo ${index + 1}"
+        aria-label="Open evidence photo ${index + 1}"
         data-full-image="${escapeSnapshotHtml(photo.imageUrl)}"
         tabindex="0"
         role="button"
@@ -1077,6 +1078,12 @@ function buildSnapshotHtml(payload) {
     transform: scale(1.03);
     filter: brightness(1.05);
   }
+  .evidence-photo:focus-visible {
+    transform: scale(1.03);
+    filter: brightness(1.05);
+    outline: 2px solid rgba(24, 48, 72, 0.35);
+    outline-offset: 2px;
+  }
   .evidence-photo-expanded { 
     aspect-ratio: 4 / 3; 
     object-fit: contain;
@@ -1206,68 +1213,66 @@ function buildSnapshotHtml(payload) {
     cursor: pointer;
   }
 
-.print-only { display: none; }
-
-@media print {
-  [data-evidence-card] { page-break-inside: avoid; }
-  [data-evidence-card] .evidence-expanded { display: block !important; }
-
-  body {
-    background: #fff;
+  .print-only { display: none; }
+  @media print {
+    [data-evidence-card] { page-break-inside: avoid; }
+    [data-evidence-card] .evidence-expanded { display: block !important; }
+    body {
+      background: #fff;
+    }
+    .page {
+      max-width: none;
+      padding: 10mm;
+      gap: 10px;
+    }
+    .utility-bar,
+    .hero,
+    .panel {
+      box-shadow: none;
+      backdrop-filter: none;
+      background: #fff;
+      border-color: #d6dce3;
+    }
+    .summary-card,
+    .executionSummaryCard,
+    .executionStatusCard,
+    .metric,
+    .meta-card {
+      background: #fff;
+      box-shadow: none;
+    }
+    .utility-bar {
+      position: static;
+      page-break-inside: avoid;
+    }
+    .snapshot-photo-modal {
+      display: none !important;
+    }
+    table {
+      width: 100%;
+      table-layout: auto;
+      border-collapse: collapse;
+      border-spacing: 0;
+    }
+    thead {
+      display: table-header-group;
+    }
+    tbody {
+      display: table-row-group;
+    }
+    tr,
+    td,
+    th {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .hero,
+    .panel {
+      page-break-inside: avoid;
+    }
+    .print-only { display: block; }
+    .no-print { display: none !important; }
   }
-
-  .page {
-    max-width: none;
-    padding: 10mm;
-    gap: 10px;
-  }
-
-  .utility-bar,
-  .hero,
-  .panel {
-    box-shadow: none;
-    backdrop-filter: none;
-    background: #fff;
-    border-color: #d6dce3;
-  }
-
-  .summary-card,
-  .executionSummaryCard,
-  .executionStatusCard,
-  .metric,
-  .meta-card {
-    background: #fff;
-    box-shadow: none;
-  }
-
-  .utility-bar {
-    position: static;
-    page-break-inside: avoid;
-  }
-
-  .snapshot-photo-modal {
-    display: none !important;
-  }
-
-  .hero,
-  .panel {
-    page-break-inside: avoid;
-  }
-
-  .print-only { display: block; }
-  .no-print { display: none !important; }
-
-  table,
-  thead,
-  tbody,
-  tr,
-  td {
-    display: revert !important;
-  }
-}
-  /* CRITICAL: SCREEN-ONLY MOBILE LAYOUT
-   Do NOT remove `screen` from this media query.
-   Without it, mobile table stacking will break print/PDF exports.*/
   @media screen and (max-width: 1020px) {
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .summary-strip,
@@ -1279,57 +1284,58 @@ function buildSnapshotHtml(payload) {
     .utility-bar { flex-direction: column; }
     .hero-meta { min-width: 0; width: 100%; }
     .utility-actions { justify-content: flex-start; }
-
-    table,
-    thead,
-    tbody,
-    tr,
-    td {
+    .two-col table,
+    .two-col thead,
+    .two-col tbody,
+    .two-col th,
+    .two-col td,
+    .two-col tr {
       display: block;
       width: 100%;
     }
-
-    thead {
+    .two-col thead {
       position: absolute;
       width: 1px;
       height: 1px;
+      padding: 0;
+      margin: -1px;
       overflow: hidden;
-      clip-path: inset(50%);
+      clip: rect(0, 0, 0, 0);
       white-space: nowrap;
+      border: 0;
     }
-
-    tbody tr {
+    .two-col tbody td {
       border-bottom: 1px solid rgba(211, 220, 229, 0.9);
-      padding: 8px 0;
+      padding: 8px 10px 8px 132px;
+      min-height: 34px;
+      position: relative;
+      background: #fff;
     }
-
-    tbody tr:last-child {
-      border-bottom: none;
+    .two-col tbody tr:nth-child(even) td {
+      background: #fff;
     }
-
-    tbody td {
-      border-bottom: none;
-      padding: 6px 10px;
-    }
-
-    tbody td::before {
-      display: block;
+    .two-col tbody td::before {
+      content: attr(data-label);
+      position: absolute;
+      left: 10px;
+      top: 8px;
+      width: 112px;
       font-size: 10px;
       text-transform: uppercase;
       letter-spacing: .08em;
-      color: #6f8498;
-      margin-bottom: 2px;
-      font-weight: 700;
-      content: "";
+      color: #5d7388;
+      font-weight: 800;
     }
-
-    tbody td:nth-child(1)::before { content: "Store ID"; }
-    tbody td:nth-child(2)::before { content: "Location"; }
-    tbody td:nth-child(3)::before { content: "Status"; }
-    tbody td:nth-child(4)::before { content: "Reschedule Reason"; }
-    tbody td:nth-child(5)::before { content: "Notes"; }
-    tbody td:nth-child(6)::before { content: "Photos"; }
-    tbody td:nth-child(7)::before { content: "Latest Activity"; }
+    .two-col tbody tr {
+      border: 1px solid rgba(188, 203, 218, 0.94);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+    .two-col tbody tr:last-child {
+      margin-bottom: 0;
+    }
   }
 </style>
 </head>
