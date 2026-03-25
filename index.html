@@ -385,49 +385,62 @@
             <div class="mapLegendRow"><span class="legendDot legendRed"></span><span>Closed dominant</span></div>
           </div>
 
-          <div class="mapExecutiveCallout" id="mapExecutiveCallout">
-            <div class="mapExecutiveCalloutEyebrow">Operational Summary</div>
-            <div id="mapExecutiveSummaryLine" class="mapExecutiveSummaryLine">Loading store execution summary…</div>
-            <div class="mapExecutiveKpiRow">
-              <div class="mapExecutiveKpiCard">
-                <div class="mapExecutiveKpiLabel">Open Work</div>
-                <div id="analyticsOpenWorkValue" class="mapExecutiveKpiValue">0 open</div>
+          <div class="mapExecutiveCallout exec-summary-collapsed" id="mapExecutiveCallout">
+            <div class="mapExecutiveSummaryHeader">
+              <div class="mapExecutiveSummaryHeaderText">
+                <div class="mapExecutiveCalloutEyebrow">Operational Summary</div>
+                <div id="mapExecutiveSummaryLine" class="mapExecutiveSummaryLine">Loading store execution summary…</div>
               </div>
-              <div class="mapExecutiveKpiCard attention">
-                <div class="mapExecutiveKpiLabel">Attention</div>
-                <div id="analyticsAttentionValue" class="mapExecutiveKpiValue">0 flagged</div>
-              </div>
+              <button id="executiveSummaryToggleBtn" class="executiveSummaryToggleBtn" type="button" aria-expanded="false" aria-controls="mapExecutiveDetails">Expand</button>
             </div>
-            <div class="mapExecutiveKpiRow compact">
-              <div class="mapExecutiveMiniStat">
+
+            <div class="mapExecutiveCompactRow">
+              <div class="mapExecutiveMiniStat completion">
                 <span class="mapExecutiveMiniLabel">Completion</span>
                 <span id="analyticsCompletionValue" class="mapExecutiveMiniValue">0.0%</span>
               </div>
-              <div class="mapExecutiveMiniStat">
-                <span class="mapExecutiveMiniLabel">Coverage</span>
-                <span id="analyticsCoverageValue" class="mapExecutiveMiniValue">0.0% notes • 0.0% photos</span>
-              </div>
-            </div>
-            <div class="analyticsBarStack">
-              <div class="analyticsBarGroup">
+              <div class="analyticsBarGroup analyticsBarGroupCompact">
                 <div class="analyticsBarLabelRow"><span>Completion</span><span id="analyticsCompletionValueMirror">Actionable delivery</span></div>
                 <div class="analyticsBarTrack"><div id="analyticsCompletionBar" class="analyticsBarFill statusCompleted"></div></div>
               </div>
-              <div class="analyticsBarGroup">
-                <div class="analyticsBarLabelRow"><span>Note Coverage</span><span>Follow-up logging</span></div>
-                <div class="analyticsBarTrack"><div id="analyticsNoteCoverageBar" class="analyticsBarFill statusRescheduled"></div></div>
-              </div>
-              <div class="analyticsBarGroup">
-                <div class="analyticsBarLabelRow"><span>Photo Coverage</span><span>Evidence capture</span></div>
-                <div class="analyticsBarTrack"><div id="analyticsPhotoCoverageBar" class="analyticsBarFill statusActive"></div></div>
-              </div>
-              <div class="analyticsBarGroup">
-                <div class="analyticsBarLabelRow"><span>Recent Follow-up</span><span>Last 14 days</span></div>
-                <div class="analyticsBarTrack"><div id="analyticsRecentCoverageBar" class="analyticsBarFill statusClosed"></div></div>
+            </div>
+
+            <div class="mapExecutiveDetailsShell" id="mapExecutiveDetails" aria-hidden="true">
+              <div class="mapExecutiveDetailsContent">
+                <div class="mapExecutiveKpiRow">
+                  <div class="mapExecutiveKpiCard">
+                    <div class="mapExecutiveKpiLabel">Open Work</div>
+                    <div id="analyticsOpenWorkValue" class="mapExecutiveKpiValue">0 open</div>
+                  </div>
+                  <div class="mapExecutiveKpiCard attention">
+                    <div class="mapExecutiveKpiLabel">Attention</div>
+                    <div id="analyticsAttentionValue" class="mapExecutiveKpiValue">0 flagged</div>
+                  </div>
+                </div>
+                <div class="mapExecutiveKpiRow compact">
+                  <div class="mapExecutiveMiniStat">
+                    <span class="mapExecutiveMiniLabel">Coverage</span>
+                    <span id="analyticsCoverageValue" class="mapExecutiveMiniValue">0.0% notes • 0.0% photos</span>
+                  </div>
+                </div>
+                <div class="analyticsBarStack">
+                  <div class="analyticsBarGroup">
+                    <div class="analyticsBarLabelRow"><span>Note Coverage</span><span>Follow-up logging</span></div>
+                    <div class="analyticsBarTrack"><div id="analyticsNoteCoverageBar" class="analyticsBarFill statusRescheduled"></div></div>
+                  </div>
+                  <div class="analyticsBarGroup">
+                    <div class="analyticsBarLabelRow"><span>Photo Coverage</span><span>Evidence capture</span></div>
+                    <div class="analyticsBarTrack"><div id="analyticsPhotoCoverageBar" class="analyticsBarFill statusActive"></div></div>
+                  </div>
+                  <div class="analyticsBarGroup">
+                    <div class="analyticsBarLabelRow"><span>Recent Follow-up</span><span>Last 14 days</span></div>
+                    <div class="analyticsBarTrack"><div id="analyticsRecentCoverageBar" class="analyticsBarFill statusClosed"></div></div>
+                  </div>
+                </div>
+                <div id="analyticsAttentionLine" class="mapExecutiveDetailLine">Loading attention signals…</div>
+                <div id="analyticsRecentLine" class="mapExecutiveDetailLine muted">Loading recent follow-up coverage…</div>
               </div>
             </div>
-            <div id="analyticsAttentionLine" class="mapExecutiveDetailLine">Loading attention signals…</div>
-            <div id="analyticsRecentLine" class="mapExecutiveDetailLine muted">Loading recent follow-up coverage…</div>
           </div>
 
           <div id="map"></div>
