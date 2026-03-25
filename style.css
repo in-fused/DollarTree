@@ -2169,3 +2169,88 @@ body.executive-mode .floatingExecutiveExit {
   font-weight: 700;
   letter-spacing: 0.01em;
 }
+/* Executive summary collapse / expand enhancements */
+.mapExecutiveSummaryHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mapExecutiveSummaryHeaderText {
+  min-width: 0;
+  flex: 1;
+}
+
+.executiveSummaryToggleBtn {
+  margin-top: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.executiveSummaryToggleBtn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.mapExecutiveCompactRow {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.mapExecutiveMiniStat.completion {
+  padding: 8px 10px;
+}
+
+.analyticsBarGroupCompact {
+  margin-top: 0;
+}
+
+.mapExecutiveDetailsShell {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.28s ease, opacity 0.2s ease, margin-top 0.2s ease;
+  opacity: 1;
+  margin-top: 10px;
+}
+
+.mapExecutiveDetailsContent {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mapExecutiveCallout.exec-summary-collapsed {
+  padding: 10px 12px;
+}
+
+.mapExecutiveCallout.exec-summary-collapsed .mapExecutiveDetailsShell {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 4px;
+}
+
+.mapExecutiveCallout.exec-summary-collapsed .mapExecutiveCalloutEyebrow {
+  margin-bottom: 2px;
+}
+
+@media (max-width: 900px) {
+  .executiveSummaryToggleBtn {
+    min-height: 34px;
+    min-width: 86px;
+    padding: 8px 12px;
+  }
+
+  .mapExecutiveCallout.exec-summary-collapsed {
+    padding: 9px 11px;
+  }
+}
