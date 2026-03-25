@@ -397,7 +397,6 @@ function buildSnapshotEvidencePhotoRail(photos, variant = "compact") {
         class="evidence-photo evidence-photo-${escapeSnapshotHtml(variant)}"
         src="${escapeSnapshotHtml(photo.imageUrl)}"
         alt="Store evidence photo ${index + 1}"
-        aria-label="Open evidence photo ${index + 1}"
         data-full-image="${escapeSnapshotHtml(photo.imageUrl)}"
         tabindex="0"
         role="button"
@@ -1078,12 +1077,6 @@ function buildSnapshotHtml(payload) {
     transform: scale(1.03);
     filter: brightness(1.05);
   }
-  .evidence-photo:focus-visible {
-  transform: scale(1.03);
-  filter: brightness(1.05);
-  outline: 2px solid rgba(24, 48, 72, 0.35);
-  outline-offset: 2px;
-}
   .evidence-photo-expanded { 
     aspect-ratio: 4 / 3; 
     object-fit: contain;
@@ -1266,6 +1259,57 @@ function buildSnapshotHtml(payload) {
     .utility-bar { flex-direction: column; }
     .hero-meta { min-width: 0; width: 100%; }
     .utility-actions { justify-content: flex-start; }
+
+    table,
+    thead,
+    tbody,
+    tr,
+    td {
+      display: block;
+      width: 100%;
+    }
+
+    thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(211, 220, 229, 0.9);
+      padding: 8px 0;
+    }
+
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    tbody td {
+      border-bottom: none;
+      padding: 6px 10px;
+    }
+
+    tbody td::before {
+      display: block;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #6f8498;
+      margin-bottom: 2px;
+      font-weight: 700;
+      content: "";
+    }
+
+    tbody td:nth-child(1)::before { content: "Store ID"; }
+    tbody td:nth-child(2)::before { content: "Location"; }
+    tbody td:nth-child(3)::before { content: "Status"; }
+    tbody td:nth-child(4)::before { content: "Reschedule Reason"; }
+    tbody td:nth-child(5)::before { content: "Notes"; }
+    tbody td:nth-child(6)::before { content: "Photos"; }
+    tbody td:nth-child(7)::before { content: "Latest Activity"; }
   }
 </style>
 </head>
