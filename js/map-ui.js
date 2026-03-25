@@ -281,57 +281,93 @@ function ensureActivePulseAnimation() {
   activePointPulseAnimationId = requestAnimationFrame(step);
 }
 
-function applyRouteSelectionVisuals() {
-  if (!map || !map.getSource("stores")) return;
-
-  const selectedSet = new Set(
-    routeStops
-      .map((stop) => Number.parseInt(String(stop.storeId), 10))
-      .filter(Number.isFinite)
-  );
-
-  const routeSet = new Set(selectedSet);
-
-  allStores.forEach((store) => {
-    const storeId = Number.parseInt(store.store_id, 10);
-    if (!Number.isFinite(storeId)) return;
-    store._routeSelected = selectedSet.has(storeId);
-    store._inRoute = routeSet.has(storeId);
-  });
-
-  const source = map.getSource("stores");
-  source.setData({
-    type: "FeatureCollection",
-    features: allStores.map(storeToFeature)
-  });
+function getDominantClusterStatusColorExpression() {
+  return [
+    "case",
+    [
+      "all",
+      [">=", ["get", "closedCount"], ["get", "rescheduledCount"]],
+      [">=", ["get", "closedCount"], ["get", "activeCount"]],
+      [">=", ["get", "closedCount"], ["get", "completedCount"]],
+      [">", ["get", "closedCount"], 0]
+    ],
+    "#ff2d2d",
+    [
+      "all",
+      [">=", ["get", "rescheduledCount"], ["get", "activeCount"]],
+      [">=", ["get", "rescheduledCount"], ["get", "completedCount"]],
+      [">", ["get", "rescheduledCount"], 0]
+    ],
+    "#ff9900",
+    [
+      "all",
+      [">=", ["get", "activeCount"], ["get", "completedCount"]],
+      [">", ["get", "activeCount"], 0]
+    ],
+    "#64b5f6",
+    [">", ["get", "completedCount"], 0],
+    "#2ecc71",
+    "#64b5f6"
+  ];
 }
 
-function initializeMapSourcesAndLayers() {
-  const baseFeatures = allStores.map(storeToFeature);
+function createGeoJson(stores) {
+  const geoAudit = getGeoAuditConfig(stores);
+
+  return {
+    type: "FeatureCollection",
+    features: stores
+      .filter(store => hasValidCoordinate(store?.lat) && hasValidCoordinate(store?.lng))
+      .map(store => {
+        const status = statusMap[String(store.store_id)] || getStatusState("active");
+
+        return {
+          type: "Feature",
+          properties: {
+            store_id: String(store.store_id),
+            status_code: normalizeStatusCode(status.status_code),
+            status_reason: status.status_reason || "",
+            completed: status.completed === true,
+            closed: status.closed === true,
+            ...getMappedStoreIntegrityProperties(store, statusMap, geoAudit)
+          },
+          geometry: {
+            type: "Point",
+            coordinates: [store.lng, store.lat]
+          }
+        };
+      })
+  };
+}
+
+function buildMap() {
+  geojsonData = createGeoJson(getFilteredStores());
 
   map.addSource("stores", {
     type: "geojson",
-    data: {
-      type: "FeatureCollection",
-      features: baseFeatures
-    },
+    data: geojsonData,
     cluster: true,
-    clusterRadius: 48,
+    clusterRadius: 50,
     clusterProperties: {
-      activeCount: ["+", ["case", ["==", ["get", "status"], "active"], 1, 0]],
-      completedCount: ["+", ["case", ["==", ["get", "status"], "completed"], 1, 0]],
-      closedCount: ["+", ["case", ["==", ["get", "status"], "closed"], 1, 0]],
-      rescheduledCount: ["+", ["case", ["==", ["get", "status"], "rescheduled"], 1, 0]]
+      activeCount: [
+        "+",
+        ["case", ["==", ["get", "status_code"], "active"], 1, 0]
+      ],
+      rescheduledCount: [
+        "+",
+        ["case", ["==", ["get", "status_code"], "rescheduled"], 1, 0]
+      ],
+      completedCount: [
+        "+",
+        ["case", ["==", ["get", "status_code"], "completed"], 1, 0]
+      ],
+      closedCount: [
+        "+",
+        ["case", ["==", ["get", "status_code"], "closed"], 1, 0]
+      ],
+      totalCount: ["+", 1]
     }
   });
-
-  const clusterColorExpression = [
-    "case",
-    [">=", ["get", "activeCount"], ["max", ["get", "completedCount"], ["get", "closedCount"], ["get", "rescheduledCount"]]], "#64b5f6",
-    [">=", ["get", "rescheduledCount"], ["max", ["get", "completedCount"], ["get", "closedCount"], ["get", "activeCount"]]], "#ff9900",
-    [">=", ["get", "completedCount"], ["max", ["get", "activeCount"], ["get", "closedCount"], ["get", "rescheduledCount"]]], "#2ecc71",
-    "#ff2d2d"
-  ];
 
   map.addLayer({
     id: "clusters",
@@ -339,18 +375,18 @@ function initializeMapSourcesAndLayers() {
     source: "stores",
     filter: ["has", "point_count"],
     paint: {
-      "circle-color": clusterColorExpression,
       "circle-radius": [
         "step",
         ["get", "point_count"],
-        16,
-        12, 20,
-        40, 26,
-        100, 32
+        28,
+        10, 30,
+        25, 33,
+        50, 36
       ],
-      "circle-opacity": 0.88,
-      "circle-stroke-width": 1.8,
-      "circle-stroke-color": "rgba(255,255,255,0.22)"
+      "circle-color": getDominantClusterStatusColorExpression(),
+      "circle-stroke-width": 2,
+      "circle-stroke-color": "rgba(255,255,255,0.18)",
+      "circle-opacity": 0.92
     }
   });
 
@@ -360,29 +396,17 @@ function initializeMapSourcesAndLayers() {
     source: "stores",
     filter: ["has", "point_count"],
     layout: {
-      "text-field": "{point_count_abbreviated}",
-      "text-size": 11,
-      "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"]
+      "text-field": "{point_count}",
+      "text-size": [
+        "step",
+        ["get", "point_count"],
+        14,
+        10, 15,
+        25, 16
+      ]
     },
     paint: {
       "text-color": "#ffffff"
-    }
-  });
-
-  map.addLayer({
-    id: "route-selected-point",
-    type: "circle",
-    source: "stores",
-    filter: [
-      "all",
-      ["!", ["has", "point_count"]],
-      ["==", ["get", "inRoute"], true]
-    ],
-    paint: {
-      "circle-radius": 15,
-      "circle-color": "rgba(0,0,0,0)",
-      "circle-stroke-width": 2.2,
-      "circle-stroke-color": "#ffd166"
     }
   });
 
@@ -393,89 +417,63 @@ function initializeMapSourcesAndLayers() {
     filter: [
       "all",
       ["!", ["has", "point_count"]],
-      ["==", ["get", "status"], "active"]
+      ["==", ["get", "status_code"], "active"]
     ],
     paint: {
       "circle-radius": 11,
-      "circle-color": "#64b5f6",
-      "circle-opacity": 0.22
+      "circle-color": "rgba(100, 181, 246, 0.28)",
+      "circle-opacity": 0.18,
+      "circle-stroke-width": 1.5,
+      "circle-stroke-color": "rgba(100, 181, 246, 0.55)"
     }
   });
 
   map.addLayer({
-    id: "unclustered-point",
-    type: "circle",
-    source: "stores",
-    filter: ["!", ["has", "point_count"]],
-    paint: {
-      "circle-color": [
-        "match",
-        ["get", "status"],
-        "completed", "#2ecc71",
-        "active", "#64b5f6",
-        "rescheduled", "#ff9900",
-        "closed", "#ff2d2d",
-        "#9aa7b5"
-      ],
-      "circle-radius": 7.2,
-      "circle-stroke-width": 1.6,
-      "circle-stroke-color": "rgba(255,255,255,0.8)"
-    }
-  });
-
-  map.addLayer({
-    id: "integrity-ring",
+    id: "point-issue-halo",
     type: "circle",
     source: "stores",
     filter: [
       "all",
       ["!", ["has", "point_count"]],
-      [">", ["length", ["coalesce", ["get", "integrityIssues"], []]], 0]
+      ["==", ["get", "has_integrity_issue"], true]
     ],
     paint: {
-      "circle-radius": 10.5,
-      "circle-color": "rgba(0,0,0,0)",
-      "circle-stroke-width": 1.8,
-      "circle-stroke-color": "#ffc845",
-      "circle-stroke-opacity": 0.95
+      "circle-radius": 12,
+      "circle-color": "rgba(255, 179, 71, 0.18)",
+      "circle-stroke-width": 2,
+      "circle-stroke-color": "rgba(255, 196, 92, 0.82)"
     }
   });
 
   map.addLayer({
-    id: "store-label",
-    type: "symbol",
+    id: "points",
+    type: "circle",
     source: "stores",
     filter: ["!", ["has", "point_count"]],
-    layout: {
-      "text-field": ["to-string", ["get", "store_id"]],
-      "text-size": 10,
-      "text-offset": [0, 1.45],
-      "text-anchor": "top",
-      "text-allow-overlap": false
-    },
     paint: {
-      "text-color": "rgba(233,242,255,0.95)",
-      "text-halo-color": "rgba(6,12,19,0.86)",
-      "text-halo-width": 0.9
+      "circle-radius": 8,
+      "circle-color": [
+        "match",
+        ["get", "status_code"],
+        "completed", "#2ecc71",
+        "closed", "#ff2d2d",
+        "rescheduled", "#ff9900",
+        "#64b5f6"
+      ],
+      "circle-stroke-width": 1.5,
+      "circle-stroke-color": "rgba(255,255,255,0.35)"
     }
   });
 
-  ensureActivePulseAnimation();
-}
+  map.on("click", "points", handleStorePointClick);
+  map.on("click", "clusters", handleClusterClick);
 
-function bindMapInteractions() {
-  map.on("click", "clusters", (event) => {
-    const features = map.queryRenderedFeatures(event.point, { layers: ["clusters"] });
-    const clusterId = features[0].properties.cluster_id;
+  map.on("mouseenter", "points", () => {
+    map.getCanvas().style.cursor = "pointer";
+  });
 
-    map.getSource("stores").getClusterExpansionZoom(clusterId, (error, zoom) => {
-      if (error) return;
-
-      map.easeTo({
-        center: features[0].geometry.coordinates,
-        zoom
-      });
-    });
+  map.on("mouseleave", "points", () => {
+    map.getCanvas().style.cursor = "";
   });
 
   map.on("mouseenter", "clusters", () => {
@@ -486,61 +484,141 @@ function bindMapInteractions() {
     map.getCanvas().style.cursor = "";
   });
 
-  map.on("click", "unclustered-point", (event) => {
-    const feature = event.features?.[0];
-    if (!feature) return;
+  ensureActivePulseAnimation();
+}
 
-    const storeId = Number.parseInt(String(feature.properties.store_id), 10);
-    if (!Number.isFinite(storeId)) return;
+function rebuildFullMap() {
+  if (!map.getSource("stores")) return;
+  geojsonData = createGeoJson(getFilteredStores());
+  map.getSource("stores").setData(geojsonData);
+  ensureActivePulseAnimation();
+}
 
-    const store = allStores.find((candidate) => Number.parseInt(candidate.store_id, 10) === storeId);
-    if (!store) return;
+function rebuild() {
+  rebuildFullMap();
+}
 
-    openStoreModal(store);
-  });
+function handleClusterClick(e) {
+  const features = map.queryRenderedFeatures(e.point, { layers: ["clusters"] });
+  if (!features.length) return;
 
-  map.on("mouseenter", "unclustered-point", () => {
-    map.getCanvas().style.cursor = "pointer";
-  });
-
-  map.on("mouseleave", "unclustered-point", () => {
-    map.getCanvas().style.cursor = "";
+  const clusterId = features[0].properties.cluster_id;
+  map.getSource("stores").getClusterExpansionZoom(clusterId, (err, zoom) => {
+    if (err) return;
+    map.easeTo({
+      center: features[0].geometry.coordinates,
+      zoom
+    });
   });
 }
 
-function applyMapDataState() {
-  if (!map || !map.getSource("stores")) return;
-  applyRouteSelectionVisuals();
-  refreshIntegrityLayerVisibility();
+function handleStorePointClick(e) {
+  const feature = e.features?.[0];
+  if (!feature) return;
+  const storeId = String(feature.properties.store_id);
+  currentSelectedStoreId = storeId;
+  updateSelectedStorePanel(storeId);
+  openStoreModal(storeId);
 }
 
-function initializeMap() {
-  if (map) return;
+function updateMapViewportForMode() {
+  if (currentWorkspaceView === "photos") return;
 
-  mapboxgl.accessToken = MAPBOX_TOKEN;
-  map = new mapboxgl.Map({
-    container: "map",
-    style: "mapbox://styles/mapbox/dark-v11",
-    center: [-81.64, 27.91],
-    zoom: 6.2,
-    attributionControl: false
+  const filteredStores = getFilteredStores();
+
+  if (filteredStores.length === 0) {
+    map.easeTo({
+      center: nationalOverviewEnabled ? NATIONAL_CENTER : DEFAULT_LOCAL_CENTER,
+      zoom: nationalOverviewEnabled ? NATIONAL_ZOOM : DEFAULT_LOCAL_ZOOM,
+      duration: 700
+    });
+    return;
+  }
+
+  if (nationalOverviewEnabled) {
+    fitMapToStores(filteredStores, 48, 5.5);
+    return;
+  }
+
+  if (filteredStores.length === 1) {
+    map.easeTo({
+      center: [filteredStores[0].lng, filteredStores[0].lat],
+      zoom: 12.5,
+      duration: 700
+    });
+    return;
+  }
+
+  fitMapToStores(filteredStores, 58, 8.75);
+}
+
+function fitMapToStores(stores, padding = 40, maxZoom = 8.5) {
+  if (!stores || stores.length === 0) return;
+
+  const bounds = new mapboxgl.LngLatBounds();
+
+  stores.forEach(store => {
+    if (Number.isFinite(store.lng) && Number.isFinite(store.lat)) {
+      bounds.extend([store.lng, store.lat]);
+    }
   });
 
-  map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+  if (bounds.isEmpty()) return;
 
-  map.on("load", () => {
-    initializeMapSourcesAndLayers();
-    bindMapInteractions();
-    applyMapDataState();
-    updateMapViewportForMode();
+  map.fitBounds(bounds, {
+    padding,
+    maxZoom,
+    duration: 700
   });
 }
 
-function refreshMapAndOverlays() {
-  refreshMapSourceData();
-  refreshIntegrityLayerVisibility();
-  applyRouteSelectionVisuals();
-  updateMapViewportForMode();
-  updateMobileExecutiveSummaryUI();
-  setTimeout(() => map.resize(), 80);
+function setMapModeTags() {
+  const filteredCount = getFilteredStores().length;
+
+  setText("mapModeTag", nationalOverviewEnabled ? "National Overview" : "Project View");
+
+  const parts = [];
+  if (activeFilters.region) parts.push(activeFilters.region);
+  if (activeFilters.territory) parts.push(activeFilters.territory);
+  if (activeFilters.state) parts.push(activeFilters.state);
+  if (showRemovedStores) parts.push("Removed Visible");
+
+  setText(
+    "mapScopeTag",
+    parts.length
+      ? `${parts.join(" • ")} • ${filteredCount.toLocaleString()} stores`
+      : `${filteredCount.toLocaleString()} stores in scope`
+  );
+}
+
+/* ================= SEARCH ================= */
+
+function bindSearch() {
+  const input = document.getElementById("storeSearch");
+  if (!input || input.dataset.bound) return;
+
+  input.addEventListener("input", (e) => {
+    const value = e.target.value.trim();
+    const match = storeData.find(store => String(store.store_id) === value);
+
+    if (!match) return;
+
+    currentSelectedStoreId = String(match.store_id);
+    updateSelectedStorePanel(match.store_id);
+
+    currentWorkspaceView = "map";
+    localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
+    updateWorkspaceViewUI();
+
+    map.flyTo({
+      center: [match.lng, match.lat],
+      zoom: 14
+    });
+
+    if (window.innerWidth <= 900) {
+      document.body.classList.remove("sidebar-open");
+    }
+  });
+
+  input.dataset.bound = "true";
 }
