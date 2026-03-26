@@ -570,20 +570,26 @@
   }
 
   .mapLegendCard {
-  left: 8px;
-  right: 8px;
-  bottom: 0;
-  min-width: 0;
-  padding: 7px 2px;
+  left: 8px !important;
+  right: 8px !important;
+  bottom: 0 !important;
+  min-width: 0 !important;
+  padding: 7px 2px !important;
+  margin: 0 !important;
+  transform: none !important;
 }
 
-  .mapLegendTitle {
-    font-size: 9px;
-  }
+.mapLegendTitle {
+  font-size: 9px;
+}
 
-  .mapLegendRow {
-    font-size: 10px;
-  }
+.mapLegendRow {
+  font-size: 10px;
+}
+
+.mapLegendCard .mapLegendRow {
+  margin-bottom: 0 !important;
+}
 
 
   .mapModeTag,
@@ -598,7 +604,7 @@
 
   body.executive-mode .floatingExecutiveExit {
     right: 7px;
-    bottom: calc(84px + env(safe-area-inset-bottom));
+    bottom: 0;
   }
 }
 
