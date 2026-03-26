@@ -296,32 +296,30 @@
 
     .mapLegendCard {
     left: 8px;
-    right: 8px;
     bottom: calc(76px + env(safe-area-inset-bottom));
-    min-width: 0;
-    padding: 7px 9px 6px;
+    min-width: 136px;
+    padding: 7px 9px;
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    column-gap: 8px;
+    row-gap: 4px;
   }
 
-    .mapLegendTitle {
+  .mapLegendTitle {
     width: 100%;
     text-align: center;
-    font-size: 9px;
-    letter-spacing: 0.1em;
     margin: 0;
+    font-size: 9px;
     line-height: 1.2;
   }
 
-    .mapLegendRow {
+  .mapLegendRow {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     margin: 0;
-    font-size: 10px;
     white-space: nowrap;
     line-height: 1.1;
   }
@@ -331,6 +329,11 @@
     line-height: 0;
   }
 
+  .mapLegendRow:nth-child(2) span:last-child::after { content: "Active"; }
+  .mapLegendRow:nth-child(3) span:last-child::after { content: "Rescheduled"; }
+  .mapLegendRow:nth-child(4) span:last-child::after { content: "Completed"; }
+  .mapLegendRow:nth-child(5) span:last-child::after { content: "Closed"; }
+
   .mapLegendRow:nth-child(2) span:last-child::after,
   .mapLegendRow:nth-child(3) span:last-child::after,
   .mapLegendRow:nth-child(4) span:last-child::after,
@@ -339,11 +342,6 @@
     line-height: 1.1;
     letter-spacing: 0;
   }
-
-  .mapLegendRow:nth-child(2) span:last-child::after { content: "Active"; }
-  .mapLegendRow:nth-child(3) span:last-child::after { content: "Rescheduled"; }
-  .mapLegendRow:nth-child(4) span:last-child::after { content: "Completed"; }
-  .mapLegendRow:nth-child(5) span:last-child::after { content: "Closed"; }
 
   .mapExecutiveCallout {
     display: none;
@@ -577,9 +575,9 @@
     max-height: 260px;
   }
 
-    .mapLegendCard {
-    min-width: 0;
-    padding: 7px 8px 6px;
+  .mapLegendCard {
+    min-width: 126px;
+    padding: 7px 8px;
   }
 
   .mapLegendTitle {
