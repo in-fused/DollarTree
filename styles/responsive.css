@@ -297,7 +297,7 @@
       .mapLegendCard {
     left: 8px;
     right: 8px;
-    bottom: calc(76px + env(safe-area-inset-bottom));
+    bottom: 0;
     min-width: 0;
     padding: 7px 2px;
     display: flex;
@@ -374,9 +374,10 @@
     height: 6px;
   }
 
-  body.executive-mode .mapLegendCard {
+    body.executive-mode .mapLegendCard {
     left: 8px;
-    bottom: calc(72px + env(safe-area-inset-bottom));
+    right: 8px;
+    bottom: 0;
   }
 
   .scopeSummaryGrid,
