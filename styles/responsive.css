@@ -299,7 +299,7 @@
     right: 8px;
     bottom: calc(76px + env(safe-area-inset-bottom));
     min-width: 0;
-    padding: 7px 9px;
+    padding: 7px 2px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
