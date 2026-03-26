@@ -294,10 +294,11 @@
     max-width: calc(100% - 16px);
   }
 
-    .mapLegendCard {
+      .mapLegendCard {
     left: 8px;
+    right: 8px;
     bottom: calc(76px + env(safe-area-inset-bottom));
-    min-width: 136px;
+    min-width: 0;
     padding: 7px 9px;
     display: flex;
     flex-wrap: wrap;
@@ -347,16 +348,8 @@
     display: none;
   }
 
-  body.executive-mode .mapExecutiveCallout {
-    display: block;
-    left: 8px;
-    right: auto;
-    top: auto;
-    bottom: calc(128px + env(safe-area-inset-bottom));
-    width: min(280px, calc(100vw - 16px));
-    max-width: min(280px, calc(100vw - 16px));
-    min-height: 0;
-    padding: 8px 9px 7px;
+    body.executive-mode .mapExecutiveCallout {
+    display: none !important;
   }
 
   body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveSummaryLine {
@@ -576,7 +569,7 @@
   }
 
   .mapLegendCard {
-    min-width: 126px;
+    min-width: 0;
     padding: 7px 8px;
   }
 
