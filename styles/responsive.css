@@ -570,9 +570,12 @@
   }
 
   .mapLegendCard {
-    min-width: 0;
-    padding: 7px 2px;
-  }
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  min-width: 0;
+  padding: 7px 2px;
+}
 
   .mapLegendTitle {
     font-size: 9px;
