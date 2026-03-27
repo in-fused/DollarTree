@@ -361,34 +361,51 @@
     }
 
     if (summary) {
-      const stageSummary = shellState.stageResult && shellState.stageResult.summary ? shellState.stageResult.summary : null;
-      const diagnosticsSummary = shellState.diagnosticsSummary || null;
+  const stageSummary = shellState.stageResult && shellState.stageResult.summary ? shellState.stageResult.summary : null;
+  const diagnosticsSummary = shellState.diagnosticsSummary || null;
 
-      if (!shellState.file) {
-        summary.textContent = "Dry-run summary will render here after CSV parsing and staging.";
-      } else if (!stageSummary) {
-        summary.textContent = "No dry-run summary available for current file selection.";
-      } else {
-        const topIssueCodes = collectTopIssueCodes(diagnosticsSummary);
-        const lines = [
-          `<ul class="importShellSummaryList">`,
-          `<li><strong>Preset Used:</strong> ${shellState.mappingReport?.presetUsed || "canonical"}</li>`,
-          `<li><strong>Accepted Rows:</strong> ${stageSummary.acceptedRowCount}</li>`,
-          `<li><strong>Rejected Rows:</strong> ${stageSummary.rejectedRowCount}</li>`,
-          `<li><strong>Warnings:</strong> ${stageSummary.warningCount}</li>`,
-          `<li><strong>Errors:</strong> ${stageSummary.errorCount}</li>`,
-          `<li><strong>Missing Required Mappings:</strong> ${stageSummary.missingRequiredMappingCount}</li>`,
-          `<li><strong>Unmapped Headers:</strong> ${stageSummary.unmappedHeaderCount}</li>`
-        ];
+  if (!shellState.file) {
+    summary.textContent = "Dry-run summary will render here after CSV parsing and staging.";
+  } else if (!stageSummary) {
+    summary.textContent = "No dry-run summary available for current file selection.";
+  } else {
+    summary.innerHTML = "";
 
-        if (topIssueCodes.length) {
-          lines.push(`<li><strong>Top Issue Codes:</strong> ${topIssueCodes.join(", ")}</li>`);
-        }
+    const list = document.createElement("ul");
+    list.className = "importShellSummaryList";
 
-        lines.push(`</ul>`);
-        summary.innerHTML = lines.join("");
-      }
+    const items = [
+      ["Preset Used", String(shellState.mappingReport?.presetUsed || "canonical")],
+      ["Accepted Rows", String(stageSummary.acceptedRowCount)],
+      ["Rejected Rows", String(stageSummary.rejectedRowCount)],
+      ["Warnings", String(stageSummary.warningCount)],
+      ["Errors", String(stageSummary.errorCount)],
+      ["Missing Required Mappings", String(stageSummary.missingRequiredMappingCount)],
+      ["Unmapped Headers", String(stageSummary.unmappedHeaderCount)]
+    ];
+
+    const topIssueCodes = collectTopIssueCodes(diagnosticsSummary);
+    if (topIssueCodes.length) {
+      items.push(["Top Issue Codes", topIssueCodes.join(", ")]);
     }
+
+    items.forEach(([label, value]) => {
+      const li = document.createElement("li");
+
+      const strong = document.createElement("strong");
+      strong.textContent = `${label}: `;
+
+      const span = document.createElement("span");
+      span.textContent = value;
+
+      li.appendChild(strong);
+      li.appendChild(span);
+      list.appendChild(li);
+    });
+
+    summary.appendChild(list);
+  }
+}
   }
 
   function openImportShell() {
