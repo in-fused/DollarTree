@@ -46,7 +46,7 @@
 
   function bindExecutiveSummaryToggle() {
     const { card, toggleBtn } = getElements();
-    if (!card || !toggleBtn || toggleBtn.dataset.bound === "true") return;
+    if (!card || !toggleBtn || toggleBtn.dataset.execSummaryBound === "true") return;
 
     toggleBtn.addEventListener("click", (event) => {
       event.preventDefault();
@@ -55,7 +55,7 @@
       applyExecutiveSummaryState(!collapsed);
     });
 
-    toggleBtn.dataset.bound = "true";
+    toggleBtn.dataset.execSummaryBound = "true";
   }
 
   function initExecutiveSummaryController() {
