@@ -46,7 +46,7 @@
 
   function bindExecutiveSummaryToggle() {
     const { card, toggleBtn } = getElements();
-    if (!card || !toggleBtn || toggleBtn.dataset.bound === "true") return;
+    if (!card || !toggleBtn || toggleBtn.dataset.execSummaryBound === "true") return;
 
     toggleBtn.addEventListener("click", (event) => {
       event.preventDefault();
@@ -55,7 +55,7 @@
       applyExecutiveSummaryState(!collapsed);
     });
 
-    toggleBtn.dataset.bound = "true";
+    toggleBtn.dataset.execSummaryBound = "true";
   }
 
   function initExecutiveSummaryController() {
@@ -289,19 +289,35 @@
 
     if (fileMeta) {
       if (!state.file) {
-        fileMeta.textContent = "No file selected.";
-      } else {
-        const modifiedAt = state.file.lastModified
-          ? new Date(state.file.lastModified).toLocaleString()
-          : "Unknown";
-        fileMeta.innerHTML = [
-          `<strong>Name:</strong> ${state.file.name}`,
-          `<strong>Type:</strong> ${state.file.type || "Unknown"}`,
-          `<strong>Size:</strong> ${formatFileSize(state.file.size)}`,
-          `<strong>Last Modified:</strong> ${modifiedAt}`
-        ].join("<br>");
-      }
-    }
+  fileMeta.textContent = "No file selected.";
+} else {
+  const modifiedAt = state.file.lastModified
+    ? new Date(state.file.lastModified).toLocaleString()
+    : "Unknown";
+
+  fileMeta.innerHTML = "";
+  
+  const lines = [
+    ["Name", state.file.name],
+    ["Type", state.file.type || "Unknown"],
+    ["Size", formatFileSize(state.file.size)],
+    ["Last Modified", modifiedAt]
+  ];
+
+  lines.forEach(([label, value]) => {
+    const row = document.createElement("div");
+
+    const strong = document.createElement("strong");
+    strong.textContent = `${label}: `;
+
+    const span = document.createElement("span");
+    span.textContent = value;
+
+    row.appendChild(strong);
+    row.appendChild(span);
+    fileMeta.appendChild(row);
+  });
+}
 
     if (status) {
       status.textContent = state.file
