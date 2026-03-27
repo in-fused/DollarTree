@@ -277,60 +277,61 @@
   }
 
   function renderImportShellState() {
-    const { modal, dropZone, fileMeta, status, dryRunSummary } = getShellElements();
-    if (!modal) return;
+  const { modal, dropZone, fileMeta, status, dryRunSummary } = getShellElements();
+  if (!modal) return;
 
-    modal.classList.toggle("hidden", !state.open);
-    modal.setAttribute("aria-hidden", String(!state.open));
+  modal.classList.toggle("hidden", !state.open);
+  modal.setAttribute("aria-hidden", String(!state.open));
 
-    if (dropZone) {
-      dropZone.classList.toggle("is-dragover", state.dragActive);
-    }
+  if (dropZone) {
+    dropZone.classList.toggle("is-dragover", state.dragActive);
+  }
 
-    if (fileMeta) {
-      if (!state.file) {
-  fileMeta.textContent = "No file selected.";
-} else {
-  const modifiedAt = state.file.lastModified
-    ? new Date(state.file.lastModified).toLocaleString()
-    : "Unknown";
+  if (fileMeta) {
+    if (!state.file) {
+      fileMeta.textContent = "No file selected.";
+    } else {
+      const modifiedAt = state.file.lastModified
+        ? new Date(state.file.lastModified).toLocaleString()
+        : "Unknown";
 
-  fileMeta.innerHTML = "";
-  
-  const lines = [
-    ["Name", state.file.name],
-    ["Type", state.file.type || "Unknown"],
-    ["Size", formatFileSize(state.file.size)],
-    ["Last Modified", modifiedAt]
-  ];
+      fileMeta.innerHTML = "";
 
-  lines.forEach(([label, value]) => {
-    const row = document.createElement("div");
+      const lines = [
+        ["Name", state.file.name],
+        ["Type", state.file.type || "Unknown"],
+        ["Size", formatFileSize(state.file.size)],
+        ["Last Modified", modifiedAt]
+      ];
 
-    const strong = document.createElement("strong");
-    strong.textContent = `${label}: `;
+      lines.forEach(([label, value]) => {
+        const row = document.createElement("div");
 
-    const span = document.createElement("span");
-    span.textContent = value;
+        const strong = document.createElement("strong");
+        strong.textContent = `${label}: `;
 
-    row.appendChild(strong);
-    row.appendChild(span);
-    fileMeta.appendChild(row);
-  });
-}
+        const span = document.createElement("span");
+        span.textContent = value;
 
-    if (status) {
-      status.textContent = state.file
-        ? "File captured in shell-local state. No validation, staging, or apply has been run."
-        : "Awaiting file selection for staged validation preview.";
-    }
-
-    if (dryRunSummary) {
-      dryRunSummary.textContent = state.file
-        ? "Dry-run summary placeholder ready. Apply/Commit remains inactive in this phase."
-        : "Dry-run summary will render here in a future phase.";
+        row.appendChild(strong);
+        row.appendChild(span);
+        fileMeta.appendChild(row);
+      });
     }
   }
+
+  if (status) {
+    status.textContent = state.file
+      ? "File captured in shell-local state. No validation, staging, or apply has been run."
+      : "Awaiting file selection for staged validation preview.";
+  }
+
+  if (dryRunSummary) {
+    dryRunSummary.textContent = state.file
+      ? "Dry-run summary placeholder ready. Apply/Commit remains inactive in this phase."
+      : "Dry-run summary will render here in a future phase.";
+  }
+}
 
   function openImportShell() {
     state.open = true;
