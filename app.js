@@ -134,17 +134,22 @@
   }
 
   function ensureImportShellMarkup() {
-    if (document.getElementById("openImportShellBtn")) return;
-
     const importLink = document.getElementById("importProjectLink");
     if (!importLink) return;
 
-    const openBtn = document.createElement("button");
-    openBtn.id = "openImportShellBtn";
-    openBtn.type = "button";
-    openBtn.className = "btnSecondary";
-    openBtn.textContent = "Import Data Shell";
-    importLink.insertAdjacentElement("afterend", openBtn);
+    let openBtn = document.getElementById("openImportShellBtn");
+    if (!openBtn) {
+      openBtn = document.createElement("button");
+      openBtn.id = "openImportShellBtn";
+      openBtn.type = "button";
+      openBtn.className = "btnSecondary";
+      openBtn.textContent = "Import Data Shell";
+      importLink.insertAdjacentElement("afterend", openBtn);
+    } else if (openBtn.previousElementSibling !== importLink) {
+      importLink.insertAdjacentElement("afterend", openBtn);
+    }
+
+    if (document.getElementById("importShellModal")) return;
 
     const modal = document.createElement("div");
     modal.id = "importShellModal";
@@ -221,6 +226,45 @@
     return `${(value / (1024 * 1024)).toFixed(2)} MB`;
   }
 
+  function setSafeKeyValueRows(container, rows) {
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
+    rows.forEach((row) => {
+      const line = document.createElement("div");
+      const key = document.createElement("strong");
+      key.textContent = `${row.key}: `;
+      const value = document.createElement("span");
+      value.textContent = row.value;
+      line.appendChild(key);
+      line.appendChild(value);
+      container.appendChild(line);
+    });
+  }
+
+  function setSafeSummaryList(container, items) {
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
+    const list = document.createElement("ul");
+    list.className = "importShellSummaryList";
+
+    items.forEach((item) => {
+      const li = document.createElement("li");
+      const key = document.createElement("strong");
+      key.textContent = `${item.key}: `;
+      const value = document.createElement("span");
+      value.textContent = item.value;
+      li.appendChild(key);
+      li.appendChild(value);
+      list.appendChild(li);
+    });
+
+    container.appendChild(list);
+  }
+
   function resetImportShellState() {
     const { fileInput } = getShellElements();
 
@@ -254,26 +298,26 @@
       const next = text[i + 1];
 
       if (inQuotes) {
-        if (char === '"' && next === '"') {
-          value += '"';
+        if (char === "\"" && next === "\"") {
+          value += "\"";
           i += 1;
-        } else if (char === '"') {
+        } else if (char === "\"") {
           inQuotes = false;
         } else {
           value += char;
         }
-      } else if (char === '"') {
+      } else if (char === "\"") {
         inQuotes = true;
-      } else if (char === ',') {
+      } else if (char === ",") {
         row.push(value);
         value = "";
-      } else if (char === '\n') {
+      } else if (char === "\n") {
         row.push(value);
         rows.push(row);
         row = [];
         value = "";
-      } else if (char === '\r') {
-        if (next === '\n') continue;
+      } else if (char === "\r") {
+        if (next === "\n") continue;
         row.push(value);
         rows.push(row);
         row = [];
@@ -318,39 +362,20 @@
     }
 
     if (fileMeta) {
-  if (!shellState.file) {
-    fileMeta.textContent = "No file selected.";
-  } else {
-    fileMeta.innerHTML = "";
-
-    const modified = shellState.file.lastModified
-      ? new Date(shellState.file.lastModified).toLocaleString()
-      : "Unknown";
-
-    const lines = [
-      ["Name", shellState.file.name],
-      ["Type", shellState.file.type || "Unknown"],
-      ["Size", formatFileSize(shellState.file.size)],
-      ["Headers", String(shellState.parsedHeaders.length)],
-      ["Rows", String(shellState.parsedRows.length)],
-      ["Last Modified", modified]
-    ];
-
-    lines.forEach(([label, value]) => {
-      const row = document.createElement("div");
-
-      const strong = document.createElement("strong");
-      strong.textContent = `${label}: `;
-
-      const span = document.createElement("span");
-      span.textContent = value;
-
-      row.appendChild(strong);
-      row.appendChild(span);
-      fileMeta.appendChild(row);
-    });
-  }
-}
+      if (!shellState.file) {
+        fileMeta.textContent = "No file selected.";
+      } else {
+        const modified = shellState.file.lastModified ? new Date(shellState.file.lastModified).toLocaleString() : "Unknown";
+        setSafeKeyValueRows(fileMeta, [
+          { key: "Name", value: shellState.file.name },
+          { key: "Type", value: shellState.file.type || "Unknown" },
+          { key: "Size", value: formatFileSize(shellState.file.size) },
+          { key: "Headers", value: String(shellState.parsedHeaders.length) },
+          { key: "Rows", value: String(shellState.parsedRows.length) },
+          { key: "Last Modified", value: modified }
+        ]);
+      }
+    }
 
     if (status) {
       status.classList.remove("ok", "warn", "error");
@@ -370,23 +395,21 @@
         summary.textContent = "No dry-run summary available for current file selection.";
       } else {
         const topIssueCodes = collectTopIssueCodes(diagnosticsSummary);
-        const lines = [
-          `<ul class="importShellSummaryList">`,
-          `<li><strong>Preset Used:</strong> ${shellState.mappingReport?.presetUsed || "canonical"}</li>`,
-          `<li><strong>Accepted Rows:</strong> ${stageSummary.acceptedRowCount}</li>`,
-          `<li><strong>Rejected Rows:</strong> ${stageSummary.rejectedRowCount}</li>`,
-          `<li><strong>Warnings:</strong> ${stageSummary.warningCount}</li>`,
-          `<li><strong>Errors:</strong> ${stageSummary.errorCount}</li>`,
-          `<li><strong>Missing Required Mappings:</strong> ${stageSummary.missingRequiredMappingCount}</li>`,
-          `<li><strong>Unmapped Headers:</strong> ${stageSummary.unmappedHeaderCount}</li>`
+        const summaryItems = [
+          { key: "Preset Used", value: shellState.mappingReport?.presetUsed || "canonical" },
+          { key: "Accepted Rows", value: String(stageSummary.acceptedRowCount) },
+          { key: "Rejected Rows", value: String(stageSummary.rejectedRowCount) },
+          { key: "Warnings", value: String(stageSummary.warningCount) },
+          { key: "Errors", value: String(stageSummary.errorCount) },
+          { key: "Missing Required Mappings", value: String(stageSummary.missingRequiredMappingCount) },
+          { key: "Unmapped Headers", value: String(stageSummary.unmappedHeaderCount) }
         ];
 
         if (topIssueCodes.length) {
-          lines.push(`<li><strong>Top Issue Codes:</strong> ${topIssueCodes.join(", ")}</li>`);
+          summaryItems.push({ key: "Top Issue Codes", value: topIssueCodes.join(", ") });
         }
 
-        lines.push(`</ul>`);
-        summary.innerHTML = lines.join("");
+        setSafeSummaryList(summary, summaryItems);
       }
     }
   }
@@ -554,7 +577,7 @@
     } = getShellElements();
 
     if (!openBtn || !modal || !closeBtn || !cancelBtn || !clearBtn || !fileInput || !dropZone) return;
-    if (modal.dataset.boundImportShell === "true") return;
+    if (modal.dataset.boundImportShell === "true") return; // Idempotent binding guard.
 
     openBtn.addEventListener("click", (event) => {
       event.preventDefault();
