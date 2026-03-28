@@ -214,7 +214,7 @@
 
     const thead = document.createElement("thead");
     const headerRow = document.createElement("tr");
-    ["Source Header", "Mapped Canonical", "Confidence / Strategy", "Manual Override"].forEach((text) => {
+    ["Source Header", "Mapped Canonical", "Confidence / Strategy", "Manual Override"].forEach(function addHeader(text) {
       const th = document.createElement("th");
       th.scope = "col";
       th.textContent = text;
@@ -267,11 +267,11 @@
       schema.ingestionFields,
       schema.columns,
       schema.fieldDefinitions
-    ].forEach((collection) => {
+    ].forEach(function readCollection(collection) {
       if (!collection) return;
 
       if (Array.isArray(collection)) {
-        collection.forEach((entry) => {
+        collection.forEach(function readEntry(entry) {
           const fieldName = normalizeText(
             typeof entry === "string"
               ? entry
@@ -280,7 +280,7 @@
           if (fieldName) merged.add(fieldName);
         });
       } else if (typeof collection === "object") {
-        Object.keys(collection).forEach((key) => {
+        Object.keys(collection).forEach(function readKey(key) {
           const fieldName = normalizeText(key);
           if (fieldName) merged.add(fieldName);
         });
@@ -291,7 +291,7 @@
       try {
         const helperFields = schema.getCanonicalFields();
         if (Array.isArray(helperFields)) {
-          helperFields.forEach((field) => {
+          helperFields.forEach(function readHelper(field) {
             const fieldName = normalizeText(
               typeof field === "string"
                 ? field
@@ -305,7 +305,9 @@
       }
     }
 
-    FALLBACK_CANONICAL_FIELDS.forEach((field) => merged.add(field));
+    FALLBACK_CANONICAL_FIELDS.forEach(function addFallback(field) {
+      merged.add(field);
+    });
 
     return Array.from(merged);
   }
@@ -315,7 +317,7 @@
     const required = new Set();
 
     if (Array.isArray(schema.requiredCanonicalFields)) {
-      schema.requiredCanonicalFields.forEach((field) => {
+      schema.requiredCanonicalFields.forEach(function addRequired(field) {
         const normalized = normalizeText(field);
         if (normalized) required.add(normalized);
       });
@@ -325,7 +327,7 @@
       try {
         const helperFields = schema.getRequiredCanonicalFields();
         if (Array.isArray(helperFields)) {
-          helperFields.forEach((field) => {
+          helperFields.forEach(function addHelper(field) {
             const normalized = normalizeText(
               typeof field === "string"
                 ? field
@@ -350,103 +352,49 @@
     const mappingReport = snapshot && snapshot.mappingReport;
     if (!mappingReport) return {};
 
-    if (mappingReport.confidenceByHeader && typeof mappingReport.confidenceByHeader === "object") {
-      return mappingReport.confidenceByHeader;
-    }
+    const source = mappingReport.confidenceByHeader;
+    if (!source) return {};
 
-    const confidenceByHeader = {};
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      mappingReport.confidenceByHeader.forEach((entry) => {
+    if (Array.isArray(source)) {
+      const mapped = {};
+      source.forEach(function readConfidence(entry) {
         if (!entry || typeof entry !== "object") return;
         const header = normalizeText(entry.sourceHeader || entry.header || "");
         if (!header) return;
-        confidenceByHeader[header] = entry;
+        mapped[header] = entry;
       });
+      return mapped;
     }
 
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
+    if (typeof source === "object") {
+      return source;
     }
 
-    if (Array.isArray(mappingReport.confidenceByHeader) || Array.isArray(mappingReport.confidenceByHeaderIndex)) {
-      return confidenceByHeader;
+    return {};
+  }
+
+  function getCanonicalAssignments(snapshot) {
+    const mappingReport = snapshot && snapshot.mappingReport;
+    if (!mappingReport) return [];
+
+    if (Array.isArray(mappingReport.canonicalAssignments)) {
+      return mappingReport.canonicalAssignments.slice();
     }
 
-    if (Array.isArray(mappingReport.confidenceByHeader) || Array.isArray(mappingReport.confidenceByHeaderIndex)) {
-      return confidenceByHeader;
+    if (Array.isArray(mappingReport.assignments)) {
+      return mappingReport.assignments.slice();
     }
 
-    if (Array.isArray(mappingReport.confidenceByHeader) || Array.isArray(mappingReport.confidenceByHeaderIndex)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader) || Array.isArray(mappingReport.confidenceByHeaderIndex)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader) || Array.isArray(mappingReport.confidenceByHeaderIndex)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
-    }
-
-    if (Array.isArray(mappingReport.confidenceByHeader)) {
-      return confidenceByHeader;
-    }
-
-    return confidenceByHeader;
+    return [];
   }
 
   function getEffectiveMapping(snapshot) {
     const parsedHeaders = (snapshot && snapshot.parsedHeaders) || [];
-    const mappingReport = (snapshot && snapshot.mappingReport) || {};
     const overrides = (snapshot && snapshot.overrideMappings) || {};
     const effective = {};
+    const canonicalAssignments = getCanonicalAssignments(snapshot);
 
-    let canonicalAssignments = [];
-    if (Array.isArray(mappingReport.canonicalAssignments)) {
-      canonicalAssignments = mappingReport.canonicalAssignments.slice();
-    }
-
-    parsedHeaders.forEach((header, index) => {
+    parsedHeaders.forEach(function buildAssignment(header, index) {
       const headerKey = toHeaderKey(header, index);
       const baseValue = normalizeText(canonicalAssignments[index] || "");
       const overrideValue = Object.prototype.hasOwnProperty.call(overrides, headerKey)
@@ -463,7 +411,7 @@
     const assignments = {};
     const duplicates = {};
 
-    Object.keys(effectiveMapping).forEach((headerKey) => {
+    Object.keys(effectiveMapping).forEach(function readAssignment(headerKey) {
       const canonical = normalizeText(effectiveMapping[headerKey]);
       if (!canonical) return;
 
@@ -473,7 +421,7 @@
       assignments[canonical].push(headerKey);
     });
 
-    Object.keys(assignments).forEach((canonical) => {
+    Object.keys(assignments).forEach(function findDuplicates(canonical) {
       if (assignments[canonical].length > 1) {
         duplicates[canonical] = assignments[canonical];
       }
@@ -486,13 +434,13 @@
     const required = getRequiredCanonicalFields();
     const mapped = new Set();
 
-    Object.keys(effectiveMapping).forEach((headerKey) => {
+    Object.keys(effectiveMapping).forEach(function collectMapped(headerKey) {
       const canonical = normalizeText(effectiveMapping[headerKey]);
       if (canonical) mapped.add(canonical);
     });
 
     let missingCount = 0;
-    required.forEach((field) => {
+    required.forEach(function countMissing(field) {
       if (!mapped.has(field)) missingCount += 1;
     });
 
@@ -501,7 +449,6 @@
 
   function formatConfidence(entry) {
     if (!entry) return "—";
-
     if (typeof entry === "string") return entry;
 
     const confidence = typeof entry.confidence === "number" ? entry.confidence : null;
@@ -524,7 +471,7 @@
     const mappingReport = snapshot && snapshot.mappingReport;
     if (!mappingReport || !Array.isArray(mappingReport.issues)) return [];
 
-    return mappingReport.issues.map((issue) => {
+    return mappingReport.issues.map(function mapIssue(issue) {
       if (typeof issue === "string") {
         return { message: issue, header: "" };
       }
@@ -564,17 +511,21 @@
     const issueRows = getIssueRows(snapshot);
 
     const duplicateHeaderKeys = new Set();
-    Object.keys(duplicates).forEach((canonical) => {
-      duplicates[canonical].forEach((headerKey) => duplicateHeaderKeys.add(headerKey));
+    Object.keys(duplicates).forEach(function collectDuplicateHeaders(canonical) {
+      duplicates[canonical].forEach(function addHeaderKey(headerKey) {
+        duplicateHeaderKeys.add(headerKey);
+      });
     });
 
     const issueHeaders = new Set(
       issueRows
-        .map((issue) => normalizeText(issue.header))
+        .map(function readIssueHeader(issue) {
+          return normalizeText(issue.header);
+        })
         .filter(Boolean)
     );
 
-    parsedHeaders.forEach((header, index) => {
+    parsedHeaders.forEach(function renderRow(header, index) {
       const headerKey = toHeaderKey(header, index);
       const row = document.createElement("tr");
       row.className = "importMappingRow";
@@ -609,7 +560,7 @@
       blankOption.textContent = "(unmapped)";
       select.appendChild(blankOption);
 
-      canonicalFields.forEach((field) => {
+      canonicalFields.forEach(function appendOption(field) {
         const option = document.createElement("option");
         option.value = field;
         option.textContent = field;
@@ -643,17 +594,17 @@
       `Missing required canonical mappings: ${missingRequiredCount}`
     ].join(" • ");
 
-    issueRows.forEach((issue) => {
+    issueRows.forEach(function appendIssue(issue) {
       const li = document.createElement("li");
       li.textContent = issue.header ? `${issue.message} (${issue.header})` : issue.message;
       issuesNode.appendChild(li);
     });
 
-    Object.keys(duplicates).forEach((canonical) => {
+    Object.keys(duplicates).forEach(function appendDuplicateIssue(canonical) {
       const li = document.createElement("li");
       const involved = duplicates[canonical]
-        .map((headerKey) => {
-          const foundIndex = parsedHeaders.findIndex((currentHeader, currentIndex) => {
+        .map(function resolveHeaderName(headerKey) {
+          const foundIndex = parsedHeaders.findIndex(function findIndex(currentHeader, currentIndex) {
             return toHeaderKey(currentHeader, currentIndex) === headerKey;
           });
           return foundIndex >= 0 ? parsedHeaders[foundIndex] : headerKey;
