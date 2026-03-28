@@ -5,6 +5,8 @@
   const FILE_INPUT_ID = "importShellFileInput";
   const FILE_META_ID = "importShellFileMeta";
   const STATUS_ID = "importShellStatus";
+  const PRESET_SELECT_ID = "importShellPresetSelect";
+  const PRESET_STATUS_ID = "importShellPresetStatus";
   const CLOSE_BTN_ID = "importShellCloseBtn";
   const CANCEL_BTN_ID = "importShellCancelBtn";
   const CLEAR_BTN_ID = "importShellClearBtn";
@@ -94,8 +96,24 @@
         color: rgba(195,210,232,0.82);
       }
 
-      .importShellFileInput {
+      .importShellFileInput,
+      .importShellPresetSelect {
         width: 100%;
+      }
+
+      .importShellPresetSelect {
+        background: rgba(255,255,255,0.06);
+        color: #f5f7fb;
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font: inherit;
+      }
+
+      .importShellPresetStatus {
+        margin-top: 6px;
+        font-size: 11px;
+        color: rgba(220,228,240,0.78);
       }
 
       .importShellDropZone {
@@ -221,7 +239,7 @@
   function buildMetaRows(container, rows) {
     container.innerHTML = "";
 
-    rows.forEach((row) => {
+    rows.forEach(function appendRow(row) {
       const line = document.createElement("div");
       line.className = "importShellMetaRow";
 
@@ -310,6 +328,26 @@
     note.className = "importShellNote";
     note.textContent = "CSV dry-run is supported here. This shell is isolated and does not replace active production data.";
 
+    const presetSection = document.createElement("section");
+    presetSection.className = "importShellSection";
+
+    const presetLabel = document.createElement("div");
+    presetLabel.className = "importShellSectionLabel";
+    presetLabel.textContent = "Mapping Preset";
+
+    const presetSelect = document.createElement("select");
+    presetSelect.id = PRESET_SELECT_ID;
+    presetSelect.className = "importShellPresetSelect";
+
+    const presetStatus = document.createElement("div");
+    presetStatus.id = PRESET_STATUS_ID;
+    presetStatus.className = "importShellPresetStatus";
+    presetStatus.textContent = "Preset choice is shell-local only and never mutates live project data.";
+
+    presetSection.appendChild(presetLabel);
+    presetSection.appendChild(presetSelect);
+    presetSection.appendChild(presetStatus);
+
     const fileSection = document.createElement("section");
     fileSection.className = "importShellSection";
 
@@ -393,6 +431,7 @@
 
     content.appendChild(header);
     content.appendChild(note);
+    content.appendChild(presetSection);
     content.appendChild(fileSection);
     content.appendChild(metaSection);
     content.appendChild(statusSection);
@@ -411,11 +450,54 @@
       fileInput: document.getElementById(FILE_INPUT_ID),
       fileMeta: document.getElementById(FILE_META_ID),
       status: document.getElementById(STATUS_ID),
+      presetSelect: document.getElementById(PRESET_SELECT_ID),
+      presetStatus: document.getElementById(PRESET_STATUS_ID),
       closeBtn: document.getElementById(CLOSE_BTN_ID),
       cancelBtn: document.getElementById(CANCEL_BTN_ID),
       clearBtn: document.getElementById(CLEAR_BTN_ID),
       dropZone: document.getElementById(DROP_ZONE_ID)
     };
+  }
+
+  function populatePresetOptions(snapshot) {
+    const elements = getElements();
+    const presetSelect = elements.presetSelect;
+    if (!presetSelect) return;
+
+    const presets = Array.isArray(snapshot.availablePresets) ? snapshot.availablePresets : [];
+    const selectedPreset = snapshot.selectedPreset || "canonical";
+
+    presetSelect.innerHTML = "";
+
+    presets.forEach(function appendPreset(preset) {
+      const option = document.createElement("option");
+      option.value = preset.id;
+      option.textContent = preset.label;
+      presetSelect.appendChild(option);
+    });
+
+    if (!presets.some(function hasSelected(preset) { return preset.id === selectedPreset; })) {
+      const fallback = document.createElement("option");
+      fallback.value = selectedPreset;
+      fallback.textContent = selectedPreset;
+      presetSelect.appendChild(fallback);
+    }
+
+    presetSelect.value = selectedPreset;
+  }
+
+  function updatePresetStatus(snapshot) {
+    const elements = getElements();
+    const presetStatus = elements.presetStatus;
+    if (!presetStatus) return;
+
+    const activePreset =
+      (snapshot.mappingReport && snapshot.mappingReport.presetUsed) ||
+      snapshot.selectedPreset ||
+      "canonical";
+
+    presetStatus.textContent =
+      `Selected preset: ${activePreset}. Preset choice is shell-local only and never mutates live project data.`;
   }
 
   function readSelectedFile(file) {
@@ -438,38 +520,46 @@
     reader.readAsText(file);
   }
 
-  function render(state) {
-    const { modal, fileMeta, status, dropZone } = getElements();
+  function render(snapshot) {
+    const elements = getElements();
+    const modal = elements.modal;
+    const fileMeta = elements.fileMeta;
+    const status = elements.status;
+    const dropZone = elements.dropZone;
+
     if (!modal || !fileMeta || !status || !dropZone) return;
 
-    modal.classList.toggle("is-open", Boolean(state.isOpen));
-    modal.setAttribute("aria-hidden", String(!state.isOpen));
-    dropZone.classList.toggle("is-dragover", Boolean(state.dragActive));
+    modal.classList.toggle("is-open", Boolean(snapshot.isOpen));
+    modal.setAttribute("aria-hidden", String(!snapshot.isOpen));
+    dropZone.classList.toggle("is-dragover", Boolean(snapshot.dragActive));
 
-    if (!state.file) {
+    populatePresetOptions(snapshot);
+    updatePresetStatus(snapshot);
+
+    if (!snapshot.file) {
       fileMeta.textContent = "No file selected.";
     } else {
-      const modified = state.file.lastModified
-        ? new Date(state.file.lastModified).toLocaleString()
+      const modified = snapshot.file.lastModified
+        ? new Date(snapshot.file.lastModified).toLocaleString()
         : "Unknown";
 
       buildMetaRows(fileMeta, [
-        { key: "Name", value: state.file.name || "Unknown" },
-        { key: "Type", value: state.file.type || "text/csv" },
-        { key: "Size", value: formatBytes(state.file.size || 0) },
-        { key: "Headers", value: String((state.parsedHeaders || []).length) },
-        { key: "Rows", value: String((state.parsedRows || []).length) },
+        { key: "Name", value: snapshot.file.name || "Unknown" },
+        { key: "Type", value: snapshot.file.type || "text/csv" },
+        { key: "Size", value: formatBytes(snapshot.file.size || 0) },
+        { key: "Headers", value: String((snapshot.parsedHeaders || []).length) },
+        { key: "Rows", value: String((snapshot.parsedRows || []).length) },
         { key: "Last Modified", value: modified }
       ]);
     }
 
     status.classList.remove("status-ok", "status-warn", "status-error");
 
-    if (state.statusLevel === "ok") status.classList.add("status-ok");
-    if (state.statusLevel === "warn") status.classList.add("status-warn");
-    if (state.statusLevel === "error") status.classList.add("status-error");
+    if (snapshot.statusLevel === "ok") status.classList.add("status-ok");
+    if (snapshot.statusLevel === "warn") status.classList.add("status-warn");
+    if (snapshot.statusLevel === "error") status.classList.add("status-error");
 
-    status.textContent = state.statusMessage || "Awaiting file selection for staged validation preview.";
+    status.textContent = snapshot.statusMessage || "Awaiting file selection for staged validation preview.";
   }
 
   function bindEvents() {
@@ -477,7 +567,15 @@
     const elements = getElements();
 
     if (!runtime) return;
-    if (!elements.openBtn || !elements.modal || !elements.fileInput || !elements.dropZone) return;
+    if (
+      !elements.openBtn ||
+      !elements.modal ||
+      !elements.fileInput ||
+      !elements.dropZone ||
+      !elements.presetSelect
+    ) {
+      return;
+    }
     if (elements.modal.dataset.importShellBound === "true") return;
 
     elements.openBtn.addEventListener("click", function onOpen() {
@@ -497,6 +595,10 @@
       elements.fileInput.value = "";
     });
 
+    elements.presetSelect.addEventListener("change", function onPresetChange() {
+      runtime.setSelectedPreset(elements.presetSelect.value);
+    });
+
     elements.modal.addEventListener("click", function onBackdrop(event) {
       if (event.target === elements.modal) {
         runtime.closeShell();
@@ -508,7 +610,7 @@
       if (file) readSelectedFile(file);
     });
 
-    ["dragenter", "dragover"].forEach((eventName) => {
+    ["dragenter", "dragover"].forEach(function bindDrag(eventName) {
       elements.dropZone.addEventListener(eventName, function onDrag(event) {
         event.preventDefault();
         event.stopPropagation();
@@ -516,7 +618,7 @@
       });
     });
 
-    ["dragleave", "dragend"].forEach((eventName) => {
+    ["dragleave", "dragend"].forEach(function bindLeave(eventName) {
       elements.dropZone.addEventListener(eventName, function onLeave(event) {
         event.preventDefault();
         event.stopPropagation();
