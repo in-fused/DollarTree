@@ -417,8 +417,9 @@
     }
 
     if (presetSelect) {
-      presetSelect.value = shellState.selectedPreset;
-    }
+  ensurePresetOptions();
+  presetSelect.value = shellState.selectedPreset;
+}
 
     renderImportShellState();
   }
