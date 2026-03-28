@@ -71,20 +71,30 @@
 })();
 
 /*
-  Phase 11.3.c import UI shell wiring.
+  Phase 11.3 additive import UI shell.
   Dry-run only. No live data mutation, no apply/commit, no backend writes.
 */
 (function importUiShellController() {
+  const DEFAULT_PRESET = "canonical";
+  const FALLBACK_PRESETS = [
+    { id: "canonical", label: "Default / Canonical" },
+    { id: "store-number-heavy", label: "Store-Number-Heavy" },
+    { id: "address-heavy", label: "Address-Heavy" }
+  ];
+
   const shellState = {
     open: false,
     dragActive: false,
     file: null,
+    fileText: "",
     parsedHeaders: [],
     parsedRows: [],
     mappingReport: null,
     headerReport: null,
     stageResult: null,
     diagnosticsSummary: null,
+    selectedPreset: DEFAULT_PRESET,
+    availablePresets: FALLBACK_PRESETS.slice(),
     statusLevel: "idle",
     statusMessage: "Awaiting file selection for staged validation preview."
   };
@@ -96,6 +106,30 @@
       stage: window.ingestionStage || null,
       diagnostics: window.ingestionDiagnostics || null
     };
+  }
+
+  function safePresetOptionsFromMapper(mapper) {
+    if (!mapper || typeof mapper.getMappingPresets !== "function") {
+      return FALLBACK_PRESETS.slice();
+    }
+
+    try {
+      const presets = mapper.getMappingPresets();
+      const keys = Object.keys(presets || {});
+      if (!keys.length) return FALLBACK_PRESETS.slice();
+
+      const normalized = keys.map((key) => {
+        const preset = presets[key] || {};
+        return {
+          id: String(preset.id || key),
+          label: String(preset.label || key)
+        };
+      });
+
+      return normalized.length ? normalized : FALLBACK_PRESETS.slice();
+    } catch (error) {
+      return FALLBACK_PRESETS.slice();
+    }
   }
 
   function injectImportShellStyles() {
@@ -131,6 +165,8 @@
       .importShellSummaryPill.blocked { background: rgba(255, 107, 107, .24); color:#ffd9d9; }
       .importShellChips { display:flex; flex-wrap:wrap; gap:6px; }
       .importShellChip { border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:3px 8px; font-size:11px; line-height:1.2; background:rgba(255,255,255,.03); }
+      .importShellPresetRow { margin-top: 12px; display:grid; gap:6px; }
+      .importShellPresetStatus { font-size: 11px; opacity:.82; }
       .importShellActions { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
       .importShellActions button { margin-top:0; }
       @media (max-width: 900px) {
@@ -174,6 +210,12 @@
         </div>
 
         <div class="importShellNote">Supported now: CSV dry-run in browser. XLSX parsing is not yet active in this phase.</div>
+
+        <div class="importShellPresetRow">
+          <label for="importShellPresetSelect" class="importShellLabel">Mapping Controls</label>
+          <select id="importShellPresetSelect"></select>
+          <div id="importShellPresetStatus" class="importShellPresetStatus">Preset is shell-local only. No live project state is modified.</div>
+        </div>
 
         <div class="importShellPickerRow">
           <label for="importShellFileInput" class="importShellLabel">Select file</label>
@@ -219,6 +261,8 @@
       cancelBtn: document.getElementById("importShellCancelBtn"),
       clearBtn: document.getElementById("importShellClearBtn"),
       fileInput: document.getElementById("importShellFileInput"),
+      presetSelect: document.getElementById("importShellPresetSelect"),
+      presetStatus: document.getElementById("importShellPresetStatus"),
       dropZone: document.getElementById("importShellDropZone"),
       fileMeta: document.getElementById("importShellFileMeta"),
       status: document.getElementById("importShellStatus"),
@@ -256,22 +300,24 @@
   }
 
   function setSafeSummaryList(container, items) {
-    const list = document.createElement("ul");
-    list.className = "importShellSummaryList";
+  clearChildren(container);
 
-    items.forEach((item) => {
-      const li = document.createElement("li");
-      const key = document.createElement("strong");
-      key.textContent = `${item.key}: `;
-      const value = document.createElement("span");
-      value.textContent = item.value;
-      li.appendChild(key);
-      li.appendChild(value);
-      list.appendChild(li);
-    });
+  const list = document.createElement("ul");
+  list.className = "importShellSummaryList";
 
-    container.appendChild(list);
-  }
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    const key = document.createElement("strong");
+    key.textContent = `${item.key}: `;
+    const value = document.createElement("span");
+    value.textContent = item.value;
+    li.appendChild(key);
+    li.appendChild(value);
+    list.appendChild(li);
+  });
+
+  container.appendChild(list);
+}
 
   function appendSummarySection(container, title, contentBuilder) {
     const section = document.createElement("div");
@@ -307,10 +353,42 @@
     section.appendChild(chipWrap);
   }
 
+  function ensurePresetOptions() {
+    const { presetSelect } = getShellElements();
+    if (!presetSelect) return;
+
+    const apis = getIngestionApis();
+    shellState.availablePresets = safePresetOptionsFromMapper(apis.mapper);
+
+    clearChildren(presetSelect);
+
+    shellState.availablePresets.forEach((preset) => {
+      const option = document.createElement("option");
+      option.value = preset.id;
+      option.textContent = preset.label;
+      presetSelect.appendChild(option);
+    });
+
+    if (!shellState.availablePresets.some((preset) => preset.id === shellState.selectedPreset)) {
+      shellState.selectedPreset = DEFAULT_PRESET;
+    }
+
+    presetSelect.value = shellState.selectedPreset;
+  }
+
+  function updatePresetStatus() {
+    const { presetStatus } = getShellElements();
+    if (!presetStatus) return;
+
+    const activePreset = shellState.mappingReport?.presetUsed || shellState.selectedPreset || DEFAULT_PRESET;
+    presetStatus.textContent = `Selected preset: ${activePreset}. Preset choice is shell-local only and never mutates live project data.`;
+  }
+
   function resetImportShellState() {
-    const { fileInput } = getShellElements();
+    const { fileInput, presetSelect } = getShellElements();
 
     shellState.file = null;
+    shellState.fileText = "";
     shellState.parsedHeaders = [];
     shellState.parsedRows = [];
     shellState.mappingReport = null;
@@ -318,11 +396,16 @@
     shellState.stageResult = null;
     shellState.diagnosticsSummary = null;
     shellState.dragActive = false;
+    shellState.selectedPreset = DEFAULT_PRESET;
     shellState.statusLevel = "idle";
     shellState.statusMessage = "Awaiting file selection for staged validation preview.";
 
     if (fileInput) {
       fileInput.value = "";
+    }
+
+    if (presetSelect) {
+      presetSelect.value = shellState.selectedPreset;
     }
 
     renderImportShellState();
@@ -432,7 +515,7 @@
         { key: "Filename", value: shellState.file.name || "" },
         { key: "Header Count", value: String(shellState.parsedHeaders.length) },
         { key: "Parsed Row Count", value: String(shellState.parsedRows.length) },
-        { key: "Preset Used", value: mappingReport.presetUsed || "canonical" }
+        { key: "Preset Used", value: mappingReport.presetUsed || shellState.selectedPreset || DEFAULT_PRESET }
       ]);
     });
 
@@ -483,7 +566,7 @@
   }
 
   function renderImportShellState() {
-    const { modal, dropZone, fileMeta, status, summary } = getShellElements();
+    const { modal, dropZone, fileMeta, status, summary, presetSelect } = getShellElements();
     if (!modal) return;
 
     modal.classList.toggle("hidden", !shellState.open);
@@ -492,6 +575,12 @@
     if (dropZone) {
       dropZone.classList.toggle("is-dragover", shellState.dragActive);
     }
+
+    if (presetSelect && presetSelect.value !== shellState.selectedPreset) {
+      presetSelect.value = shellState.selectedPreset;
+    }
+
+    updatePresetStatus();
 
     if (fileMeta) {
       if (!shellState.file) {
@@ -559,13 +648,13 @@
       shellState.headerReport = null;
       shellState.stageResult = null;
       shellState.diagnosticsSummary = null;
-      setStatus("warn", "XLSX parsing is not active in Phase 11.3.c yet. Please use CSV for dry-run preview.");
+      setStatus("warn", "XLSX parsing is not active in this phase yet. Please use CSV for dry-run preview.");
       renderImportShellState();
       return;
     }
 
     if (!lowerName.endsWith(".csv") && file.type && file.type !== "text/csv" && file.type !== "application/csv") {
-      setStatus("error", "Unsupported file type. Use CSV for Phase 11.3.c dry-run.");
+      setStatus("error", "Unsupported file type. Use CSV for dry-run.");
       shellState.parsedHeaders = [];
       shellState.parsedRows = [];
       shellState.mappingReport = null;
@@ -608,13 +697,14 @@
     shellState.parsedRows = parsed.rows.slice();
 
     try {
-      const mappingReport = apis.mapper.buildHeaderMappingReport(parsed.headers, { presetId: "canonical" });
+      const presetId = shellState.selectedPreset || DEFAULT_PRESET;
+      const mappingReport = apis.mapper.buildHeaderMappingReport(parsed.headers, { presetId });
       const headerReport = apis.validator.validateHeaders(parsed.headers);
       const stageResult = apis.stage.stageImportBatch({
         sourceHeaders: parsed.headers,
         rawRows: parsed.rows,
         sourceFilename: file.name,
-        presetId: "canonical"
+        presetId
       });
       const diagnosticsSummary = apis.diagnostics.buildDryRunIntegritySummary(stageResult);
 
@@ -654,6 +744,7 @@
     const reader = new FileReader();
     reader.onload = () => {
       const result = typeof reader.result === "string" ? reader.result : "";
+      shellState.fileText = result;
       runDryRunPipeline(file, result);
     };
     reader.onerror = () => {
@@ -671,6 +762,18 @@
     renderImportShellState();
   }
 
+  function onPresetChange(newPreset) {
+    shellState.selectedPreset = newPreset || DEFAULT_PRESET;
+    updatePresetStatus();
+
+    // Dry-run-only behavior: rerun current CSV locally when preset changes.
+    if (shellState.file && shellState.fileText) {
+      runDryRunPipeline(shellState.file, shellState.fileText);
+    } else {
+      renderImportShellState();
+    }
+  }
+
   function bindImportShellUI() {
     ensureImportShellMarkup();
 
@@ -681,11 +784,15 @@
       cancelBtn,
       clearBtn,
       fileInput,
+      presetSelect,
       dropZone
     } = getShellElements();
 
-    if (!openBtn || !modal || !closeBtn || !cancelBtn || !clearBtn || !fileInput || !dropZone) return;
+    if (!openBtn || !modal || !closeBtn || !cancelBtn || !clearBtn || !fileInput || !dropZone || !presetSelect) return;
     if (modal.dataset.boundImportShell === "true") return; // Idempotent binding guard.
+
+    ensurePresetOptions();
+    updatePresetStatus();
 
     openBtn.addEventListener("click", (event) => {
       event.preventDefault();
@@ -705,6 +812,10 @@
     clearBtn.addEventListener("click", (event) => {
       event.preventDefault();
       resetImportShellState();
+    });
+
+    presetSelect.addEventListener("change", () => {
+      onPresetChange(presetSelect.value);
     });
 
     modal.addEventListener("click", (event) => {
