@@ -515,8 +515,19 @@
       });
     };
     reader.onerror = function onError() {
-      console.error("Unable to read import file.");
-    };
+  console.error("Unable to read import file.");
+
+  const runtime = getRuntime();
+  if (!runtime) return;
+
+  runtime.setErrorState({
+    statusLevel: "error",
+    statusMessage: "Failed to read file. Please try again.",
+    file: null,
+    parsedHeaders: [],
+    parsedRows: []
+  });
+};
     reader.readAsText(file);
   }
 
