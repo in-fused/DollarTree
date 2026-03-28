@@ -253,9 +253,8 @@
   }
 
   function toHeaderKey(header, index) {
-    const raw = normalizeText(header);
-    return raw || `__column_${index}`;
-  }
+  return String(index);
+}
 
   function getCanonicalFieldsFromSchema() {
     const schema = window.ingestionSchema || {};
