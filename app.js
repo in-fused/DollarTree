@@ -71,7 +71,7 @@
 })();
 
 /*
-  Phase 11.3.b import UI shell wiring.
+  Phase 11.3.c import UI shell wiring.
   Dry-run only. No live data mutation, no apply/commit, no backend writes.
 */
 (function importUiShellController() {
@@ -122,7 +122,15 @@
       .importShellStatus.ok { border-color: rgba(46,204,113,.45); }
       .importShellStatus.warn { border-color: rgba(255,153,0,.55); }
       .importShellStatus.error { border-color: rgba(255,107,107,.6); }
+      .importShellSummarySection + .importShellSummarySection { margin-top: 10px; }
+      .importShellSummaryTitle { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity: .82; margin-bottom: 6px; }
       .importShellSummaryList { margin:0; padding-left:16px; display:grid; gap:2px; }
+      .importShellSummaryPill { display:inline-flex; align-items:center; min-height:24px; padding:0 9px; border-radius:999px; background:rgba(255,255,255,.07); font-size:11px; font-weight:700; }
+      .importShellSummaryPill.ready { background: rgba(46, 204, 113, .24); color:#d7ffe7; }
+      .importShellSummaryPill.warn { background: rgba(255, 153, 0, .24); color:#ffe9cc; }
+      .importShellSummaryPill.blocked { background: rgba(255, 107, 107, .24); color:#ffd9d9; }
+      .importShellChips { display:flex; flex-wrap:wrap; gap:6px; }
+      .importShellChip { border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:3px 8px; font-size:11px; line-height:1.2; background:rgba(255,255,255,.03); }
       .importShellActions { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
       .importShellActions button { margin-top:0; }
       @media (max-width: 900px) {
@@ -226,10 +234,14 @@
     return `${(value / (1024 * 1024)).toFixed(2)} MB`;
   }
 
-  function setSafeKeyValueRows(container, rows) {
-    while (container.firstChild) {
-      container.removeChild(container.firstChild);
+  function clearChildren(element) {
+    while (element.firstChild) {
+      element.removeChild(element.firstChild);
     }
+  }
+
+  function setSafeKeyValueRows(container, rows) {
+    clearChildren(container);
 
     rows.forEach((row) => {
       const line = document.createElement("div");
@@ -244,10 +256,6 @@
   }
 
   function setSafeSummaryList(container, items) {
-    while (container.firstChild) {
-      container.removeChild(container.firstChild);
-    }
-
     const list = document.createElement("ul");
     list.className = "importShellSummaryList";
 
@@ -263,6 +271,40 @@
     });
 
     container.appendChild(list);
+  }
+
+  function appendSummarySection(container, title, contentBuilder) {
+    const section = document.createElement("div");
+    section.className = "importShellSummarySection";
+
+    const heading = document.createElement("div");
+    heading.className = "importShellSummaryTitle";
+    heading.textContent = title;
+    section.appendChild(heading);
+
+    contentBuilder(section);
+    container.appendChild(section);
+  }
+
+  function appendChipList(section, values, emptyText) {
+    if (!values.length) {
+      const empty = document.createElement("div");
+      empty.textContent = emptyText;
+      section.appendChild(empty);
+      return;
+    }
+
+    const chipWrap = document.createElement("div");
+    chipWrap.className = "importShellChips";
+
+    values.forEach((value) => {
+      const chip = document.createElement("span");
+      chip.className = "importShellChip";
+      chip.textContent = value;
+      chipWrap.appendChild(chip);
+    });
+
+    section.appendChild(chipWrap);
   }
 
   function resetImportShellState() {
@@ -350,6 +392,96 @@
     return diagnosticsSummary.topIssueCodes.slice(0, 5);
   }
 
+  function getProceedState(stageResult) {
+    if (!stageResult || !stageResult.summary) {
+      return { className: "warn", text: "Awaiting dry-run execution" };
+    }
+
+    if (stageResult.canProceed === true && stageResult.isValid === true) {
+      return { className: "ready", text: "Ready for future apply phase (still disabled in this phase)" };
+    }
+
+    if ((stageResult.summary.errorCount || 0) > 0 || (stageResult.summary.rejectedRowCount || 0) > 0) {
+      return { className: "blocked", text: "Blocked by validation errors" };
+    }
+
+    return { className: "warn", text: "Completed with warnings" };
+  }
+
+  function renderDryRunReview(summaryElement) {
+    const stageSummary = shellState.stageResult && shellState.stageResult.summary ? shellState.stageResult.summary : null;
+    const diagnosticsSummary = shellState.diagnosticsSummary || null;
+    const topIssueCodes = collectTopIssueCodes(diagnosticsSummary);
+    const mappingReport = shellState.mappingReport || {};
+    const proceedState = getProceedState(shellState.stageResult);
+
+    clearChildren(summaryElement);
+
+    if (!shellState.file) {
+      summaryElement.textContent = "Dry-run summary will render here after CSV parsing and staging.";
+      return;
+    }
+
+    if (!stageSummary) {
+      summaryElement.textContent = "No dry-run summary available for current file selection.";
+      return;
+    }
+
+    appendSummarySection(summaryElement, "File Overview", (section) => {
+      setSafeSummaryList(section, [
+        { key: "Filename", value: shellState.file.name || "" },
+        { key: "Header Count", value: String(shellState.parsedHeaders.length) },
+        { key: "Parsed Row Count", value: String(shellState.parsedRows.length) },
+        { key: "Preset Used", value: mappingReport.presetUsed || "canonical" }
+      ]);
+    });
+
+    appendSummarySection(summaryElement, "Mapping Overview", (section) => {
+      setSafeSummaryList(section, [
+        { key: "Unmapped Header Count", value: String(stageSummary.unmappedHeaderCount || 0) },
+        { key: "Missing Required Mapping Count", value: String(stageSummary.missingRequiredMappingCount || 0) },
+        { key: "Duplicate Mapping Count", value: String(stageSummary.duplicateMappingCount || 0) }
+      ]);
+    });
+
+    appendSummarySection(summaryElement, "Validation Overview", (section) => {
+      setSafeSummaryList(section, [
+        { key: "Accepted Rows", value: String(stageSummary.acceptedRowCount || 0) },
+        { key: "Rejected Rows", value: String(stageSummary.rejectedRowCount || 0) },
+        { key: "Warnings", value: String(stageSummary.warningCount || 0) },
+        { key: "Errors", value: String(stageSummary.errorCount || 0) }
+      ]);
+    });
+
+    appendSummarySection(summaryElement, "Dry-Run Outcome", (section) => {
+      const pill = document.createElement("span");
+      pill.className = `importShellSummaryPill ${proceedState.className}`;
+      pill.textContent = proceedState.text;
+      section.appendChild(pill);
+
+      if (topIssueCodes.length) {
+        const spacer = document.createElement("div");
+        spacer.style.marginTop = "8px";
+        section.appendChild(spacer);
+        appendChipList(section, topIssueCodes, "No issue codes available.");
+      }
+    });
+
+    appendSummarySection(summaryElement, "Unmapped Source Headers", (section) => {
+      const unmappedHeaders = Array.isArray(mappingReport.unmappedHeaders)
+        ? mappingReport.unmappedHeaders.map((row) => String(row.sourceHeader || "").trim()).filter(Boolean)
+        : [];
+      appendChipList(section, unmappedHeaders, "None");
+    });
+
+    appendSummarySection(summaryElement, "Missing Required Canonical Mappings", (section) => {
+      const missingRequired = Array.isArray(mappingReport.missingRequiredFields)
+        ? mappingReport.missingRequiredFields.map((value) => String(value || "").trim()).filter(Boolean)
+        : [];
+      appendChipList(section, missingRequired, "None");
+    });
+  }
+
   function renderImportShellState() {
     const { modal, dropZone, fileMeta, status, summary } = getShellElements();
     if (!modal) return;
@@ -386,31 +518,7 @@
     }
 
     if (summary) {
-      const stageSummary = shellState.stageResult && shellState.stageResult.summary ? shellState.stageResult.summary : null;
-      const diagnosticsSummary = shellState.diagnosticsSummary || null;
-
-      if (!shellState.file) {
-        summary.textContent = "Dry-run summary will render here after CSV parsing and staging.";
-      } else if (!stageSummary) {
-        summary.textContent = "No dry-run summary available for current file selection.";
-      } else {
-        const topIssueCodes = collectTopIssueCodes(diagnosticsSummary);
-        const summaryItems = [
-          { key: "Preset Used", value: shellState.mappingReport?.presetUsed || "canonical" },
-          { key: "Accepted Rows", value: String(stageSummary.acceptedRowCount) },
-          { key: "Rejected Rows", value: String(stageSummary.rejectedRowCount) },
-          { key: "Warnings", value: String(stageSummary.warningCount) },
-          { key: "Errors", value: String(stageSummary.errorCount) },
-          { key: "Missing Required Mappings", value: String(stageSummary.missingRequiredMappingCount) },
-          { key: "Unmapped Headers", value: String(stageSummary.unmappedHeaderCount) }
-        ];
-
-        if (topIssueCodes.length) {
-          summaryItems.push({ key: "Top Issue Codes", value: topIssueCodes.join(", ") });
-        }
-
-        setSafeSummaryList(summary, summaryItems);
-      }
+      renderDryRunReview(summary);
     }
   }
 
@@ -451,13 +559,13 @@
       shellState.headerReport = null;
       shellState.stageResult = null;
       shellState.diagnosticsSummary = null;
-      setStatus("warn", "XLSX parsing is not active in Phase 11.3.b yet. Please use CSV for dry-run preview.");
+      setStatus("warn", "XLSX parsing is not active in Phase 11.3.c yet. Please use CSV for dry-run preview.");
       renderImportShellState();
       return;
     }
 
     if (!lowerName.endsWith(".csv") && file.type && file.type !== "text/csv" && file.type !== "application/csv") {
-      setStatus("error", "Unsupported file type. Use CSV for Phase 11.3.b dry-run.");
+      setStatus("error", "Unsupported file type. Use CSV for Phase 11.3.c dry-run.");
       shellState.parsedHeaders = [];
       shellState.parsedRows = [];
       shellState.mappingReport = null;
@@ -518,7 +626,7 @@
       if (stageResult.canProceed === true && stageResult.isValid === true) {
         setStatus("ok", "Dry-run completed successfully. Results are shell-local only and were not applied.");
       } else if ((stageResult.summary?.errorCount || 0) > 0 || (stageResult.summary?.rejectedRowCount || 0) > 0) {
-        setStatus("error", "Dry-run blocked by validation errors. Review summary details below.");
+        setStatus("error", "Dry-run blocked by validation errors. Review staged results below.");
       } else {
         setStatus("warn", "Dry-run completed with warnings. No live project data was modified.");
       }
