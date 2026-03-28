@@ -109,28 +109,40 @@
   }
 
   function safePresetOptionsFromMapper(mapper) {
-    if (!mapper || typeof mapper.getMappingPresets !== "function") {
-      return FALLBACK_PRESETS.slice();
-    }
-
-    try {
-      const presets = mapper.getMappingPresets();
-      const keys = Object.keys(presets || {});
-      if (!keys.length) return FALLBACK_PRESETS.slice();
-
-      const normalized = keys.map((key) => {
-        const preset = presets[key] || {};
-        return {
-          id: String(preset.id || key),
-          label: String(preset.label || key)
-        };
-      });
-
-      return normalized.length ? normalized : FALLBACK_PRESETS.slice();
-    } catch (error) {
-      return FALLBACK_PRESETS.slice();
-    }
+  if (!mapper || typeof mapper.getMappingPresets !== "function") {
+    return FALLBACK_PRESETS.slice();
   }
+
+  try {
+    const presets = mapper.getMappingPresets();
+
+    if (Array.isArray(presets)) {
+      const normalizedArray = presets
+        .map((preset) => ({
+          id: String(preset?.id || "").trim(),
+          label: String(preset?.label || preset?.id || "").trim()
+        }))
+        .filter((preset) => preset.id);
+
+      return normalizedArray.length ? normalizedArray : FALLBACK_PRESETS.slice();
+    }
+
+    const keys = Object.keys(presets || {});
+    if (!keys.length) return FALLBACK_PRESETS.slice();
+
+    const normalizedObject = keys.map((key) => {
+      const preset = presets[key] || {};
+      return {
+        id: String(preset.id || key),
+        label: String(preset.label || key)
+      };
+    });
+
+    return normalizedObject.length ? normalizedObject : FALLBACK_PRESETS.slice();
+  } catch (error) {
+    return FALLBACK_PRESETS.slice();
+  }
+}
 
   function injectImportShellStyles() {
     if (document.getElementById("importShellStyleTag")) return;
