@@ -1,26 +1,26 @@
 /* ================= HEADER ================= */
 
 .topHeader {
-  height: var(--header-h);
-  padding: max(7px, env(safe-area-inset-top)) 12px 7px;
+  height: calc(var(--header-h) - 8px);
+  padding: max(6px, env(safe-area-inset-top)) 10px 6px;
   background:
     radial-gradient(circle at 50% 22%, rgba(255,255,255,0.06), transparent 34%),
     linear-gradient(90deg, var(--header-a), var(--header-b));
   border-bottom: 3px solid rgba(200, 16, 46, 0.82);
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   position: relative;
   z-index: 20;
   transition: height 0.22s ease, padding 0.22s ease;
 }
 
 .commandBar {
-  min-height: 54px;
+  min-height: 50px;
   display: grid;
   grid-template-columns: minmax(250px, 1.1fr) minmax(108px, auto) minmax(214px, 0.9fr);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .commandBarLeft,
@@ -32,7 +32,7 @@
 .commandBarLeft {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
 }
 
 .commandBarCenter {
@@ -98,14 +98,14 @@
 .headerSummaryRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
   margin-top: 7px;
 }
 
 .headerSummaryPill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   min-height: 22px;
   padding: 0 8px;
   border-radius: 999px;
@@ -127,11 +127,11 @@
 .brandLogoWide {
   width: auto;
   max-width: none;
-  height: 88px;
+  height: 80px;
   display: block;
   cursor: pointer;
   pointer-events: auto;
-  transform: scale(1.95);
+  transform: scale(1.82);
   transform-origin: center;
   filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25));
 }
@@ -140,14 +140,14 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 }
 
 .executiveToggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 999px;
@@ -175,7 +175,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 }
 
@@ -222,35 +222,40 @@
   font-size: 8px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  opacity: 0.6;
+  opacity: 0.64;
 }
 
 .headerMetricsStrip {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 5px;
+  gap: 4px;
   align-items: stretch;
 }
 
 .headerStat {
-  min-width: 0;
-  min-height: 42px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 10px;
-  padding: 7px 9px 6px;
+  background: rgba(255,255,255,0.09);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 11px;
+  min-height: 36px;
+  padding: 5px 7px 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .headerStatLabel {
   font-size: 8px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  opacity: 0.66;
-  margin-bottom: 3px;
+  opacity: 0.68;
+  margin-bottom: 2px;
 }
 
 .headerStatValue {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.08;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
