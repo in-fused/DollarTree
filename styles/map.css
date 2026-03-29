@@ -15,11 +15,11 @@
 
 .mapTopOverlay {
   position: absolute;
-  top: 14px;
-  left: 14px;
+  top: 12px;
+  left: 12px;
   z-index: 35;
   display: flex;
-  gap: 10px;
+  gap: 7px;
   flex-wrap: wrap;
   max-width: calc(100% - 154px);
 }
@@ -31,40 +31,40 @@
   color: white;
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 12px;
+  padding: 7px 10px;
+  font-size: 10px;
   box-shadow: 0 10px 24px rgba(0,0,0,0.22);
   backdrop-filter: blur(8px);
 }
 
 .mapLegendCard {
   position: absolute;
-  left: 14px;
-  bottom: 7px;
+  left: 12px;
+  bottom: 6px;
   z-index: 30;
   background: rgba(10,15,24,0.88);
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 12px;
-  padding: 10px 12px;
+  border-radius: 11px;
+  padding: 8px 10px;
   min-width: 160px;
   box-shadow: 0 14px 30px rgba(0,0,0,0.24);
   backdrop-filter: blur(8px);
 }
 
 .mapLegendTitle {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.75;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .mapLegendRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 7px;
+  font-size: 10px;
   margin-bottom: 6px;
 }
 
@@ -87,12 +87,12 @@
 
 .mapExecutiveCallout {
   position: absolute;
-  top: 14px;
+  top: 12px;
   right: 14px;
   z-index: 34;
-  max-width: 360px;
-  padding: 12px 14px;
-  border-radius: 14px;
+  max-width: 334px;
+  padding: 10px 12px;
+  border-radius: 12px;
   background: rgba(8,12,20,0.78);
   border: 1px solid rgba(255,255,255,0.12);
   box-shadow: 0 12px 28px rgba(0,0,0,0.22);
@@ -108,7 +108,7 @@
 }
 
 .mapExecutiveSummaryLine {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.45;
   color: rgba(255,255,255,0.94);
 }
@@ -116,8 +116,8 @@
 .mapExecutiveKpiRow {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 10px;
+  gap: 7px;
+  margin-top: 8px;
 }
 
 .mapExecutiveKpiRow.compact {
@@ -130,7 +130,7 @@
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
-  padding: 9px 10px;
+  padding: 8px 9px;
 }
 
 .mapExecutiveKpiCard.attention {
@@ -150,15 +150,15 @@
 .mapExecutiveMiniValue {
   display: block;
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   color: rgba(255,255,255,0.96);
 }
 
 .analyticsBarStack {
   display: grid;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 7px;
+  margin-top: 8px;
 }
 
 .analyticsBarGroup {
@@ -169,11 +169,11 @@
 .analyticsBarLabelRow {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  gap: 7px;
 }
 
 .analyticsBarTrack {
-  height: 7px;
+  height: 6px;
   border-radius: 999px;
   background: rgba(255,255,255,0.08);
   overflow: hidden;
@@ -192,8 +192,8 @@
 .analyticsBarFill.statusClosed { background: #ff2d2d; }
 
 .mapExecutiveDetailLine {
-  margin-top: 9px;
-  font-size: 11px;
+  margin-top: 7px;
+  font-size: 10px;
   line-height: 1.4;
   color: rgba(255,255,255,0.86);
 }
@@ -221,26 +221,28 @@
 }
 
 .mapExecutiveSummaryLine.collapsed {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  max-height: 2.8em;
   overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveCalloutEyebrow {
-  margin-bottom: 0;
+  margin-bottom: 4px;
 }
 
 body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveSummaryLine.collapsed {
-  display: none;
+  max-height: 2.8em;
 }
 
 body.executive-mode .mapExecutiveCallout.mobile-collapsible::after {
   content: "Tap to expand";
   display: block;
-  margin-top: 4px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  margin-top: 7px;
+  font-size: 9px;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   opacity: 0.58;
 }
@@ -250,27 +252,21 @@ body.executive-mode .mapExecutiveCallout.mobile-collapsible.expanded::after {
 }
 
 body.executive-mode .mapExecutiveCallout.mobile-collapsible.expanded .mapExecutiveSummaryLine {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 6;
-  overflow: hidden;
+  max-height: none;
+  display: block;
 }
 
 .floatingExecutiveExit {
   position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 40;
-  background: rgba(8,12,20,0.9);
+  top: 12px;
+  right: 12px;
+  z-index: 36;
+  background: rgba(8,12,20,0.82);
   color: white;
   border: 1px solid rgba(255,255,255,0.14);
   border-radius: 999px;
-  padding: 10px 14px;
+  padding: 7px 11px;
+  font-size: 11px;
   margin-top: 0;
-  box-shadow: 0 12px 24px rgba(0,0,0,0.22);
-}
-
-.mapIntegrityTag {
-  border-color: rgba(255, 196, 92, 0.34);
-  color: rgba(255, 226, 163, 0.98);
+  backdrop-filter: blur(8px);
 }
