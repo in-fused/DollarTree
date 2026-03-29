@@ -89,6 +89,10 @@
 */
 (function importFeatureBootstrap() {
   const MODULE_URLS = [
+    "js/import/ingestion-mapper.js",
+    "js/import/ingestion-validator.js",
+    "js/import/ingestion-stage.js",
+    "js/import/ingestion-diagnostics.js",
     "js/import/import-runtime.js",
     "js/import/import-ui-shell.js",
     "js/import/import-ui-review.js",
