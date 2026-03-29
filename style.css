@@ -501,7 +501,8 @@ body.executive-mode .workspace {
 }
 
 .mapModeTag,
-.mapScopeTag {
+.mapScopeTag,
+.mapIntegrityTag {
   background: rgba(8,12,20,0.78);
   color: white;
   border: 1px solid rgba(255,255,255,0.12);
@@ -555,6 +556,7 @@ body.executive-mode .workspace {
   flex-shrink: 0;
 }
 
+.legendBlue { background: var(--blue); }
 .legendRed { background: var(--red); }
 .legendOrange { background: var(--orange); }
 .legendGreen { background: var(--green); }
@@ -565,6 +567,7 @@ body.executive-mode .workspace {
   right: 14px;
   z-index: 34;
   max-width: 360px;
+  width: min(360px, calc(100% - 28px));
   padding: 12px 14px;
   border-radius: 14px;
   background: rgba(8,12,20,0.78);
@@ -1065,6 +1068,13 @@ button:disabled {
   font-size: 13px;
   line-height: 1.45;
   color: var(--muted);
+}
+
+.intelSelectedTertiary {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #ffcc66;
 }
 
 /* ================= PHOTO LIBRARY ================= */
@@ -1889,7 +1899,7 @@ button:disabled {
     padding: 10px 12px 8px;
   }
 
-    body.executive-mode .mapLegendCard {
+  body.executive-mode .mapLegendCard {
     left: 10px;
     bottom: calc(4px + env(safe-area-inset-bottom));
     padding: 6px 8px 5px;
@@ -2120,7 +2130,8 @@ button:disabled {
   }
 
   .mapModeTag,
-  .mapScopeTag {
+  .mapScopeTag,
+  .mapIntegrityTag {
     font-size: 11px;
     padding: 8px 10px;
   }
@@ -2193,7 +2204,9 @@ body.executive-mode .floatingExecutiveExit {
   font-weight: 700;
   letter-spacing: 0.01em;
 }
+
 /* Executive summary collapse / expand enhancements */
+
 .mapExecutiveSummaryHeader {
   display: flex;
   align-items: flex-start;
@@ -2232,13 +2245,75 @@ body.executive-mode .floatingExecutiveExit {
   gap: 8px;
 }
 
+.mapExecutiveMiniStat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
 .mapExecutiveMiniStat.completion {
   padding: 8px 10px;
+}
+
+.mapExecutiveMiniLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.66;
+}
+
+.mapExecutiveMiniValue {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.analyticsBarStack {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.analyticsBarGroup {
+  display: grid;
+  gap: 4px;
 }
 
 .analyticsBarGroupCompact {
   margin-top: 0;
 }
+
+.analyticsBarLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.82);
+}
+
+.analyticsBarTrack {
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.1);
+}
+
+.analyticsBarFill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width 0.24s ease;
+}
+
+.statusCompleted { background: linear-gradient(90deg, #1fa85c, #2ecc71); }
+.statusRescheduled { background: linear-gradient(90deg, #d17c00, #ff9900); }
+.statusActive { background: linear-gradient(90deg, #3f8ed8, #64b5f6); }
+.statusClosed { background: linear-gradient(90deg, #da3d3d, #ff2d2d); }
 
 .mapExecutiveDetailsShell {
   display: grid;
@@ -2265,6 +2340,53 @@ body.executive-mode .floatingExecutiveExit {
 
 .mapExecutiveCallout.exec-summary-collapsed .mapExecutiveCalloutEyebrow {
   margin-bottom: 2px;
+}
+
+.mapExecutiveKpiRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mapExecutiveKpiRow.compact {
+  grid-template-columns: 1fr;
+  margin-top: 8px;
+}
+
+.mapExecutiveKpiCard {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.mapExecutiveKpiCard.attention {
+  border-color: rgba(255, 153, 0, 0.24);
+}
+
+.mapExecutiveKpiLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.66;
+  margin-bottom: 4px;
+}
+
+.mapExecutiveKpiValue {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.mapExecutiveDetailLine {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.84);
+}
+
+.mapExecutiveDetailLine.muted {
+  color: rgba(255,255,255,0.66);
 }
 
 @media (max-width: 900px) {
