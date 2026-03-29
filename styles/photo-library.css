@@ -8,29 +8,29 @@
 .photoLibraryShell {
   flex: 1;
   min-height: 0;
-  padding: 10px 12px 12px;
+  padding: 8px 10px 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .photoLibraryHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .photoLibraryTitle {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   line-height: 1.05;
   margin: 0;
 }
 
 .photoLibrarySubline {
-  margin-top: 3px;
-  font-size: 11px;
+  margin-top: 2px;
+  font-size: 10px;
   color: var(--muted);
   line-height: 1.4;
   max-width: 760px;
@@ -38,7 +38,7 @@
 
 .photoLibraryHeaderBadgeGroup {
   display: flex;
-  gap: 7px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -47,7 +47,7 @@
   flex-direction: column;
   gap: 2px;
   min-width: 112px;
-  padding: 8px 9px;
+  padding: 7px 8px;
   border-radius: 11px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.08);
@@ -65,13 +65,13 @@
 }
 
 .photoLibraryToolbarTop {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .photoLibraryToolbarGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 7px;
+  gap: 6px;
 }
 
 .photoLibraryToolbarGrid select,
@@ -83,8 +83,8 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 284px;
+  gap: 8px;
 }
 
 .photoLibraryGridWrap {
@@ -97,8 +97,8 @@
 
 .photoLibraryGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(198px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+  gap: 8px;
 }
 
 .photoLibraryEmptyShell {
@@ -146,7 +146,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 7px;
+  gap: 6px;
 }
 
 .photoLibraryStore {
@@ -188,7 +188,7 @@
 
 .photoDetailEmptyState {
   margin-top: 9px;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.4;
   color: var(--muted);
 }
@@ -220,47 +220,49 @@
 }
 
 .photoDetailPreviewWrap {
-  border-radius: 13px;
+  border-radius: 12px;
   overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.1);
   background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
+  max-height: 250px;
 }
 
 .photoDetailPreview {
-  display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
+  height: 100%;
+  display: block;
+  object-fit: contain;
 }
 
 .photoComparePlaceholder {
   margin-top: 10px;
+  border: 1px dashed rgba(255,255,255,0.14);
+  border-radius: 10px;
   padding: 9px;
-  border-radius: 11px;
-  background: rgba(255,255,255,0.04);
-  border: 1px dashed rgba(255,255,255,0.1);
 }
 
 .photoComparePlaceholderTitle {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  opacity: 0.74;
   margin-bottom: 4px;
 }
 
 .photoComparePlaceholderText {
-  font-size: 10px;
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--muted);
-  line-height: 1.35;
 }
 
 .photoDetailMetaList {
   margin-top: 10px;
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 
 .photoDetailMetaItem {
-  padding: 8px 9px;
+  padding: 7px 8px;
   border-radius: 11px;
   background: rgba(255,255,255,0.045);
   border: 1px solid rgba(255,255,255,0.06);
@@ -271,11 +273,11 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.62;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .photoDetailMetaValue {
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.35;
   color: var(--text);
   word-break: break-word;
@@ -283,7 +285,7 @@
 
 .photoDetailActions {
   display: flex;
-  gap: 7px;
+  gap: 6px;
   margin-top: 10px;
 }
 
@@ -291,54 +293,50 @@
   flex: 1;
 }
 
-/* ================= EMPTY STATES ================= */
-
-.emptyStateMini {
-  padding: 8px 0 2px;
+.photoLibraryEmptyShell .emptyStateHero {
+  padding: 28px 18px;
 }
 
 .emptyStateMiniTitle {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   margin-bottom: 3px;
 }
 
 .emptyStateMiniText {
   font-size: 10px;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--muted);
 }
 
 .emptyStateHero {
-  min-height: 220px;
+  border: 1px dashed rgba(255,255,255,0.16);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  min-height: calc(100% - 2px);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  border-radius: 15px;
-  border: 1px dashed rgba(255,255,255,0.12);
-  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-  padding: 18px;
+  gap: 7px;
 }
 
 .emptyStateHeroEyebrow {
-  font-size: 8px;
+  font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   opacity: 0.62;
-  margin-bottom: 7px;
 }
 
 .emptyStateHeroTitle {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
-  line-height: 1.15;
-  max-width: 700px;
-  margin-bottom: 7px;
+  line-height: 1.2;
+  max-width: 720px;
 }
 
 .emptyStateHeroText {
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.55;
   color: var(--muted);
   max-width: 760px;
 }
