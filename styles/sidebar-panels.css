@@ -4,14 +4,14 @@
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 13px;
-  padding: 13px;
-  margin-bottom: 12px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  padding: 12px;
+  margin-bottom: 10px;
+  box-shadow: 0 7px 18px rgba(0,0,0,0.15);
 }
 
 .panel h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .panelHeaderRow {
@@ -66,7 +66,7 @@ textarea {
   border-radius: 8px;
   padding: 9px 11px;
   font-size: 13px;
-  margin-top: 8px;
+  margin-top: 7px;
 }
 
 input::placeholder,
@@ -89,7 +89,7 @@ button {
   padding: 9px 11px;
   cursor: pointer;
   font-size: 13px;
-  margin-top: 8px;
+  margin-top: 7px;
 }
 
 button:disabled {
@@ -128,7 +128,7 @@ button:disabled {
 }
 
 .authMessage {
-  margin-top: 8px;
+  margin-top: 7px;
   font-size: 12px;
   min-height: 16px;
 }
@@ -138,7 +138,7 @@ button:disabled {
 
 .importLink {
   display: inline-block;
-  margin-top: 8px;
+  margin-top: 7px;
   color: #9fd1ff;
   text-decoration: none;
   font-size: 12px;
@@ -151,7 +151,7 @@ button:disabled {
 }
 
 .projectSourceTag {
-  margin-top: 8px;
+  margin-top: 7px;
   font-size: 11px;
   opacity: 0.8;
   line-height: 1.35;
@@ -159,8 +159,8 @@ button:disabled {
 
 .filterGrid {
   display: grid;
-  gap: 7px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 7px;
 }
 
 .filterGrid select {
@@ -174,7 +174,7 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .scopeSummaryCard,
@@ -183,7 +183,7 @@ button:disabled {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 11px;
-  padding: 10px;
+  padding: 9px;
 }
 
 .scopeSummaryLabel,
@@ -193,7 +193,7 @@ button:disabled {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.65;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .scopeSummaryValue,
@@ -264,7 +264,7 @@ button:disabled {
 
 .routeControls {
   display: grid;
-  gap: 7px;
+  gap: 6px;
   margin-bottom: 10px;
 }
 
@@ -279,7 +279,7 @@ button:disabled {
 
 .selectedStopsList {
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 
 .routeStopItem {
@@ -323,8 +323,8 @@ button:disabled {
 
 .routeActions {
   display: flex;
-  gap: 7px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .routeActions button {
@@ -351,7 +351,7 @@ button:disabled {
 }
 
 .routeMetricDetail {
-  margin-top: 8px;
+  margin-top: 7px;
   font-size: 11px;
   opacity: 0.72;
 }
@@ -360,8 +360,8 @@ button:disabled {
 
 .activityList {
   display: grid;
-  gap: 7px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 8px;
   max-height: 320px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
