@@ -1,342 +1,344 @@
 /* ================= PHOTO LIBRARY ================= */
 
 #photoLibraryWorkspaceView.active {
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+overflow-y: auto;
+-webkit-overflow-scrolling: touch;
 }
 
 .photoLibraryShell {
-  flex: 1;
-  min-height: 0;
-  padding: 8px 10px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+flex: 1;
+min-height: 0;
+padding: 10px 12px 12px;
+display: flex;
+flex-direction: column;
+gap: 10px;
 }
 
 .photoLibraryHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+display: flex;
+align-items: flex-start;
+justify-content: space-between;
+gap: 10px;
 }
 
 .photoLibraryTitle {
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1.05;
-  margin: 0;
+font-size: 20px;
+font-weight: 800;
+line-height: 1.05;
+margin: 0;
 }
 
 .photoLibrarySubline {
-  margin-top: 2px;
-  font-size: 10px;
-  color: var(--muted);
-  line-height: 1.4;
-  max-width: 760px;
+margin-top: 3px;
+font-size: 11px;
+color: var(--muted);
+line-height: 1.4;
+max-width: 760px;
 }
 
 .photoLibraryHeaderBadgeGroup {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+display: flex;
+gap: 7px;
+flex-wrap: wrap;
 }
 
 .photoLibraryHeaderBadge {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 112px;
-  padding: 7px 8px;
-  border-radius: 11px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+display: flex;
+flex-direction: column;
+gap: 2px;
+min-width: 112px;
+padding: 8px 9px;
+border-radius: 11px;
+background: rgba(255,255,255,0.05);
+border: 1px solid rgba(255,255,255,0.08);
 }
 
 .photoLibraryHeaderBadgeLabel {
-  font-size: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.6;
+font-size: 8px;
+text-transform: uppercase;
+letter-spacing: 0.08em;
+opacity: 0.6;
 }
 
 .photoLibraryToolbar {
-  margin-bottom: 0;
+margin-bottom: 0;
 }
 
 .photoLibraryToolbarTop {
-  margin-bottom: 6px;
+margin-bottom: 8px;
 }
 
 .photoLibraryToolbarGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+display: grid;
+grid-template-columns: repeat(4, minmax(0, 1fr));
+gap: 7px;
 }
 
 .photoLibraryToolbarGrid select,
 .photoLibraryToolbarGrid input {
-  margin-top: 0;
+margin-top: 0;
 }
 
 .photoLibraryContent {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 284px;
-  gap: 8px;
+flex: 1;
+min-height: 0;
+display: grid;
+grid-template-columns: minmax(0, 1fr) 300px;
+gap: 10px;
 }
 
 .photoLibraryGridWrap {
-  min-width: 0;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 2px;
-  -webkit-overflow-scrolling: touch;
+min-width: 0;
+min-height: 0;
+overflow-y: auto;
+padding-right: 2px;
+-webkit-overflow-scrolling: touch;
 }
 
 .photoLibraryGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
-  gap: 8px;
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(198px, 1fr));
+gap: 10px;
 }
 
 .photoLibraryEmptyShell {
-  min-height: 100%;
+min-height: 100%;
 }
 
 .photoLibraryCard {
-  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.03));
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 13px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.03));
+border: 1px solid rgba(255,255,255,0.08);
+border-radius: 13px;
+overflow: hidden;
+cursor: pointer;
+transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .photoLibraryCard:hover {
-  transform: translateY(-1px);
-  background: rgba(255,255,255,0.065);
+transform: translateY(-1px);
+background: rgba(255,255,255,0.065);
 }
 
 .photoLibraryCard.active {
-  border-color: rgba(100,181,246,0.65);
-  box-shadow: 0 0 0 1px rgba(100,181,246,0.28);
+border-color: rgba(100,181,246,0.65);
+box-shadow: 0 0 0 1px rgba(100,181,246,0.28);
 }
 
 .photoLibraryImageWrap {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  background: rgba(255,255,255,0.04);
-  overflow: hidden;
+width: 100%;
+aspect-ratio: 4 / 3;
+background: rgba(255,255,255,0.04);
+overflow: hidden;
 }
 
 .photoLibraryImage {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+width: 100%;
+height: 100%;
+object-fit: cover;
+display: block;
 }
 
 .photoLibraryCardBody {
-  padding: 9px;
+padding: 9px;
 }
 
 .photoLibraryCardTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 7px;
 }
 
 .photoLibraryStore {
-  font-size: 12px;
-  font-weight: 800;
+font-size: 12px;
+font-weight: 800;
 }
 
 .photoLibraryTypePill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 20px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.08);
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+min-height: 20px;
+padding: 0 7px;
+border-radius: 999px;
+background: rgba(255,255,255,0.08);
+border: 1px solid rgba(255,255,255,0.08);
+font-size: 9px;
+text-transform: uppercase;
+letter-spacing: 0.06em;
 }
 
 .photoLibraryMeta {
-  margin-top: 5px;
-  font-size: 10px;
-  line-height: 1.35;
-  color: var(--muted);
+margin-top: 5px;
+font-size: 10px;
+line-height: 1.35;
+color: var(--muted);
 }
 
 .photoLibraryDetailRail {
-  min-width: 0;
+min-width: 0;
 }
 
 .photoLibraryDetailPanel {
-  height: 100%;
-  margin-bottom: 0;
-  position: sticky;
-  top: 0;
+height: 100%;
+margin-bottom: 0;
+position: sticky;
+top: 0;
 }
 
 .photoDetailEmptyState {
-  margin-top: 9px;
-  font-size: 10px;
-  line-height: 1.4;
-  color: var(--muted);
+margin-top: 9px;
+font-size: 11px;
+line-height: 1.4;
+color: var(--muted);
 }
 
 .photoDetailHero {
-  margin-top: 9px;
+margin-top: 9px;
 }
 
 .photoDetailHeroTop {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 9px;
-  margin-bottom: 7px;
+display: flex;
+justify-content: space-between;
+align-items: flex-start;
+gap: 9px;
+margin-bottom: 7px;
 }
 
 .photoDetailHeroEyebrow {
-  font-size: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.6;
-  margin-bottom: 3px;
+font-size: 8px;
+text-transform: uppercase;
+letter-spacing: 0.08em;
+opacity: 0.6;
+margin-bottom: 3px;
 }
 
 .photoDetailHeroTitle {
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.2;
+font-size: 14px;
+font-weight: 800;
+line-height: 1.2;
 }
 
 .photoDetailPreviewWrap {
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
-  max-height: 250px;
+border-radius: 13px;
+overflow: hidden;
+background: rgba(255,255,255,0.04);
+border: 1px solid rgba(255,255,255,0.06);
 }
 
 .photoDetailPreview {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: contain;
+display: block;
+width: 100%;
+aspect-ratio: 4 / 3;
+object-fit: cover;
 }
 
 .photoComparePlaceholder {
-  margin-top: 10px;
-  border: 1px dashed rgba(255,255,255,0.14);
-  border-radius: 10px;
-  padding: 9px;
+margin-top: 10px;
+padding: 9px;
+border-radius: 11px;
+background: rgba(255,255,255,0.04);
+border: 1px dashed rgba(255,255,255,0.1);
 }
 
 .photoComparePlaceholderTitle {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  opacity: 0.74;
-  margin-bottom: 4px;
+font-size: 10px;
+font-weight: 700;
+margin-bottom: 4px;
 }
 
 .photoComparePlaceholderText {
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--muted);
+font-size: 10px;
+color: var(--muted);
+line-height: 1.35;
 }
 
 .photoDetailMetaList {
-  margin-top: 10px;
-  display: grid;
-  gap: 6px;
+margin-top: 10px;
+display: grid;
+gap: 7px;
 }
 
 .photoDetailMetaItem {
-  padding: 7px 8px;
-  border-radius: 11px;
-  background: rgba(255,255,255,0.045);
-  border: 1px solid rgba(255,255,255,0.06);
+padding: 8px 9px;
+border-radius: 11px;
+background: rgba(255,255,255,0.045);
+border: 1px solid rgba(255,255,255,0.06);
 }
 
 .photoDetailMetaLabel {
-  font-size: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.62;
-  margin-bottom: 2px;
+font-size: 8px;
+text-transform: uppercase;
+letter-spacing: 0.08em;
+opacity: 0.62;
+margin-bottom: 4px;
 }
 
 .photoDetailMetaValue {
-  font-size: 10px;
-  line-height: 1.35;
-  color: var(--text);
-  word-break: break-word;
+font-size: 11px;
+line-height: 1.35;
+color: var(--text);
+word-break: break-word;
 }
 
 .photoDetailActions {
-  display: flex;
-  gap: 6px;
-  margin-top: 10px;
+display: flex;
+gap: 7px;
+margin-top: 10px;
 }
 
 .photoDetailActions button {
-  flex: 1;
+flex: 1;
 }
 
-.photoLibraryEmptyShell .emptyStateHero {
-  padding: 28px 18px;
+/* ================= EMPTY STATES ================= */
+
+.emptyStateMini {
+padding: 8px 0 2px;
 }
 
 .emptyStateMiniTitle {
-  font-size: 10px;
-  font-weight: 700;
-  margin-bottom: 3px;
+font-size: 11px;
+font-weight: 700;
+margin-bottom: 3px;
 }
 
 .emptyStateMiniText {
-  font-size: 10px;
-  line-height: 1.4;
-  color: var(--muted);
+font-size: 10px;
+line-height: 1.35;
+color: var(--muted);
 }
 
 .emptyStateHero {
-  border: 1px dashed rgba(255,255,255,0.16);
-  border-radius: 14px;
-  background: rgba(255,255,255,0.03);
-  min-height: calc(100% - 2px);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 7px;
+min-height: 220px;
+display: flex;
+flex-direction: column;
+justify-content: center;
+border-radius: 15px;
+border: 1px dashed rgba(255,255,255,0.12);
+background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+padding: 18px;
 }
 
 .emptyStateHeroEyebrow {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  opacity: 0.62;
+font-size: 8px;
+text-transform: uppercase;
+letter-spacing: 0.12em;
+opacity: 0.62;
+margin-bottom: 7px;
 }
 
 .emptyStateHeroTitle {
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1.2;
-  max-width: 720px;
+font-size: 18px;
+font-weight: 800;
+line-height: 1.15;
+max-width: 700px;
+margin-bottom: 7px;
 }
 
 .emptyStateHeroText {
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--muted);
-  max-width: 760px;
+font-size: 12px;
+line-height: 1.45;
+color: var(--muted);
+max-width: 760px;
 }
