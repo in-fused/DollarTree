@@ -221,6 +221,14 @@ opacity: 0.58;
 content: "Tap to collapse";
 }
 
+.mapExecutiveDetailsShell {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.28s ease, opacity 0.2s ease, margin-top 0.2s ease;
+  opacity: 1;
+  margin-top: 10px;
+}
+
 .mapExecutiveCallout.exec-summary-collapsed {
   padding: 10px 12px;
 }
