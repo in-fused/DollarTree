@@ -3,10 +3,10 @@
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 12px;
-  padding: 11px;
-  margin-bottom: 9px;
-  box-shadow: 0 7px 16px rgba(0,0,0,0.14);
+  border-radius: 13px;
+  padding: 12px;
+  margin-bottom: 10px;
+  box-shadow: 0 7px 18px rgba(0,0,0,0.15);
 }
 
 .panel h3 {
@@ -18,7 +18,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
 }
 
 .panelHeaderTag {
@@ -66,7 +66,7 @@ textarea {
   border-radius: 8px;
   padding: 9px 11px;
   font-size: 13px;
-  margin-top: 6px;
+  margin-top: 7px;
 }
 
 input::placeholder,
@@ -89,7 +89,7 @@ button {
   padding: 9px 11px;
   cursor: pointer;
   font-size: 13px;
-  margin-top: 6px;
+  margin-top: 7px;
 }
 
 button:disabled {
@@ -128,7 +128,7 @@ button:disabled {
 }
 
 .authMessage {
-  margin-top: 6px;
+  margin-top: 7px;
   font-size: 12px;
   min-height: 16px;
 }
@@ -138,7 +138,7 @@ button:disabled {
 
 .importLink {
   display: inline-block;
-  margin-top: 6px;
+  margin-top: 7px;
   color: #9fd1ff;
   text-decoration: none;
   font-size: 12px;
@@ -151,7 +151,7 @@ button:disabled {
 }
 
 .projectSourceTag {
-  margin-top: 6px;
+  margin-top: 7px;
   font-size: 11px;
   opacity: 0.8;
   line-height: 1.35;
@@ -160,7 +160,7 @@ button:disabled {
 .filterGrid {
   display: grid;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 7px;
 }
 
 .filterGrid select {
@@ -173,7 +173,7 @@ button:disabled {
 .scopeSummaryGridIntel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
   margin-top: 8px;
 }
 
@@ -199,7 +199,7 @@ button:disabled {
 .scopeSummaryValue,
 .intelMetricValue,
 .routeMetricValue {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 800;
   line-height: 1;
 }
@@ -207,7 +207,7 @@ button:disabled {
 .scopeSummaryGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .scopeSummaryGridIntel {
@@ -218,27 +218,48 @@ button:disabled {
   word-break: break-word;
 }
 
+.adminHealthGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.panelAdminHealth .scopeSummaryCard:nth-last-child(-n + 2) {
+  grid-column: span 1;
+}
+
+.statusBadge,
+.activityCountPill {
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
 /* ================= ROUTE BUILDER ================= */
 
 .routeHeader {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 2px;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .routeToggleLabel {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  opacity: 0.82;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .routeToggleLabel input {
   width: auto;
   margin: 0;
+  accent-color: var(--green);
 }
 
 .routeControls {
@@ -253,12 +274,7 @@ button:disabled {
 }
 
 .routeEmpty {
-  border: 1px dashed rgba(255,255,255,0.16);
-  border-radius: 10px;
-  padding: 10px;
-  color: rgba(255,255,255,0.7);
-  font-size: 11px;
-  margin-bottom: 10px;
+  font-size: 12px;
 }
 
 .selectedStopsList {
@@ -267,42 +283,42 @@ button:disabled {
 }
 
 .routeStopItem {
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.06);
   border-radius: 10px;
   padding: 9px;
-  background: rgba(255,255,255,0.03);
 }
 
 .routeStopTop {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .routeStopTitle {
   font-weight: 700;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .routeStopAddress {
-  margin-top: 4px;
-  font-size: 10px;
+  font-size: 11px;
   opacity: 0.75;
-  line-height: 1.35;
+  margin-top: 4px;
 }
 
 .routeStopActions {
-  margin-top: 7px;
   display: flex;
   gap: 6px;
+  margin-top: 7px;
+  flex-wrap: wrap;
 }
 
 .routeMiniBtn {
-  margin-top: 0;
-  padding: 6px 8px;
+  padding: 5px 8px;
   font-size: 11px;
-  border-radius: 7px;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  margin-top: 0;
 }
 
 .routeActions {
@@ -316,28 +332,26 @@ button:disabled {
 }
 
 .routeMetricsPanel {
-  margin-top: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid rgba(255,255,255,0.08);
-  padding-top: 10px;
 }
 
 .routeMetricsHeader {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.74;
-  margin-bottom: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
 }
 
 .routeMetricsGrid,
 .intelMetricGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .routeMetricDetail {
-  margin-top: 6px;
+  margin-top: 7px;
   font-size: 11px;
   opacity: 0.72;
 }
@@ -354,17 +368,23 @@ button:disabled {
 }
 
 .activityItem {
-  border: 1px solid rgba(255,255,255,0.08);
+  padding: 9px 10px;
   border-radius: 10px;
-  padding: 9px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255,255,255,0.04);
+  border-left: 3px solid rgba(255,255,255,0.12);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
-.activityItemTop {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
+.activityItem:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.06);
+}
+
+.activityTime {
+  font-size: 10px;
+  opacity: 0.65;
+  margin-bottom: 4px;
 }
 
 .activityTitle {
@@ -372,108 +392,30 @@ button:disabled {
   font-weight: 700;
 }
 
-.activityMeta {
-  margin-top: 3px;
-  font-size: 10px;
-  opacity: 0.7;
+.activityDetail,
+.activity-empty {
+  font-size: 11px;
+  opacity: 0.72;
 }
 
-.activityCountPill {
-  min-height: 21px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.08);
-  font-size: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* ================= INTEL SELECTED ================= */
+
+.intelSelectedPrimary {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
-/* ================= MODAL ================= */
-
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.62);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 120;
-  padding: 14px;
-}
-
-.modalContent {
-  width: min(540px, 100%);
-  max-height: 92vh;
-  overflow-y: auto;
-  background: #0f1722;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 14px;
-  padding: 14px;
-}
-
-.statusButtons {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-  gap: 7px;
-  margin-top: 9px;
-}
-
-.notesList {
-  margin-top: 10px;
-  display: grid;
-  gap: 7px;
-}
-
-.noteItem {
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 9px;
-  padding: 8px;
+.intelSelectedSecondary {
+  margin-top: 6px;
   font-size: 12px;
   line-height: 1.4;
+  color: var(--muted);
 }
 
-.photoSection {
-  margin-top: 10px;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  padding-top: 10px;
-}
-
-.photoUploadRow {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.photoUploadRow input {
-  flex: 1;
-  margin-top: 0;
-}
-
-.photoUploadRow button {
-  margin-top: 0;
-  white-space: nowrap;
-}
-
-.photoUploadMessage {
-  margin-top: 7px;
+.intelSelectedTertiary {
+  margin-top: 6px;
   font-size: 11px;
-  opacity: 0.8;
-}
-
-.photoGallery {
-  margin-top: 9px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-  gap: 7px;
-}
-
-.photoThumb {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  border-radius: 8px;
-  cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.1);
+  line-height: 1.35;
+  color: rgba(255, 196, 92, 0.96);
 }
