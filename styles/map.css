@@ -1,3 +1,4 @@
+
 /* ================= MAP ================= */
 
 .mapWrapper {
@@ -218,6 +219,48 @@ opacity: 0.58;
 
 .mapExecutiveCallout.mobile-collapsible.expanded::after {
 content: "Tap to collapse";
+}
+
+.mapExecutiveDetailsShell {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.28s ease, opacity 0.2s ease, margin-top 0.2s ease;
+  opacity: 1;
+  margin-top: 10px;
+}
+
+.mapExecutiveCallout.exec-summary-collapsed {
+  padding: 10px 12px;
+}
+
+.mapExecutiveCallout.exec-summary-collapsed .mapExecutiveSummaryLine,
+.mapExecutiveCallout.exec-summary-collapsed .mapExecutiveCompactRow {
+  display: none;
+}
+
+.mapExecutiveCallout.exec-summary-collapsed .mapExecutiveDetailsShell {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 0;
+}
+
+.mapExecutiveCallout.exec-summary-expanded .mapExecutiveSummaryLine {
+  display: block;
+}
+
+.mapExecutiveCallout.exec-summary-expanded .mapExecutiveCompactRow {
+  display: grid;
+}
+
+.mapExecutiveCallout.exec-summary-expanded .mapExecutiveDetailsShell {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 10px;
+}
+
+.mapExecutiveDetailsContent {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .mapExecutiveSummaryLine.collapsed {
