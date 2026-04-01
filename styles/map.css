@@ -99,6 +99,25 @@ box-shadow: 0 12px 28px rgba(0,0,0,0.22);
 backdrop-filter: blur(8px);
 }
 
+.mapExecutiveSummaryHeader {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 10px;
+}
+
+.mapExecutiveSummaryHeaderText {
+min-width: 0;
+}
+
+.executiveSummaryToggleBtn {
+flex: 0 0 auto;
+position: relative;
+z-index: 1;
+pointer-events: auto;
+white-space: nowrap;
+}
+
 .mapExecutiveCalloutEyebrow {
 font-size: 10px;
 text-transform: uppercase;
@@ -229,7 +248,13 @@ content: "Tap to collapse";
 }
 
 .mapExecutiveCallout.exec-summary-collapsed {
+  width: auto;
+  max-width: 220px;
   padding: 10px 12px;
+}
+
+.mapExecutiveCallout.exec-summary-collapsed .mapExecutiveSummaryHeaderText {
+  max-width: none;
 }
 
 .mapExecutiveCallout.exec-summary-collapsed .mapExecutiveSummaryLine,
