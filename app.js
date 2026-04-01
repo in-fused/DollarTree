@@ -43,7 +43,6 @@
 
     card.classList.toggle("exec-summary-collapsed", collapsed);
     card.classList.toggle("exec-summary-expanded", !collapsed);
-    card.dataset.execSummaryState = collapsed ? "collapsed" : "expanded";
 
     toggleBtn.setAttribute("aria-expanded", String(!collapsed));
     toggleBtn.setAttribute(
