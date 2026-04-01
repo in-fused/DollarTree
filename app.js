@@ -13,7 +13,7 @@
     };
   }
 
-  function isExecutiveSummaryCollapsed() {
+    function isExecutiveSummaryCollapsed() {
     const elements = getElements();
     const card = elements.card;
     const toggleBtn = elements.toggleBtn;
@@ -21,16 +21,16 @@
 
     if (!card || !toggleBtn || !details) return true;
 
-    if (card.dataset.execSummaryState === "collapsed") return true;
-    if (card.dataset.execSummaryState === "expanded") return false;
-
     if (details.getAttribute("aria-hidden") === "true") return true;
     if (details.getAttribute("aria-hidden") === "false") return false;
 
     if (toggleBtn.getAttribute("aria-expanded") === "true") return false;
     if (toggleBtn.getAttribute("aria-expanded") === "false") return true;
 
-    return card.classList.contains("exec-summary-collapsed");
+    if (card.classList.contains("exec-summary-collapsed")) return true;
+    if (card.classList.contains("exec-summary-expanded")) return false;
+
+    return true;
   }
 
   function applyExecutiveSummaryState(collapsed) {
