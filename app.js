@@ -13,6 +13,26 @@
     };
   }
 
+    function isExecutiveSummaryCollapsed() {
+    const elements = getElements();
+    const card = elements.card;
+    const toggleBtn = elements.toggleBtn;
+    const details = elements.details;
+
+    if (!card || !toggleBtn || !details) return true;
+
+    if (details.getAttribute("aria-hidden") === "true") return true;
+    if (details.getAttribute("aria-hidden") === "false") return false;
+
+    if (toggleBtn.getAttribute("aria-expanded") === "true") return false;
+    if (toggleBtn.getAttribute("aria-expanded") === "false") return true;
+
+    if (card.classList.contains("exec-summary-collapsed")) return true;
+    if (card.classList.contains("exec-summary-expanded")) return false;
+
+    return true;
+  }
+
   function applyExecutiveSummaryState(collapsed) {
     const elements = getElements();
     const card = elements.card;
@@ -27,7 +47,7 @@
     toggleBtn.setAttribute("aria-expanded", String(!collapsed));
     toggleBtn.setAttribute(
       "aria-label",
-      collapsed ? "Expand executive summary" : "Collapse executive summary"
+      collapsed ? "Expand operational summary" : "Collapse operational summary"
     );
     toggleBtn.textContent = collapsed ? "Expand" : "Collapse";
 
@@ -54,16 +74,15 @@
 
   function bindExecutiveSummaryToggle() {
     const elements = getElements();
-    const card = elements.card;
     const toggleBtn = elements.toggleBtn;
 
-    if (!card || !toggleBtn || toggleBtn.dataset.execSummaryBound === "true") return;
+    if (!toggleBtn || toggleBtn.dataset.execSummaryBound === "true") return;
 
     toggleBtn.addEventListener("click", function onExecutiveToggleClick(event) {
       event.preventDefault();
       event.stopPropagation();
 
-      const collapsed = card.classList.contains("exec-summary-collapsed");
+      const collapsed = isExecutiveSummaryCollapsed();
       applyExecutiveSummaryState(!collapsed);
     });
 
