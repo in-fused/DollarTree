@@ -346,6 +346,7 @@ function updateIntelRail() {
   setText("intelNotesNoPhotos", metrics.storesWithNotesNoPhotos.toLocaleString());
   setText("intelPhotosNoNotes", metrics.storesWithPhotosNoNotes.toLocaleString());
   setText("intelHealthSummary", `${metrics.stalledActiveCount.toLocaleString()} stalled active • ${metrics.rescheduledNoRecentFollowUpCount.toLocaleString()} rescheduled lacking recent follow-up`);
+  renderIntelTopAttentionStores();
 
   if (!currentSelectedStoreId) {
     resetSelectedStorePanel();
@@ -441,6 +442,57 @@ function getStoreIntelligenceSnapshot() {
 }
 
 window.getStoreIntelligenceSnapshot = getStoreIntelligenceSnapshot;
+function buildAttentionReasonSummary(store) {
+  if (!store || !store.flags) return "Follow-up needed";
+
+  if (store.flags.stalledActive) return "Active • no updates";
+  if (store.flags.rescheduledNoRecentFollowUp) return "Rescheduled • no recent follow-up";
+  if (store.flags.rescheduledNoReason) return "Rescheduled • no reason logged";
+  if (store.flags.noUpdates) return "No updates logged";
+  if (store.flags.notesNoPhotos) return "Notes only • no photos";
+  if (store.flags.photosNoNotes) return "Photos only • no notes";
+  if (store.flags.hasIntegrityIssues) return "Integrity issues";
+  return "Follow-up needed";
+}
+
+function renderIntelTopAttentionStores() {
+  const listEl = document.getElementById("intelTopAttentionList");
+  if (!listEl) return;
+
+  if (typeof getStoreIntelligenceSnapshot !== "function") {
+    listEl.innerHTML = '<div class="intelAttentionEmpty">Store intelligence unavailable.</div>';
+    return;
+  }
+
+  const snapshot = getStoreIntelligenceSnapshot();
+  const ranked = Array.isArray(snapshot?.stores) ? snapshot.stores : [];
+  const topStores = ranked.filter(store => (store.attentionScore || 0) > 0).slice(0, 5);
+
+  if (topStores.length === 0) {
+    listEl.innerHTML = '<div class="intelAttentionEmpty">No attention-ranked stores in current scope.</div>';
+    return;
+  }
+
+  listEl.innerHTML = topStores.map(store => {
+    const severityClass = `severity-${store.severity || "low"}`;
+    const severityLabel = String(store.severity || "low").toUpperCase();
+    const score = Number.isFinite(store.attentionScore) ? store.attentionScore : 0;
+    const reason = buildAttentionReasonSummary(store);
+
+    return `
+      <div class="intelAttentionItem">
+        <div class="intelAttentionItemTop">
+          <div class="intelAttentionStore">Store ${store.storeId}</div>
+          <div class="intelAttentionMeta">
+            <span class="intelAttentionSeverity ${severityClass}">${severityLabel}</span>
+            <span class="intelAttentionScore">${score}</span>
+          </div>
+        </div>
+        <div class="intelAttentionReason">${reason}</div>
+      </div>
+    `;
+  }).join("");
+}
 
 function resetSelectedStorePanel() {
   setText("intelSelectedStoreId", "No store selected");
