@@ -353,6 +353,94 @@ function updateIntelRail() {
 }
 
 window.getProjectAnalyticsSnapshot = getProjectAnalyticsSnapshot;
+/* ================= STORE INTELLIGENCE (PHASE 12.1) ================= */
+
+function getStoreIntelligenceSnapshot() {
+  const metrics = getScopeMetrics();
+
+  const { notesByStore, photosByStore, activityByStore, recentActivityByStore } =
+    buildStoreAnalyticsMaps(metrics.filteredIds);
+
+  const stores = metrics.filteredStores.map(store => {
+    const storeId = String(store.store_id);
+
+    const status = statusMap[storeId] || {};
+    const statusCode = normalizeStatusCode(
+      status.status_code,
+      status.completed === true,
+      status.closed === true
+    );
+
+    const noteCount = notesByStore.get(storeId) || 0;
+    const photoCount = photosByStore.get(storeId) || 0;
+    const activityCount = activityByStore.get(storeId) || 0;
+    const hasRecentActivity = recentActivityByStore.get(storeId) === true;
+
+    const hasReason = String(status.status_reason || "").trim().length > 0;
+
+    const integrityIssues = typeof getStoreIntegrityIssues === "function"
+      ? getStoreIntegrityIssues(store, statusMap)
+      : [];
+
+    const flags = {
+      noUpdates: noteCount === 0 && photoCount === 0 && activityCount === 0,
+      notesNoPhotos: noteCount > 0 && photoCount === 0,
+      photosNoNotes: photoCount > 0 && noteCount === 0,
+      stalledActive: statusCode === "active" && noteCount === 0 && photoCount === 0 && activityCount === 0,
+      rescheduledNoReason: statusCode === "rescheduled" && !hasReason,
+      rescheduledNoRecentFollowUp: statusCode === "rescheduled" && !hasRecentActivity,
+      hasIntegrityIssues: integrityIssues.length > 0
+    };
+
+    let score = 0;
+
+    if (flags.noUpdates) score += 5;
+    if (flags.stalledActive) score += 4;
+    if (flags.rescheduledNoReason) score += 3;
+    if (flags.rescheduledNoRecentFollowUp) score += 3;
+    if (flags.notesNoPhotos) score += 2;
+    if (flags.photosNoNotes) score += 2;
+    if (flags.hasIntegrityIssues) score += 2;
+
+    const severity =
+      score >= 9 ? "critical" :
+      score >= 6 ? "high" :
+      score >= 3 ? "medium" :
+      "low";
+
+    return {
+      storeId,
+      statusCode,
+      noteCount,
+      photoCount,
+      activityCount,
+      hasRecentActivity,
+      integrityIssueCount: integrityIssues.length,
+      flags,
+      attentionScore: score,
+      severity
+    };
+  });
+
+  const ranked = stores.sort((a, b) => b.attentionScore - a.attentionScore);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    projectId: currentProjectId,
+    projectName: currentProjectMeta?.name || currentProjectId,
+    scopeLabel: getCurrentScopeLabel(metrics),
+    totals: {
+      storesInScope: stores.length,
+      criticalCount: ranked.filter(s => s.severity === "critical").length,
+      highCount: ranked.filter(s => s.severity === "high").length,
+      mediumCount: ranked.filter(s => s.severity === "medium").length,
+      lowCount: ranked.filter(s => s.severity === "low").length
+    },
+    stores: ranked
+  };
+}
+
+window.getStoreIntelligenceSnapshot = getStoreIntelligenceSnapshot;
 
 function resetSelectedStorePanel() {
   setText("intelSelectedStoreId", "No store selected");
