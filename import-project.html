@@ -553,6 +553,27 @@ async function parseCsvFile(file) {
   });
 }
 
+function normalizeAddressKey(address) {
+  return String(address || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getGeocodeCache() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem("project_import_geocode_cache") || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function setGeocodeCache(cache) {
+  localStorage.setItem("project_import_geocode_cache", JSON.stringify(cache));
+}
+
 async function geocodeAddress(fullAddress) {
   const url = "https://api.mapbox.com/search/geocode/v6/forward?" + new URLSearchParams({
     q: fullAddress,
@@ -598,6 +619,7 @@ async function processRows(rows) {
       normalized: [],
       geocoded: 0,
       coordsProvided: 0,
+      cacheHits: 0,
       validRows: 0,
       errorCount: validation.errors.length,
       warningCount: validation.warnings.length,
@@ -609,6 +631,10 @@ async function processRows(rows) {
   const normalized = [];
   let geocoded = 0;
   let coordsProvided = 0;
+  let cacheHits = 0;
+
+  const persistentCache = getGeocodeCache();
+  const batchCache = {};
 
   for (const row of normalizedRows) {
     const fullAddress = buildFullAddress(row);
@@ -619,11 +645,37 @@ async function processRows(rows) {
         continue;
       }
 
-      log(`Geocoding store ${row.store_id}...`);
-      const geo = await geocodeAddress(fullAddress);
-      row.lat = geo.lat;
-      row.lng = geo.lng;
-      geocoded += 1;
+      const addressKey = normalizeAddressKey(fullAddress);
+
+      if (addressKey && batchCache[addressKey]) {
+        row.lat = Number(batchCache[addressKey].lat);
+        row.lng = Number(batchCache[addressKey].lng);
+        cacheHits += 1;
+      } else if (addressKey && persistentCache[addressKey]) {
+        row.lat = Number(persistentCache[addressKey].lat);
+        row.lng = Number(persistentCache[addressKey].lng);
+        batchCache[addressKey] = persistentCache[addressKey];
+        cacheHits += 1;
+        log(`Using cached coordinates for store ${row.store_id}...`);
+      } else {
+        log(`Geocoding store ${row.store_id}...`);
+        const geo = await geocodeAddress(fullAddress);
+        row.lat = geo.lat;
+        row.lng = geo.lng;
+        geocoded += 1;
+
+        if (addressKey) {
+          const cachedValue = {
+            lat: geo.lat,
+            lng: geo.lng,
+            full_address: fullAddress,
+            updated_at: new Date().toISOString()
+          };
+
+          batchCache[addressKey] = cachedValue;
+          persistentCache[addressKey] = cachedValue;
+        }
+      }
     } else {
       coordsProvided += 1;
     }
@@ -631,11 +683,14 @@ async function processRows(rows) {
     normalized.push(normalizeStoreRow(row, fullAddress));
   }
 
+  setGeocodeCache(persistentCache);
+
   return {
     totalRows: rows.length,
     normalized,
     geocoded,
     coordsProvided,
+    cacheHits,
     validRows: normalized.length,
     errorCount: validation.errors.length,
     warningCount: validation.warnings.length,
@@ -763,6 +818,9 @@ async function runImport() {
     log(`Valid rows: ${result.validRows}`);
     log(`Error count: ${result.errorCount}`);
     log(`Warning count: ${result.warningCount}`);
+    log(`Coordinates provided in CSV: ${result.coordsProvided}`);
+    log(`Cached coordinate reuses: ${result.cacheHits || 0}`);
+    log(`New geocodes requested: ${result.geocoded}`);
 
     if (result.errorCount > 0) {
       log("Import blocked due to validation errors", "error");
