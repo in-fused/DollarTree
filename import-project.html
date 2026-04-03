@@ -571,7 +571,13 @@ function getGeocodeCache() {
 }
 
 function setGeocodeCache(cache) {
-  localStorage.setItem("project_import_geocode_cache", JSON.stringify(cache));
+  try {
+    localStorage.setItem("project_import_geocode_cache", JSON.stringify(cache));
+    return true;
+  } catch (error) {
+    console.warn("Geocode cache persistence skipped:", error);
+    return false;
+  }
 }
 
 async function geocodeAddress(fullAddress) {
@@ -647,14 +653,25 @@ async function processRows(rows) {
 
       const addressKey = normalizeAddressKey(fullAddress);
 
-      if (addressKey && batchCache[addressKey]) {
-        row.lat = Number(batchCache[addressKey].lat);
-        row.lng = Number(batchCache[addressKey].lng);
+            const batchCachedValue = addressKey ? batchCache[addressKey] : null;
+      const persistentCachedValue = addressKey ? persistentCache[addressKey] : null;
+
+      if (
+        batchCachedValue &&
+        Number.isFinite(Number(batchCachedValue.lat)) &&
+        Number.isFinite(Number(batchCachedValue.lng))
+      ) {
+        row.lat = Number(batchCachedValue.lat);
+        row.lng = Number(batchCachedValue.lng);
         cacheHits += 1;
-      } else if (addressKey && persistentCache[addressKey]) {
-        row.lat = Number(persistentCache[addressKey].lat);
-        row.lng = Number(persistentCache[addressKey].lng);
-        batchCache[addressKey] = persistentCache[addressKey];
+      } else if (
+        persistentCachedValue &&
+        Number.isFinite(Number(persistentCachedValue.lat)) &&
+        Number.isFinite(Number(persistentCachedValue.lng))
+      ) {
+        row.lat = Number(persistentCachedValue.lat);
+        row.lng = Number(persistentCachedValue.lng);
+        batchCache[addressKey] = persistentCachedValue;
         cacheHits += 1;
         log(`Using cached coordinates for store ${row.store_id}...`);
       } else {
