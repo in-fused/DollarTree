@@ -653,7 +653,7 @@ async function processRows(rows) {
 
       const addressKey = normalizeAddressKey(fullAddress);
 
-            const batchCachedValue = addressKey ? batchCache[addressKey] : null;
+      const batchCachedValue = addressKey ? batchCache[addressKey] : null;
       const persistentCachedValue = addressKey ? persistentCache[addressKey] : null;
 
       if (
