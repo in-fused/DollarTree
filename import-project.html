@@ -579,7 +579,57 @@ function setGeocodeCache(cache) {
     return false;
   }
 }
+  
+async function getSupabaseGeocode(addressKey) {
+  const { data, error } = await supabaseClient
+    .from("geocode_cache")
+    .select("lat,lng,full_address,updated_at")
+    .eq("address_key", addressKey)
+    .maybeSingle();
 
+  if (error) {
+    console.warn("Supabase geocode lookup failed:", error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  if (
+    Number.isFinite(Number(data.lat)) &&
+    Number.isFinite(Number(data.lng))
+  ) {
+    return {
+      lat: Number(data.lat),
+      lng: Number(data.lng),
+      full_address: data.full_address || null,
+      updated_at: data.updated_at || null
+    };
+  }
+
+  return null;
+}
+
+async function setSupabaseGeocode(addressKey, lat, lng, fullAddress) {
+  const payload = {
+    address_key: addressKey,
+    lat,
+    lng,
+    full_address: fullAddress || null,
+    updated_at: new Date().toISOString()
+  };
+
+  const { error } = await supabaseClient
+    .from("geocode_cache")
+    .upsert(payload, { onConflict: "address_key" });
+
+  if (error) {
+    console.warn("Supabase geocode write failed:", error);
+    return false;
+  }
+
+  return true;
+}
+  
 async function geocodeAddress(fullAddress) {
   const url = "https://api.mapbox.com/search/geocode/v6/forward?" + new URLSearchParams({
     q: fullAddress,
@@ -675,22 +725,43 @@ async function processRows(rows) {
         cacheHits += 1;
         log(`Using cached coordinates for store ${row.store_id}...`);
       } else {
-        log(`Geocoding store ${row.store_id}...`);
-        const geo = await geocodeAddress(fullAddress);
-        row.lat = geo.lat;
-        row.lng = geo.lng;
-        geocoded += 1;
+        const supabaseCachedValue = addressKey
+          ? await getSupabaseGeocode(addressKey)
+          : null;
 
-        if (addressKey) {
+        if (supabaseCachedValue) {
           const cachedValue = {
-            lat: geo.lat,
-            lng: geo.lng,
-            full_address: fullAddress,
-            updated_at: new Date().toISOString()
+            lat: Number(supabaseCachedValue.lat),
+            lng: Number(supabaseCachedValue.lng),
+            full_address: supabaseCachedValue.full_address || fullAddress,
+            updated_at: supabaseCachedValue.updated_at || new Date().toISOString()
           };
 
+          row.lat = cachedValue.lat;
+          row.lng = cachedValue.lng;
           batchCache[addressKey] = cachedValue;
           persistentCache[addressKey] = cachedValue;
+          cacheHits += 1;
+          log(`Using SUPABASE cached coordinates for store ${row.store_id}...`);
+        } else {
+          log(`Geocoding store ${row.store_id}...`);
+          const geo = await geocodeAddress(fullAddress);
+          row.lat = geo.lat;
+          row.lng = geo.lng;
+          geocoded += 1;
+
+          if (addressKey) {
+            const cachedValue = {
+              lat: geo.lat,
+              lng: geo.lng,
+              full_address: fullAddress,
+              updated_at: new Date().toISOString()
+            };
+
+            batchCache[addressKey] = cachedValue;
+            persistentCache[addressKey] = cachedValue;
+            await setSupabaseGeocode(addressKey, geo.lat, geo.lng, fullAddress);
+          }
         }
       }
     } else {
