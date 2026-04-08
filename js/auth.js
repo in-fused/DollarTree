@@ -311,14 +311,12 @@ function renderPendingProjectInvites() {
 
   empty.classList.add("hidden");
 
-  const intro = document.createElement("div");
-  intro.className = "copy";
-  intro.style.fontWeight = "700";
-  intro.style.marginBottom = "8px";
-  intro.textContent = rows.length === 1
-    ? "You have 1 pending project invite."
-    : `You have ${rows.length} pending project invites.`;
-  list.appendChild(intro);
+  const header = document.createElement("div");
+  header.className = "copy";
+  header.style.fontWeight = "700";
+  header.style.marginBottom = "8px";
+  header.textContent = `Pending Project Invites (${rows.length})`;
+  list.appendChild(header);
 
   rows.forEach(invite => {
     const projectId = String(invite.project_id || "").trim();
@@ -339,8 +337,22 @@ function renderPendingProjectInvites() {
     row.style.borderBottom = "1px solid rgba(255,255,255,.08)";
 
     const label = document.createElement("div");
-    label.textContent = `${projectName} · ${role}`;
+    label.style.display = "inline-flex";
+    label.style.alignItems = "center";
+    label.style.gap = "6px";
+    label.textContent = `${projectName}`;
     label.title = `Project ID: ${projectId}`;
+
+    const roleBadge = document.createElement("span");
+    roleBadge.textContent = role;
+    roleBadge.style.padding = "2px 8px";
+    roleBadge.style.borderRadius = "999px";
+    roleBadge.style.border = "1px solid rgba(255,255,255,.28)";
+    roleBadge.style.fontSize = "11px";
+    roleBadge.style.textTransform = "uppercase";
+    roleBadge.style.letterSpacing = ".04em";
+    roleBadge.style.opacity = "0.95";
+    label.appendChild(roleBadge);
 
     const btn = document.createElement("button");
     btn.type = "button";

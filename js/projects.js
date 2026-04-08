@@ -147,6 +147,7 @@ function ensureProjectLifecycleControls() {
 async function loadProjects() {
   ensureProjectLifecycleControls();
   bindProjectAdminUI();
+  const previousProjectId = currentProjectId;
 
   const allProjects = await dataLayer.loadProjects();
   const visibleProjects = showArchivedProjects
@@ -170,6 +171,9 @@ async function loadProjects() {
       currentProjectId = "";
       localStorage.removeItem(ACTIVE_PROJECT_KEY);
     }
+  }
+  if (previousProjectId !== currentProjectId) {
+    setProjectAdminMessage("");
   }
 
   refreshCurrentProjectRole();
@@ -207,6 +211,7 @@ function bindProjectSelector() {
   if (!select || select.dataset.bound) return;
 
   select.addEventListener("change", async (e) => {
+    setProjectAdminMessage("");
     currentProjectId = e.target.value;
     localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
     refreshCurrentProjectRole();
@@ -568,6 +573,19 @@ function getProjectAdminRoleOptions(selectedRole) {
     .join("");
 }
 
+function createRoleBadge(role) {
+  const badge = document.createElement("span");
+  badge.textContent = normalizeProjectRole(role);
+  badge.style.padding = "2px 8px";
+  badge.style.borderRadius = "999px";
+  badge.style.border = "1px solid rgba(255,255,255,.28)";
+  badge.style.fontSize = "11px";
+  badge.style.textTransform = "uppercase";
+  badge.style.letterSpacing = ".04em";
+  badge.style.opacity = "0.95";
+  return badge;
+}
+
 function setProjectAdminMessage(message, type = "info") {
   const inviteMessage = document.getElementById("projectAdminMessage");
   if (!inviteMessage) return;
@@ -607,6 +625,13 @@ async function refreshProjectAdminPanel() {
   if (inviteSendBtn && inviteSendBtn.dataset.loading !== "true") inviteSendBtn.disabled = false;
   if (inviteMessage && !inviteMessage.textContent) inviteMessage.textContent = "";
 
+  membersList.innerHTML = "";
+  invitesList.innerHTML = "";
+  membersEmpty.classList.remove("hidden");
+  invitesEmpty.classList.remove("hidden");
+  membersEmpty.textContent = "Loading...";
+  invitesEmpty.textContent = "Loading...";
+
   const [membersResult, invitesResult] = await Promise.all([
     dataLayer.loadProjectMembers(currentProjectId),
     dataLayer.loadProjectInvites(currentProjectId)
@@ -615,7 +640,20 @@ async function refreshProjectAdminPanel() {
   const members = Array.isArray(membersResult.data) ? membersResult.data : [];
   const invites = Array.isArray(invitesResult.data) ? invitesResult.data : [];
 
-  membersList.innerHTML = "";
+  const membersHeader = document.createElement("div");
+  membersHeader.className = "copy";
+  membersHeader.style.fontWeight = "700";
+  membersHeader.style.marginBottom = "6px";
+  membersHeader.textContent = `Project Members (${members.length})`;
+  membersList.appendChild(membersHeader);
+
+  const invitesHeader = document.createElement("div");
+  invitesHeader.className = "copy";
+  invitesHeader.style.fontWeight = "700";
+  invitesHeader.style.marginBottom = "6px";
+  invitesHeader.textContent = `Pending Invites (${invites.length})`;
+  invitesList.appendChild(invitesHeader);
+
   if (membersResult.error) {
     membersEmpty.classList.remove("hidden");
     membersEmpty.textContent = membersResult.error.message || "Unable to load project members.";
@@ -639,9 +677,13 @@ async function refreshProjectAdminPanel() {
       row.style.borderBottom = "1px solid rgba(255,255,255,.08)";
 
       const label = document.createElement("div");
+      label.style.display = "inline-flex";
+      label.style.alignItems = "center";
+      label.style.gap = "6px";
       label.textContent = email;
       label.style.fontWeight = "600";
       label.title = `User ID: ${userId || "unknown"}`;
+      label.appendChild(createRoleBadge(role));
 
       const roleSelect = document.createElement("select");
       roleSelect.innerHTML = getProjectAdminRoleOptions(role);
@@ -674,7 +716,6 @@ async function refreshProjectAdminPanel() {
     });
   }
 
-  invitesList.innerHTML = "";
   if (invitesResult.error) {
     invitesEmpty.classList.remove("hidden");
     invitesEmpty.textContent = invitesResult.error.message || "Unable to load pending invites.";
@@ -698,9 +739,13 @@ async function refreshProjectAdminPanel() {
       row.style.borderBottom = "1px solid rgba(255,255,255,.08)";
 
       const label = document.createElement("div");
-      label.textContent = `${email} · ${role}`;
+      label.style.display = "inline-flex";
+      label.style.alignItems = "center";
+      label.style.gap = "6px";
+      label.textContent = `${email}`;
       label.style.fontWeight = "600";
       label.title = inviteId ? `Invite ID: ${inviteId}` : "";
+      label.appendChild(createRoleBadge(role));
 
       const revokeBtn = document.createElement("button");
       revokeBtn.type = "button";
@@ -727,6 +772,7 @@ function bindProjectAdminUI() {
     inviteSendBtn.addEventListener("click", async () => {
       if (!isSignedIn() || !canManageProjectLifecycle() || !currentProjectId) return;
       if (inviteSendBtn.dataset.loading === "true") return;
+      setProjectAdminMessage("");
 
       const email = String(inviteEmailInput?.value || "").trim().toLowerCase();
       const role = normalizeProjectRole(inviteRoleSelect?.value || "viewer");
@@ -774,6 +820,7 @@ function bindProjectAdminUI() {
         const userId = String(target.dataset.userId || "").trim();
         if (!userId) return;
         if (target.dataset.loading === "true") return;
+        setProjectAdminMessage("");
 
         const select = document.querySelector(
           `[data-action='member-role-select'][data-user-id='${userId}'][data-project-id='${currentProjectId}']`
@@ -810,6 +857,7 @@ function bindProjectAdminUI() {
         const userId = String(target.dataset.userId || "").trim();
         if (!userId) return;
         if (target.dataset.loading === "true") return;
+        setProjectAdminMessage("");
         if (!window.confirm("Remove this member from the project?")) return;
 
         const originalLabel = target.textContent;
@@ -840,6 +888,7 @@ function bindProjectAdminUI() {
         const inviteId = String(target.dataset.inviteId || "").trim();
         if (!inviteId) return;
         if (target.dataset.loading === "true") return;
+        setProjectAdminMessage("");
         if (!window.confirm("Revoke this pending invite?")) return;
 
         const originalLabel = target.textContent;
