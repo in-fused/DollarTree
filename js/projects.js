@@ -568,6 +568,23 @@ function getProjectAdminRoleOptions(selectedRole) {
     .join("");
 }
 
+function setProjectAdminMessage(message, type = "info") {
+  const inviteMessage = document.getElementById("projectAdminMessage");
+  if (!inviteMessage) return;
+
+  inviteMessage.textContent = message || "";
+  inviteMessage.style.color = "";
+
+  if (type === "success") {
+    inviteMessage.style.color = "#8bd3a8";
+    return;
+  }
+
+  if (type === "error") {
+    inviteMessage.style.color = "#ff9f9f";
+  }
+}
+
 async function refreshProjectAdminPanel() {
   const panel = document.getElementById("projectAdminPanel");
   const membersList = document.getElementById("projectMembersList");
@@ -587,8 +604,8 @@ async function refreshProjectAdminPanel() {
 
   if (inviteEmailInput) inviteEmailInput.disabled = false;
   if (inviteRoleSelect) inviteRoleSelect.disabled = false;
-  if (inviteSendBtn) inviteSendBtn.disabled = false;
-  if (inviteMessage) inviteMessage.textContent = "";
+  if (inviteSendBtn && inviteSendBtn.dataset.loading !== "true") inviteSendBtn.disabled = false;
+  if (inviteMessage && !inviteMessage.textContent) inviteMessage.textContent = "";
 
   const [membersResult, invitesResult] = await Promise.all([
     dataLayer.loadProjectMembers(currentProjectId),
@@ -623,12 +640,15 @@ async function refreshProjectAdminPanel() {
 
       const label = document.createElement("div");
       label.textContent = email;
+      label.style.fontWeight = "600";
+      label.title = `User ID: ${userId || "unknown"}`;
 
       const roleSelect = document.createElement("select");
       roleSelect.innerHTML = getProjectAdminRoleOptions(role);
       roleSelect.dataset.projectId = currentProjectId;
       roleSelect.dataset.userId = userId;
       roleSelect.dataset.action = "member-role-select";
+      roleSelect.style.minWidth = "110px";
 
       const saveBtn = document.createElement("button");
       saveBtn.type = "button";
@@ -679,6 +699,8 @@ async function refreshProjectAdminPanel() {
 
       const label = document.createElement("div");
       label.textContent = `${email} · ${role}`;
+      label.style.fontWeight = "600";
+      label.title = inviteId ? `Invite ID: ${inviteId}` : "";
 
       const revokeBtn = document.createElement("button");
       revokeBtn.type = "button";
@@ -704,24 +726,40 @@ function bindProjectAdminUI() {
   if (inviteSendBtn && !inviteSendBtn.dataset.bound) {
     inviteSendBtn.addEventListener("click", async () => {
       if (!isSignedIn() || !canManageProjectLifecycle() || !currentProjectId) return;
+      if (inviteSendBtn.dataset.loading === "true") return;
 
       const email = String(inviteEmailInput?.value || "").trim().toLowerCase();
       const role = normalizeProjectRole(inviteRoleSelect?.value || "viewer");
 
       if (!email) {
-        if (inviteMessage) inviteMessage.textContent = "Invite email is required.";
+        setProjectAdminMessage("Invite email is required.", "error");
         return;
       }
 
-      const { error } = await dataLayer.createProjectInvite(currentProjectId, email, role, currentUser?.id || null);
-      if (error) {
-        if (inviteMessage) inviteMessage.textContent = error.message || "Unable to send invite.";
-        return;
-      }
+      inviteSendBtn.dataset.loading = "true";
+      inviteSendBtn.disabled = true;
+      const originalLabel = inviteSendBtn.textContent;
+      inviteSendBtn.textContent = "Sending...";
+      if (inviteEmailInput) inviteEmailInput.disabled = true;
+      if (inviteRoleSelect) inviteRoleSelect.disabled = true;
 
-      if (inviteEmailInput) inviteEmailInput.value = "";
-      if (inviteMessage) inviteMessage.textContent = "Invite saved.";
-      await refreshProjectAdminPanel();
+      try {
+        const { error } = await dataLayer.createProjectInvite(currentProjectId, email, role, currentUser?.id || null);
+        if (error) {
+          setProjectAdminMessage(error.message || "Unable to send invite.", "error");
+          return;
+        }
+
+        if (inviteEmailInput) inviteEmailInput.value = "";
+        setProjectAdminMessage("Invite sent.", "success");
+        await refreshProjectAdminPanel();
+      } finally {
+        inviteSendBtn.dataset.loading = "false";
+        inviteSendBtn.disabled = false;
+        inviteSendBtn.textContent = originalLabel || "Send Invite";
+        if (inviteEmailInput) inviteEmailInput.disabled = false;
+        if (inviteRoleSelect) inviteRoleSelect.disabled = false;
+      }
     });
     inviteSendBtn.dataset.bound = "true";
   }
@@ -735,16 +773,32 @@ function bindProjectAdminUI() {
       if (action === "save-member-role") {
         const userId = String(target.dataset.userId || "").trim();
         if (!userId) return;
+        if (target.dataset.loading === "true") return;
 
         const select = document.querySelector(
           `[data-action='member-role-select'][data-user-id='${userId}'][data-project-id='${currentProjectId}']`
         );
         const role = normalizeProjectRole(select?.value || "viewer");
-        const { error } = await dataLayer.updateProjectMembershipRole(currentProjectId, userId, role);
+        const originalLabel = target.textContent;
+        target.dataset.loading = "true";
+        target.disabled = true;
+        target.textContent = "Saving...";
+        if (select) select.disabled = true;
 
-        if (inviteMessage) {
-          inviteMessage.textContent = error ? (error.message || "Unable to update role.") : "Role updated.";
+        let error = null;
+        try {
+          ({ error } = await dataLayer.updateProjectMembershipRole(currentProjectId, userId, role));
+        } finally {
+          target.dataset.loading = "false";
+          target.disabled = false;
+          target.textContent = originalLabel || "Save";
+          if (select) select.disabled = false;
         }
+
+        setProjectAdminMessage(
+          error ? (error.message || "Unable to update role.") : "Member role updated.",
+          error ? "error" : "success"
+        );
         if (!error) {
           await refreshAccessAfterMembershipMutation();
         }
@@ -755,11 +809,26 @@ function bindProjectAdminUI() {
       if (action === "remove-member") {
         const userId = String(target.dataset.userId || "").trim();
         if (!userId) return;
+        if (target.dataset.loading === "true") return;
+        if (!window.confirm("Remove this member from the project?")) return;
 
-        const { error } = await dataLayer.removeProjectMembership(currentProjectId, userId);
-        if (inviteMessage) {
-          inviteMessage.textContent = error ? (error.message || "Unable to remove member.") : "Member removed.";
+        const originalLabel = target.textContent;
+        target.dataset.loading = "true";
+        target.disabled = true;
+        target.textContent = "Removing...";
+        let error = null;
+        try {
+          ({ error } = await dataLayer.removeProjectMembership(currentProjectId, userId));
+        } finally {
+          target.dataset.loading = "false";
+          target.disabled = false;
+          target.textContent = originalLabel || "Remove";
         }
+
+        setProjectAdminMessage(
+          error ? (error.message || "Unable to remove member.") : "Member removed.",
+          error ? "error" : "success"
+        );
         if (!error) {
           await refreshAccessAfterMembershipMutation();
         }
@@ -770,11 +839,26 @@ function bindProjectAdminUI() {
       if (action === "revoke-invite") {
         const inviteId = String(target.dataset.inviteId || "").trim();
         if (!inviteId) return;
+        if (target.dataset.loading === "true") return;
+        if (!window.confirm("Revoke this pending invite?")) return;
 
-        const { error } = await dataLayer.revokeProjectInvite(inviteId);
-        if (inviteMessage) {
-          inviteMessage.textContent = error ? (error.message || "Unable to revoke invite.") : "Invite revoked.";
+        const originalLabel = target.textContent;
+        target.dataset.loading = "true";
+        target.disabled = true;
+        target.textContent = "Revoking...";
+        let error = null;
+        try {
+          ({ error } = await dataLayer.revokeProjectInvite(inviteId));
+        } finally {
+          target.dataset.loading = "false";
+          target.disabled = false;
+          target.textContent = originalLabel || "Revoke";
         }
+
+        setProjectAdminMessage(
+          error ? (error.message || "Unable to revoke invite.") : "Invite revoked.",
+          error ? "error" : "success"
+        );
         if (!error) {
           await refreshAccessAfterMembershipMutation();
         }
