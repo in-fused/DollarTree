@@ -55,34 +55,40 @@
 
           <div id="adminPanel" class="admin-panel hidden">
             <div id="projectAdminPanel" class="panel hidden">
-              <div class="panelHeaderRow">
-                <h3>Project Admin</h3>
-                <div class="panelHeaderTag">RBAC</div>
-              </div>
+              <div class="adminPanelShell">
+                <div class="panelHeaderRow adminPanelHeaderRow">
+                  <h3>Project Admin</h3>
+                  <div class="panelHeaderTag">RBAC</div>
+                </div>
 
-              <div class="filterGrid" style="grid-template-columns:1fr 130px auto;">
-                <input id="projectInviteEmail" type="email" placeholder="Invite email" />
-                <select id="projectInviteRole">
-                  <option value="viewer">viewer</option>
-                  <option value="editor">editor</option>
-                  <option value="admin">admin</option>
-                </select>
-                <button id="projectInviteSendBtn" class="btnComplete" type="button">Send Invite</button>
-              </div>
+                <div class="adminInviteRow">
+                  <input id="projectInviteEmail" type="email" placeholder="Invite email" />
+                  <select id="projectInviteRole">
+                    <option value="viewer">viewer</option>
+                    <option value="editor">editor</option>
+                    <option value="admin">admin</option>
+                  </select>
+                  <button id="projectInviteSendBtn" class="btnComplete" type="button">Send Invite</button>
+                </div>
 
-              <div id="projectAdminMessage" class="projectSourceTag"></div>
+                <div id="projectAdminMessage" class="projectSourceTag adminPanelMessage"></div>
 
-              <div class="panelHeaderRow" style="margin-top:10px;">
-                <h3 style="font-size:14px;">Members</h3>
-              </div>
-              <div id="projectMembersList"></div>
-              <div id="projectMembersEmpty" class="projectSourceTag">No project members found.</div>
+                <section class="adminPanelSection">
+                  <div class="panelHeaderRow adminPanelSectionHeader">
+                    <h3 style="font-size:14px;">Members</h3>
+                  </div>
+                  <div id="projectMembersList"></div>
+                  <div id="projectMembersEmpty" class="projectSourceTag">No project members found.</div>
+                </section>
 
-              <div class="panelHeaderRow" style="margin-top:10px;">
-                <h3 style="font-size:14px;">Pending Invites</h3>
+                <section class="adminPanelSection">
+                  <div class="panelHeaderRow adminPanelSectionHeader">
+                    <h3 style="font-size:14px;">Pending Invites</h3>
+                  </div>
+                  <div id="projectInvitesList"></div>
+                  <div id="projectInvitesEmpty" class="projectSourceTag">No pending invites.</div>
+                </section>
               </div>
-              <div id="projectInvitesList"></div>
-              <div id="projectInvitesEmpty" class="projectSourceTag">No pending invites.</div>
             </div>
           </div>
         </div>
