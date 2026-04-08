@@ -654,7 +654,7 @@ function normalizeStoreRow(row, fullAddress) {
     district: row.district,
     division: row.division,
     market: row.market,
-    status_code: row.status_code || "active"
+    status_code: row.status_code ? row.status_code : "active",
   };
 }
 
