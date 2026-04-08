@@ -11,6 +11,8 @@ map.on("load", async () => {
   bindExecutiveModeUI();
   bindNationalOverviewUI();
   bindMobileSidebarUI();
+  bindSidebarCollapsibles();
+  bindAdminPanel();
   bindFilters();
   bindWorkspaceViews();
   bindPhotoLibraryUI();

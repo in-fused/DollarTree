@@ -189,6 +189,95 @@ function bindMobileSidebarUI() {
   });
 }
 
+function getSidebarStateStorageKey() {
+  const projectScope = String(currentProjectId || "global");
+  return `sidebarState:${projectScope}`;
+}
+
+function bindSidebarCollapsibles() {
+  const sections = document.querySelectorAll(".sidebar-section");
+
+  sections.forEach(section => {
+    const header = section.querySelector(".section-header");
+    if (!header || header.dataset.bound) return;
+
+    header.addEventListener("click", (event) => {
+      if (event.target.closest("button, input, select, textarea, a, label")) return;
+      section.classList.toggle("collapsed");
+      persistSidebarState();
+    });
+
+    header.dataset.bound = "true";
+  });
+
+  restoreSidebarState();
+
+  const projectSelect = document.getElementById("projectSelect");
+  if (projectSelect && !projectSelect.dataset.sidebarStateBound) {
+    projectSelect.addEventListener("change", () => {
+      setTimeout(() => {
+        restoreSidebarState();
+      }, 0);
+    });
+    projectSelect.dataset.sidebarStateBound = "true";
+  }
+}
+
+function persistSidebarState() {
+  const state = {};
+  document.querySelectorAll(".sidebar-section").forEach(section => {
+    const sectionKey = String(section.dataset.section || "").trim();
+    if (!sectionKey) return;
+    state[sectionKey] = section.classList.contains("collapsed");
+  });
+
+  localStorage.setItem(getSidebarStateStorageKey(), JSON.stringify(state));
+}
+
+function restoreSidebarState() {
+  const raw = localStorage.getItem(getSidebarStateStorageKey());
+  if (!raw) return;
+
+  try {
+    const state = JSON.parse(raw);
+    Object.entries(state).forEach(([key, collapsed]) => {
+      const section = document.querySelector(`.sidebar-section[data-section="${key}"]`);
+      if (!section) return;
+      section.classList.toggle("collapsed", !!collapsed);
+    });
+  } catch (error) {
+    console.warn("Sidebar state restore skipped:", error);
+  }
+}
+
+function bindAdminPanel() {
+  const btn = document.getElementById("adminPanelToggle");
+  const panel = document.getElementById("adminPanel");
+
+  if (!btn || !panel || btn.dataset.bound) return;
+
+  btn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    panel.classList.toggle("hidden");
+  });
+
+  panel.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+
+  document.addEventListener("click", () => {
+    panel.classList.add("hidden");
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      panel.classList.add("hidden");
+    }
+  });
+
+  btn.dataset.bound = "true";
+}
+
 /* ================= WORKSPACE VIEWS ================= */
 
 function bindWorkspaceViews() {
