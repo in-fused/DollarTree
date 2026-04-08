@@ -587,6 +587,23 @@ function createRoleBadge(role) {
   return badge;
 }
 
+function logAuditEvent(type, payload = {}) {
+  try {
+    const event = {
+      type,
+      project_id: String(payload.project_id || currentProjectId || "").trim(),
+      actor_user_id: String(payload.actor_user_id || currentUser?.id || "").trim() || null,
+      target_user_id: payload.target_user_id ? String(payload.target_user_id).trim() : undefined,
+      invite_id: payload.invite_id ? String(payload.invite_id).trim() : undefined,
+      metadata: payload.metadata && typeof payload.metadata === "object" ? payload.metadata : {},
+      timestamp: new Date().toISOString()
+    };
+    console.log("[audit]", event);
+  } catch (error) {
+    console.warn("Audit log event failed:", error);
+  }
+}
+
 function setProjectAdminMessage(message, type = "info") {
   const inviteMessage = document.getElementById("projectAdminMessage");
   if (!inviteMessage) return;
@@ -805,11 +822,21 @@ function bindProjectAdminUI() {
       if (inviteRoleSelect) inviteRoleSelect.disabled = true;
 
       try {
-        const { error } = await dataLayer.createProjectInvite(currentProjectId, email, role, currentUser?.id || null);
-        if (error) {
-          setProjectAdminMessage(error.message || "Unable to send invite.", "error");
+        const result = await dataLayer.createProjectInvite(currentProjectId, email, role, currentUser?.id || null);
+        if (result.error) {
+          setProjectAdminMessage(result.error.message || "Unable to send invite.", "error");
           return;
         }
+
+        logAuditEvent("invite_sent", {
+          project_id: currentProjectId,
+          actor_user_id: currentUser?.id || null,
+          invite_id: result?.data?.id || null,
+          metadata: {
+            email,
+            role
+          }
+        });
 
         if (inviteEmailInput) inviteEmailInput.value = "";
         setProjectAdminMessage("Invite sent.", "success");
@@ -862,6 +889,14 @@ function bindProjectAdminUI() {
           error ? "error" : "success"
         );
         if (!error) {
+          logAuditEvent("member_role_updated", {
+            project_id: currentProjectId,
+            actor_user_id: currentUser?.id || null,
+            target_user_id: userId,
+            metadata: {
+              role
+            }
+          });
           target.disabled = true;
           target.textContent = "✓ Saved";
           await new Promise(resolve => setTimeout(resolve, 900));
@@ -896,6 +931,12 @@ function bindProjectAdminUI() {
           error ? "error" : "success"
         );
         if (!error) {
+          logAuditEvent("member_removed", {
+            project_id: currentProjectId,
+            actor_user_id: currentUser?.id || null,
+            target_user_id: userId,
+            metadata: {}
+          });
           target.disabled = true;
           target.textContent = "✓ Removed";
           await new Promise(resolve => setTimeout(resolve, 900));
@@ -930,6 +971,12 @@ function bindProjectAdminUI() {
           error ? "error" : "success"
         );
         if (!error) {
+          logAuditEvent("invite_revoked", {
+            project_id: currentProjectId,
+            actor_user_id: currentUser?.id || null,
+            invite_id: inviteId,
+            metadata: {}
+          });
           target.disabled = true;
           target.textContent = "✓ Revoked";
           await new Promise(resolve => setTimeout(resolve, 900));
