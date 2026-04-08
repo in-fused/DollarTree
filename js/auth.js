@@ -12,8 +12,15 @@ async function initializeAuth() {
 
   if (currentUser) {
     await loadCurrentUserRole();
+    await loadCurrentUserProjectAccess();
   } else {
     currentRole = "viewer";
+    currentProjectRole = "viewer";
+    projectMemberships = [];
+    projectMembershipByProjectId = {};
+    pendingProjectInvites = [];
+    projectMembershipsLoaded = false;
+    projectMembershipsLoadError = null;
   }
 
   dataLayer.onAuthStateChange(async (_event, session) => {
@@ -22,12 +29,23 @@ async function initializeAuth() {
 
     if (currentUser) {
       await loadCurrentUserRole();
+      await loadCurrentUserProjectAccess();
     } else {
       currentRole = "viewer";
+      currentProjectRole = "viewer";
+      projectMemberships = [];
+      projectMembershipByProjectId = {};
+      pendingProjectInvites = [];
+      projectMembershipsLoaded = false;
+      projectMembershipsLoadError = null;
     }
 
     updateAuthUI();
     updateWriteAccessUI();
+
+    if (typeof refreshProjectAccessAfterAuthChange === "function") {
+      await refreshProjectAccessAfterAuthChange();
+    }
   });
 }
 
@@ -46,6 +64,46 @@ async function loadCurrentUserRole() {
   }
 
   currentRole = normalizeRole(data?.role);
+}
+
+async function loadCurrentUserProjectAccess() {
+  projectMemberships = [];
+  projectMembershipByProjectId = {};
+  pendingProjectInvites = [];
+  projectMembershipsLoaded = false;
+  projectMembershipsLoadError = null;
+
+  if (!currentUser) {
+    currentProjectRole = "viewer";
+    return;
+  }
+
+  const membershipResult = await dataLayer.loadProjectMembershipsForUser(currentUser.id);
+  if (membershipResult.error) {
+    console.error("Project membership lookup failed:", membershipResult.error);
+    projectMembershipsLoadError = membershipResult.error;
+  } else {
+    projectMemberships = Array.isArray(membershipResult.data) ? membershipResult.data : [];
+    projectMembershipByProjectId = {};
+    projectMemberships.forEach(row => {
+      const projectId = String(row.project_id || "").trim();
+      if (!projectId) return;
+      projectMembershipByProjectId[projectId] = row;
+    });
+    projectMembershipsLoaded = true;
+  }
+
+  const email = String(currentUser.email || "").trim();
+  if (email) {
+    const invitesResult = await dataLayer.loadPendingProjectInvitesByEmail(email);
+    if (invitesResult.error) {
+      console.error("Pending invite lookup failed:", invitesResult.error);
+    } else {
+      pendingProjectInvites = Array.isArray(invitesResult.data) ? invitesResult.data : [];
+    }
+  }
+
+  refreshCurrentProjectRole();
 }
 
 function bindAuthUI() {
@@ -128,9 +186,11 @@ function updateAuthUI() {
       importLink.title = "";
     } else {
       importLink.classList.add("disabled");
-      importLink.title = "Admin sign-in required";
+      importLink.title = "Project admin or global admin sign-in required";
     }
   }
+
+  renderPendingProjectInvites();
 
   updateWriteAccessUI();
 
@@ -226,3 +286,85 @@ function updateWriteAccessUI() {
     updateProjectLifecycleControls();
   }
 }
+
+function renderPendingProjectInvites() {
+  const panel = document.getElementById("pendingInvitesPanel");
+  const list = document.getElementById("pendingInvitesList");
+  const empty = document.getElementById("pendingInvitesEmpty");
+  if (!panel || !list || !empty) return;
+
+  const signedIn = isSignedIn();
+  const rows = Array.isArray(pendingProjectInvites) ? pendingProjectInvites : [];
+
+  panel.classList.toggle("hidden", !signedIn);
+  list.innerHTML = "";
+
+  if (!signedIn || rows.length === 0) {
+    empty.classList.remove("hidden");
+    empty.textContent = signedIn
+      ? "No pending project invites."
+      : "Sign in to view pending invites.";
+    return;
+  }
+
+  empty.classList.add("hidden");
+
+  rows.forEach(invite => {
+    const projectId = String(invite.project_id || "").trim();
+    const role = normalizeProjectRole(invite.role);
+    if (!projectId) return;
+
+    const row = document.createElement("div");
+    row.className = "copy";
+    row.style.display = "grid";
+    row.style.gap = "6px";
+    row.style.padding = "8px 0";
+    row.style.borderBottom = "1px solid rgba(255,255,255,.08)";
+
+    const label = document.createElement("div");
+    label.textContent = `${projectId} · ${role}`;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btnSecondary";
+    btn.textContent = "Accept Invite";
+    btn.dataset.projectId = projectId;
+    btn.dataset.action = "accept-project-invite";
+
+    row.appendChild(label);
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+
+async function reloadCurrentUserAccessAndProjectScope() {
+  if (!isSignedIn()) return;
+
+  await loadCurrentUserProjectAccess();
+  updateAuthUI();
+  updateWriteAccessUI();
+
+  if (typeof refreshProjectAccessAfterAuthChange === "function") {
+    await refreshProjectAccessAfterAuthChange();
+  }
+}
+
+async function handleAcceptProjectInvite(projectId) {
+  if (!projectId || !isSignedIn()) return;
+
+  const { error } = await dataLayer.acceptProjectInvite(projectId);
+  if (error) {
+    setAuthMessage(error.message || "Unable to accept invite.", "error");
+    return;
+  }
+
+  setAuthMessage(`Accepted invite for ${projectId}.`, "success");
+  await reloadCurrentUserAccessAndProjectScope();
+}
+
+document.addEventListener("click", async event => {
+  const trigger = event.target?.closest?.("[data-action='accept-project-invite']");
+  if (!trigger) return;
+  const projectId = String(trigger.dataset.projectId || "").trim();
+  await handleAcceptProjectInvite(projectId);
+});

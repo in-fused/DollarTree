@@ -23,8 +23,54 @@ function normalizeRole(role) {
   return "viewer";
 }
 
+function normalizeProjectRole(role) {
+  const normalized = String(role || "").trim().toLowerCase();
+  if (normalized === "admin") return "admin";
+  if (normalized === "editor") return "editor";
+  return "viewer";
+}
+
+function roleRank(role) {
+  if (role === "admin") return 3;
+  if (role === "editor") return 2;
+  return 1;
+}
+
 function getCurrentRole() {
   return normalizeRole(currentRole);
+}
+
+function isGlobalAdmin() {
+  return getCurrentRole() === "admin";
+}
+
+function getProjectMembershipRole(projectId = currentProjectId) {
+  if (!projectId) return "viewer";
+  return normalizeProjectRole(projectMembershipByProjectId?.[projectId]?.role);
+}
+
+function getCurrentProjectRole() {
+  return normalizeProjectRole(currentProjectRole);
+}
+
+function refreshCurrentProjectRole() {
+  currentProjectRole = isGlobalAdmin() ? "admin" : getProjectMembershipRole(currentProjectId);
+  return currentProjectRole;
+}
+
+function getEffectiveProjectRole() {
+  const globalRole = getCurrentRole();
+  const projectRole = getCurrentProjectRole();
+  return roleRank(globalRole) >= roleRank(projectRole) ? globalRole : projectRole;
+}
+
+function canAccessProject(projectId) {
+  if (!projectId) return false;
+  if (isGlobalAdmin()) return true;
+  if (!isSignedIn()) return true;
+  if (!projectMembershipsLoaded) return false;
+  if (projectMembershipsLoadError) return false;
+  return !!projectMembershipByProjectId?.[projectId];
 }
 
 function canViewApp() {
@@ -32,16 +78,16 @@ function canViewApp() {
 }
 
 function canEditStores() {
-  const role = getCurrentRole();
+  const role = getEffectiveProjectRole();
   return role === "editor" || role === "admin";
 }
 
 function canManageStoreLifecycle() {
-  return getCurrentRole() === "admin";
+  return getEffectiveProjectRole() === "admin";
 }
 
 function canManageProjectLifecycle() {
-  return getCurrentRole() === "admin";
+  return getEffectiveProjectRole() === "admin";
 }
 
 function canUploadPhotos() {
