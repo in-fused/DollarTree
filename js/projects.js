@@ -736,6 +736,15 @@ async function refreshProjectAdminPanel() {
   const members = Array.isArray(membersResult.data) ? membersResult.data : [];
   const invites = Array.isArray(invitesResult.data) ? invitesResult.data : [];
 
+  if (!membersResult.error && Array.isArray(members) && members.length > 0) {
+    members.forEach(member => {
+      const userId = String(member?.user_id || "").trim();
+      const email = String(member?.email || "").trim();
+      if (!userId || !email) return;
+      profileEmailByUserId[userId] = email;
+    });
+  }
+
   membersHeader.textContent = `Project Members (${members.length})`;
   invitesHeader.textContent = `Pending Invites (${invites.length})`;
 

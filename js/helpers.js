@@ -240,11 +240,37 @@ function buildPhotoPath(storeId, file) {
   return `${currentProjectId}/${storeId}/${Date.now()}-${safeName}`;
 }
 
+function resolveActivityActorLabel(actorUserId) {
+  const normalizedActorUserId = String(actorUserId || "").trim();
+  if (!normalizedActorUserId) return "";
+
+  const profileEmail = String(profileEmailByUserId?.[normalizedActorUserId] || "").trim();
+  if (profileEmail) return profileEmail;
+
+  const currentUserId = String(currentUser?.id || "").trim();
+  if (currentUserId && currentUserId === normalizedActorUserId) {
+    const currentUserEmail = String(currentUser?.email || "").trim();
+    if (currentUserEmail) return currentUserEmail;
+  }
+
+  return normalizedActorUserId;
+}
+
+function appendActorToDetail(detailText, actorLabel) {
+  const normalizedDetail = String(detailText || "").trim();
+  const normalizedActor = String(actorLabel || "").trim();
+  if (!normalizedActor) return normalizedDetail;
+  if (!normalizedDetail) return `by ${normalizedActor}`;
+  return `${normalizedDetail} by ${normalizedActor}`;
+}
+
 function mapActivityEventRow(row) {
   const storeId = String(row.store_id || "");
   const payload = row.payload || row.metadata || {};
   const eventType = String(row.event_type || row.type || "").trim();
   const timestamp = row.created_at || row.updated_at || null;
+  const actorUserId = String(payload.actor_user_id || row.actor_user_id || "").trim();
+  const actorLabel = resolveActivityActorLabel(actorUserId);
 
   if (eventType === "store_created") {
     return {
@@ -264,7 +290,10 @@ function mapActivityEventRow(row) {
       project_id: String(row.project_id || ""),
       timestamp,
       title: "Role updated",
-      detail: payload.role ? `New role: ${payload.role}` : "Project member role changed"
+      detail: appendActorToDetail(
+        payload.role ? `New role: ${payload.role}` : "Project member role changed",
+        actorLabel
+      )
     };
   }
 
@@ -275,7 +304,10 @@ function mapActivityEventRow(row) {
       project_id: String(row.project_id || ""),
       timestamp,
       title: "Member removed",
-      detail: payload.email || payload.target_user_id || "Project member removed"
+      detail: appendActorToDetail(
+        payload.email || payload.target_user_id || "Project member removed",
+        actorLabel
+      )
     };
   }
 
@@ -286,7 +318,10 @@ function mapActivityEventRow(row) {
       project_id: String(row.project_id || ""),
       timestamp,
       title: "Invite sent",
-      detail: payload.email ? `${payload.email}${payload.role ? ` (${payload.role})` : ""}` : "Project invite created"
+      detail: appendActorToDetail(
+        payload.email ? `${payload.email}${payload.role ? ` (${payload.role})` : ""}` : "Project invite created",
+        actorLabel
+      )
     };
   }
 
@@ -297,7 +332,10 @@ function mapActivityEventRow(row) {
       project_id: String(row.project_id || ""),
       timestamp,
       title: "Invite revoked",
-      detail: payload.email || payload.invite_id || "Pending project invite revoked"
+      detail: appendActorToDetail(
+        payload.email || payload.invite_id || "Pending project invite revoked",
+        actorLabel
+      )
     };
   }
 

@@ -119,6 +119,7 @@ let currentRole = "viewer";
 let currentProjectRole = "viewer";
 let projectMemberships = [];
 let projectMembershipByProjectId = {};
+let profileEmailByUserId = {};
 let pendingProjectInvites = [];
 let projectMembershipsLoaded = false;
 let projectMembershipsLoadError = null;

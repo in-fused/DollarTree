@@ -11,6 +11,11 @@ async function initializeAuth() {
   currentUser = currentSession?.user || null;
 
   if (currentUser) {
+    const currentUserId = String(currentUser.id || "").trim();
+    const currentUserEmail = String(currentUser.email || "").trim();
+    if (currentUserId && currentUserEmail) {
+      profileEmailByUserId[currentUserId] = currentUserEmail;
+    }
     await loadCurrentUserRole();
     await loadCurrentUserProjectAccess();
   } else {
@@ -18,6 +23,7 @@ async function initializeAuth() {
     currentProjectRole = "viewer";
     projectMemberships = [];
     projectMembershipByProjectId = {};
+    profileEmailByUserId = {};
     pendingProjectInvites = [];
     projectMembershipsLoaded = false;
     projectMembershipsLoadError = null;
@@ -28,6 +34,11 @@ async function initializeAuth() {
     currentUser = currentSession?.user || null;
 
     if (currentUser) {
+      const currentUserId = String(currentUser.id || "").trim();
+      const currentUserEmail = String(currentUser.email || "").trim();
+      if (currentUserId && currentUserEmail) {
+        profileEmailByUserId[currentUserId] = currentUserEmail;
+      }
       await loadCurrentUserRole();
       await loadCurrentUserProjectAccess();
     } else {
@@ -35,6 +46,7 @@ async function initializeAuth() {
       currentProjectRole = "viewer";
       projectMemberships = [];
       projectMembershipByProjectId = {};
+      profileEmailByUserId = {};
       pendingProjectInvites = [];
       projectMembershipsLoaded = false;
       projectMembershipsLoadError = null;
