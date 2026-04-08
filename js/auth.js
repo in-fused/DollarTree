@@ -297,6 +297,8 @@ function renderPendingProjectInvites() {
   const rows = Array.isArray(pendingProjectInvites) ? pendingProjectInvites : [];
 
   panel.classList.toggle("hidden", !signedIn);
+  panel.style.border = rows.length > 0 ? "1px solid rgba(255, 184, 77, 0.45)" : "";
+  panel.style.background = rows.length > 0 ? "linear-gradient(180deg, rgba(255,184,77,.14), rgba(255,184,77,.06))" : "";
   list.innerHTML = "";
 
   if (!signedIn || rows.length === 0) {
@@ -309,20 +311,48 @@ function renderPendingProjectInvites() {
 
   empty.classList.add("hidden");
 
+  const header = document.createElement("div");
+  header.className = "copy";
+  header.style.fontWeight = "700";
+  header.style.marginBottom = "8px";
+  header.textContent = `Pending Project Invites (${rows.length})`;
+  list.appendChild(header);
+
   rows.forEach(invite => {
     const projectId = String(invite.project_id || "").trim();
     const role = normalizeProjectRole(invite.role);
     if (!projectId) return;
+    const projectName = String(
+      invite.project_name ||
+      invite.projects?.name ||
+      allProjectList?.find?.(project => project?.project_id === projectId)?.name ||
+      projectId
+    ).trim() || projectId;
 
     const row = document.createElement("div");
     row.className = "copy";
     row.style.display = "grid";
-    row.style.gap = "6px";
-    row.style.padding = "8px 0";
+    row.style.gap = "8px";
+    row.style.padding = "10px 0";
     row.style.borderBottom = "1px solid rgba(255,255,255,.08)";
 
     const label = document.createElement("div");
-    label.textContent = `${projectId} · ${role}`;
+    label.style.display = "inline-flex";
+    label.style.alignItems = "center";
+    label.style.gap = "6px";
+    label.textContent = `${projectName}`;
+    label.title = `Project ID: ${projectId}`;
+
+    const roleBadge = document.createElement("span");
+    roleBadge.textContent = role;
+    roleBadge.style.padding = "2px 8px";
+    roleBadge.style.borderRadius = "999px";
+    roleBadge.style.border = "1px solid rgba(255,255,255,.28)";
+    roleBadge.style.fontSize = "11px";
+    roleBadge.style.textTransform = "uppercase";
+    roleBadge.style.letterSpacing = ".04em";
+    roleBadge.style.opacity = "0.95";
+    label.appendChild(roleBadge);
 
     const btn = document.createElement("button");
     btn.type = "button";
@@ -365,6 +395,19 @@ async function handleAcceptProjectInvite(projectId) {
 document.addEventListener("click", async event => {
   const trigger = event.target?.closest?.("[data-action='accept-project-invite']");
   if (!trigger) return;
+  if (trigger.dataset.loading === "true") return;
+
+  const originalLabel = trigger.textContent;
+  trigger.dataset.loading = "true";
+  trigger.disabled = true;
+  trigger.textContent = "Accepting...";
+
   const projectId = String(trigger.dataset.projectId || "").trim();
-  await handleAcceptProjectInvite(projectId);
+  try {
+    await handleAcceptProjectInvite(projectId);
+  } finally {
+    trigger.dataset.loading = "false";
+    trigger.disabled = false;
+    trigger.textContent = originalLabel || "Accept Invite";
+  }
 });
