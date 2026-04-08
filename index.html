@@ -56,9 +56,15 @@
           <div id="adminPanel" class="admin-panel hidden">
             <div id="projectAdminPanel" class="panel hidden">
               <div class="adminPanelShell">
-                <div class="panelHeaderRow adminPanelHeaderRow">
-                  <h3>Project Admin</h3>
-                  <div class="panelHeaderTag">RBAC</div>
+                <div class="adminPanelStickyHeader">
+                  <div class="panelHeaderRow adminPanelHeaderRow">
+                    <h3>Project Admin</h3>
+                    <div class="adminPanelHeaderActions">
+                      <div class="panelHeaderTag">RBAC</div>
+                      <button class="adminPanelCloseBtn" type="button" aria-label="Close admin panel" onclick="document.getElementById('adminPanel').classList.add('hidden')">×</button>
+                    </div>
+                  </div>
+                  <div class="adminPanelHelperText">Manage invites and roles for the current project.</div>
                 </div>
 
                 <div class="adminInviteRow">
@@ -78,7 +84,7 @@
                     <h3 style="font-size:14px;">Members</h3>
                   </div>
                   <div id="projectMembersList"></div>
-                  <div id="projectMembersEmpty" class="projectSourceTag">No project members found.</div>
+                  <div id="projectMembersEmpty" class="projectSourceTag adminEmptyState">No project members yet for this project.</div>
                 </section>
 
                 <section class="adminPanelSection">
@@ -86,8 +92,10 @@
                     <h3 style="font-size:14px;">Pending Invites</h3>
                   </div>
                   <div id="projectInvitesList"></div>
-                  <div id="projectInvitesEmpty" class="projectSourceTag">No pending invites.</div>
+                  <div id="projectInvitesEmpty" class="projectSourceTag adminEmptyState">No pending invites. New invites will appear here.</div>
                 </section>
+
+                <div class="adminPanelFooterHint">Press Esc or click outside to close</div>
               </div>
             </div>
           </div>
