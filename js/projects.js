@@ -146,36 +146,60 @@ function ensureProjectLifecycleControls() {
 
 async function loadProjects() {
   ensureProjectLifecycleControls();
+  bindProjectAdminUI();
 
   const allProjects = await dataLayer.loadProjects();
-  projectList = showArchivedProjects
+  const visibleProjects = showArchivedProjects
     ? allProjects
     : allProjects.filter(project => project.is_archived !== true);
 
-  if (projectList.length === 0) {
-    projectList = allProjects;
+  const shouldFilterByMembership = isSignedIn() && !isGlobalAdmin() && projectMembershipsLoaded;
+  const scopedProjects = shouldFilterByMembership
+    ? visibleProjects.filter(project => isProjectSelectableByCurrentUser(project.project_id))
+    : visibleProjects;
+
+  projectList = scopedProjects;
+  allProjectList = allProjects;
+
+  const hasCurrentProject = projectList.some(project => project.project_id === currentProjectId);
+  if (!hasCurrentProject) {
+    if (projectList.length > 0) {
+      currentProjectId = projectList[0].project_id;
+      localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
+    } else {
+      currentProjectId = "";
+      localStorage.removeItem(ACTIVE_PROJECT_KEY);
+    }
   }
 
-  if (!projectList.some(project => project.project_id === currentProjectId) && projectList.length > 0) {
-    currentProjectId = projectList[0].project_id;
-    localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
-  }
+  refreshCurrentProjectRole();
 
   const select = document.getElementById("projectSelect");
   if (!select) return;
 
   select.innerHTML = "";
-  projectList.forEach(project => {
+  if (projectList.length === 0) {
     const option = document.createElement("option");
-    option.value = project.project_id;
-    option.textContent = project.is_archived === true
-      ? `${project.name} (Archived)`
-      : project.name;
+    option.value = "";
+    option.textContent = isSignedIn() ? "No assigned projects" : "No projects";
     select.appendChild(option);
-  });
+    select.value = "";
+    select.disabled = true;
+  } else {
+    select.disabled = false;
+    projectList.forEach(project => {
+      const option = document.createElement("option");
+      option.value = project.project_id;
+      option.textContent = project.is_archived === true
+        ? `${project.name} (Archived)`
+        : project.name;
+      select.appendChild(option);
+    });
+    select.value = currentProjectId;
+  }
 
-  select.value = currentProjectId;
   updateProjectLifecycleControls();
+  await refreshProjectAdminPanel();
 }
 
 function bindProjectSelector() {
@@ -185,6 +209,7 @@ function bindProjectSelector() {
   select.addEventListener("change", async (e) => {
     currentProjectId = e.target.value;
     localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
+    refreshCurrentProjectRole();
     mobileExecutiveSummaryExpanded = false;
     await loadActiveProject();
   });
@@ -403,6 +428,51 @@ async function hydrateActivityFeed() {
 
 async function loadActiveProject() {
   ensureProjectLifecycleControls();
+  bindProjectAdminUI();
+  refreshCurrentProjectRole();
+
+  if (!currentProjectId || projectList.length === 0) {
+    currentProjectMeta = {
+      project_id: "",
+      name: isSignedIn() ? "No Project Access" : "Project Unavailable",
+      is_archived: false,
+      archived_at: null,
+      sourceLabel: isSignedIn() ? "No assigned projects" : "Sign in to view projects"
+    };
+    allStoreData = [];
+    storeData = [];
+    statusRowsCache = [];
+    noteRowsCache = [];
+    photoRowsCache = [];
+    activityEventRowsCache = [];
+    activityFeed = [];
+    statusMap = {};
+
+    if (map.getSource("stores")) {
+      rebuildFullMap();
+    } else {
+      buildMap();
+    }
+
+    updateProjectSourceTag();
+    updateProjectLifecycleControls();
+    updateHeaderDashboard();
+    updateScopeSummary();
+    updateFilterSummary();
+    updateDataHealthPanel();
+    setMapModeTags();
+    updateIntelRail();
+    resetSelectedStorePanel();
+    updateActivityList();
+    renderRouteStops();
+    updateRouteModeUI();
+    updateMapViewportForMode();
+    resetPhotoLibraryDetail();
+    renderPhotoLibrary();
+    updateWorkspaceViewUI();
+    await refreshProjectAdminPanel();
+    return;
+  }
 
   currentProjectMeta = projectList.find(project => project.project_id === currentProjectId) || {
     project_id: currentProjectId,
@@ -454,6 +524,8 @@ async function loadActiveProject() {
     currentModalStoreId = null;
     clearPhotoUI();
   }
+
+  await refreshProjectAdminPanel();
 }
 
 function updateProjectSourceTag() {
@@ -465,4 +537,230 @@ function updateProjectSourceTag() {
 
   setText("projectSourceTag", text);
   setText("projectSourceTagInline", `${sourceLabel}${archiveLabel}`);
+}
+
+async function refreshProjectAccessAfterAuthChange() {
+  await loadProjects();
+  await loadActiveProject();
+}
+
+const PROJECT_ROLE_OPTIONS = ["viewer", "editor", "admin"];
+
+function isProjectSelectableByCurrentUser(projectId) {
+  return canAccessProject(projectId);
+}
+
+function getProjectAdminRoleOptions(selectedRole) {
+  return PROJECT_ROLE_OPTIONS
+    .map(role => `<option value="${role}"${role === selectedRole ? " selected" : ""}>${role}</option>`)
+    .join("");
+}
+
+async function refreshProjectAdminPanel() {
+  const panel = document.getElementById("projectAdminPanel");
+  const membersList = document.getElementById("projectMembersList");
+  const membersEmpty = document.getElementById("projectMembersEmpty");
+  const invitesList = document.getElementById("projectInvitesList");
+  const invitesEmpty = document.getElementById("projectInvitesEmpty");
+  const inviteEmailInput = document.getElementById("projectInviteEmail");
+  const inviteRoleSelect = document.getElementById("projectInviteRole");
+  const inviteSendBtn = document.getElementById("projectInviteSendBtn");
+  const inviteMessage = document.getElementById("projectAdminMessage");
+
+  if (!panel || !membersList || !membersEmpty || !invitesList || !invitesEmpty) return;
+
+  const canManage = isSignedIn() && canManageProjectLifecycle() && !!currentProjectId;
+  panel.classList.toggle("hidden", !canManage);
+  if (!canManage) return;
+
+  if (inviteEmailInput) inviteEmailInput.disabled = false;
+  if (inviteRoleSelect) inviteRoleSelect.disabled = false;
+  if (inviteSendBtn) inviteSendBtn.disabled = false;
+  if (inviteMessage) inviteMessage.textContent = "";
+
+  const [membersResult, invitesResult] = await Promise.all([
+    dataLayer.loadProjectMembers(currentProjectId),
+    dataLayer.loadProjectInvites(currentProjectId)
+  ]);
+
+  const members = Array.isArray(membersResult.data) ? membersResult.data : [];
+  const invites = Array.isArray(invitesResult.data) ? invitesResult.data : [];
+
+  membersList.innerHTML = "";
+  if (membersResult.error) {
+    membersEmpty.classList.remove("hidden");
+    membersEmpty.textContent = membersResult.error.message || "Unable to load project members.";
+  } else if (members.length === 0) {
+    membersEmpty.classList.remove("hidden");
+    membersEmpty.textContent = "No project members found.";
+  } else {
+    membersEmpty.classList.add("hidden");
+    members.forEach(member => {
+      const userId = String(member.user_id || "").trim();
+      const role = normalizeProjectRole(member.role);
+      const email = String(member.email || "").trim() || userId || "Unknown user";
+
+      const row = document.createElement("div");
+      row.className = "copy";
+      row.style.display = "grid";
+      row.style.gridTemplateColumns = "1fr auto auto auto";
+      row.style.gap = "8px";
+      row.style.alignItems = "center";
+      row.style.padding = "8px 0";
+      row.style.borderBottom = "1px solid rgba(255,255,255,.08)";
+
+      const label = document.createElement("div");
+      label.textContent = email;
+
+      const roleSelect = document.createElement("select");
+      roleSelect.innerHTML = getProjectAdminRoleOptions(role);
+      roleSelect.dataset.projectId = currentProjectId;
+      roleSelect.dataset.userId = userId;
+      roleSelect.dataset.action = "member-role-select";
+
+      const saveBtn = document.createElement("button");
+      saveBtn.type = "button";
+      saveBtn.className = "btnSecondary";
+      saveBtn.textContent = "Save";
+      saveBtn.dataset.projectId = currentProjectId;
+      saveBtn.dataset.userId = userId;
+      saveBtn.dataset.action = "save-member-role";
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "btnClosed";
+      removeBtn.textContent = "Remove";
+      removeBtn.dataset.projectId = currentProjectId;
+      removeBtn.dataset.userId = userId;
+      removeBtn.dataset.action = "remove-member";
+
+      row.appendChild(label);
+      row.appendChild(roleSelect);
+      row.appendChild(saveBtn);
+      row.appendChild(removeBtn);
+      membersList.appendChild(row);
+    });
+  }
+
+  invitesList.innerHTML = "";
+  if (invitesResult.error) {
+    invitesEmpty.classList.remove("hidden");
+    invitesEmpty.textContent = invitesResult.error.message || "Unable to load pending invites.";
+  } else if (invites.length === 0) {
+    invitesEmpty.classList.remove("hidden");
+    invitesEmpty.textContent = "No pending invites.";
+  } else {
+    invitesEmpty.classList.add("hidden");
+    invites.forEach(invite => {
+      const inviteId = String(invite.id || "").trim();
+      const email = String(invite.email || "").trim() || "Unknown email";
+      const role = normalizeProjectRole(invite.role);
+
+      const row = document.createElement("div");
+      row.className = "copy";
+      row.style.display = "grid";
+      row.style.gridTemplateColumns = "1fr auto";
+      row.style.gap = "8px";
+      row.style.alignItems = "center";
+      row.style.padding = "8px 0";
+      row.style.borderBottom = "1px solid rgba(255,255,255,.08)";
+
+      const label = document.createElement("div");
+      label.textContent = `${email} · ${role}`;
+
+      const revokeBtn = document.createElement("button");
+      revokeBtn.type = "button";
+      revokeBtn.className = "btnSecondary";
+      revokeBtn.textContent = "Revoke";
+      revokeBtn.dataset.inviteId = inviteId;
+      revokeBtn.dataset.action = "revoke-invite";
+      revokeBtn.disabled = !inviteId;
+
+      row.appendChild(label);
+      row.appendChild(revokeBtn);
+      invitesList.appendChild(row);
+    });
+  }
+}
+
+function bindProjectAdminUI() {
+  const inviteSendBtn = document.getElementById("projectInviteSendBtn");
+  const inviteEmailInput = document.getElementById("projectInviteEmail");
+  const inviteRoleSelect = document.getElementById("projectInviteRole");
+  const inviteMessage = document.getElementById("projectAdminMessage");
+
+  if (inviteSendBtn && !inviteSendBtn.dataset.bound) {
+    inviteSendBtn.addEventListener("click", async () => {
+      if (!isSignedIn() || !canManageProjectLifecycle() || !currentProjectId) return;
+
+      const email = String(inviteEmailInput?.value || "").trim().toLowerCase();
+      const role = normalizeProjectRole(inviteRoleSelect?.value || "viewer");
+
+      if (!email) {
+        if (inviteMessage) inviteMessage.textContent = "Invite email is required.";
+        return;
+      }
+
+      const { error } = await dataLayer.createProjectInvite(currentProjectId, email, role, currentUser?.id || null);
+      if (error) {
+        if (inviteMessage) inviteMessage.textContent = error.message || "Unable to send invite.";
+        return;
+      }
+
+      if (inviteEmailInput) inviteEmailInput.value = "";
+      if (inviteMessage) inviteMessage.textContent = "Invite saved.";
+      await refreshProjectAdminPanel();
+    });
+    inviteSendBtn.dataset.bound = "true";
+  }
+
+  if (document.body && !document.body.dataset.projectAdminBound) {
+    document.body.addEventListener("click", async event => {
+      const target = event.target?.closest?.("[data-action]");
+      if (!target || !isSignedIn() || !canManageProjectLifecycle() || !currentProjectId) return;
+
+      const action = target.dataset.action;
+      if (action === "save-member-role") {
+        const userId = String(target.dataset.userId || "").trim();
+        if (!userId) return;
+
+        const select = document.querySelector(
+          `[data-action='member-role-select'][data-user-id='${userId}'][data-project-id='${currentProjectId}']`
+        );
+        const role = normalizeProjectRole(select?.value || "viewer");
+        const { error } = await dataLayer.updateProjectMembershipRole(currentProjectId, userId, role);
+
+        if (inviteMessage) {
+          inviteMessage.textContent = error ? (error.message || "Unable to update role.") : "Role updated.";
+        }
+        await refreshProjectAdminPanel();
+        return;
+      }
+
+      if (action === "remove-member") {
+        const userId = String(target.dataset.userId || "").trim();
+        if (!userId) return;
+
+        const { error } = await dataLayer.removeProjectMembership(currentProjectId, userId);
+        if (inviteMessage) {
+          inviteMessage.textContent = error ? (error.message || "Unable to remove member.") : "Member removed.";
+        }
+        await refreshProjectAdminPanel();
+        return;
+      }
+
+      if (action === "revoke-invite") {
+        const inviteId = String(target.dataset.inviteId || "").trim();
+        if (!inviteId) return;
+
+        const { error } = await dataLayer.revokeProjectInvite(inviteId);
+        if (inviteMessage) {
+          inviteMessage.textContent = error ? (error.message || "Unable to revoke invite.") : "Invite revoked.";
+        }
+        await refreshProjectAdminPanel();
+      }
+    });
+
+    document.body.dataset.projectAdminBound = "true";
+  }
 }

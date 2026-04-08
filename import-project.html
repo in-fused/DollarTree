@@ -188,6 +188,11 @@ button:disabled{
     </p>
   </div>
 
+  <div id="authGatePanel" class="panel grid">
+    <div id="authGateStatus" class="copy">Checking authentication…</div>
+    <div id="authGateHint" class="copy hidden"></div>
+  </div>
+
   <div class="panel grid">
     <div class="row">
       <label>
@@ -280,6 +285,14 @@ const summaryImported = document.getElementById("summaryImported");
 const summarySkipped = document.getElementById("summarySkipped");
 const summaryGeocoded = document.getElementById("summaryGeocoded");
 const summaryCoords = document.getElementById("summaryCoords");
+const authGateStatus = document.getElementById("authGateStatus");
+const authGateHint = document.getElementById("authGateHint");
+
+let importSession = null;
+let importUser = null;
+let importGlobalRole = "viewer";
+let importMembershipByProjectId = {};
+let importAuthReady = false;
 
 /* ================= UI HELPERS ================= */
 
@@ -310,6 +323,110 @@ function hideSummary() {
 function setImportRunning(isRunning) {
   runImportBtn.disabled = isRunning;
   runImportBtn.textContent = isRunning ? "Importing..." : "Run Import";
+}
+
+function normalizeRole(role) {
+  const normalized = String(role || "").trim().toLowerCase();
+  if (normalized === "admin") return "admin";
+  if (normalized === "editor") return "editor";
+  return "viewer";
+}
+
+function normalizeProjectRole(role) {
+  const normalized = String(role || "").trim().toLowerCase();
+  if (normalized === "admin") return "admin";
+  if (normalized === "editor") return "editor";
+  return "viewer";
+}
+
+function setImportAccessEnabled(enabled, message = "", hint = "") {
+  runImportBtn.disabled = !enabled;
+  projectIdInput.disabled = !enabled;
+  projectNameInput.disabled = !enabled;
+  csvFileInput.disabled = !enabled;
+
+  if (authGateStatus) authGateStatus.textContent = message || "";
+  if (authGateHint) {
+    authGateHint.textContent = hint || "";
+    authGateHint.classList.toggle("hidden", !hint);
+  }
+}
+
+function isGlobalAdminForImport() {
+  return importGlobalRole === "admin";
+}
+
+function canManageProjectForImport(projectId) {
+  if (!projectId) return false;
+  if (isGlobalAdminForImport()) return true;
+  const membership = importMembershipByProjectId?.[projectId];
+  return normalizeProjectRole(membership?.role) === "admin";
+}
+
+async function initializeImportAuth() {
+  setImportAccessEnabled(false, "Checking authentication…");
+
+  const { data: sessionResult, error: sessionError } = await supabaseClient.auth.getSession();
+  if (sessionError) {
+    setImportAccessEnabled(
+      false,
+      "Unable to verify session.",
+      sessionError.message || "Sign in from the main console first."
+    );
+    return;
+  }
+
+  importSession = sessionResult?.session || null;
+  importUser = importSession?.user || null;
+
+  if (!importUser) {
+    setImportAccessEnabled(
+      false,
+      "Authentication required.",
+      "Sign in on the main console to import project data."
+    );
+    return;
+  }
+
+  const profileResult = await supabaseClient
+    .from("profiles")
+    .select("role")
+    .eq("user_id", importUser.id)
+    .single();
+
+  if (profileResult.error) {
+    setImportAccessEnabled(
+      false,
+      "Unable to verify profile role.",
+      profileResult.error.message || "Profile lookup failed."
+    );
+    return;
+  }
+
+  importGlobalRole = normalizeRole(profileResult.data?.role);
+
+  const membershipsResult = await supabaseClient
+    .from("project_memberships")
+    .select("project_id, role")
+    .eq("user_id", importUser.id);
+
+  importMembershipByProjectId = {};
+  if (!membershipsResult.error && Array.isArray(membershipsResult.data)) {
+    membershipsResult.data.forEach(row => {
+      const projectId = String(row.project_id || "").trim();
+      if (!projectId) return;
+      importMembershipByProjectId[projectId] = row;
+    });
+  }
+
+  importAuthReady = true;
+  setImportAccessEnabled(
+    true,
+    isGlobalAdminForImport()
+      ? "Authenticated as global admin. You can import any project."
+      : "Authenticated. You can import projects where you are a project admin.",
+    "Anonymous imports are disabled."
+  );
 }
 
 /* ================= PARSING HELPERS ================= */
@@ -878,8 +995,20 @@ async function runImport() {
   const projectName = projectNameInput.value.trim();
   const file = csvFileInput.files[0];
 
+  if (!importAuthReady || !importUser) {
+    log("Authenticated session required before import.", "error");
+    setImportRunning(false);
+    return;
+  }
+
   if (!projectId) {
     log("Project ID required", "error");
+    setImportRunning(false);
+    return;
+  }
+
+  if (!canManageProjectForImport(projectId)) {
+    log("You do not have permission to import this project. Project admin access is required.", "error");
     setImportRunning(false);
     return;
   }
@@ -956,6 +1085,7 @@ async function runImport() {
 }
 
 runImportBtn.addEventListener("click", runImport);
+initializeImportAuth();
 </script>
 </body>
 </html>

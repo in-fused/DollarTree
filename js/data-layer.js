@@ -27,6 +27,41 @@ const dataLayer = {
     return { data, error };
   },
 
+  async loadProjectMembershipsForUser(userId) {
+    return await supabaseClient
+      .from("project_memberships")
+      .select("project_id, user_id, role, created_at")
+      .eq("user_id", userId);
+  },
+
+  async loadPendingProjectInvitesByEmail(email) {
+    if (!email) return { data: [], error: null };
+
+    let result = await supabaseClient
+      .from("project_invites")
+      .select("*")
+      .eq("email", email)
+      .is("accepted_at", null)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false });
+
+    if (!result.error) return result;
+
+    result = await supabaseClient
+      .from("project_invites")
+      .select("*")
+      .eq("email", email)
+      .order("created_at", { ascending: false });
+
+    return result;
+  },
+
+  async acceptProjectInvite(projectId) {
+    return await supabaseClient.rpc("accept_project_invite", {
+      project_id: projectId
+    });
+  },
+
   async loadProjects() {
     try {
       const { data, error } = await supabaseClient
@@ -81,6 +116,111 @@ const dataLayer = {
         archived_at: isArchived === true ? new Date().toISOString() : null
       })
       .eq("project_id", projectId);
+  },
+
+  async loadProjectMembers(projectId) {
+    const membershipsResult = await supabaseClient
+      .from("project_memberships")
+      .select("project_id, user_id, role, created_at")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: true });
+
+    if (membershipsResult.error || !Array.isArray(membershipsResult.data)) {
+      return membershipsResult;
+    }
+
+    const userIds = [...new Set(
+      membershipsResult.data
+        .map(row => String(row.user_id || "").trim())
+        .filter(Boolean)
+    )];
+
+    const emailByUserId = {};
+    if (userIds.length > 0) {
+      const profileResult = await supabaseClient
+        .from("profiles")
+        .select("user_id, email")
+        .in("user_id", userIds);
+
+      if (!profileResult.error && Array.isArray(profileResult.data)) {
+        profileResult.data.forEach(row => {
+          const userId = String(row.user_id || "").trim();
+          if (!userId) return;
+          emailByUserId[userId] = row.email || "";
+        });
+      }
+    }
+
+    return {
+      data: membershipsResult.data.map(row => ({
+        ...row,
+        email: emailByUserId[String(row.user_id || "").trim()] || ""
+      })),
+      error: null
+    };
+  },
+
+  async updateProjectMembershipRole(projectId, userId, role) {
+    return await supabaseClient
+      .from("project_memberships")
+      .update({ role })
+      .eq("project_id", projectId)
+      .eq("user_id", userId);
+  },
+
+  async removeProjectMembership(projectId, userId) {
+    return await supabaseClient
+      .from("project_memberships")
+      .delete()
+      .eq("project_id", projectId)
+      .eq("user_id", userId);
+  },
+
+  async loadProjectInvites(projectId) {
+    let result = await supabaseClient
+      .from("project_invites")
+      .select("*")
+      .eq("project_id", projectId)
+      .is("accepted_at", null)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false });
+
+    if (!result.error) return result;
+
+    result = await supabaseClient
+      .from("project_invites")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false });
+
+    return result;
+  },
+
+  async createProjectInvite(projectId, email, role, invitedBy) {
+    const payload = {
+      project_id: projectId,
+      email,
+      role,
+      invited_by: invitedBy || null
+    };
+
+    return await supabaseClient
+      .from("project_invites")
+      .upsert(payload, { onConflict: "project_id,email" });
+  },
+
+  async revokeProjectInvite(inviteId) {
+    const updateResult = await supabaseClient
+      .from("project_invites")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", inviteId);
+
+    if (!updateResult.error) return updateResult;
+
+    return await supabaseClient
+      .from("project_invites")
+      .delete()
+      .eq("id", inviteId);
   },
 
   async loadStoresForProject(projectId, projectMeta) {

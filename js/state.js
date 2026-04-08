@@ -116,6 +116,12 @@ let currentWorkspaceView = localStorage.getItem(ACTIVE_VIEW_KEY) || "map";
 let currentSession = null;
 let currentUser = null;
 let currentRole = "viewer";
+let currentProjectRole = "viewer";
+let projectMemberships = [];
+let projectMembershipByProjectId = {};
+let pendingProjectInvites = [];
+let projectMembershipsLoaded = false;
+let projectMembershipsLoadError = null;
 
 let allProjectList = [];
 let projectList = [];
