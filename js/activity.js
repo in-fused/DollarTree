@@ -12,6 +12,10 @@ function getActivityAccentColor(type) {
   if (type === "store-restored") return "#8ee0a1";
   if (type === "project-archived") return "#f5c26b";
   if (type === "project-restored") return "#9fd1ff";
+  if (type === "member-role-updated") return "#ffd57a";
+  if (type === "member-removed") return "#ff9f9f";
+  if (type === "invite-sent") return "#9fd1ff";
+  if (type === "invite-revoked") return "#ffb86b";
   return "rgba(255,255,255,0.12)";
 }
 
@@ -95,6 +99,34 @@ function buildActivityDisplay(item) {
     };
   }
 
+  if (type === "member-role-updated") {
+    return {
+      title: item.title || "Role updated",
+      detail: detailText || "A project member role was updated."
+    };
+  }
+
+  if (type === "member-removed") {
+    return {
+      title: item.title || "Member removed",
+      detail: detailText || "A project member was removed."
+    };
+  }
+
+  if (type === "invite-sent") {
+    return {
+      title: item.title || "Invite sent",
+      detail: detailText || "A project invite was sent."
+    };
+  }
+
+  if (type === "invite-revoked") {
+    return {
+      title: item.title || "Invite revoked",
+      detail: detailText || "A pending project invite was revoked."
+    };
+  }
+
   return {
     title: item.title || "Operational update",
     detail: detailText || "Recent activity recorded."
@@ -109,13 +141,19 @@ function updateActivityList() {
   container.innerHTML = "";
 
   const filteredIds = new Set(getFilteredStores().map(store => String(store.store_id)));
+  const projectScopedActivityTypes = new Set([
+    "project-archived",
+    "project-restored",
+    "store-removed",
+    "store-restored",
+    "member-role-updated",
+    "member-removed",
+    "invite-sent",
+    "invite-revoked"
+  ]);
   const items = activityFeed
     .filter(item => {
-      if (item.type === "project-archived" || item.type === "project-restored") {
-        return String(item.project_id || currentProjectId) === String(currentProjectId);
-      }
-
-      if (item.type === "store-removed" || item.type === "store-restored") {
+      if (projectScopedActivityTypes.has(String(item.type || "").trim())) {
         return String(item.project_id || currentProjectId) === String(currentProjectId);
       }
 

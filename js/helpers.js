@@ -242,16 +242,62 @@ function buildPhotoPath(storeId, file) {
 
 function mapActivityEventRow(row) {
   const storeId = String(row.store_id || "");
-  const payload = row.payload || {};
+  const payload = row.payload || row.metadata || {};
+  const eventType = String(row.event_type || row.type || "").trim();
   const timestamp = row.created_at || row.updated_at || null;
 
-  if (row.event_type === "store_created") {
+  if (eventType === "store_created") {
     return {
       type: "store-created",
       store_id: storeId,
+      project_id: String(row.project_id || ""),
       timestamp,
       title: `➕ Store ${storeId} added to project`,
       detail: payload.store_name || payload.customer_id || "Imported into project"
+    };
+  }
+
+  if (eventType === "member_role_updated") {
+    return {
+      type: "member-role-updated",
+      store_id: "",
+      project_id: String(row.project_id || ""),
+      timestamp,
+      title: "Role updated",
+      detail: payload.role ? `New role: ${payload.role}` : "Project member role changed"
+    };
+  }
+
+  if (eventType === "member_removed") {
+    return {
+      type: "member-removed",
+      store_id: "",
+      project_id: String(row.project_id || ""),
+      timestamp,
+      title: "Member removed",
+      detail: payload.email || payload.target_user_id || "Project member removed"
+    };
+  }
+
+  if (eventType === "invite_sent") {
+    return {
+      type: "invite-sent",
+      store_id: "",
+      project_id: String(row.project_id || ""),
+      timestamp,
+      title: "Invite sent",
+      detail: payload.email ? `${payload.email}${payload.role ? ` (${payload.role})` : ""}` : "Project invite created"
+    };
+  }
+
+  if (eventType === "invite_revoked") {
+    return {
+      type: "invite-revoked",
+      store_id: "",
+      project_id: String(row.project_id || ""),
+      timestamp,
+      title: "Invite revoked",
+      detail: payload.email || payload.invite_id || "Pending project invite revoked"
     };
   }
 
