@@ -562,6 +562,7 @@ async function refreshAccessAfterMembershipMutation() {
 }
 
 const PROJECT_ROLE_OPTIONS = ["viewer", "editor", "admin"];
+let projectAdminMessageClearTimer = null;
 
 function isProjectSelectableByCurrentUser(projectId) {
   return canAccessProject(projectId);
@@ -589,12 +590,23 @@ function createRoleBadge(role) {
 function setProjectAdminMessage(message, type = "info") {
   const inviteMessage = document.getElementById("projectAdminMessage");
   if (!inviteMessage) return;
+  if (projectAdminMessageClearTimer) {
+    clearTimeout(projectAdminMessageClearTimer);
+    projectAdminMessageClearTimer = null;
+  }
 
   inviteMessage.textContent = message || "";
   inviteMessage.style.color = "";
 
   if (type === "success") {
     inviteMessage.style.color = "#8bd3a8";
+    projectAdminMessageClearTimer = setTimeout(() => {
+      if (inviteMessage.textContent === message) {
+        inviteMessage.textContent = "";
+        inviteMessage.style.color = "";
+      }
+      projectAdminMessageClearTimer = null;
+    }, 3600);
     return;
   }
 
@@ -627,6 +639,20 @@ async function refreshProjectAdminPanel() {
 
   membersList.innerHTML = "";
   invitesList.innerHTML = "";
+  const membersHeader = document.createElement("div");
+  membersHeader.className = "copy";
+  membersHeader.style.fontWeight = "700";
+  membersHeader.style.marginBottom = "6px";
+  membersHeader.textContent = "Project Members (...)";
+  membersList.appendChild(membersHeader);
+
+  const invitesHeader = document.createElement("div");
+  invitesHeader.className = "copy";
+  invitesHeader.style.fontWeight = "700";
+  invitesHeader.style.marginBottom = "6px";
+  invitesHeader.textContent = "Pending Invites (...)";
+  invitesList.appendChild(invitesHeader);
+
   membersEmpty.classList.remove("hidden");
   invitesEmpty.classList.remove("hidden");
   membersEmpty.textContent = "Loading...";
@@ -640,26 +666,15 @@ async function refreshProjectAdminPanel() {
   const members = Array.isArray(membersResult.data) ? membersResult.data : [];
   const invites = Array.isArray(invitesResult.data) ? invitesResult.data : [];
 
-  const membersHeader = document.createElement("div");
-  membersHeader.className = "copy";
-  membersHeader.style.fontWeight = "700";
-  membersHeader.style.marginBottom = "6px";
   membersHeader.textContent = `Project Members (${members.length})`;
-  membersList.appendChild(membersHeader);
-
-  const invitesHeader = document.createElement("div");
-  invitesHeader.className = "copy";
-  invitesHeader.style.fontWeight = "700";
-  invitesHeader.style.marginBottom = "6px";
   invitesHeader.textContent = `Pending Invites (${invites.length})`;
-  invitesList.appendChild(invitesHeader);
 
   if (membersResult.error) {
     membersEmpty.classList.remove("hidden");
     membersEmpty.textContent = membersResult.error.message || "Unable to load project members.";
   } else if (members.length === 0) {
     membersEmpty.classList.remove("hidden");
-    membersEmpty.textContent = "No project members found.";
+    membersEmpty.textContent = "No members yet";
   } else {
     membersEmpty.classList.add("hidden");
     members.forEach(member => {
@@ -721,7 +736,7 @@ async function refreshProjectAdminPanel() {
     invitesEmpty.textContent = invitesResult.error.message || "Unable to load pending invites.";
   } else if (invites.length === 0) {
     invitesEmpty.classList.remove("hidden");
-    invitesEmpty.textContent = "No pending invites.";
+    invitesEmpty.textContent = "No pending invites";
   } else {
     invitesEmpty.classList.add("hidden");
     invites.forEach(invite => {
@@ -847,6 +862,9 @@ function bindProjectAdminUI() {
           error ? "error" : "success"
         );
         if (!error) {
+          target.disabled = true;
+          target.textContent = "✓ Saved";
+          await new Promise(resolve => setTimeout(resolve, 900));
           await refreshAccessAfterMembershipMutation();
         }
         await refreshProjectAdminPanel();
@@ -878,6 +896,9 @@ function bindProjectAdminUI() {
           error ? "error" : "success"
         );
         if (!error) {
+          target.disabled = true;
+          target.textContent = "✓ Removed";
+          await new Promise(resolve => setTimeout(resolve, 900));
           await refreshAccessAfterMembershipMutation();
         }
         await refreshProjectAdminPanel();
@@ -909,6 +930,9 @@ function bindProjectAdminUI() {
           error ? "error" : "success"
         );
         if (!error) {
+          target.disabled = true;
+          target.textContent = "✓ Revoked";
+          await new Promise(resolve => setTimeout(resolve, 900));
           await refreshAccessAfterMembershipMutation();
         }
         await refreshProjectAdminPanel();
