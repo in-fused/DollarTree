@@ -441,6 +441,69 @@ const dataLayer = {
       .limit(limit);
   },
 
+  async createActivityEvent(event = {}) {
+    const normalizedType = String(event?.type || "").trim();
+    const normalizedProjectId = String(event?.project_id || "").trim();
+    if (!normalizedType || !normalizedProjectId) {
+      return { data: null, error: new Error("Missing activity event type or project_id.") };
+    }
+
+    const normalizedCreatedAt = String(event?.created_at || "").trim() || new Date().toISOString();
+    const normalizedStoreId = event?.store_id === null || event?.store_id === undefined || event?.store_id === ""
+      ? null
+      : String(event.store_id).trim();
+    const normalizedMetadata = event?.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata)
+      ? event.metadata
+      : {};
+
+    const baseInsert = {
+      event_type: normalizedType,
+      project_id: normalizedProjectId,
+      store_id: normalizedStoreId,
+      payload: normalizedMetadata,
+      created_at: normalizedCreatedAt
+    };
+
+    let result = await supabaseClient
+      .from("activity_events")
+      .insert(baseInsert)
+      .select("*")
+      .limit(1);
+
+    if (!result.error) return result;
+
+    if (this.isMissingColumnError(result.error, "created_at")) {
+      const withoutCreatedAt = { ...baseInsert };
+      delete withoutCreatedAt.created_at;
+      result = await supabaseClient
+        .from("activity_events")
+        .insert(withoutCreatedAt)
+        .select("*")
+        .limit(1);
+      if (!result.error) return result;
+    }
+
+    if (this.isMissingColumnError(result.error, "payload")) {
+      const metadataInsert = {
+        event_type: normalizedType,
+        project_id: normalizedProjectId,
+        store_id: normalizedStoreId,
+        metadata: normalizedMetadata,
+        created_at: normalizedCreatedAt
+      };
+
+      result = await supabaseClient
+        .from("activity_events")
+        .insert(metadataInsert)
+        .select("*")
+        .limit(1);
+
+      if (!result.error) return result;
+    }
+
+    return result;
+  },
+
   async resolvePhotoBucketName() {
     if (resolvedPhotoBucket) return resolvedPhotoBucket;
 

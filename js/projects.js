@@ -589,16 +589,69 @@ function createRoleBadge(role) {
 
 function logAuditEvent(type, payload = {}) {
   try {
+    const createdAt = new Date().toISOString();
+    const metadata = payload.metadata && typeof payload.metadata === "object"
+      ? { ...payload.metadata }
+      : {};
+    const projectId = String(payload.project_id || currentProjectId || "").trim();
     const event = {
       type,
-      project_id: String(payload.project_id || currentProjectId || "").trim(),
+      project_id: projectId,
       actor_user_id: String(payload.actor_user_id || currentUser?.id || "").trim() || null,
       target_user_id: payload.target_user_id ? String(payload.target_user_id).trim() : undefined,
       invite_id: payload.invite_id ? String(payload.invite_id).trim() : undefined,
-      metadata: payload.metadata && typeof payload.metadata === "object" ? payload.metadata : {},
-      timestamp: new Date().toISOString()
+      metadata,
+      timestamp: createdAt
     };
+    const activityEvent = {
+      type,
+      store_id: null,
+      project_id: projectId,
+      metadata: {
+        ...metadata,
+        actor_user_id: event.actor_user_id,
+        target_user_id: event.target_user_id || null,
+        invite_id: event.invite_id || null
+      },
+      created_at: createdAt
+    };
+
     console.log("[audit]", event);
+
+    if (!activityEvent.project_id || !dataLayer?.createActivityEvent) {
+      return;
+    }
+
+    Promise.resolve()
+      .then(() => dataLayer.createActivityEvent(activityEvent))
+      .then(result => {
+        if (result?.error) {
+          console.warn("Audit activity event persistence failed:", result.error);
+          return;
+        }
+
+        const insertedRow = Array.isArray(result?.data) ? result.data[0] : result?.data;
+        const activityRow = insertedRow && typeof insertedRow === "object"
+          ? insertedRow
+          : {
+              event_type: activityEvent.type,
+              store_id: null,
+              project_id: activityEvent.project_id,
+              payload: activityEvent.metadata,
+              created_at: activityEvent.created_at
+            };
+
+        activityEventRowsCache = [activityRow, ...(Array.isArray(activityEventRowsCache) ? activityEventRowsCache : [])];
+
+        hydrateActivityFeed()
+          .then(() => updateActivityList())
+          .catch(error => {
+            console.warn("Audit activity feed refresh failed:", error);
+          });
+      })
+      .catch(error => {
+        console.warn("Audit activity event persistence failed:", error);
+      });
   } catch (error) {
     console.warn("Audit log event failed:", error);
   }
