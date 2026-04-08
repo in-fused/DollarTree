@@ -153,7 +153,7 @@ async function loadProjects() {
     ? allProjects
     : allProjects.filter(project => project.is_archived !== true);
 
-  const shouldFilterByMembership = isSignedIn() && !isGlobalAdmin() && projectMembershipsLoaded;
+  const shouldFilterByMembership = isSignedIn() && !isGlobalAdmin();
   const scopedProjects = shouldFilterByMembership
     ? visibleProjects.filter(project => isProjectSelectableByCurrentUser(project.project_id))
     : visibleProjects;
@@ -544,6 +544,18 @@ async function refreshProjectAccessAfterAuthChange() {
   await loadActiveProject();
 }
 
+async function refreshAccessAfterMembershipMutation() {
+  if (typeof reloadCurrentUserAccessAndProjectScope === "function") {
+    await reloadCurrentUserAccessAndProjectScope();
+    return;
+  }
+
+  refreshCurrentProjectRole();
+  updateAuthUI();
+  updateWriteAccessUI();
+  await refreshProjectAccessAfterAuthChange();
+}
+
 const PROJECT_ROLE_OPTIONS = ["viewer", "editor", "admin"];
 
 function isProjectSelectableByCurrentUser(projectId) {
@@ -733,6 +745,9 @@ function bindProjectAdminUI() {
         if (inviteMessage) {
           inviteMessage.textContent = error ? (error.message || "Unable to update role.") : "Role updated.";
         }
+        if (!error) {
+          await refreshAccessAfterMembershipMutation();
+        }
         await refreshProjectAdminPanel();
         return;
       }
@@ -745,6 +760,9 @@ function bindProjectAdminUI() {
         if (inviteMessage) {
           inviteMessage.textContent = error ? (error.message || "Unable to remove member.") : "Member removed.";
         }
+        if (!error) {
+          await refreshAccessAfterMembershipMutation();
+        }
         await refreshProjectAdminPanel();
         return;
       }
@@ -756,6 +774,9 @@ function bindProjectAdminUI() {
         const { error } = await dataLayer.revokeProjectInvite(inviteId);
         if (inviteMessage) {
           inviteMessage.textContent = error ? (error.message || "Unable to revoke invite.") : "Invite revoked.";
+        }
+        if (!error) {
+          await refreshAccessAfterMembershipMutation();
         }
         await refreshProjectAdminPanel();
       }

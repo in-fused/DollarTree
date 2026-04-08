@@ -337,6 +337,18 @@ function renderPendingProjectInvites() {
   });
 }
 
+async function reloadCurrentUserAccessAndProjectScope() {
+  if (!isSignedIn()) return;
+
+  await loadCurrentUserProjectAccess();
+  updateAuthUI();
+  updateWriteAccessUI();
+
+  if (typeof refreshProjectAccessAfterAuthChange === "function") {
+    await refreshProjectAccessAfterAuthChange();
+  }
+}
+
 async function handleAcceptProjectInvite(projectId) {
   if (!projectId || !isSignedIn()) return;
 
@@ -347,13 +359,7 @@ async function handleAcceptProjectInvite(projectId) {
   }
 
   setAuthMessage(`Accepted invite for ${projectId}.`, "success");
-  await loadCurrentUserProjectAccess();
-  updateAuthUI();
-  updateWriteAccessUI();
-
-  if (typeof refreshProjectAccessAfterAuthChange === "function") {
-    await refreshProjectAccessAfterAuthChange();
-  }
+  await reloadCurrentUserAccessAndProjectScope();
 }
 
 document.addEventListener("click", async event => {

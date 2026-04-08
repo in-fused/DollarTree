@@ -68,7 +68,8 @@ function canAccessProject(projectId) {
   if (!projectId) return false;
   if (isGlobalAdmin()) return true;
   if (!isSignedIn()) return true;
-  if (!projectMembershipsLoaded) return true;
+  if (!projectMembershipsLoaded) return false;
+  if (projectMembershipsLoadError) return false;
   return !!projectMembershipByProjectId?.[projectId];
 }
 
