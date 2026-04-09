@@ -575,14 +575,8 @@ function getProjectAdminRoleOptions(selectedRole) {
 
 function createRoleBadge(role) {
   const badge = document.createElement("span");
+  badge.className = "adminRoleBadge";
   badge.textContent = normalizeProjectRole(role);
-  badge.style.padding = "2px 8px";
-  badge.style.borderRadius = "999px";
-  badge.style.border = "1px solid rgba(255,255,255,.28)";
-  badge.style.fontSize = "11px";
-  badge.style.textTransform = "uppercase";
-  badge.style.letterSpacing = ".04em";
-  badge.style.opacity = "0.95";
   return badge;
 }
 
@@ -783,6 +777,7 @@ async function refreshProjectAdminPanel() {
 
       const row = document.createElement("div");
       row.className = "copy";
+      row.classList.add("adminMemberRow");
       row.style.display = "grid";
       row.style.gridTemplateColumns = "1fr auto auto auto";
       row.style.gap = "8px";
@@ -791,6 +786,7 @@ async function refreshProjectAdminPanel() {
       row.style.borderBottom = "1px solid rgba(255,255,255,.08)";
 
       const label = document.createElement("div");
+      label.className = "adminRowLabel";
       label.style.display = "inline-flex";
       label.style.alignItems = "center";
       label.style.gap = "6px";
@@ -800,6 +796,7 @@ async function refreshProjectAdminPanel() {
       label.appendChild(createRoleBadge(role));
 
       const roleSelect = document.createElement("select");
+      roleSelect.className = "adminRoleSelect";
       roleSelect.innerHTML = getProjectAdminRoleOptions(role);
       roleSelect.dataset.projectId = currentProjectId;
       roleSelect.dataset.userId = userId;
@@ -809,6 +806,7 @@ async function refreshProjectAdminPanel() {
       const saveBtn = document.createElement("button");
       saveBtn.type = "button";
       saveBtn.className = "btnSecondary";
+      saveBtn.classList.add("adminRowActionBtn");
       saveBtn.textContent = "Save";
       saveBtn.dataset.projectId = currentProjectId;
       saveBtn.dataset.userId = userId;
@@ -817,6 +815,7 @@ async function refreshProjectAdminPanel() {
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "btnClosed";
+      removeBtn.classList.add("adminRowActionBtn");
       removeBtn.textContent = "Remove";
       removeBtn.dataset.projectId = currentProjectId;
       removeBtn.dataset.userId = userId;
@@ -845,6 +844,7 @@ async function refreshProjectAdminPanel() {
 
       const row = document.createElement("div");
       row.className = "copy";
+      row.classList.add("adminInviteRowItem");
       row.style.display = "grid";
       row.style.gridTemplateColumns = "1fr auto";
       row.style.gap = "8px";
@@ -853,6 +853,7 @@ async function refreshProjectAdminPanel() {
       row.style.borderBottom = "1px solid rgba(255,255,255,.08)";
 
       const label = document.createElement("div");
+      label.className = "adminRowLabel";
       label.style.display = "inline-flex";
       label.style.alignItems = "center";
       label.style.gap = "6px";
@@ -864,6 +865,7 @@ async function refreshProjectAdminPanel() {
       const revokeBtn = document.createElement("button");
       revokeBtn.type = "button";
       revokeBtn.className = "btnSecondary";
+      revokeBtn.classList.add("adminRowActionBtn");
       revokeBtn.textContent = "Revoke";
       revokeBtn.dataset.inviteId = inviteId;
       revokeBtn.dataset.action = "revoke-invite";
