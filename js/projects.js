@@ -1,6 +1,82 @@
 /* ================= PROJECTS / HYDRATION ================= */
 let activeProjectHydrationToken = 0;
 let projectSwitchHighlightTimer = null;
+const DEFAULT_PROJECT_ACCENT_HEX = "#c8102e";
+const DEFAULT_PROJECT_ACCENT_RGB = "200, 16, 46";
+
+function normalizeProjectBrandColor(value) {
+  const input = String(value || "").trim();
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(input)) return "";
+
+  if (input.length === 4) {
+    const r = input[1];
+    const g = input[2];
+    const b = input[3];
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+
+  return input.toLowerCase();
+}
+
+function getHexRgbTriplet(hexColor) {
+  const normalized = normalizeProjectBrandColor(hexColor);
+  if (!normalized) return DEFAULT_PROJECT_ACCENT_RGB;
+
+  const hex = normalized.slice(1);
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+
+  if (![red, green, blue].every(Number.isFinite)) return DEFAULT_PROJECT_ACCENT_RGB;
+  return `${red}, ${green}, ${blue}`;
+}
+
+function normalizeProjectBrandLogoUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  if (raw.startsWith("/") || raw.startsWith("./") || raw.startsWith("../")) {
+    return raw;
+  }
+
+  try {
+    const parsed = new URL(raw, window.location.origin);
+    const protocol = parsed.protocol.toLowerCase();
+    if (!["http:", "https:", "data:", "blob:"].includes(protocol)) return "";
+    return parsed.href;
+  } catch (_) {
+    return "";
+  }
+}
+
+function applyProjectBranding(projectMeta = currentProjectMeta) {
+  const rootStyle = document.documentElement?.style;
+  if (!rootStyle) return;
+
+  const brandColor = normalizeProjectBrandColor(projectMeta?.brand_color) || DEFAULT_PROJECT_ACCENT_HEX;
+  const brandColorRgb = getHexRgbTriplet(brandColor);
+  const logoUrl = normalizeProjectBrandLogoUrl(projectMeta?.brand_logo_url);
+  const projectName = String(projectMeta?.name || projectMeta?.project_id || "Project").trim();
+
+  rootStyle.setProperty("--project-accent", brandColor);
+  rootStyle.setProperty("--project-accent-rgb", brandColorRgb);
+
+  ["projectBrandLogoHeader", "projectBrandLogoAdmin"].forEach((elementId) => {
+    const logoEl = document.getElementById(elementId);
+    if (!logoEl) return;
+
+    if (!logoUrl) {
+      logoEl.removeAttribute("src");
+      logoEl.alt = "";
+      logoEl.classList.add("hidden");
+      return;
+    }
+
+    logoEl.src = logoUrl;
+    logoEl.alt = `${projectName} logo`;
+    logoEl.classList.remove("hidden");
+  });
+}
 
 function setProjectHydrationVisualState(isHydrating, nextProjectName = "") {
   document.body?.classList.toggle("project-is-refreshing", Boolean(isHydrating));
@@ -273,6 +349,7 @@ function bindProjectSelector() {
     setProjectHydrationVisualState(true, selectedName);
     currentProjectId = e.target.value;
     localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
+    applyProjectBranding(projectList.find(project => project.project_id === currentProjectId) || null);
     refreshCurrentProjectRole();
     await loadActiveProject();
   });
@@ -513,8 +590,11 @@ async function loadActiveProject() {
       name: isSignedIn() ? "No Project Access" : "Project Unavailable",
       is_archived: false,
       archived_at: null,
-      sourceLabel: isSignedIn() ? "No assigned projects" : "Sign in to view projects"
+      sourceLabel: isSignedIn() ? "No assigned projects" : "Sign in to view projects",
+      brand_color: "",
+      brand_logo_url: ""
     };
+    applyProjectBranding(currentProjectMeta);
     allStoreData = [];
     storeData = [];
     statusRowsCache = [];
@@ -562,8 +642,11 @@ async function loadActiveProject() {
     name: scopedProjectId,
     is_archived: false,
     archived_at: null,
+    brand_color: "",
+    brand_logo_url: "",
     store_file: `data/${scopedProjectId}/stores_with_coords.json`
   };
+  applyProjectBranding(currentProjectMeta);
 
   currentSelectedStoreId = null;
   currentPhotoLibrarySelection = null;
@@ -871,17 +954,34 @@ async function refreshProjectAdminPanel() {
   const inviteEmailInput = document.getElementById("projectInviteEmail");
   const inviteRoleSelect = document.getElementById("projectInviteRole");
   const inviteSendBtn = document.getElementById("projectInviteSendBtn");
+  const brandColorInput = document.getElementById("projectBrandColorInput");
+  const brandLogoUrlInput = document.getElementById("projectBrandLogoUrlInput");
+  const brandingSaveBtn = document.getElementById("projectBrandingSaveBtn");
   const inviteMessage = document.getElementById("projectAdminMessage");
 
   if (!panel || !membersList || !membersEmpty || !invitesList || !invitesEmpty) return;
 
   const hasProject = !!String(currentProjectId || "").trim();
   const canManage = isSignedIn() && canManageProjectLifecycle() && hasProject;
+  const normalizedBrandColor = normalizeProjectBrandColor(currentProjectMeta?.brand_color) || DEFAULT_PROJECT_ACCENT_HEX;
+  const normalizedBrandLogoUrl = normalizeProjectBrandLogoUrl(currentProjectMeta?.brand_logo_url);
 
   panel.classList.remove("hidden");
   actions?.classList.toggle("hidden", !canManage);
   inactiveState?.classList.toggle("hidden", canManage);
   updateAdminPanelHeaderContext({ canManage, isRefreshing: false });
+
+  if (brandColorInput) {
+    brandColorInput.value = normalizedBrandColor;
+    brandColorInput.disabled = !canManage;
+  }
+  if (brandLogoUrlInput) {
+    brandLogoUrlInput.value = normalizedBrandLogoUrl;
+    brandLogoUrlInput.disabled = !canManage;
+  }
+  if (brandingSaveBtn) {
+    brandingSaveBtn.disabled = !canManage;
+  }
 
   if (!canManage) {
     if (inactiveText) {
@@ -1073,6 +1173,9 @@ function bindProjectAdminUI() {
   const inviteSendBtn = document.getElementById("projectInviteSendBtn");
   const inviteEmailInput = document.getElementById("projectInviteEmail");
   const inviteRoleSelect = document.getElementById("projectInviteRole");
+  const brandColorInput = document.getElementById("projectBrandColorInput");
+  const brandLogoUrlInput = document.getElementById("projectBrandLogoUrlInput");
+  const brandingSaveBtn = document.getElementById("projectBrandingSaveBtn");
   const inviteMessage = document.getElementById("projectAdminMessage");
 
   if (inviteSendBtn && !inviteSendBtn.dataset.bound) {
@@ -1126,6 +1229,76 @@ function bindProjectAdminUI() {
       }
     });
     inviteSendBtn.dataset.bound = "true";
+  }
+
+  if (brandingSaveBtn && !brandingSaveBtn.dataset.bound) {
+    brandingSaveBtn.addEventListener("click", async () => {
+      if (!isSignedIn() || !canManageProjectLifecycle() || !currentProjectId) return;
+      if (brandingSaveBtn.dataset.loading === "true") return;
+      setProjectAdminMessage("");
+
+      const enteredColor = String(brandColorInput?.value || "").trim();
+      const enteredLogoUrl = String(brandLogoUrlInput?.value || "").trim();
+      const normalizedColor = normalizeProjectBrandColor(enteredColor);
+      const normalizedLogoUrl = normalizeProjectBrandLogoUrl(enteredLogoUrl);
+
+      if (!normalizedColor) {
+        setProjectAdminMessage("Enter a valid hex color.", "error");
+        return;
+      }
+      if (enteredLogoUrl && !normalizedLogoUrl) {
+        setProjectAdminMessage("Enter a valid logo URL.", "error");
+        return;
+      }
+
+      const originalLabel = brandingSaveBtn.textContent;
+      brandingSaveBtn.dataset.loading = "true";
+      brandingSaveBtn.disabled = true;
+      brandingSaveBtn.textContent = "Saving…";
+      if (brandColorInput) brandColorInput.disabled = true;
+      if (brandLogoUrlInput) brandLogoUrlInput.disabled = true;
+
+      try {
+        const { error } = await dataLayer.updateProjectBranding(
+          currentProjectId,
+          normalizedColor,
+          normalizedLogoUrl || null
+        );
+
+        if (error) {
+          setProjectAdminMessage(error.message || "Unable to save branding.", "error");
+          return;
+        }
+
+        currentProjectMeta = {
+          ...currentProjectMeta,
+          brand_color: normalizedColor,
+          brand_logo_url: normalizedLogoUrl
+        };
+
+        projectList = (projectList || []).map(project => (
+          project.project_id === currentProjectId
+            ? { ...project, brand_color: normalizedColor, brand_logo_url: normalizedLogoUrl }
+            : project
+        ));
+        allProjectList = (allProjectList || []).map(project => (
+          project.project_id === currentProjectId
+            ? { ...project, brand_color: normalizedColor, brand_logo_url: normalizedLogoUrl }
+            : project
+        ));
+
+        applyProjectBranding(currentProjectMeta);
+        setProjectAdminMessage("Project branding updated.", "success");
+      } finally {
+        await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
+        brandingSaveBtn.dataset.loading = "false";
+        brandingSaveBtn.disabled = false;
+        brandingSaveBtn.textContent = originalLabel || "Save Branding";
+        if (brandColorInput) brandColorInput.disabled = false;
+        if (brandLogoUrlInput) brandLogoUrlInput.disabled = false;
+      }
+    });
+    brandingSaveBtn.dataset.bound = "true";
   }
 
   if (document.body && !document.body.dataset.projectAdminBound) {
