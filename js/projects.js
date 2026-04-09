@@ -215,7 +215,6 @@ function bindProjectSelector() {
     currentProjectId = e.target.value;
     localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
     refreshCurrentProjectRole();
-    mobileExecutiveSummaryExpanded = false;
     await loadActiveProject();
   });
 
@@ -489,7 +488,6 @@ async function loadActiveProject() {
 
   currentSelectedStoreId = null;
   currentPhotoLibrarySelection = null;
-  mobileExecutiveSummaryExpanded = false;
 
   restoreFilterState();
   await hydrate();
