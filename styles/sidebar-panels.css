@@ -20,17 +20,18 @@
   top: 76px;
   left: 16px;
   width: clamp(320px, 42vw, 640px);
-  max-width: calc(100vw - 16px);
+  max-width: calc(100vw - 24px);
   max-height: calc(100vh - 84px);
   overflow-y: auto;
   padding: 0;
   overscroll-behavior: contain;
-  z-index: 460;
+  z-index: 720;
   opacity: 0;
   transform: scale(0.95);
   transform-origin: top right;
   transition: opacity 140ms ease, transform 140ms ease;
   will-change: transform, opacity;
+  isolation: isolate;
 }
 
 .admin-panel.is-open {
@@ -60,11 +61,14 @@
 .admin-panel-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(2, 8, 16, 0.38);
-  z-index: 450;
+  background:
+    radial-gradient(circle at top right, rgba(18, 36, 58, 0.24), rgba(5, 11, 20, 0.72) 58%),
+    rgba(4, 9, 16, 0.66);
+  z-index: 700;
   opacity: 0;
   transition: opacity 140ms ease;
   will-change: opacity;
+  backdrop-filter: blur(1.5px);
 }
 
 .admin-panel-backdrop.is-open {
@@ -418,16 +422,33 @@
 
 @media (max-width: 1080px) {
   .admin-panel {
-    width: min(560px, calc(100vw - 12px));
-    max-width: calc(100vw - 12px);
+    width: min(560px, calc(100vw - 20px));
+    max-width: calc(100vw - 20px);
   }
 }
 
 @media (max-width: 760px) {
   .admin-panel {
-    width: calc(100vw - 10px);
-    max-width: calc(100vw - 10px);
-    max-height: calc(100vh - 12px);
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    transform-origin: center;
+  }
+
+  .admin-panel.is-mobile-modal {
+    width: min(640px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    transform: translateY(8px) scale(0.98);
+    transform-origin: center;
+  }
+
+  .admin-panel.is-mobile-modal.is-open {
+    transform: translateY(0) scale(1);
+  }
+
+  .admin-panel.is-mobile-modal.is-closing {
+    transform: translateY(8px) scale(0.98);
   }
 
   .adminInviteRow {

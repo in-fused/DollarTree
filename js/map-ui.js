@@ -252,6 +252,10 @@ function bindAdminPanel() {
 
   if (!btn || !panel || btn.dataset.bound) return;
 
+  if (panel.parentElement !== document.body) {
+    document.body.appendChild(panel);
+  }
+
   let backdrop = document.getElementById("adminPanelBackdrop");
   if (!backdrop) {
     backdrop = document.createElement("div");
@@ -285,12 +289,30 @@ function bindAdminPanel() {
     const rect = btn.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+    const mobileModal = viewportWidth <= 760;
 
     const computed = getComputedStyle(panel);
     const widthValue = Number.parseFloat(computed.width);
     const panelWidth = Number.isFinite(widthValue) && widthValue > 0
       ? widthValue
       : Math.min(viewportWidth - (margin * 2), 640);
+
+    panel.classList.toggle("is-mobile-modal", mobileModal);
+
+    panel.style.maxHeight = `${Math.max(160, Math.floor(viewportHeight - (margin * 2)))}px`;
+
+    if (mobileModal) {
+      let left = (viewportWidth - panelWidth) / 2;
+      left = Math.max(margin, Math.min(left, viewportWidth - panelWidth - margin));
+
+      const panelHeight = Math.min(panel.getBoundingClientRect().height, viewportHeight - (margin * 2));
+      let top = (viewportHeight - panelHeight) / 2;
+      top = Math.max(margin, Math.min(top, viewportHeight - panelHeight - margin));
+
+      panel.style.left = `${Math.round(left)}px`;
+      panel.style.top = `${Math.round(top)}px`;
+      return;
+    }
 
     let left = rect.right - panelWidth;
     left = Math.max(margin, Math.min(left, viewportWidth - panelWidth - margin));
@@ -383,6 +405,10 @@ function bindAdminPanel() {
   closeBtn?.addEventListener("click", () => {
     closePanel();
   });
+  if (closeBtn) {
+    closeBtn.onclick = null;
+    closeBtn.removeAttribute("onclick");
+  }
 
   document.addEventListener("click", () => {
     closePanel();
