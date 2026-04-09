@@ -1,4 +1,5 @@
 /* ================= PROJECTS / HYDRATION ================= */
+let activeProjectHydrationToken = 0;
 
 function getStoreById(storeId, options = {}) {
   const includeRemoved = options.includeRemoved === true;
@@ -221,8 +222,16 @@ function bindProjectSelector() {
   select.dataset.bound = "true";
 }
 
-async function hydrate() {
-  const hydrated = await dataLayer.hydrateProject(currentProjectId, currentProjectMeta);
+async function hydrate(projectIdOverride = currentProjectId, hydrationToken = null) {
+  const scopedProjectId = String(projectIdOverride || currentProjectId || "").trim();
+  const hydrated = await dataLayer.hydrateProject(scopedProjectId, currentProjectMeta);
+
+  const tokenIsStale = hydrationToken !== null && hydrationToken !== activeProjectHydrationToken;
+  const projectChanged = String(currentProjectId || "").trim() !== scopedProjectId;
+
+  if (tokenIsStale || projectChanged) {
+    return { stale: true };
+  }
 
   allStoreData = (hydrated.stores || []).map(store => ({
     ...normalizeStoreRecord(store),
@@ -278,6 +287,8 @@ async function hydrate() {
       ? "supabase"
       : "fallback"
   };
+
+  return { stale: false };
 }
 
 function getHydratedStatusEventType(row) {
@@ -434,8 +445,10 @@ async function loadActiveProject() {
   ensureProjectLifecycleControls();
   bindProjectAdminUI();
   refreshCurrentProjectRole();
+  const scopedProjectId = String(currentProjectId || "").trim();
+  const hydrationToken = ++activeProjectHydrationToken;
 
-  if (!currentProjectId || projectList.length === 0) {
+  if (!scopedProjectId || projectList.length === 0) {
     currentProjectMeta = {
       project_id: "",
       name: isSignedIn() ? "No Project Access" : "Project Unavailable",
@@ -478,20 +491,22 @@ async function loadActiveProject() {
     return;
   }
 
-  currentProjectMeta = projectList.find(project => project.project_id === currentProjectId) || {
-    project_id: currentProjectId,
-    name: currentProjectId,
+  currentProjectMeta = projectList.find(project => project.project_id === scopedProjectId) || {
+    project_id: scopedProjectId,
+    name: scopedProjectId,
     is_archived: false,
     archived_at: null,
-    store_file: `data/${currentProjectId}/stores_with_coords.json`
+    store_file: `data/${scopedProjectId}/stores_with_coords.json`
   };
 
   currentSelectedStoreId = null;
   currentPhotoLibrarySelection = null;
 
   restoreFilterState();
-  await hydrate();
+  const hydrateResult = await hydrate(scopedProjectId, hydrationToken);
+  if (hydrateResult?.stale) return;
   await hydrateActivityFeed();
+  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) return;
   restoreRouteState();
   populateFilterOptions();
 
@@ -528,6 +543,7 @@ async function loadActiveProject() {
     clearPhotoUI();
   }
 
+  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) return;
   await refreshProjectAdminPanel();
 }
 
