@@ -441,6 +441,52 @@
   transform: rotate(-90deg);
 }
 
+.sidebar-section[data-section="project"] {
+  border-color: rgba(var(--project-accent-rgb), 0.36);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(var(--project-accent-rgb), 0.16),
+      rgba(var(--project-accent-rgb), 0.04) 54%,
+      rgba(255,255,255,0.03)
+    );
+  box-shadow: inset 0 0 0 1px rgba(var(--project-accent-rgb), 0.12);
+}
+
+.sidebar-section[data-section="project"] > .section-header {
+  border-bottom: 1px solid rgba(var(--project-accent-rgb), 0.24);
+}
+
+.panelProject {
+  position: relative;
+  background:
+    radial-gradient(circle at top right, rgba(var(--project-accent-rgb), 0.18), transparent 46%),
+    var(--panel);
+}
+
+.panelProject #projectSelect {
+  border-color: rgba(var(--project-accent-rgb), 0.44);
+  background:
+    linear-gradient(180deg, rgba(var(--project-accent-rgb), 0.18), rgba(var(--project-accent-rgb), 0.06)),
+    rgba(255,255,255,0.08);
+}
+
+.panelProject #projectSourceTag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin-top: 8px;
+  padding: 0 9px 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.44);
+  background: rgba(var(--project-accent-rgb), 0.18);
+  color: rgba(255,255,255,0.95);
+}
+
+.panelProject .importLink {
+  color: rgba(var(--project-accent-rgb), 0.96);
+}
+
 @media (max-width: 1080px) {
   .admin-panel {
     width: min(560px, calc(100vw - 20px));
@@ -526,6 +572,10 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.8;
+}
+
+.panelHeaderTag {
+  border-color: rgba(var(--project-accent-rgb), 0.32);
 }
 
 .panelInlineAction {
@@ -649,6 +699,16 @@ button:disabled {
   line-height: 1.35;
 }
 
+#activeFilterSummary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.32);
+  border-radius: 999px;
+  background: rgba(var(--project-accent-rgb), 0.14);
+}
+
 .filterGrid {
   display: grid;
   gap: 6px;
@@ -724,6 +784,7 @@ button:disabled {
   padding: 0 9px;
   border-radius: 999px;
   background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(var(--project-accent-rgb), 0.24);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -751,7 +812,26 @@ button:disabled {
 .routeToggleLabel input {
   width: auto;
   margin: 0;
-  accent-color: var(--green);
+  accent-color: var(--project-accent);
+}
+
+.sidebar-section[data-section="route-builder"] .routeToggleLabel {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.3);
+  background: rgba(var(--project-accent-rgb), 0.12);
+}
+
+.sidebar-section[data-section="route-builder"] .routeToggleLabel input:checked + span {
+  color: rgba(255,255,255,0.98);
+  font-weight: 700;
+}
+
+.routePanel {
+  border: 1px solid rgba(var(--project-accent-rgb), 0.3);
+  background:
+    radial-gradient(circle at top right, rgba(var(--project-accent-rgb), 0.16), transparent 40%),
+    var(--panel);
 }
 
 .routeControls {
@@ -776,6 +856,8 @@ button:disabled {
 
 .routeStopItem {
   background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(var(--project-accent-rgb), 0.24);
+  border-left: 3px solid rgba(var(--project-accent-rgb), 0.55);
   border-radius: 10px;
   padding: 9px;
 }
@@ -809,6 +891,7 @@ button:disabled {
   padding: 5px 8px;
   font-size: 11px;
   background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(var(--project-accent-rgb), 0.22);
   color: white;
   margin-top: 0;
 }
@@ -826,7 +909,7 @@ button:disabled {
 .routeMetricsPanel {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid rgba(var(--project-accent-rgb), 0.32);
 }
 
 .routeMetricsHeader {
@@ -846,6 +929,23 @@ button:disabled {
   margin-top: 7px;
   font-size: 11px;
   opacity: 0.72;
+}
+
+.routeMetricCard {
+  border-color: rgba(var(--project-accent-rgb), 0.26);
+}
+
+.intelSelectedStore {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.3);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(var(--project-accent-rgb), 0.17),
+      rgba(var(--project-accent-rgb), 0.06)
+    );
 }
 
 /* ================= ACTIVITY ================= */

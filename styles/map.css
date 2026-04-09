@@ -37,6 +37,32 @@ box-shadow: 0 10px 24px rgba(0,0,0,0.22);
 backdrop-filter: blur(8px);
 }
 
+.mapModeTag,
+.mapScopeTag {
+display: inline-flex;
+align-items: center;
+gap: 6px;
+border-color: rgba(var(--project-accent-rgb), 0.44);
+background:
+linear-gradient(
+180deg,
+rgba(var(--project-accent-rgb), 0.2),
+rgba(var(--project-accent-rgb), 0.1)
+),
+rgba(8,12,20,0.8);
+}
+
+.mapModeTag::before,
+.mapScopeTag::before {
+content: "";
+width: 7px;
+height: 7px;
+border-radius: 50%;
+background: rgba(var(--project-accent-rgb), 0.95);
+box-shadow: 0 0 0 2px rgba(var(--project-accent-rgb), 0.24);
+flex-shrink: 0;
+}
+
 .mapLegendCard {
 position: absolute;
 left: 14px;
@@ -44,6 +70,7 @@ bottom: 7px;
 z-index: 30;
 background: rgba(10,15,24,0.88);
 border: 1px solid rgba(255,255,255,0.1);
+border-left: 3px solid rgba(var(--project-accent-rgb), 0.66);
 border-radius: 12px;
 padding: 10px 12px;
 min-width: 160px;
@@ -58,6 +85,7 @@ text-transform: uppercase;
 letter-spacing: 0.08em;
 opacity: 0.75;
 margin-bottom: 8px;
+color: rgba(var(--project-accent-rgb), 0.96);
 }
 
 .mapLegendRow {
