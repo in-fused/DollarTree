@@ -26,6 +26,21 @@
   padding: 0;
   overscroll-behavior: contain;
   z-index: 460;
+  opacity: 0;
+  transform: scale(0.95);
+  transform-origin: top right;
+  transition: opacity 140ms ease, transform 140ms ease;
+  will-change: transform, opacity;
+}
+
+.admin-panel.is-open {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.admin-panel.is-closing {
+  opacity: 0;
+  transform: scale(0.95);
 }
 
 .admin-panel #projectAdminPanel {
@@ -47,6 +62,17 @@
   inset: 0;
   background: rgba(2, 8, 16, 0.38);
   z-index: 450;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  will-change: opacity;
+}
+
+.admin-panel-backdrop.is-open {
+  opacity: 1;
+}
+
+.admin-panel-backdrop.is-closing {
+  opacity: 0;
 }
 
 .adminPanelShell {

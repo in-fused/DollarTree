@@ -175,6 +175,7 @@ function bindAdminPanel() {
   const btn = document.getElementById("adminPanelToggle");
   const panel = document.getElementById("adminPanel");
   const closeBtn = panel?.querySelector(".adminPanelCloseBtn");
+  const ANIMATION_MS = 140;
 
   if (!btn || !panel || btn.dataset.bound) return;
 
@@ -187,6 +188,7 @@ function bindAdminPanel() {
   }
 
   const isOpen = () => !panel.classList.contains("hidden");
+  let closeTimer = null;
 
   const positionPanel = () => {
     if (!isOpen()) return;
@@ -219,16 +221,36 @@ function bindAdminPanel() {
   };
 
   const openPanel = () => {
+    if (closeTimer) {
+      clearTimeout(closeTimer);
+      closeTimer = null;
+    }
     panel.classList.remove("hidden");
     backdrop.classList.remove("hidden");
+    panel.classList.remove("is-closing");
+    backdrop.classList.remove("is-closing");
     document.body.classList.add("admin-panel-open");
+    requestAnimationFrame(() => {
+      panel.classList.add("is-open");
+      backdrop.classList.add("is-open");
+    });
     positionPanel();
   };
 
   const closePanel = () => {
-    panel.classList.add("hidden");
-    backdrop.classList.add("hidden");
-    document.body.classList.remove("admin-panel-open");
+    if (!isOpen()) return;
+    panel.classList.remove("is-open");
+    backdrop.classList.remove("is-open");
+    panel.classList.add("is-closing");
+    backdrop.classList.add("is-closing");
+    closeTimer = setTimeout(() => {
+      panel.classList.add("hidden");
+      backdrop.classList.add("hidden");
+      panel.classList.remove("is-closing");
+      backdrop.classList.remove("is-closing");
+      document.body.classList.remove("admin-panel-open");
+      closeTimer = null;
+    }, ANIMATION_MS);
   };
 
   const togglePanel = () => {
