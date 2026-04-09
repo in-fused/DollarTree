@@ -248,7 +248,14 @@ function updateHeaderMetaAndSummaries() {
   const metrics = getScopeMetrics();
   setText("headerScopeSummary", getCurrentScopeLabel(metrics));
   setText("headerOperationalSummary", buildOperationalSummary(metrics));
-  setText("headerViewModeText", currentWorkspaceView === "photos" ? "Photo Evidence Review" : "Map Operations");
+  setText(
+    "headerViewModeText",
+    currentWorkspaceView === "photos"
+      ? "Photo Evidence Review"
+      : currentWorkspaceView === "intelligence"
+        ? "Intelligence Dashboard"
+        : "Map Operations"
+  );
   setText("headerLastUpdatedText", formatLastUpdated(lastDataRefreshAt));
   setText("workspaceProgressContext", getWorkspaceProgressContext(metrics));
   setText("photoLibraryScopeBadge", metrics.totalStores > 0 ? `${metrics.totalStores.toLocaleString()} in scope` : "No Stores");
