@@ -917,6 +917,119 @@ async function upsertProject(projectId, projectName) {
   if (error) throw error;
 }
 
+function isScopedStorePayloadValid(projectId, payload) {
+  const scopedProjectId = String(projectId || "").trim();
+  const payloadProjectId = String(payload?.project_id || "").trim();
+  const payloadStoreId = String(payload?.store_id || "").trim();
+  return Boolean(scopedProjectId && payloadProjectId && payloadStoreId && payloadProjectId === scopedProjectId);
+}
+
+function assertScopedStorePayload(projectId, payload, contextLabel) {
+  if (!isScopedStorePayloadValid(projectId, payload)) {
+    throw new Error(`Scoped write guard blocked ${contextLabel || "store write"} due to missing/mismatched project_id or store_id.`);
+  }
+}
+
+function isUniqueViolation(error) {
+  const code = String(error?.code || "").trim();
+  if (code === "23505") return true;
+
+  const haystack = [
+    error?.message,
+    error?.details,
+    error?.hint
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes("duplicate key") || haystack.includes("unique constraint");
+}
+
+async function updateOrInsertScopedStoreRow(projectId, payload, tableName, updateColumns) {
+  assertScopedStorePayload(projectId, payload, `${tableName} write`);
+
+  const scopedProjectId = String(projectId || "").trim();
+  const scopedStoreId = String(payload.store_id || "").trim();
+  const updatePayload = {};
+
+  updateColumns.forEach(column => {
+    updatePayload[column] = payload[column];
+  });
+
+  const updateResult = await supabaseClient
+    .from(tableName)
+    .update(updatePayload)
+    .eq("project_id", scopedProjectId)
+    .eq("store_id", scopedStoreId)
+    .select("project_id,store_id")
+    .limit(1);
+
+  if (updateResult.error) throw updateResult.error;
+  if (Array.isArray(updateResult.data) && updateResult.data.length > 0) return;
+
+  const insertResult = await supabaseClient
+    .from(tableName)
+    .insert(payload)
+    .select("project_id,store_id")
+    .limit(1);
+
+  if (!insertResult.error) return;
+
+  if (isUniqueViolation(insertResult.error)) {
+    const retryResult = await supabaseClient
+      .from(tableName)
+      .update(updatePayload)
+      .eq("project_id", scopedProjectId)
+      .eq("store_id", scopedStoreId)
+      .select("project_id,store_id")
+      .limit(1);
+
+    if (!retryResult.error) return;
+    throw retryResult.error;
+  }
+
+  throw insertResult.error;
+}
+
+async function auditCrossProjectStoreIdOverlap(projectId, rows) {
+  const scopedProjectId = String(projectId || "").trim();
+  const incomingStoreIds = [...new Set(
+    (Array.isArray(rows) ? rows : [])
+      .map(row => String(row?.store_id || "").trim())
+      .filter(Boolean)
+  )];
+
+  if (!scopedProjectId || incomingStoreIds.length === 0) {
+    return [];
+  }
+
+  const overlapWarnings = [];
+  const chunkSize = 500;
+
+  for (let i = 0; i < incomingStoreIds.length; i += chunkSize) {
+    const chunk = incomingStoreIds.slice(i, i + chunkSize);
+    const { data, error } = await supabaseClient
+      .from("stores")
+      .select("project_id,store_id")
+      .in("store_id", chunk)
+      .neq("project_id", scopedProjectId);
+
+    if (error) {
+      console.warn("Cross-project overlap audit skipped for chunk:", error);
+      continue;
+    }
+
+    if (Array.isArray(data) && data.length > 0) {
+      data.forEach(row => {
+        overlapWarnings.push(`Cross-project duplicate store_id detected: ${row.store_id} already exists in project ${row.project_id}.`);
+      });
+    }
+  }
+
+  return overlapWarnings;
+}
+
 async function insertStores(projectId, rows) {
   const payload = rows.map(row => ({
     project_id: projectId,
@@ -935,14 +1048,21 @@ async function insertStores(projectId, rows) {
     market: row.market
   }));
 
-  for (let i = 0; i < payload.length; i += STORE_IMPORT_CHUNK_SIZE) {
-    const chunk = payload.slice(i, i + STORE_IMPORT_CHUNK_SIZE);
-
-    const { error } = await supabaseClient
-      .from("stores")
-      .upsert(chunk, { onConflict: "project_id,store_id" });
-
-    if (error) throw error;
+  for (const rowPayload of payload) {
+    await updateOrInsertScopedStoreRow(projectId, rowPayload, "stores", [
+      "store_name",
+      "customer_id",
+      "lat",
+      "lng",
+      "full_address",
+      "region",
+      "territory",
+      "state",
+      "city",
+      "district",
+      "division",
+      "market"
+    ]);
   }
 }
 
@@ -956,11 +1076,14 @@ async function seedStoreStatus(projectId, rows) {
     status_reason: null
   }));
 
-  const { error } = await supabaseClient
-    .from("store_status")
-    .upsert(payload, { onConflict: "project_id,store_id" });
-
-  if (error) throw error;
+  for (const rowPayload of payload) {
+    await updateOrInsertScopedStoreRow(projectId, rowPayload, "store_status", [
+      "completed",
+      "closed",
+      "status_code",
+      "status_reason"
+    ]);
+  }
 }
 
 async function seedActivityEvents(projectId, rows) {
@@ -1055,6 +1178,16 @@ async function runImport() {
       log("No valid rows to import", "warn");
       setImportRunning(false);
       return;
+    }
+
+    const crossProjectWarnings = await auditCrossProjectStoreIdOverlap(projectId, result.normalized);
+    if (crossProjectWarnings.length > 0) {
+      const uniqueWarnings = [...new Set(crossProjectWarnings)];
+      log("Cross-project store_id overlap detected. Import remains scoped to the selected project only.", "warn");
+      uniqueWarnings.slice(0, MAX_LOGGED_VALIDATION_ERRORS).forEach(message => log(message, "warn"));
+      if (uniqueWarnings.length > MAX_LOGGED_VALIDATION_ERRORS) {
+        log(`Additional overlap warnings not shown: ${uniqueWarnings.length - MAX_LOGGED_VALIDATION_ERRORS}`, "warn");
+      }
     }
 
     await upsertProject(projectId, projectName);

@@ -1,5 +1,53 @@
 /* ================= PROJECTS / HYDRATION ================= */
 let activeProjectHydrationToken = 0;
+let projectSwitchHighlightTimer = null;
+
+function setProjectHydrationVisualState(isHydrating, nextProjectName = "") {
+  document.body?.classList.toggle("project-is-refreshing", Boolean(isHydrating));
+
+  const nameEl = document.getElementById("dashboardProjectName");
+  const sublineEl = document.getElementById("dashboardProjectSubline");
+  const statusEl = document.getElementById("headerOperationalSummary");
+
+  if (isHydrating) {
+    if (nameEl) {
+      if (nextProjectName) {
+        nameEl.textContent = nextProjectName;
+      }
+      nameEl.classList.add("is-project-switching");
+    }
+    if (sublineEl && nextProjectName) {
+      sublineEl.textContent = `Refreshing project context • ${nextProjectName}`;
+    }
+    if (statusEl) {
+      statusEl.textContent = "Refreshing project…";
+    }
+    return;
+  }
+
+  if (nameEl) {
+    nameEl.classList.remove("is-project-switching");
+  }
+}
+
+function flashProjectSwitchIndicator() {
+  const nameEl = document.getElementById("dashboardProjectName");
+  if (!nameEl) return;
+
+  nameEl.classList.remove("project-switch-flash");
+  // Force a reflow so repeated project switches retrigger the animation reliably.
+  void nameEl.offsetWidth;
+  nameEl.classList.add("project-switch-flash");
+
+  if (projectSwitchHighlightTimer) {
+    clearTimeout(projectSwitchHighlightTimer);
+  }
+
+  projectSwitchHighlightTimer = setTimeout(() => {
+    nameEl.classList.remove("project-switch-flash");
+    projectSwitchHighlightTimer = null;
+  }, 1500);
+}
 
 function getStoreById(storeId, options = {}) {
   const includeRemoved = options.includeRemoved === true;
@@ -213,6 +261,16 @@ function bindProjectSelector() {
 
   select.addEventListener("change", async (e) => {
     setProjectAdminMessage("");
+    if (typeof persistFilterState === "function") {
+      persistFilterState();
+    }
+    if (typeof persistCurrentProjectMapViewport === "function") {
+      persistCurrentProjectMapViewport();
+    }
+    const selectedOption = e.target?.selectedOptions?.[0];
+    const selectedName = String(selectedOption?.textContent || "").replace(/\s+\(Archived\)\s*$/i, "").trim();
+    updateAdminPanelHeaderContext({ canManage: canManageProjectLifecycle(), isRefreshing: true, projectNameOverride: selectedName });
+    setProjectHydrationVisualState(true, selectedName);
     currentProjectId = e.target.value;
     localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
     refreshCurrentProjectRole();
@@ -447,6 +505,7 @@ async function loadActiveProject() {
   refreshCurrentProjectRole();
   const scopedProjectId = String(currentProjectId || "").trim();
   const hydrationToken = ++activeProjectHydrationToken;
+  setProjectHydrationVisualState(true, currentProjectMeta?.name || scopedProjectId || "No project selected");
 
   if (!scopedProjectId || projectList.length === 0) {
     currentProjectMeta = {
@@ -483,10 +542,17 @@ async function loadActiveProject() {
     updateActivityList();
     renderRouteStops();
     updateRouteModeUI();
-    updateMapViewportForMode();
+    if (typeof restoreMapViewportForProject === "function") {
+      const restored = restoreMapViewportForProject(scopedProjectId, { animate: false });
+      if (!restored) updateMapViewportForMode();
+    } else {
+      updateMapViewportForMode();
+    }
     resetPhotoLibraryDetail();
     renderPhotoLibrary();
     updateWorkspaceViewUI();
+    setProjectHydrationVisualState(false);
+    flashProjectSwitchIndicator();
     await refreshProjectAdminPanel();
     return;
   }
@@ -504,9 +570,15 @@ async function loadActiveProject() {
 
   restoreFilterState();
   const hydrateResult = await hydrate(scopedProjectId, hydrationToken);
-  if (hydrateResult?.stale) return;
+  if (hydrateResult?.stale) {
+    setProjectHydrationVisualState(false);
+    return;
+  }
   await hydrateActivityFeed();
-  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) return;
+  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) {
+    setProjectHydrationVisualState(false);
+    return;
+  }
   restoreRouteState();
   populateFilterOptions();
 
@@ -528,7 +600,12 @@ async function loadActiveProject() {
   updateActivityList();
   renderRouteStops();
   updateRouteModeUI();
-  updateMapViewportForMode();
+  if (typeof restoreMapViewportForProject === "function") {
+    const restored = restoreMapViewportForProject(scopedProjectId, { animate: false });
+    if (!restored) updateMapViewportForMode();
+  } else {
+    updateMapViewportForMode();
+  }
   resetPhotoLibraryDetail();
   renderPhotoLibrary();
   updateWorkspaceViewUI();
@@ -543,7 +620,12 @@ async function loadActiveProject() {
     clearPhotoUI();
   }
 
-  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) return;
+  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) {
+    setProjectHydrationVisualState(false);
+    return;
+  }
+  setProjectHydrationVisualState(false);
+  flashProjectSwitchIndicator();
   await refreshProjectAdminPanel();
 }
 
@@ -578,6 +660,11 @@ async function refreshAccessAfterMembershipMutation() {
 const PROJECT_ROLE_OPTIONS = ["viewer", "editor", "admin"];
 let projectAdminMessageClearTimer = null;
 const ADMIN_ACTION_COOLDOWN_MS = 250;
+const PROJECT_ROLE_DISPLAY_META = {
+  viewer: { label: "Viewer", hint: "read-only" },
+  editor: { label: "Editor", hint: "can update" },
+  admin: { label: "Admin", hint: "manages access" }
+};
 
 function isProjectSelectableByCurrentUser(projectId) {
   return canAccessProject(projectId);
@@ -585,15 +672,57 @@ function isProjectSelectableByCurrentUser(projectId) {
 
 function getProjectAdminRoleOptions(selectedRole) {
   return PROJECT_ROLE_OPTIONS
-    .map(role => `<option value="${role}"${role === selectedRole ? " selected" : ""}>${role}</option>`)
+    .map(role => {
+      const meta = PROJECT_ROLE_DISPLAY_META[role] || { label: role, hint: "" };
+      const optionLabel = meta.hint ? `${meta.label} (${meta.hint})` : meta.label;
+      return `<option value="${role}"${role === selectedRole ? " selected" : ""}>${optionLabel}</option>`;
+    })
     .join("");
 }
 
 function createRoleBadge(role) {
   const badge = document.createElement("span");
+  const normalizedRole = normalizeProjectRole(role);
+  const roleMeta = PROJECT_ROLE_DISPLAY_META[normalizedRole] || { label: normalizedRole, hint: "" };
   badge.className = "adminRoleBadge";
-  badge.textContent = normalizeProjectRole(role);
+  badge.dataset.role = normalizedRole;
+  badge.textContent = roleMeta.label;
+  badge.title = roleMeta.hint ? `${roleMeta.label}: ${roleMeta.hint}` : roleMeta.label;
   return badge;
+}
+
+function updateAdminPanelHeaderContext({ canManage = false, isRefreshing = false, projectNameOverride = "" } = {}) {
+  const projectNameEl = document.getElementById("adminPanelProjectName");
+  const helperTextEl = document.getElementById("adminPanelHelperText");
+  const shell = document.querySelector("#projectAdminPanel .adminPanelShell");
+
+  const hasProject = !!String(currentProjectId || "").trim();
+  const projectName = String(
+    projectNameOverride
+      || currentProjectMeta?.name
+      || currentProjectId
+      || (isSignedIn() ? "No project selected" : "Sign in required")
+  ).trim();
+
+  if (projectNameEl) {
+    projectNameEl.textContent = projectName || "No project selected";
+  }
+
+  if (helperTextEl) {
+    if (isRefreshing && hasProject) {
+      helperTextEl.textContent = "Refreshing admin details for this project…";
+    } else if (canManage) {
+      helperTextEl.textContent = "Manage invites and roles for this current project.";
+    } else if (!hasProject) {
+      helperTextEl.textContent = "No manageable project selected. Choose a project to continue.";
+    } else {
+      helperTextEl.textContent = "You can view this project, but admin role is required for access management.";
+    }
+  }
+
+  if (shell) {
+    shell.classList.toggle("is-refreshing", isRefreshing);
+  }
 }
 
 function flashAdminActionRowFeedback(actionTarget, variant = "success") {
@@ -732,6 +861,9 @@ function setProjectAdminMessage(message, type = "info") {
 
 async function refreshProjectAdminPanel() {
   const panel = document.getElementById("projectAdminPanel");
+  const actions = document.getElementById("projectAdminActions");
+  const inactiveState = document.getElementById("projectAdminInactiveState");
+  const inactiveText = document.getElementById("projectAdminInactiveText");
   const membersList = document.getElementById("projectMembersList");
   const membersEmpty = document.getElementById("projectMembersEmpty");
   const invitesList = document.getElementById("projectInvitesList");
@@ -743,9 +875,30 @@ async function refreshProjectAdminPanel() {
 
   if (!panel || !membersList || !membersEmpty || !invitesList || !invitesEmpty) return;
 
-  const canManage = isSignedIn() && canManageProjectLifecycle() && !!currentProjectId;
-  panel.classList.toggle("hidden", !canManage);
-  if (!canManage) return;
+  const hasProject = !!String(currentProjectId || "").trim();
+  const canManage = isSignedIn() && canManageProjectLifecycle() && hasProject;
+
+  panel.classList.remove("hidden");
+  actions?.classList.toggle("hidden", !canManage);
+  inactiveState?.classList.toggle("hidden", canManage);
+  updateAdminPanelHeaderContext({ canManage, isRefreshing: false });
+
+  if (!canManage) {
+    if (inactiveText) {
+      if (!isSignedIn()) {
+        inactiveText.textContent = "Sign in and select a manageable project to manage members and invites.";
+      } else if (!hasProject) {
+        inactiveText.textContent = "No manageable project selected. Pick a project you can manage to access admin actions.";
+      } else {
+        inactiveText.textContent = "You do not have project admin access for this project. Switch to a manageable project.";
+      }
+    }
+
+    if (inviteEmailInput) inviteEmailInput.disabled = true;
+    if (inviteRoleSelect) inviteRoleSelect.disabled = true;
+    if (inviteSendBtn) inviteSendBtn.disabled = true;
+    return;
+  }
 
   if (inviteEmailInput) inviteEmailInput.disabled = false;
   if (inviteRoleSelect) inviteRoleSelect.disabled = false;
@@ -772,11 +925,18 @@ async function refreshProjectAdminPanel() {
   invitesEmpty.classList.remove("hidden");
   membersEmpty.textContent = "Loading...";
   invitesEmpty.textContent = "Loading...";
+  updateAdminPanelHeaderContext({ canManage: true, isRefreshing: true });
 
-  const [membersResult, invitesResult] = await Promise.all([
-    dataLayer.loadProjectMembers(currentProjectId),
-    dataLayer.loadProjectInvites(currentProjectId)
-  ]);
+  let membersResult;
+  let invitesResult;
+  try {
+    [membersResult, invitesResult] = await Promise.all([
+      dataLayer.loadProjectMembers(currentProjectId),
+      dataLayer.loadProjectInvites(currentProjectId)
+    ]);
+  } finally {
+    updateAdminPanelHeaderContext({ canManage: true, isRefreshing: false });
+  }
 
   const members = Array.isArray(membersResult.data) ? membersResult.data : [];
   const invites = Array.isArray(invitesResult.data) ? invitesResult.data : [];

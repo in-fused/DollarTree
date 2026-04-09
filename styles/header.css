@@ -85,6 +85,29 @@
   text-overflow: ellipsis;
 }
 
+.headerProjectName.is-project-switching {
+  opacity: 0.84;
+}
+
+.headerProjectName.project-switch-flash {
+  animation: projectSwitchFlash 1.45s ease;
+}
+
+@keyframes projectSwitchFlash {
+  0% {
+    text-shadow: 0 0 0 rgba(159, 209, 255, 0);
+    color: inherit;
+  }
+  35% {
+    text-shadow: 0 0 18px rgba(159, 209, 255, 0.62);
+    color: #dff2ff;
+  }
+  100% {
+    text-shadow: 0 0 0 rgba(159, 209, 255, 0);
+    color: inherit;
+  }
+}
+
 .headerProjectSubline {
   margin-top: 2px;
   font-size: 10px;
@@ -169,6 +192,16 @@
   justify-content: flex-end;
   gap: 8px;
   min-height: 22px;
+}
+
+body.project-is-refreshing .workspaceView.active,
+body.project-is-refreshing .sidebar {
+  opacity: 0.78;
+  transition: opacity 120ms ease;
+}
+
+body.project-is-refreshing #map {
+  pointer-events: none;
 }
 
 .headerViewMeta {

@@ -115,6 +115,78 @@ function getSidebarStateStorageKey() {
   return `sidebarState:${projectScope}`;
 }
 
+function getMapViewportStorageKey(projectId = currentProjectId) {
+  const projectScope = String(projectId || "global");
+  return `mapViewport:${projectScope}`;
+}
+
+function persistCurrentProjectMapViewport(projectId = currentProjectId) {
+  if (!map || typeof map.getCenter !== "function") return false;
+  const scopedProjectId = String(projectId || currentProjectId || "").trim();
+  if (!scopedProjectId) return false;
+
+  const center = map.getCenter();
+  const payload = {
+    project_id: scopedProjectId,
+    lng: Number(center?.lng),
+    lat: Number(center?.lat),
+    zoom: Number(map.getZoom?.()),
+    bearing: Number(map.getBearing?.() || 0),
+    pitch: Number(map.getPitch?.() || 0),
+    saved_at: new Date().toISOString()
+  };
+
+  if (!Number.isFinite(payload.lng) || !Number.isFinite(payload.lat) || !Number.isFinite(payload.zoom)) {
+    return false;
+  }
+
+  try {
+    localStorage.setItem(getMapViewportStorageKey(scopedProjectId), JSON.stringify(payload));
+    return true;
+  } catch (error) {
+    console.warn("Map viewport persistence skipped:", error);
+    return false;
+  }
+}
+
+function restoreMapViewportForProject(projectId = currentProjectId, options = {}) {
+  if (!map || typeof map.jumpTo !== "function") return false;
+  const scopedProjectId = String(projectId || currentProjectId || "").trim();
+  if (!scopedProjectId) return false;
+
+  const raw = localStorage.getItem(getMapViewportStorageKey(scopedProjectId));
+  if (!raw) return false;
+
+  try {
+    const parsed = JSON.parse(raw);
+    const lng = Number(parsed?.lng);
+    const lat = Number(parsed?.lat);
+    const zoom = Number(parsed?.zoom);
+
+    if (!Number.isFinite(lng) || !Number.isFinite(lat) || !Number.isFinite(zoom)) {
+      return false;
+    }
+
+    const animate = options?.animate === true;
+    const camera = {
+      center: [lng, lat],
+      zoom,
+      bearing: Number.isFinite(Number(parsed?.bearing)) ? Number(parsed.bearing) : 0,
+      pitch: Number.isFinite(Number(parsed?.pitch)) ? Number(parsed.pitch) : 0
+    };
+
+    if (animate && typeof map.easeTo === "function") {
+      map.easeTo({ ...camera, duration: 450 });
+    } else {
+      map.jumpTo(camera);
+    }
+    return true;
+  } catch (error) {
+    console.warn("Map viewport restore skipped:", error);
+    return false;
+  }
+}
+
 function bindSidebarCollapsibles() {
   const sections = document.querySelectorAll(".sidebar-section");
 
@@ -180,6 +252,10 @@ function bindAdminPanel() {
 
   if (!btn || !panel || btn.dataset.bound) return;
 
+  if (panel.parentElement !== document.body) {
+    document.body.appendChild(panel);
+  }
+
   let backdrop = document.getElementById("adminPanelBackdrop");
   if (!backdrop) {
     backdrop = document.createElement("div");
@@ -213,12 +289,30 @@ function bindAdminPanel() {
     const rect = btn.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+    const mobileModal = viewportWidth <= 760;
 
     const computed = getComputedStyle(panel);
     const widthValue = Number.parseFloat(computed.width);
     const panelWidth = Number.isFinite(widthValue) && widthValue > 0
       ? widthValue
       : Math.min(viewportWidth - (margin * 2), 640);
+
+    panel.classList.toggle("is-mobile-modal", mobileModal);
+
+    panel.style.maxHeight = `${Math.max(160, Math.floor(viewportHeight - (margin * 2)))}px`;
+
+    if (mobileModal) {
+      let left = (viewportWidth - panelWidth) / 2;
+      left = Math.max(margin, Math.min(left, viewportWidth - panelWidth - margin));
+
+      const panelHeight = Math.min(panel.getBoundingClientRect().height, viewportHeight - (margin * 2));
+      let top = (viewportHeight - panelHeight) / 2;
+      top = Math.max(margin, Math.min(top, viewportHeight - panelHeight - margin));
+
+      panel.style.left = `${Math.round(left)}px`;
+      panel.style.top = `${Math.round(top)}px`;
+      return;
+    }
 
     let left = rect.right - panelWidth;
     left = Math.max(margin, Math.min(left, viewportWidth - panelWidth - margin));
@@ -311,6 +405,10 @@ function bindAdminPanel() {
   closeBtn?.addEventListener("click", () => {
     closePanel();
   });
+  if (closeBtn) {
+    closeBtn.onclick = null;
+    closeBtn.removeAttribute("onclick");
+  }
 
   document.addEventListener("click", () => {
     closePanel();
@@ -648,6 +746,14 @@ function buildMap() {
   map.on("mouseleave", "clusters", () => {
     map.getCanvas().style.cursor = "";
   });
+
+  if (!map.__viewportPersistenceBound) {
+    map.on("moveend", () => {
+      if (document.body?.classList.contains("project-is-refreshing")) return;
+      persistCurrentProjectMapViewport();
+    });
+    map.__viewportPersistenceBound = true;
+  }
 
   ensureActivePulseAnimation();
 }

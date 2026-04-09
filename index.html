@@ -64,9 +64,19 @@
                       <button class="adminPanelCloseBtn" type="button" aria-label="Close admin panel" onclick="document.getElementById('adminPanel').classList.add('hidden')">×</button>
                     </div>
                   </div>
-                  <div class="adminPanelHelperText">Manage invites and roles for the current project.</div>
+                  <div id="adminPanelProjectContext" class="adminPanelProjectContext" aria-live="polite">
+                    <div class="adminPanelProjectContextLabel">Current Project</div>
+                    <div id="adminPanelProjectName" class="adminPanelProjectName">Loading project…</div>
+                  </div>
+                  <div id="adminPanelHelperText" class="adminPanelHelperText">Manage invites and roles for the current project.</div>
                 </div>
 
+                <div id="projectAdminInactiveState" class="adminInactiveState hidden" aria-live="polite">
+                  <div class="adminInactiveStateTitle">Admin actions unavailable</div>
+                  <div id="projectAdminInactiveText" class="adminInactiveStateText">Select a manageable project to manage members and invites.</div>
+                </div>
+
+                <div id="projectAdminActions" class="adminPanelActions">
                 <div class="adminInviteRow">
                   <input id="projectInviteEmail" type="email" placeholder="Invite email" />
                   <select id="projectInviteRole">
@@ -94,6 +104,7 @@
                   <div id="projectInvitesList"></div>
                   <div id="projectInvitesEmpty" class="projectSourceTag adminEmptyState">No pending invites. New invites will appear here.</div>
                 </section>
+                </div>
 
                 <div class="adminPanelFooterHint">Press Esc or click outside to close</div>
               </div>
