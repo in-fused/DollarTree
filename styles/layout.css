@@ -59,8 +59,94 @@ body.executive-mode .sidebar {
   flex-direction: column;
 }
 
+.intelligenceShell {
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.intelligenceDashboardGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.intelligencePanel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 10px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.34);
+  background:
+    radial-gradient(circle at top right, rgba(var(--project-accent-rgb), 0.18), transparent 46%),
+    linear-gradient(180deg, rgba(11, 19, 30, 0.96), rgba(8, 14, 23, 0.98));
+}
+
+.intelligenceSummaryPanel {
+  grid-column: span 12;
+}
+
+.intelligenceSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.intelligenceSummaryCard {
+  margin-bottom: 0;
+}
+
+.intelligenceBreakdownGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.intelligenceTopPanel {
+  grid-column: span 12;
+}
+
+.intelligenceMetaLine {
+  font-size: 11px;
+  color: rgba(255,255,255,0.72);
+  line-height: 1.4;
+}
+
 body.executive-mode .workspace {
   grid-template-columns: minmax(0, 1fr);
+}
+
+body.workspace-intelligence-active .workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.workspace-intelligence-active .intelRail {
+  display: none;
+}
+
+@media (min-width: 1080px) {
+  .intelligenceSummaryPanel {
+    grid-column: span 12;
+  }
+
+  .intelligenceDashboardGrid > .intelligencePanel:nth-child(2) {
+    grid-column: span 4;
+  }
+
+  .intelligenceTopPanel {
+    grid-column: span 8;
+  }
+}
+
+@media (max-width: 900px) {
+  .intelligenceSummaryGrid,
+  .intelligenceBreakdownGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .workspaceProgressBar {

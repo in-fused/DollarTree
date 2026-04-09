@@ -459,6 +459,7 @@ function bindAdminPanel() {
 function bindWorkspaceViews() {
   const mapBtn = document.getElementById("mapViewBtn");
   const photoBtn = document.getElementById("photoLibraryViewBtn");
+  const intelligenceBtn = document.getElementById("intelligenceViewBtn");
 
   if (mapBtn && !mapBtn.dataset.bound) {
     mapBtn.addEventListener("click", () => {
@@ -478,30 +479,59 @@ function bindWorkspaceViews() {
     });
     photoBtn.dataset.bound = "true";
   }
+
+  if (intelligenceBtn && !intelligenceBtn.dataset.bound) {
+    intelligenceBtn.addEventListener("click", () => {
+      currentWorkspaceView = "intelligence";
+      localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
+      updateWorkspaceViewUI();
+    });
+    intelligenceBtn.dataset.bound = "true";
+  }
 }
 
 function updateWorkspaceViewUI() {
   const mapBtn = document.getElementById("mapViewBtn");
   const photoBtn = document.getElementById("photoLibraryViewBtn");
+  const intelligenceBtn = document.getElementById("intelligenceViewBtn");
   const mapView = document.getElementById("mapWorkspaceView");
   const photoView = document.getElementById("photoLibraryWorkspaceView");
+  const intelligenceView = document.getElementById("intelligenceView");
 
-  const showingMap = currentWorkspaceView !== "photos";
+  const normalizedView = (
+    currentWorkspaceView === "photos" || currentWorkspaceView === "intelligence"
+      ? currentWorkspaceView
+      : "map"
+  );
+  const showingMap = normalizedView === "map";
+  const showingPhotos = normalizedView === "photos";
+  const showingIntelligence = normalizedView === "intelligence";
+
+  if (normalizedView !== currentWorkspaceView) {
+    currentWorkspaceView = normalizedView;
+    localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
+  }
 
   mapBtn?.classList.toggle("active", showingMap);
-  photoBtn?.classList.toggle("active", !showingMap);
+  photoBtn?.classList.toggle("active", showingPhotos);
+  intelligenceBtn?.classList.toggle("active", showingIntelligence);
 
   mapView?.classList.toggle("hidden", !showingMap);
   mapView?.classList.toggle("active", showingMap);
 
-  photoView?.classList.toggle("hidden", showingMap);
-  photoView?.classList.toggle("active", !showingMap);
+  photoView?.classList.toggle("hidden", !showingPhotos);
+  photoView?.classList.toggle("active", showingPhotos);
+
+  intelligenceView?.classList.toggle("hidden", !showingIntelligence);
+  intelligenceView?.classList.toggle("active", showingIntelligence);
+
+  document.body.classList.toggle("workspace-intelligence-active", showingIntelligence);
 
   updateHeaderMetaAndSummaries();
 
   if (showingMap) {
     setTimeout(() => map.resize(), 120);
-  } else {
+  } else if (showingPhotos) {
     renderPhotoLibrary();
   }
 }
@@ -793,7 +823,7 @@ function handleStorePointClick(e) {
 }
 
 function updateMapViewportForMode() {
-  if (currentWorkspaceView === "photos") return;
+  if (currentWorkspaceView !== "map") return;
 
   const filteredStores = getFilteredStores();
 

@@ -475,6 +475,7 @@
               <div class="viewSwitch workspaceViewSwitch" id="viewSwitch">
                 <button id="mapViewBtn" class="viewSwitchBtn active" type="button">Map View</button>
                 <button id="photoLibraryViewBtn" class="viewSwitchBtn" type="button">Photo Library</button>
+                <button id="intelligenceViewBtn" class="viewSwitchBtn" type="button">Intelligence</button>
               </div>
 
               <div class="workspaceProgressTitleGroup">
@@ -654,6 +655,74 @@
                 </div>
               </div>
             </aside>
+          </div>
+        </div>
+      </section>
+
+      <section id="intelligenceView" class="workspaceView hidden">
+        <div class="intelligenceShell">
+          <div class="intelligenceDashboardGrid">
+            <div class="panel intelligencePanel intelligenceSummaryPanel">
+              <div class="panelHeaderRow">
+                <h3>Summary</h3>
+                <div class="panelHeaderTag">Scope</div>
+              </div>
+              <div class="intelligenceSummaryGrid">
+                <div class="intelMetricCard intelligenceSummaryCard">
+                  <div class="intelMetricLabel">Total Stores</div>
+                  <div id="intelligenceSummaryTotalStores" class="intelMetricValue">0</div>
+                </div>
+                <div class="intelMetricCard intelligenceSummaryCard">
+                  <div class="intelMetricLabel">Completion %</div>
+                  <div id="intelligenceSummaryCompletion" class="intelMetricValue">0.0%</div>
+                </div>
+                <div class="intelMetricCard intelligenceSummaryCard">
+                  <div class="intelMetricLabel">Attention Needed</div>
+                  <div id="intelligenceSummaryAttentionNeeded" class="intelMetricValue">0</div>
+                </div>
+                <div class="intelMetricCard intelligenceSummaryCard">
+                  <div class="intelMetricLabel">Recent Activity %</div>
+                  <div id="intelligenceSummaryRecentActivity" class="intelMetricValue">0.0%</div>
+                </div>
+              </div>
+              <div id="intelligenceScopeLabel" class="intelligenceMetaLine">Scope unavailable.</div>
+            </div>
+
+            <div class="panel intelligencePanel">
+              <div class="panelHeaderRow">
+                <h3>Attention Breakdown</h3>
+                <div class="panelHeaderTag">Severity</div>
+              </div>
+              <div class="intelligenceBreakdownGrid">
+                <div class="scopeSummaryCard">
+                  <div class="scopeSummaryLabel">Critical</div>
+                  <div id="intelligenceCriticalCount" class="scopeSummaryValue">0</div>
+                </div>
+                <div class="scopeSummaryCard">
+                  <div class="scopeSummaryLabel">High</div>
+                  <div id="intelligenceHighCount" class="scopeSummaryValue">0</div>
+                </div>
+                <div class="scopeSummaryCard">
+                  <div class="scopeSummaryLabel">Medium</div>
+                  <div id="intelligenceMediumCount" class="scopeSummaryValue">0</div>
+                </div>
+                <div class="scopeSummaryCard">
+                  <div class="scopeSummaryLabel">Low</div>
+                  <div id="intelligenceLowCount" class="scopeSummaryValue">0</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel intelligencePanel intelligenceTopPanel">
+              <div class="panelHeaderRow">
+                <h3>Top Attention Stores</h3>
+                <div class="panelHeaderTag">Ranked</div>
+              </div>
+              <div id="intelligenceTopAttentionList" class="intelTopAttentionList">
+                <div class="intelAttentionEmpty">No attention-ranked stores in current scope.</div>
+              </div>
+              <div id="intelligenceGeneratedAt" class="intelligenceMetaLine">Updated: —</div>
+            </div>
           </div>
         </div>
       </section>
