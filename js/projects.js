@@ -561,6 +561,7 @@ async function refreshAccessAfterMembershipMutation() {
 
 const PROJECT_ROLE_OPTIONS = ["viewer", "editor", "admin"];
 let projectAdminMessageClearTimer = null;
+const ADMIN_ACTION_COOLDOWN_MS = 250;
 
 function isProjectSelectableByCurrentUser(projectId) {
   return canAccessProject(projectId);
@@ -665,13 +666,25 @@ function setProjectAdminMessage(message, type = "info") {
 
   inviteMessage.textContent = message || "";
   inviteMessage.style.color = "";
+  inviteMessage.style.fontWeight = "600";
+  inviteMessage.style.padding = message ? "8px 10px" : "";
+  inviteMessage.style.borderRadius = message ? "8px" : "";
+  inviteMessage.style.border = "";
+  inviteMessage.style.background = "";
 
   if (type === "success") {
     inviteMessage.style.color = "#8bd3a8";
+    inviteMessage.style.border = "1px solid rgba(139,211,168,0.45)";
+    inviteMessage.style.background = "rgba(31, 64, 48, 0.48)";
     projectAdminMessageClearTimer = setTimeout(() => {
       if (inviteMessage.textContent === message) {
         inviteMessage.textContent = "";
         inviteMessage.style.color = "";
+        inviteMessage.style.fontWeight = "";
+        inviteMessage.style.padding = "";
+        inviteMessage.style.borderRadius = "";
+        inviteMessage.style.border = "";
+        inviteMessage.style.background = "";
       }
       projectAdminMessageClearTimer = null;
     }, 3600);
@@ -679,7 +692,16 @@ function setProjectAdminMessage(message, type = "info") {
   }
 
   if (type === "error") {
-    inviteMessage.style.color = "#ff9f9f";
+    inviteMessage.style.color = "#ffd1d1";
+    inviteMessage.style.border = "1px solid rgba(255, 119, 119, 0.56)";
+    inviteMessage.style.background = "rgba(82, 20, 20, 0.48)";
+    return;
+  }
+
+  if (!message) {
+    inviteMessage.style.fontWeight = "";
+    inviteMessage.style.padding = "";
+    inviteMessage.style.borderRadius = "";
   }
 }
 
@@ -877,7 +899,7 @@ function bindProjectAdminUI() {
       inviteSendBtn.dataset.loading = "true";
       inviteSendBtn.disabled = true;
       const originalLabel = inviteSendBtn.textContent;
-      inviteSendBtn.textContent = "Sending...";
+      inviteSendBtn.textContent = "Sending…";
       if (inviteEmailInput) inviteEmailInput.disabled = true;
       if (inviteRoleSelect) inviteRoleSelect.disabled = true;
 
@@ -899,9 +921,10 @@ function bindProjectAdminUI() {
         });
 
         if (inviteEmailInput) inviteEmailInput.value = "";
-        setProjectAdminMessage("Invite sent.", "success");
+        setProjectAdminMessage(`Invite sent to ${email} as ${role}.`, "success");
         await refreshProjectAdminPanel();
       } finally {
+        await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
         inviteSendBtn.dataset.loading = "false";
         inviteSendBtn.disabled = false;
         inviteSendBtn.textContent = originalLabel || "Send Invite";
@@ -928,16 +951,18 @@ function bindProjectAdminUI() {
           `[data-action='member-role-select'][data-user-id='${userId}'][data-project-id='${currentProjectId}']`
         );
         const role = normalizeProjectRole(select?.value || "viewer");
+        const targetEmail = profileEmailByUserId[userId] || "member";
         const originalLabel = target.textContent;
         target.dataset.loading = "true";
         target.disabled = true;
-        target.textContent = "Saving...";
+        target.textContent = "Saving…";
         if (select) select.disabled = true;
 
         let error = null;
         try {
           ({ error } = await dataLayer.updateProjectMembershipRole(currentProjectId, userId, role));
         } finally {
+          await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
           target.dataset.loading = "false";
           target.disabled = false;
           target.textContent = originalLabel || "Save";
@@ -945,7 +970,7 @@ function bindProjectAdminUI() {
         }
 
         setProjectAdminMessage(
-          error ? (error.message || "Unable to update role.") : "Member role updated.",
+          error ? (error.message || "Unable to update role.") : `Role updated for ${targetEmail}.`,
           error ? "error" : "success"
         );
         if (!error) {
@@ -976,18 +1001,19 @@ function bindProjectAdminUI() {
         const originalLabel = target.textContent;
         target.dataset.loading = "true";
         target.disabled = true;
-        target.textContent = "Removing...";
+        target.textContent = "Removing…";
         let error = null;
         try {
           ({ error } = await dataLayer.removeProjectMembership(currentProjectId, userId));
         } finally {
+          await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
           target.dataset.loading = "false";
           target.disabled = false;
           target.textContent = originalLabel || "Remove";
         }
 
         setProjectAdminMessage(
-          error ? (error.message || "Unable to remove member.") : "Member removed.",
+          error ? (error.message || "Unable to remove member.") : `Member removed (${profileEmailByUserId[userId] || userId}).`,
           error ? "error" : "success"
         );
         if (!error) {
@@ -1016,18 +1042,19 @@ function bindProjectAdminUI() {
         const originalLabel = target.textContent;
         target.dataset.loading = "true";
         target.disabled = true;
-        target.textContent = "Revoking...";
+        target.textContent = "Revoking…";
         let error = null;
         try {
           ({ error } = await dataLayer.revokeProjectInvite(inviteId));
         } finally {
+          await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
           target.dataset.loading = "false";
           target.disabled = false;
           target.textContent = originalLabel || "Revoke";
         }
 
         setProjectAdminMessage(
-          error ? (error.message || "Unable to revoke invite.") : "Invite revoked.",
+          error ? (error.message || "Unable to revoke invite.") : "Pending invite revoked.",
           error ? "error" : "success"
         );
         if (!error) {
