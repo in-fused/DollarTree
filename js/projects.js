@@ -1,5 +1,53 @@
 /* ================= PROJECTS / HYDRATION ================= */
 let activeProjectHydrationToken = 0;
+let projectSwitchHighlightTimer = null;
+
+function setProjectHydrationVisualState(isHydrating, nextProjectName = "") {
+  document.body?.classList.toggle("project-is-refreshing", Boolean(isHydrating));
+
+  const nameEl = document.getElementById("dashboardProjectName");
+  const sublineEl = document.getElementById("dashboardProjectSubline");
+  const statusEl = document.getElementById("headerOperationalSummary");
+
+  if (isHydrating) {
+    if (nameEl) {
+      if (nextProjectName) {
+        nameEl.textContent = nextProjectName;
+      }
+      nameEl.classList.add("is-project-switching");
+    }
+    if (sublineEl && nextProjectName) {
+      sublineEl.textContent = `Refreshing project context • ${nextProjectName}`;
+    }
+    if (statusEl) {
+      statusEl.textContent = "Refreshing project…";
+    }
+    return;
+  }
+
+  if (nameEl) {
+    nameEl.classList.remove("is-project-switching");
+  }
+}
+
+function flashProjectSwitchIndicator() {
+  const nameEl = document.getElementById("dashboardProjectName");
+  if (!nameEl) return;
+
+  nameEl.classList.remove("project-switch-flash");
+  // Force a reflow so repeated project switches retrigger the animation reliably.
+  void nameEl.offsetWidth;
+  nameEl.classList.add("project-switch-flash");
+
+  if (projectSwitchHighlightTimer) {
+    clearTimeout(projectSwitchHighlightTimer);
+  }
+
+  projectSwitchHighlightTimer = setTimeout(() => {
+    nameEl.classList.remove("project-switch-flash");
+    projectSwitchHighlightTimer = null;
+  }, 1500);
+}
 
 function getStoreById(storeId, options = {}) {
   const includeRemoved = options.includeRemoved === true;
@@ -213,9 +261,16 @@ function bindProjectSelector() {
 
   select.addEventListener("change", async (e) => {
     setProjectAdminMessage("");
+    if (typeof persistFilterState === "function") {
+      persistFilterState();
+    }
+    if (typeof persistCurrentProjectMapViewport === "function") {
+      persistCurrentProjectMapViewport();
+    }
     const selectedOption = e.target?.selectedOptions?.[0];
     const selectedName = String(selectedOption?.textContent || "").replace(/\s+\(Archived\)\s*$/i, "").trim();
     updateAdminPanelHeaderContext({ canManage: canManageProjectLifecycle(), isRefreshing: true, projectNameOverride: selectedName });
+    setProjectHydrationVisualState(true, selectedName);
     currentProjectId = e.target.value;
     localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
     refreshCurrentProjectRole();
@@ -450,6 +505,7 @@ async function loadActiveProject() {
   refreshCurrentProjectRole();
   const scopedProjectId = String(currentProjectId || "").trim();
   const hydrationToken = ++activeProjectHydrationToken;
+  setProjectHydrationVisualState(true, currentProjectMeta?.name || scopedProjectId || "No project selected");
 
   if (!scopedProjectId || projectList.length === 0) {
     currentProjectMeta = {
@@ -486,10 +542,17 @@ async function loadActiveProject() {
     updateActivityList();
     renderRouteStops();
     updateRouteModeUI();
-    updateMapViewportForMode();
+    if (typeof restoreMapViewportForProject === "function") {
+      const restored = restoreMapViewportForProject(scopedProjectId, { animate: false });
+      if (!restored) updateMapViewportForMode();
+    } else {
+      updateMapViewportForMode();
+    }
     resetPhotoLibraryDetail();
     renderPhotoLibrary();
     updateWorkspaceViewUI();
+    setProjectHydrationVisualState(false);
+    flashProjectSwitchIndicator();
     await refreshProjectAdminPanel();
     return;
   }
@@ -507,9 +570,15 @@ async function loadActiveProject() {
 
   restoreFilterState();
   const hydrateResult = await hydrate(scopedProjectId, hydrationToken);
-  if (hydrateResult?.stale) return;
+  if (hydrateResult?.stale) {
+    setProjectHydrationVisualState(false);
+    return;
+  }
   await hydrateActivityFeed();
-  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) return;
+  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) {
+    setProjectHydrationVisualState(false);
+    return;
+  }
   restoreRouteState();
   populateFilterOptions();
 
@@ -531,7 +600,12 @@ async function loadActiveProject() {
   updateActivityList();
   renderRouteStops();
   updateRouteModeUI();
-  updateMapViewportForMode();
+  if (typeof restoreMapViewportForProject === "function") {
+    const restored = restoreMapViewportForProject(scopedProjectId, { animate: false });
+    if (!restored) updateMapViewportForMode();
+  } else {
+    updateMapViewportForMode();
+  }
   resetPhotoLibraryDetail();
   renderPhotoLibrary();
   updateWorkspaceViewUI();
@@ -546,7 +620,12 @@ async function loadActiveProject() {
     clearPhotoUI();
   }
 
-  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) return;
+  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) {
+    setProjectHydrationVisualState(false);
+    return;
+  }
+  setProjectHydrationVisualState(false);
+  flashProjectSwitchIndicator();
   await refreshProjectAdminPanel();
 }
 
