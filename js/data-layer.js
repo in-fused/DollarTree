@@ -385,6 +385,36 @@ const dataLayer = {
     );
   },
 
+  async writeStoreStatusScoped(payload) {
+    const scopedProjectId = String(payload?.project_id || "").trim();
+    const scopedStoreId = String(payload?.store_id || "").trim();
+
+    if (!scopedProjectId || !scopedStoreId) {
+      return { data: null, error: new Error("Missing project_id or store_id for scoped status write.") };
+    }
+
+    const updatePayload = { ...payload };
+    delete updatePayload.project_id;
+    delete updatePayload.store_id;
+
+    const updateResult = await supabaseClient
+      .from("store_status")
+      .update(updatePayload)
+      .eq("project_id", scopedProjectId)
+      .eq("store_id", scopedStoreId)
+      .select("project_id,store_id")
+      .limit(1);
+
+    if (updateResult.error) return updateResult;
+    if (Array.isArray(updateResult.data) && updateResult.data.length > 0) return updateResult;
+
+    return await supabaseClient
+      .from("store_status")
+      .insert(payload)
+      .select("project_id,store_id")
+      .limit(1);
+  },
+
   async updateStoreStatus(projectId, storeId, completed, closed, statusCode = null, statusReason = null) {
     const fullPayload = this.normalizeStatusWritePayload(
       projectId,
@@ -395,9 +425,7 @@ const dataLayer = {
       statusReason
     );
 
-    const fullResult = await supabaseClient
-      .from("store_status")
-      .upsert(fullPayload);
+    const fullResult = await this.writeStoreStatusScoped(fullPayload);
 
     if (!fullResult.error) {
       return fullResult;
@@ -407,26 +435,22 @@ const dataLayer = {
     const missingStatusCode = this.isMissingColumnError(fullResult.error, "status_code");
 
     if (missingStatusReason && !missingStatusCode) {
-      return await supabaseClient
-        .from("store_status")
-        .upsert({
-          project_id: fullPayload.project_id,
-          store_id: fullPayload.store_id,
-          status_code: fullPayload.status_code,
-          completed: fullPayload.completed,
-          closed: fullPayload.closed
-        });
+      return await this.writeStoreStatusScoped({
+        project_id: fullPayload.project_id,
+        store_id: fullPayload.store_id,
+        status_code: fullPayload.status_code,
+        completed: fullPayload.completed,
+        closed: fullPayload.closed
+      });
     }
 
     if (missingStatusCode) {
-      return await supabaseClient
-        .from("store_status")
-        .upsert({
-          project_id: fullPayload.project_id,
-          store_id: fullPayload.store_id,
-          completed: fullPayload.completed,
-          closed: fullPayload.closed
-        });
+      return await this.writeStoreStatusScoped({
+        project_id: fullPayload.project_id,
+        store_id: fullPayload.store_id,
+        completed: fullPayload.completed,
+        closed: fullPayload.closed
+      });
     }
 
     return fullResult;

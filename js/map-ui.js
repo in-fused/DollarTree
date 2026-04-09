@@ -174,27 +174,184 @@ function restoreSidebarState() {
 function bindAdminPanel() {
   const btn = document.getElementById("adminPanelToggle");
   const panel = document.getElementById("adminPanel");
+  const closeBtn = panel?.querySelector(".adminPanelCloseBtn");
+  const inviteEmailInput = document.getElementById("projectInviteEmail");
+  const ANIMATION_MS = 140;
 
   if (!btn || !panel || btn.dataset.bound) return;
 
+  let backdrop = document.getElementById("adminPanelBackdrop");
+  if (!backdrop) {
+    backdrop = document.createElement("div");
+    backdrop.id = "adminPanelBackdrop";
+    backdrop.className = "admin-panel-backdrop hidden";
+    document.body.appendChild(backdrop);
+  }
+
+  btn.setAttribute("aria-controls", "adminPanel");
+  btn.setAttribute("aria-expanded", "false");
+  panel.setAttribute("aria-hidden", "true");
+  backdrop.setAttribute("aria-hidden", "true");
+
+  const isOpen = () => !panel.classList.contains("hidden");
+  let closeTimer = null;
+
+  const getFocusableControls = () => {
+    if (!panel) return [];
+    return Array.from(
+      panel.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((el) => !el.classList.contains("hidden") && el.offsetParent !== null);
+  };
+
+  const positionPanel = () => {
+    if (!isOpen()) return;
+
+    const margin = 8;
+    const spacing = 10;
+    const rect = btn.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const computed = getComputedStyle(panel);
+    const widthValue = Number.parseFloat(computed.width);
+    const panelWidth = Number.isFinite(widthValue) && widthValue > 0
+      ? widthValue
+      : Math.min(viewportWidth - (margin * 2), 640);
+
+    let left = rect.right - panelWidth;
+    left = Math.max(margin, Math.min(left, viewportWidth - panelWidth - margin));
+
+    let top = rect.bottom + spacing;
+    let availableHeight = viewportHeight - top - margin;
+    if (availableHeight < 260) {
+      top = Math.max(margin, viewportHeight - 260 - margin);
+      availableHeight = viewportHeight - top - margin;
+    }
+
+    panel.style.left = `${Math.round(left)}px`;
+    panel.style.top = `${Math.round(top)}px`;
+    panel.style.maxHeight = `${Math.max(160, Math.floor(availableHeight))}px`;
+  };
+
+  const openPanel = () => {
+    if (closeTimer) {
+      clearTimeout(closeTimer);
+      closeTimer = null;
+    }
+    panel.classList.remove("hidden");
+    backdrop.classList.remove("hidden");
+    panel.classList.remove("is-closing");
+    backdrop.classList.remove("is-closing");
+    document.body.classList.add("admin-panel-open");
+    btn.setAttribute("aria-expanded", "true");
+    panel.setAttribute("aria-hidden", "false");
+    backdrop.setAttribute("aria-hidden", "false");
+    requestAnimationFrame(() => {
+      panel.classList.add("is-open");
+      backdrop.classList.add("is-open");
+    });
+    positionPanel();
+    requestAnimationFrame(() => {
+      if (inviteEmailInput && !inviteEmailInput.disabled) {
+        inviteEmailInput.focus();
+        return;
+      }
+      if (closeBtn && !closeBtn.disabled) {
+        closeBtn.focus();
+        return;
+      }
+      const focusables = getFocusableControls();
+      focusables[0]?.focus();
+    });
+  };
+
+  const closePanel = () => {
+    if (!isOpen()) return;
+    panel.classList.remove("is-open");
+    backdrop.classList.remove("is-open");
+    panel.classList.add("is-closing");
+    backdrop.classList.add("is-closing");
+    closeTimer = setTimeout(() => {
+      panel.classList.add("hidden");
+      backdrop.classList.add("hidden");
+      panel.classList.remove("is-closing");
+      backdrop.classList.remove("is-closing");
+      document.body.classList.remove("admin-panel-open");
+      btn.setAttribute("aria-expanded", "false");
+      panel.setAttribute("aria-hidden", "true");
+      backdrop.setAttribute("aria-hidden", "true");
+      btn.focus();
+      closeTimer = null;
+    }, ANIMATION_MS);
+  };
+
+  const togglePanel = () => {
+    if (isOpen()) {
+      closePanel();
+      return;
+    }
+    openPanel();
+  };
+
   btn.addEventListener("click", (event) => {
     event.stopPropagation();
-    panel.classList.toggle("hidden");
+    togglePanel();
   });
 
   panel.addEventListener("click", (event) => {
     event.stopPropagation();
   });
 
+  backdrop.addEventListener("click", () => {
+    closePanel();
+  });
+
+  closeBtn?.addEventListener("click", () => {
+    closePanel();
+  });
+
   document.addEventListener("click", () => {
-    panel.classList.add("hidden");
+    closePanel();
   });
 
   document.addEventListener("keydown", (event) => {
+    if (!isOpen()) return;
     if (event.key === "Escape") {
-      panel.classList.add("hidden");
+      closePanel();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusables = getFocusableControls();
+    if (!focusables.length) return;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey) {
+      if (active === first || !panel.contains(active)) {
+        event.preventDefault();
+        last.focus();
+      }
+      return;
+    }
+
+    if (active === last || !panel.contains(active)) {
+      event.preventDefault();
+      first.focus();
     }
   });
+
+  window.addEventListener("resize", () => {
+    positionPanel();
+  });
+
+  window.addEventListener("scroll", () => {
+    positionPanel();
+  }, true);
 
   btn.dataset.bound = "true";
 }

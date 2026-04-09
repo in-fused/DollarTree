@@ -1,4 +1,5 @@
 /* ================= PROJECTS / HYDRATION ================= */
+let activeProjectHydrationToken = 0;
 
 function getStoreById(storeId, options = {}) {
   const includeRemoved = options.includeRemoved === true;
@@ -215,15 +216,22 @@ function bindProjectSelector() {
     currentProjectId = e.target.value;
     localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
     refreshCurrentProjectRole();
-    mobileExecutiveSummaryExpanded = false;
     await loadActiveProject();
   });
 
   select.dataset.bound = "true";
 }
 
-async function hydrate() {
-  const hydrated = await dataLayer.hydrateProject(currentProjectId, currentProjectMeta);
+async function hydrate(projectIdOverride = currentProjectId, hydrationToken = null) {
+  const scopedProjectId = String(projectIdOverride || currentProjectId || "").trim();
+  const hydrated = await dataLayer.hydrateProject(scopedProjectId, currentProjectMeta);
+
+  const tokenIsStale = hydrationToken !== null && hydrationToken !== activeProjectHydrationToken;
+  const projectChanged = String(currentProjectId || "").trim() !== scopedProjectId;
+
+  if (tokenIsStale || projectChanged) {
+    return { stale: true };
+  }
 
   allStoreData = (hydrated.stores || []).map(store => ({
     ...normalizeStoreRecord(store),
@@ -279,6 +287,8 @@ async function hydrate() {
       ? "supabase"
       : "fallback"
   };
+
+  return { stale: false };
 }
 
 function getHydratedStatusEventType(row) {
@@ -435,8 +445,10 @@ async function loadActiveProject() {
   ensureProjectLifecycleControls();
   bindProjectAdminUI();
   refreshCurrentProjectRole();
+  const scopedProjectId = String(currentProjectId || "").trim();
+  const hydrationToken = ++activeProjectHydrationToken;
 
-  if (!currentProjectId || projectList.length === 0) {
+  if (!scopedProjectId || projectList.length === 0) {
     currentProjectMeta = {
       project_id: "",
       name: isSignedIn() ? "No Project Access" : "Project Unavailable",
@@ -479,21 +491,22 @@ async function loadActiveProject() {
     return;
   }
 
-  currentProjectMeta = projectList.find(project => project.project_id === currentProjectId) || {
-    project_id: currentProjectId,
-    name: currentProjectId,
+  currentProjectMeta = projectList.find(project => project.project_id === scopedProjectId) || {
+    project_id: scopedProjectId,
+    name: scopedProjectId,
     is_archived: false,
     archived_at: null,
-    store_file: `data/${currentProjectId}/stores_with_coords.json`
+    store_file: `data/${scopedProjectId}/stores_with_coords.json`
   };
 
   currentSelectedStoreId = null;
   currentPhotoLibrarySelection = null;
-  mobileExecutiveSummaryExpanded = false;
 
   restoreFilterState();
-  await hydrate();
+  const hydrateResult = await hydrate(scopedProjectId, hydrationToken);
+  if (hydrateResult?.stale) return;
   await hydrateActivityFeed();
+  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) return;
   restoreRouteState();
   populateFilterOptions();
 
@@ -530,6 +543,7 @@ async function loadActiveProject() {
     clearPhotoUI();
   }
 
+  if (hydrationToken !== activeProjectHydrationToken || String(currentProjectId || "").trim() !== scopedProjectId) return;
   await refreshProjectAdminPanel();
 }
 
@@ -563,6 +577,7 @@ async function refreshAccessAfterMembershipMutation() {
 
 const PROJECT_ROLE_OPTIONS = ["viewer", "editor", "admin"];
 let projectAdminMessageClearTimer = null;
+const ADMIN_ACTION_COOLDOWN_MS = 250;
 
 function isProjectSelectableByCurrentUser(projectId) {
   return canAccessProject(projectId);
@@ -576,15 +591,24 @@ function getProjectAdminRoleOptions(selectedRole) {
 
 function createRoleBadge(role) {
   const badge = document.createElement("span");
+  badge.className = "adminRoleBadge";
   badge.textContent = normalizeProjectRole(role);
-  badge.style.padding = "2px 8px";
-  badge.style.borderRadius = "999px";
-  badge.style.border = "1px solid rgba(255,255,255,.28)";
-  badge.style.fontSize = "11px";
-  badge.style.textTransform = "uppercase";
-  badge.style.letterSpacing = ".04em";
-  badge.style.opacity = "0.95";
   return badge;
+}
+
+function flashAdminActionRowFeedback(actionTarget, variant = "success") {
+  const row = actionTarget?.closest?.(".adminMemberRow, .adminInviteRowItem");
+  if (!row) return;
+
+  const successClass = "adminRowFeedbackSuccess";
+  const errorClass = "adminRowFeedbackError";
+
+  row.classList.remove(successClass, errorClass);
+  row.classList.add(variant === "error" ? errorClass : successClass);
+
+  setTimeout(() => {
+    row.classList.remove(successClass, errorClass);
+  }, 700);
 }
 
 function logAuditEvent(type, payload = {}) {
@@ -667,13 +691,25 @@ function setProjectAdminMessage(message, type = "info") {
 
   inviteMessage.textContent = message || "";
   inviteMessage.style.color = "";
+  inviteMessage.style.fontWeight = "600";
+  inviteMessage.style.padding = message ? "8px 10px" : "";
+  inviteMessage.style.borderRadius = message ? "8px" : "";
+  inviteMessage.style.border = "";
+  inviteMessage.style.background = "";
 
   if (type === "success") {
     inviteMessage.style.color = "#8bd3a8";
+    inviteMessage.style.border = "1px solid rgba(139,211,168,0.45)";
+    inviteMessage.style.background = "rgba(31, 64, 48, 0.48)";
     projectAdminMessageClearTimer = setTimeout(() => {
       if (inviteMessage.textContent === message) {
         inviteMessage.textContent = "";
         inviteMessage.style.color = "";
+        inviteMessage.style.fontWeight = "";
+        inviteMessage.style.padding = "";
+        inviteMessage.style.borderRadius = "";
+        inviteMessage.style.border = "";
+        inviteMessage.style.background = "";
       }
       projectAdminMessageClearTimer = null;
     }, 3600);
@@ -681,7 +717,16 @@ function setProjectAdminMessage(message, type = "info") {
   }
 
   if (type === "error") {
-    inviteMessage.style.color = "#ff9f9f";
+    inviteMessage.style.color = "#ffd1d1";
+    inviteMessage.style.border = "1px solid rgba(255, 119, 119, 0.56)";
+    inviteMessage.style.background = "rgba(82, 20, 20, 0.48)";
+    return;
+  }
+
+  if (!message) {
+    inviteMessage.style.fontWeight = "";
+    inviteMessage.style.padding = "";
+    inviteMessage.style.borderRadius = "";
   }
 }
 
@@ -763,6 +808,7 @@ async function refreshProjectAdminPanel() {
 
       const row = document.createElement("div");
       row.className = "copy";
+      row.classList.add("adminMemberRow");
       row.style.display = "grid";
       row.style.gridTemplateColumns = "1fr auto auto auto";
       row.style.gap = "8px";
@@ -771,6 +817,7 @@ async function refreshProjectAdminPanel() {
       row.style.borderBottom = "1px solid rgba(255,255,255,.08)";
 
       const label = document.createElement("div");
+      label.className = "adminRowLabel";
       label.style.display = "inline-flex";
       label.style.alignItems = "center";
       label.style.gap = "6px";
@@ -780,6 +827,7 @@ async function refreshProjectAdminPanel() {
       label.appendChild(createRoleBadge(role));
 
       const roleSelect = document.createElement("select");
+      roleSelect.className = "adminRoleSelect";
       roleSelect.innerHTML = getProjectAdminRoleOptions(role);
       roleSelect.dataset.projectId = currentProjectId;
       roleSelect.dataset.userId = userId;
@@ -789,6 +837,7 @@ async function refreshProjectAdminPanel() {
       const saveBtn = document.createElement("button");
       saveBtn.type = "button";
       saveBtn.className = "btnSecondary";
+      saveBtn.classList.add("adminRowActionBtn");
       saveBtn.textContent = "Save";
       saveBtn.dataset.projectId = currentProjectId;
       saveBtn.dataset.userId = userId;
@@ -797,6 +846,7 @@ async function refreshProjectAdminPanel() {
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "btnClosed";
+      removeBtn.classList.add("adminRowActionBtn");
       removeBtn.textContent = "Remove";
       removeBtn.dataset.projectId = currentProjectId;
       removeBtn.dataset.userId = userId;
@@ -825,6 +875,7 @@ async function refreshProjectAdminPanel() {
 
       const row = document.createElement("div");
       row.className = "copy";
+      row.classList.add("adminInviteRowItem");
       row.style.display = "grid";
       row.style.gridTemplateColumns = "1fr auto";
       row.style.gap = "8px";
@@ -833,6 +884,7 @@ async function refreshProjectAdminPanel() {
       row.style.borderBottom = "1px solid rgba(255,255,255,.08)";
 
       const label = document.createElement("div");
+      label.className = "adminRowLabel";
       label.style.display = "inline-flex";
       label.style.alignItems = "center";
       label.style.gap = "6px";
@@ -844,6 +896,7 @@ async function refreshProjectAdminPanel() {
       const revokeBtn = document.createElement("button");
       revokeBtn.type = "button";
       revokeBtn.className = "btnSecondary";
+      revokeBtn.classList.add("adminRowActionBtn");
       revokeBtn.textContent = "Revoke";
       revokeBtn.dataset.inviteId = inviteId;
       revokeBtn.dataset.action = "revoke-invite";
@@ -879,7 +932,7 @@ function bindProjectAdminUI() {
       inviteSendBtn.dataset.loading = "true";
       inviteSendBtn.disabled = true;
       const originalLabel = inviteSendBtn.textContent;
-      inviteSendBtn.textContent = "Sending...";
+      inviteSendBtn.textContent = "Sending…";
       if (inviteEmailInput) inviteEmailInput.disabled = true;
       if (inviteRoleSelect) inviteRoleSelect.disabled = true;
 
@@ -901,9 +954,10 @@ function bindProjectAdminUI() {
         });
 
         if (inviteEmailInput) inviteEmailInput.value = "";
-        setProjectAdminMessage("Invite sent.", "success");
+        setProjectAdminMessage(`Invite sent to ${email} as ${role}.`, "success");
         await refreshProjectAdminPanel();
       } finally {
+        await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
         inviteSendBtn.dataset.loading = "false";
         inviteSendBtn.disabled = false;
         inviteSendBtn.textContent = originalLabel || "Send Invite";
@@ -930,16 +984,18 @@ function bindProjectAdminUI() {
           `[data-action='member-role-select'][data-user-id='${userId}'][data-project-id='${currentProjectId}']`
         );
         const role = normalizeProjectRole(select?.value || "viewer");
+        const targetEmail = profileEmailByUserId[userId] || "member";
         const originalLabel = target.textContent;
         target.dataset.loading = "true";
         target.disabled = true;
-        target.textContent = "Saving...";
+        target.textContent = "Saving…";
         if (select) select.disabled = true;
 
         let error = null;
         try {
           ({ error } = await dataLayer.updateProjectMembershipRole(currentProjectId, userId, role));
         } finally {
+          await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
           target.dataset.loading = "false";
           target.disabled = false;
           target.textContent = originalLabel || "Save";
@@ -947,9 +1003,10 @@ function bindProjectAdminUI() {
         }
 
         setProjectAdminMessage(
-          error ? (error.message || "Unable to update role.") : "Member role updated.",
+          error ? (error.message || "Unable to update role.") : `Role updated for ${targetEmail}.`,
           error ? "error" : "success"
         );
+        flashAdminActionRowFeedback(target, error ? "error" : "success");
         if (!error) {
           logAuditEvent("member_role_updated", {
             project_id: currentProjectId,
@@ -978,20 +1035,22 @@ function bindProjectAdminUI() {
         const originalLabel = target.textContent;
         target.dataset.loading = "true";
         target.disabled = true;
-        target.textContent = "Removing...";
+        target.textContent = "Removing…";
         let error = null;
         try {
           ({ error } = await dataLayer.removeProjectMembership(currentProjectId, userId));
         } finally {
+          await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
           target.dataset.loading = "false";
           target.disabled = false;
           target.textContent = originalLabel || "Remove";
         }
 
         setProjectAdminMessage(
-          error ? (error.message || "Unable to remove member.") : "Member removed.",
+          error ? (error.message || "Unable to remove member.") : `Member removed (${profileEmailByUserId[userId] || userId}).`,
           error ? "error" : "success"
         );
+        flashAdminActionRowFeedback(target, error ? "error" : "success");
         if (!error) {
           logAuditEvent("member_removed", {
             project_id: currentProjectId,
@@ -1018,20 +1077,22 @@ function bindProjectAdminUI() {
         const originalLabel = target.textContent;
         target.dataset.loading = "true";
         target.disabled = true;
-        target.textContent = "Revoking...";
+        target.textContent = "Revoking…";
         let error = null;
         try {
           ({ error } = await dataLayer.revokeProjectInvite(inviteId));
         } finally {
+          await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
           target.dataset.loading = "false";
           target.disabled = false;
           target.textContent = originalLabel || "Revoke";
         }
 
         setProjectAdminMessage(
-          error ? (error.message || "Unable to revoke invite.") : "Invite revoked.",
+          error ? (error.message || "Unable to revoke invite.") : "Pending invite revoked.",
           error ? "error" : "success"
         );
+        flashAdminActionRowFeedback(target, error ? "error" : "success");
         if (!error) {
           logAuditEvent("invite_revoked", {
             project_id: currentProjectId,

@@ -139,7 +139,6 @@ let executiveModeEnabled = false;
 let nationalOverviewEnabled = false;
 let currentPhotoLibrarySelection = null;
 let lastDataRefreshAt = null;
-let mobileExecutiveSummaryExpanded = false;
 
 let showArchivedProjects = false;
 let showRemovedStores = false;

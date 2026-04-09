@@ -16,24 +16,63 @@
 }
 
 .admin-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
+  top: 76px;
+  left: 16px;
   width: clamp(320px, 42vw, 640px);
   max-width: calc(100vw - 16px);
-  max-height: min(72vh, 700px);
+  max-height: calc(100vh - 84px);
   overflow-y: auto;
   padding: 0;
-  z-index: 40;
+  overscroll-behavior: contain;
+  z-index: 460;
+  opacity: 0;
+  transform: scale(0.95);
+  transform-origin: top right;
+  transition: opacity 140ms ease, transform 140ms ease;
+  will-change: transform, opacity;
+}
+
+.admin-panel.is-open {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.admin-panel.is-closing {
+  opacity: 0;
+  transform: scale(0.95);
 }
 
 .admin-panel #projectAdminPanel {
   margin-bottom: 0;
   border-radius: 14px;
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
-    var(--panel);
-  border-color: rgba(255,255,255,0.12);
+    linear-gradient(180deg, rgba(20, 33, 51, 0.98), rgba(10, 19, 32, 0.99)),
+    #0a1524;
+  border: 1px solid rgba(170, 208, 255, 0.32);
+  box-shadow:
+    0 28px 64px rgba(0,0,0,0.58),
+    0 8px 20px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.07);
+  backdrop-filter: none;
+}
+
+.admin-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 8, 16, 0.38);
+  z-index: 450;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  will-change: opacity;
+}
+
+.admin-panel-backdrop.is-open {
+  opacity: 1;
+}
+
+.admin-panel-backdrop.is-closing {
+  opacity: 0;
 }
 
 .adminPanelShell {
@@ -188,6 +227,66 @@
   min-width: 84px;
 }
 
+.adminMemberRow,
+.adminInviteRowItem {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.03));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: background-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+}
+
+.adminMemberRow.adminRowFeedbackSuccess,
+.adminInviteRowItem.adminRowFeedbackSuccess {
+  background-color: rgba(60, 155, 94, 0.2);
+  box-shadow:
+    inset 0 0 0 1px rgba(139, 211, 168, 0.34),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.adminMemberRow.adminRowFeedbackError,
+.adminInviteRowItem.adminRowFeedbackError {
+  background-color: rgba(175, 64, 64, 0.2);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 140, 140, 0.34),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.adminRowLabel {
+  min-width: 0;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  color: rgba(255,255,255,0.96);
+}
+
+.adminRoleBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(159, 209, 255, 0.38);
+  background: rgba(95, 145, 210, 0.16);
+  color: #d5e9ff;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 1;
+}
+
+.adminRowActionBtn {
+  min-width: 84px;
+  min-height: 32px;
+  margin-top: 0 !important;
+  justify-self: stretch;
+}
+
+.adminRoleSelect {
+  margin-top: 0 !important;
+  min-height: 32px;
+}
+
 .sidebar-section {
   border-radius: 14px;
   margin-bottom: 12px;
@@ -242,17 +341,16 @@
 
 @media (max-width: 1080px) {
   .admin-panel {
-    width: min(560px, calc(100vw - 16px));
-    right: 0;
+    width: min(560px, calc(100vw - 12px));
+    max-width: calc(100vw - 12px);
   }
 }
 
 @media (max-width: 760px) {
   .admin-panel {
-    width: calc(100vw - 12px);
-    max-width: calc(100vw - 12px);
-    right: -2px;
-    max-height: min(78vh, 720px);
+    width: calc(100vw - 10px);
+    max-width: calc(100vw - 10px);
+    max-height: calc(100vh - 12px);
   }
 
   .adminInviteRow {
