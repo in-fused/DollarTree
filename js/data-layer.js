@@ -64,10 +64,19 @@ const dataLayer = {
 
   async loadProjects() {
     try {
-      const { data, error } = await supabaseClient
+      let result = await supabaseClient
         .from("projects")
-        .select("project_id, name, created_at, is_archived, archived_at")
+        .select("project_id, name, created_at, is_archived, archived_at, brand_color, brand_logo_url")
         .order("created_at", { ascending: true });
+
+      if (result?.error) {
+        result = await supabaseClient
+          .from("projects")
+          .select("project_id, name, created_at, is_archived, archived_at")
+          .order("created_at", { ascending: true });
+      }
+
+      const { data, error } = result;
 
       if (!error && Array.isArray(data) && data.length > 0) {
         return data.map(project => ({
@@ -76,6 +85,8 @@ const dataLayer = {
           created_at: project.created_at,
           is_archived: project.is_archived === true,
           archived_at: project.archived_at || null,
+          brand_color: project.brand_color || "",
+          brand_logo_url: project.brand_logo_url || "",
           store_file: `data/${project.project_id}/stores_with_coords.json`
         }));
       }
@@ -92,7 +103,9 @@ const dataLayer = {
         return fileProjects.map(project => ({
           ...project,
           is_archived: project.is_archived === true,
-          archived_at: project.archived_at || null
+          archived_at: project.archived_at || null,
+          brand_color: project.brand_color || "",
+          brand_logo_url: project.brand_logo_url || ""
         }));
       }
     } catch (error) {
@@ -104,6 +117,8 @@ const dataLayer = {
       name: "Central FL Dollar Tree",
       is_archived: false,
       archived_at: null,
+      brand_color: "",
+      brand_logo_url: "",
       store_file: "data/central-fl-dollar-tree/stores_with_coords.json"
     }];
   },
@@ -114,6 +129,16 @@ const dataLayer = {
       .update({
         is_archived: isArchived === true,
         archived_at: isArchived === true ? new Date().toISOString() : null
+      })
+      .eq("project_id", projectId);
+  },
+
+  async updateProjectBranding(projectId, brandColor, brandLogoUrl) {
+    return await supabaseClient
+      .from("projects")
+      .update({
+        brand_color: brandColor,
+        brand_logo_url: brandLogoUrl
       })
       .eq("project_id", projectId);
   },

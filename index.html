@@ -24,7 +24,10 @@
 
       <div class="headerTitleBlock">
         <div class="headerEyebrow">Enterprise Operations Console</div>
-        <div id="dashboardProjectName" class="headerProjectName">Loading project…</div>
+        <div class="headerProjectIdentity">
+          <img id="projectBrandLogoHeader" class="projectBrandLogo hidden" alt="" />
+          <div id="dashboardProjectName" class="headerProjectName">Loading project…</div>
+        </div>
         <div id="dashboardProjectSubline" class="headerProjectSubline">Operational visibility • Loading source…</div>
 
         <div class="headerSummaryRow">
@@ -66,7 +69,10 @@
                   </div>
                   <div id="adminPanelProjectContext" class="adminPanelProjectContext" aria-live="polite">
                     <div class="adminPanelProjectContextLabel">Current Project</div>
-                    <div id="adminPanelProjectName" class="adminPanelProjectName">Loading project…</div>
+                    <div class="adminPanelProjectIdentity">
+                      <img id="projectBrandLogoAdmin" class="adminPanelProjectLogo hidden" alt="" />
+                      <div id="adminPanelProjectName" class="adminPanelProjectName">Loading project…</div>
+                    </div>
                   </div>
                   <div id="adminPanelHelperText" class="adminPanelHelperText">Manage invites and roles for the current project.</div>
                 </div>
@@ -88,6 +94,17 @@
                 </div>
 
                 <div id="projectAdminMessage" class="projectSourceTag adminPanelMessage"></div>
+
+                <section class="adminPanelSection">
+                  <div class="panelHeaderRow adminPanelSectionHeader">
+                    <h3 style="font-size:14px;">Project Branding</h3>
+                  </div>
+                  <div class="adminInviteRow">
+                    <input id="projectBrandColorInput" type="color" value="#c8102e" aria-label="Project brand color" />
+                    <input id="projectBrandLogoUrlInput" type="text" placeholder="Logo URL (optional)" aria-label="Project logo URL" />
+                    <button id="projectBrandingSaveBtn" class="btnSecondary" type="button">Save Branding</button>
+                  </div>
+                </section>
 
                 <section class="adminPanelSection">
                   <div class="panelHeaderRow adminPanelSectionHeader">

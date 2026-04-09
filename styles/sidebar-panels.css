@@ -135,8 +135,12 @@
   margin-bottom: 6px;
   padding: 8px 10px;
   border-radius: 10px;
-  border: 1px solid rgba(159, 209, 255, 0.26);
-  background: rgba(33, 72, 116, 0.24);
+  border: 1px solid rgba(var(--project-accent-rgb), 0.42);
+  background: linear-gradient(
+    180deg,
+    rgba(var(--project-accent-rgb), 0.24),
+    rgba(var(--project-accent-rgb), 0.14)
+  );
   min-width: 0;
 }
 
@@ -155,6 +159,23 @@
   color: #f2f8ff;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.adminPanelProjectIdentity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.adminPanelProjectLogo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 5px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.5);
+  background: rgba(6, 12, 22, 0.62);
+  flex-shrink: 0;
 }
 
 .adminPanelActions {
