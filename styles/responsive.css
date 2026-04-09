@@ -344,36 +344,6 @@
     letter-spacing: 0;
   }
 
-  .mapExecutiveCallout {
-    display: none;
-  }
-
-    body.executive-mode .mapExecutiveCallout {
-    display: none !important;
-  }
-
-  body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveSummaryLine {
-    font-size: 12px;
-    line-height: 1.32;
-  }
-
-  body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveCompactRow {
-    margin-top: 6px;
-    gap: 6px;
-  }
-
-  body.executive-mode .mapExecutiveCallout.mobile-collapsible .mapExecutiveMiniStat.completion {
-    padding: 6px 8px;
-  }
-
-  body.executive-mode .mapExecutiveCallout.mobile-collapsible .analyticsBarLabelRow {
-    font-size: 9px;
-  }
-
-  body.executive-mode .mapExecutiveCallout.mobile-collapsible .analyticsBarTrack {
-    height: 6px;
-  }
-
     body.executive-mode .mapLegendCard {
     left: 8px;
     right: 8px;
@@ -634,7 +604,6 @@
   }
 }
 
-body.executive-mode .mapExecutiveCallout,
 body.executive-mode .mapLegendCard,
 body.executive-mode .floatingExecutiveExit {
   background: linear-gradient(180deg, rgba(6, 10, 18, 0.92), rgba(4, 8, 14, 0.88));
@@ -645,25 +614,14 @@ body.executive-mode .floatingExecutiveExit {
   backdrop-filter: blur(10px);
 }
 
-body.executive-mode .mapExecutiveCalloutEyebrow,
 body.executive-mode .mapLegendTitle {
   color: rgba(190, 215, 255, 0.88);
   letter-spacing: 0.12em;
 }
 
 body.executive-mode .mapLegendRow,
-body.executive-mode .mapExecutiveSummaryLine,
 body.executive-mode .floatingExecutiveExit {
   color: rgba(255, 255, 255, 0.96);
-}
-
-body.executive-mode .mapExecutiveCallout.mobile-collapsible {
-  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
-}
-
-body.executive-mode .mapExecutiveCallout.mobile-collapsible:active {
-  transform: scale(0.985);
-  border-color: rgba(120, 170, 255, 0.2);
 }
 
 body.executive-mode .floatingExecutiveExit {

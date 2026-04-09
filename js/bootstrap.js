@@ -21,7 +21,6 @@ map.on("load", async () => {
   bindRouteBuilder();
   bindPhotoUI();
   bindLightboxUI();
-  bindMobileExecutiveSummary();
   bindSnapshotExportUI();
   bindAnalyticsExportControls();
 
