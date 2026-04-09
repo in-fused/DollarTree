@@ -67,31 +67,53 @@ body.executive-mode .sidebar {
   -webkit-overflow-scrolling: touch;
 }
 
+.intelligenceDashboardGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
 .intelligencePanel {
-  min-height: calc(100% - 2px);
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 8px;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 10px;
   border: 1px solid rgba(var(--project-accent-rgb), 0.34);
   background:
     radial-gradient(circle at top right, rgba(var(--project-accent-rgb), 0.18), transparent 46%),
     linear-gradient(180deg, rgba(11, 19, 30, 0.96), rgba(8, 14, 23, 0.98));
 }
 
-.intelligenceHeroTitle {
-  font-size: clamp(22px, 2.8vw, 34px);
-  line-height: 1.1;
-  font-weight: 800;
-  color: rgba(255,255,255,0.96);
+.intelligenceSummaryPanel {
+  grid-column: span 12;
 }
 
-.intelligenceHeroSubline {
-  max-width: 720px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: rgba(255,255,255,0.76);
+.intelligenceSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.intelligenceSummaryCard {
+  margin-bottom: 0;
+}
+
+.intelligenceBreakdownGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.intelligenceTopPanel {
+  grid-column: span 12;
+}
+
+.intelligenceMetaLine {
+  font-size: 11px;
+  color: rgba(255,255,255,0.72);
+  line-height: 1.4;
 }
 
 body.executive-mode .workspace {
@@ -104,6 +126,27 @@ body.workspace-intelligence-active .workspace {
 
 body.workspace-intelligence-active .intelRail {
   display: none;
+}
+
+@media (min-width: 1080px) {
+  .intelligenceSummaryPanel {
+    grid-column: span 12;
+  }
+
+  .intelligenceDashboardGrid > .intelligencePanel:nth-child(2) {
+    grid-column: span 4;
+  }
+
+  .intelligenceTopPanel {
+    grid-column: span 8;
+  }
+}
+
+@media (max-width: 900px) {
+  .intelligenceSummaryGrid,
+  .intelligenceBreakdownGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .workspaceProgressBar {

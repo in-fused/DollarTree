@@ -260,6 +260,9 @@ function updateHeaderMetaAndSummaries() {
   setText("workspaceProgressContext", getWorkspaceProgressContext(metrics));
   setText("photoLibraryScopeBadge", metrics.totalStores > 0 ? `${metrics.totalStores.toLocaleString()} in scope` : "No Stores");
   setText("photoLibraryModeBadge", currentPhotoLibrarySelection ? "Inspection" : "Review");
+  if (currentWorkspaceView === "intelligence") {
+    renderIntelligenceDashboard();
+  }
 }
 
 function updateHeaderDashboard() {
@@ -324,6 +327,7 @@ function updateIntelRail() {
   setText("intelPhotosNoNotes", metrics.storesWithPhotosNoNotes.toLocaleString());
   setText("intelHealthSummary", `${metrics.stalledActiveCount.toLocaleString()} stalled active • ${metrics.rescheduledNoRecentFollowUpCount.toLocaleString()} rescheduled lacking recent follow-up`);
   renderIntelTopAttentionStores();
+  renderIntelligenceDashboard();
 
   if (!currentSelectedStoreId) {
     resetSelectedStorePanel();
@@ -432,6 +436,65 @@ function buildAttentionReasonSummary(store) {
   return "Follow-up needed";
 }
 
+function renderIntelligenceDashboard() {
+  const root = document.getElementById("intelligenceView");
+  if (!root) return;
+
+  if (typeof getScopeMetrics !== "function" || typeof getStoreIntelligenceSnapshot !== "function") {
+    return;
+  }
+
+  const metrics = getScopeMetrics();
+  const snapshot = getStoreIntelligenceSnapshot();
+  const totals = snapshot?.totals || {};
+
+  setText("intelligenceSummaryTotalStores", metrics.totalStores.toLocaleString());
+  setText("intelligenceSummaryCompletion", formatPercent(metrics.completionRate));
+  setText("intelligenceSummaryAttentionNeeded", metrics.attentionNeededCount.toLocaleString());
+  setText("intelligenceSummaryRecentActivity", formatPercent(metrics.recentActivityCoverageRate));
+  setText("intelligenceScopeLabel", snapshot?.scopeLabel || getCurrentScopeLabel(metrics));
+  setText("intelligenceCriticalCount", Number(totals.criticalCount || 0).toLocaleString());
+  setText("intelligenceHighCount", Number(totals.highCount || 0).toLocaleString());
+  setText("intelligenceMediumCount", Number(totals.mediumCount || 0).toLocaleString());
+  setText("intelligenceLowCount", Number(totals.lowCount || 0).toLocaleString());
+
+  const generatedAtText = snapshot?.generatedAt
+    ? `Updated: ${formatLastUpdated(snapshot.generatedAt)}`
+    : "Updated: —";
+  setText("intelligenceGeneratedAt", generatedAtText);
+
+  const listEl = document.getElementById("intelligenceTopAttentionList");
+  if (!listEl) return;
+
+  const ranked = Array.isArray(snapshot?.stores) ? snapshot.stores : [];
+  const topStores = ranked.filter(store => (store.attentionScore || 0) > 0).slice(0, 10);
+
+  if (topStores.length === 0) {
+    listEl.innerHTML = '<div class="intelAttentionEmpty">No attention-ranked stores in current scope.</div>';
+    return;
+  }
+
+  listEl.innerHTML = topStores.map(store => {
+    const severityClass = `severity-${store.severity || "low"}`;
+    const severityLabel = String(store.severity || "low").toUpperCase();
+    const score = Number.isFinite(store.attentionScore) ? store.attentionScore : 0;
+    const reason = buildAttentionReasonSummary(store);
+
+    return `
+      <div class="intelAttentionItem">
+        <div class="intelAttentionItemTop">
+          <div class="intelAttentionStore">Store ${store.storeId}</div>
+          <div class="intelAttentionMeta">
+            <span class="intelAttentionSeverity ${severityClass}">${severityLabel}</span>
+            <span class="intelAttentionScore">${score}</span>
+          </div>
+        </div>
+        <div class="intelAttentionReason">${reason}</div>
+      </div>
+    `;
+  }).join("");
+}
+
 function renderIntelTopAttentionStores() {
   const listEl = document.getElementById("intelTopAttentionList");
   if (!listEl) return;
@@ -532,3 +595,5 @@ function updateSelectedStorePanel(storeId) {
     issuesEl.classList.toggle("hidden", integrityIssues.length === 0);
   }
 }
+
+window.renderIntelligenceDashboard = renderIntelligenceDashboard;
