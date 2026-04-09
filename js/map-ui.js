@@ -174,27 +174,103 @@ function restoreSidebarState() {
 function bindAdminPanel() {
   const btn = document.getElementById("adminPanelToggle");
   const panel = document.getElementById("adminPanel");
+  const closeBtn = panel?.querySelector(".adminPanelCloseBtn");
 
   if (!btn || !panel || btn.dataset.bound) return;
 
+  let backdrop = document.getElementById("adminPanelBackdrop");
+  if (!backdrop) {
+    backdrop = document.createElement("div");
+    backdrop.id = "adminPanelBackdrop";
+    backdrop.className = "admin-panel-backdrop hidden";
+    document.body.appendChild(backdrop);
+  }
+
+  const isOpen = () => !panel.classList.contains("hidden");
+
+  const positionPanel = () => {
+    if (!isOpen()) return;
+
+    const margin = 8;
+    const spacing = 10;
+    const rect = btn.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const computed = getComputedStyle(panel);
+    const widthValue = Number.parseFloat(computed.width);
+    const panelWidth = Number.isFinite(widthValue) && widthValue > 0
+      ? widthValue
+      : Math.min(viewportWidth - (margin * 2), 640);
+
+    let left = rect.right - panelWidth;
+    left = Math.max(margin, Math.min(left, viewportWidth - panelWidth - margin));
+
+    let top = rect.bottom + spacing;
+    let availableHeight = viewportHeight - top - margin;
+    if (availableHeight < 260) {
+      top = Math.max(margin, viewportHeight - 260 - margin);
+      availableHeight = viewportHeight - top - margin;
+    }
+
+    panel.style.left = `${Math.round(left)}px`;
+    panel.style.top = `${Math.round(top)}px`;
+    panel.style.maxHeight = `${Math.max(160, Math.floor(availableHeight))}px`;
+  };
+
+  const openPanel = () => {
+    panel.classList.remove("hidden");
+    backdrop.classList.remove("hidden");
+    document.body.classList.add("admin-panel-open");
+    positionPanel();
+  };
+
+  const closePanel = () => {
+    panel.classList.add("hidden");
+    backdrop.classList.add("hidden");
+    document.body.classList.remove("admin-panel-open");
+  };
+
+  const togglePanel = () => {
+    if (isOpen()) {
+      closePanel();
+      return;
+    }
+    openPanel();
+  };
+
   btn.addEventListener("click", (event) => {
     event.stopPropagation();
-    panel.classList.toggle("hidden");
+    togglePanel();
   });
 
   panel.addEventListener("click", (event) => {
     event.stopPropagation();
   });
 
+  backdrop.addEventListener("click", () => {
+    closePanel();
+  });
+
+  closeBtn?.addEventListener("click", () => {
+    closePanel();
+  });
+
   document.addEventListener("click", () => {
-    panel.classList.add("hidden");
+    closePanel();
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      panel.classList.add("hidden");
-    }
+    if (event.key === "Escape") closePanel();
   });
+
+  window.addEventListener("resize", () => {
+    positionPanel();
+  });
+
+  window.addEventListener("scroll", () => {
+    positionPanel();
+  }, true);
 
   btn.dataset.bound = "true";
 }

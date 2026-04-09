@@ -16,24 +16,37 @@
 }
 
 .admin-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
+  top: 76px;
+  left: 16px;
   width: clamp(320px, 42vw, 640px);
   max-width: calc(100vw - 16px);
-  max-height: min(72vh, 700px);
+  max-height: calc(100vh - 84px);
   overflow-y: auto;
   padding: 0;
-  z-index: 40;
+  overscroll-behavior: contain;
+  z-index: 460;
 }
 
 .admin-panel #projectAdminPanel {
   margin-bottom: 0;
   border-radius: 14px;
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
-    var(--panel);
-  border-color: rgba(255,255,255,0.12);
+    linear-gradient(180deg, rgba(20, 33, 51, 0.98), rgba(10, 19, 32, 0.99)),
+    #0a1524;
+  border: 1px solid rgba(170, 208, 255, 0.32);
+  box-shadow:
+    0 28px 64px rgba(0,0,0,0.58),
+    0 8px 20px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.07);
+  backdrop-filter: none;
+}
+
+.admin-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 8, 16, 0.38);
+  z-index: 450;
 }
 
 .adminPanelShell {
@@ -242,17 +255,16 @@
 
 @media (max-width: 1080px) {
   .admin-panel {
-    width: min(560px, calc(100vw - 16px));
-    right: 0;
+    width: min(560px, calc(100vw - 12px));
+    max-width: calc(100vw - 12px);
   }
 }
 
 @media (max-width: 760px) {
   .admin-panel {
-    width: calc(100vw - 12px);
-    max-width: calc(100vw - 12px);
-    right: -2px;
-    max-height: min(78vh, 720px);
+    width: calc(100vw - 10px);
+    max-width: calc(100vw - 10px);
+    max-height: calc(100vh - 12px);
   }
 
   .adminInviteRow {
