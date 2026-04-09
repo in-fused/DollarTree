@@ -175,6 +175,7 @@ function bindAdminPanel() {
   const btn = document.getElementById("adminPanelToggle");
   const panel = document.getElementById("adminPanel");
   const closeBtn = panel?.querySelector(".adminPanelCloseBtn");
+  const inviteEmailInput = document.getElementById("projectInviteEmail");
   const ANIMATION_MS = 140;
 
   if (!btn || !panel || btn.dataset.bound) return;
@@ -187,8 +188,22 @@ function bindAdminPanel() {
     document.body.appendChild(backdrop);
   }
 
+  btn.setAttribute("aria-controls", "adminPanel");
+  btn.setAttribute("aria-expanded", "false");
+  panel.setAttribute("aria-hidden", "true");
+  backdrop.setAttribute("aria-hidden", "true");
+
   const isOpen = () => !panel.classList.contains("hidden");
   let closeTimer = null;
+
+  const getFocusableControls = () => {
+    if (!panel) return [];
+    return Array.from(
+      panel.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((el) => !el.classList.contains("hidden") && el.offsetParent !== null);
+  };
 
   const positionPanel = () => {
     if (!isOpen()) return;
@@ -230,11 +245,26 @@ function bindAdminPanel() {
     panel.classList.remove("is-closing");
     backdrop.classList.remove("is-closing");
     document.body.classList.add("admin-panel-open");
+    btn.setAttribute("aria-expanded", "true");
+    panel.setAttribute("aria-hidden", "false");
+    backdrop.setAttribute("aria-hidden", "false");
     requestAnimationFrame(() => {
       panel.classList.add("is-open");
       backdrop.classList.add("is-open");
     });
     positionPanel();
+    requestAnimationFrame(() => {
+      if (inviteEmailInput && !inviteEmailInput.disabled) {
+        inviteEmailInput.focus();
+        return;
+      }
+      if (closeBtn && !closeBtn.disabled) {
+        closeBtn.focus();
+        return;
+      }
+      const focusables = getFocusableControls();
+      focusables[0]?.focus();
+    });
   };
 
   const closePanel = () => {
@@ -249,6 +279,10 @@ function bindAdminPanel() {
       panel.classList.remove("is-closing");
       backdrop.classList.remove("is-closing");
       document.body.classList.remove("admin-panel-open");
+      btn.setAttribute("aria-expanded", "false");
+      panel.setAttribute("aria-hidden", "true");
+      backdrop.setAttribute("aria-hidden", "true");
+      btn.focus();
       closeTimer = null;
     }, ANIMATION_MS);
   };
@@ -283,7 +317,32 @@ function bindAdminPanel() {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closePanel();
+    if (!isOpen()) return;
+    if (event.key === "Escape") {
+      closePanel();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusables = getFocusableControls();
+    if (!focusables.length) return;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey) {
+      if (active === first || !panel.contains(active)) {
+        event.preventDefault();
+        last.focus();
+      }
+      return;
+    }
+
+    if (active === last || !panel.contains(active)) {
+      event.preventDefault();
+      first.focus();
+    }
   });
 
   window.addEventListener("resize", () => {
