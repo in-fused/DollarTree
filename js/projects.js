@@ -580,6 +580,21 @@ function createRoleBadge(role) {
   return badge;
 }
 
+function flashAdminActionRowFeedback(actionTarget, variant = "success") {
+  const row = actionTarget?.closest?.(".adminMemberRow, .adminInviteRowItem");
+  if (!row) return;
+
+  const successClass = "adminRowFeedbackSuccess";
+  const errorClass = "adminRowFeedbackError";
+
+  row.classList.remove(successClass, errorClass);
+  row.classList.add(variant === "error" ? errorClass : successClass);
+
+  setTimeout(() => {
+    row.classList.remove(successClass, errorClass);
+  }, 700);
+}
+
 function logAuditEvent(type, payload = {}) {
   try {
     const createdAt = new Date().toISOString();
@@ -975,6 +990,7 @@ function bindProjectAdminUI() {
           error ? (error.message || "Unable to update role.") : `Role updated for ${targetEmail}.`,
           error ? "error" : "success"
         );
+        flashAdminActionRowFeedback(target, error ? "error" : "success");
         if (!error) {
           logAuditEvent("member_role_updated", {
             project_id: currentProjectId,
@@ -1018,6 +1034,7 @@ function bindProjectAdminUI() {
           error ? (error.message || "Unable to remove member.") : `Member removed (${profileEmailByUserId[userId] || userId}).`,
           error ? "error" : "success"
         );
+        flashAdminActionRowFeedback(target, error ? "error" : "success");
         if (!error) {
           logAuditEvent("member_removed", {
             project_id: currentProjectId,
@@ -1059,6 +1076,7 @@ function bindProjectAdminUI() {
           error ? (error.message || "Unable to revoke invite.") : "Pending invite revoked.",
           error ? "error" : "success"
         );
+        flashAdminActionRowFeedback(target, error ? "error" : "success");
         if (!error) {
           logAuditEvent("invite_revoked", {
             project_id: currentProjectId,
