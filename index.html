@@ -50,6 +50,57 @@
 
     <div class="commandBarRight">
       <div class="headerModeToggles">
+        <div class="headerControls">
+          <button id="adminPanelToggle" class="btnSecondary" type="button">⚙ Admin</button>
+
+          <div id="adminPanel" class="admin-panel hidden">
+            <div id="projectAdminPanel" class="panel hidden">
+              <div class="adminPanelShell">
+                <div class="adminPanelStickyHeader">
+                  <div class="panelHeaderRow adminPanelHeaderRow">
+                    <h3>Project Admin</h3>
+                    <div class="adminPanelHeaderActions">
+                      <div class="panelHeaderTag">RBAC</div>
+                      <button class="adminPanelCloseBtn" type="button" aria-label="Close admin panel" onclick="document.getElementById('adminPanel').classList.add('hidden')">×</button>
+                    </div>
+                  </div>
+                  <div class="adminPanelHelperText">Manage invites and roles for the current project.</div>
+                </div>
+
+                <div class="adminInviteRow">
+                  <input id="projectInviteEmail" type="email" placeholder="Invite email" />
+                  <select id="projectInviteRole">
+                    <option value="viewer">viewer</option>
+                    <option value="editor">editor</option>
+                    <option value="admin">admin</option>
+                  </select>
+                  <button id="projectInviteSendBtn" class="btnComplete" type="button">Send Invite</button>
+                </div>
+
+                <div id="projectAdminMessage" class="projectSourceTag adminPanelMessage"></div>
+
+                <section class="adminPanelSection">
+                  <div class="panelHeaderRow adminPanelSectionHeader">
+                    <h3 style="font-size:14px;">Members</h3>
+                  </div>
+                  <div id="projectMembersList"></div>
+                  <div id="projectMembersEmpty" class="projectSourceTag adminEmptyState">No project members yet for this project.</div>
+                </section>
+
+                <section class="adminPanelSection">
+                  <div class="panelHeaderRow adminPanelSectionHeader">
+                    <h3 style="font-size:14px;">Pending Invites</h3>
+                  </div>
+                  <div id="projectInvitesList"></div>
+                  <div id="projectInvitesEmpty" class="projectSourceTag adminEmptyState">No pending invites. New invites will appear here.</div>
+                </section>
+
+                <div class="adminPanelFooterHint">Press Esc or click outside to close</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <label class="executiveToggle">
           <input type="checkbox" id="nationalOverviewToggle" />
           <span>National Overview</span>
@@ -123,258 +174,264 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebarInner">
 
-      <div class="panel panelAccess">
-        <div class="panelHeaderRow">
-          <h3>Access</h3>
-          <div class="panelHeaderTag">Secure</div>
+      <div class="sidebar-section" data-section="access">
+        <div class="section-header">
+          <span>Access</span>
+          <span class="chevron">▼</span>
         </div>
-
-        <div id="authLoggedOut">
-          <input id="authEmail" type="email" placeholder="Email" />
-          <input id="authPassword" type="password" placeholder="Password" />
-          <button id="signInBtn" class="btnComplete" type="button">Sign In</button>
-        </div>
-
-        <div id="authLoggedIn" class="hidden">
-          <div id="authUserDisplay" class="authUserDisplay"></div>
-          <div id="authRoleDisplay" class="authRoleDisplay"></div>
-          <button id="signOutBtn" class="btnSecondary" type="button">Sign Out</button>
-        </div>
-
-        <div id="authMessage" class="authMessage"></div>
-
-        <div id="pendingInvitesPanel" class="hidden" style="margin-top:12px;">
-          <div class="panelHeaderRow">
-            <h3 style="font-size:14px;">Pending Invites</h3>
-          </div>
-          <div id="pendingInvitesList"></div>
-          <div id="pendingInvitesEmpty" class="projectSourceTag">No pending project invites.</div>
-        </div>
-      </div>
-
-      <div class="panel panelProject">
-        <div class="panelHeaderRow">
-          <h3>Project</h3>
-          <div class="panelHeaderTag">Active</div>
-        </div>
-
-        <select id="projectSelect"></select>
-        <div id="projectSourceTag" class="projectSourceTag">Loading project…</div>
-        <a id="importProjectLink" class="importLink" href="import-project.html">Import Project Data</a>
-        <button id="exportAnalyticsCsvBtn" class="btnSecondary" type="button">Export Analytics CSV</button>
-        <button id="exportAnalyticsJsonBtn" class="btnSecondary" type="button">Export Analytics JSON</button>
-      </div>
-
-      <div class="panel panelFilters">
-        <div class="panelHeaderRow">
-          <h3>Scope Filters</h3>
-          <button id="clearFiltersBtn" class="panelInlineAction" type="button">Clear</button>
-        </div>
-
-        <div class="filterGrid">
-          <select id="regionFilter">
-            <option value="">All Regions</option>
-          </select>
-
-          <select id="territoryFilter">
-            <option value="">All Territories</option>
-          </select>
-
-          <select id="stateFilter">
-            <option value="">All States</option>
-          </select>
-        </div>
-
-        <div id="activeFilterSummary" class="projectSourceTag">Showing all stores</div>
-      </div>
-
-      <div id="projectAdminPanel" class="panel hidden">
-        <div class="panelHeaderRow">
-          <h3>Project Admin</h3>
-          <div class="panelHeaderTag">RBAC</div>
-        </div>
-
-        <div class="filterGrid" style="grid-template-columns:1fr 130px auto;">
-          <input id="projectInviteEmail" type="email" placeholder="Invite email" />
-          <select id="projectInviteRole">
-            <option value="viewer">viewer</option>
-            <option value="editor">editor</option>
-            <option value="admin">admin</option>
-          </select>
-          <button id="projectInviteSendBtn" class="btnComplete" type="button">Send Invite</button>
-        </div>
-
-        <div id="projectAdminMessage" class="projectSourceTag"></div>
-
-        <div class="panelHeaderRow" style="margin-top:10px;">
-          <h3 style="font-size:14px;">Members</h3>
-        </div>
-        <div id="projectMembersList"></div>
-        <div id="projectMembersEmpty" class="projectSourceTag">No project members found.</div>
-
-        <div class="panelHeaderRow" style="margin-top:10px;">
-          <h3 style="font-size:14px;">Pending Invites</h3>
-        </div>
-        <div id="projectInvitesList"></div>
-        <div id="projectInvitesEmpty" class="projectSourceTag">No pending invites.</div>
-      </div>
-
-      <div class="panel panelSearch">
-        <div class="panelHeaderRow">
-          <h3>Search Store</h3>
-          <div class="panelHeaderTag">Jump</div>
-        </div>
-
-        <input id="storeSearch" placeholder="Enter Store ID #" />
-      </div>
-
-      <div class="panel panelScope">
-        <div class="panelHeaderRow">
-          <h3>Scope Summary</h3>
-          <div id="scopeStoreCountPill" class="activityCountPill">0</div>
-        </div>
-
-        <div class="scopeSummaryGrid">
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Visible Stores</div>
-            <div id="scopeVisibleStores" class="scopeSummaryValue">0</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Visible Completed</div>
-            <div id="scopeVisibleCompleted" class="scopeSummaryValue">0</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Visible Active</div>
-            <div id="scopeVisibleActive" class="scopeSummaryValue">0</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Visible Closed</div>
-            <div id="scopeVisibleClosed" class="scopeSummaryValue">0</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Visible Rescheduled</div>
-            <div id="scopeVisibleRescheduled" class="scopeSummaryValue">0</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">No Updates Yet</div>
-            <div id="scopeVisibleNoUpdates" class="scopeSummaryValue">0</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Note Coverage</div>
-            <div id="scopeVisibleNoteCoverage" class="scopeSummaryValue">0%</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Photo Coverage</div>
-            <div id="scopeVisiblePhotoCoverage" class="scopeSummaryValue">0%</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Attention Needed</div>
-            <div id="scopeVisibleAttention" class="scopeSummaryValue">0</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel routePanel">
-        <div class="routeHeader">
-          <h3>Route Builder</h3>
-          <label class="routeToggleLabel">
-            <input type="checkbox" id="routeModeToggle" />
-            <span>Route Mode</span>
-          </label>
-        </div>
-
-        <div class="routeControls">
-          <input id="routeStoreInput" placeholder="Add Store ID to Route" />
-          <button id="addRouteStoreBtn" class="btnSecondary" type="button">Add by Store ID</button>
-        </div>
-
-        <div id="selectedStopsEmpty" class="routeEmpty">
-          <div class="emptyStateMini">
-            <div class="emptyStateMiniTitle">No route stops selected</div>
-            <div class="emptyStateMiniText">Enable Route Mode, then add store IDs or add stops from a store card.</div>
-          </div>
-        </div>
-
-        <div id="selectedStopsList" class="selectedStopsList"></div>
-
-        <div class="routeActions">
-          <button id="clearRouteBtn" class="btnSecondary" type="button">Clear</button>
-          <button id="openRouteBtn" class="btnComplete" type="button">Open Route</button>
-        </div>
-
-        <div class="routeMetricsPanel">
-          <div class="routeMetricsHeader">Route Efficiency</div>
-          <div class="routeMetricsGrid">
-            <div class="routeMetricCard">
-              <div class="routeMetricLabel">Stops</div>
-              <div id="routeMetricStops" class="routeMetricValue">0</div>
+        <div class="section-content">
+          <div class="panel panelAccess">
+            <div id="authLoggedOut">
+              <input id="authEmail" type="email" placeholder="Email" />
+              <input id="authPassword" type="password" placeholder="Password" />
+              <button id="signInBtn" class="btnComplete" type="button">Sign In</button>
             </div>
-            <div class="routeMetricCard">
-              <div class="routeMetricLabel">Approx Miles</div>
-              <div id="routeMetricMiles" class="routeMetricValue">0</div>
+
+            <div id="authLoggedIn" class="hidden">
+              <div id="authUserDisplay" class="authUserDisplay"></div>
+              <div id="authRoleDisplay" class="authRoleDisplay"></div>
+              <button id="signOutBtn" class="btnSecondary" type="button">Sign Out</button>
             </div>
-            <div class="routeMetricCard">
-              <div class="routeMetricLabel">Efficiency</div>
-              <div id="routeMetricScore" class="routeMetricValue">—</div>
+
+            <div id="authMessage" class="authMessage"></div>
+
+            <div id="pendingInvitesPanel" class="hidden" style="margin-top:12px;">
+              <div class="panelHeaderRow">
+                <h3 style="font-size:14px;">Pending Invites</h3>
+              </div>
+              <div id="pendingInvitesList"></div>
+              <div id="pendingInvitesEmpty" class="projectSourceTag">No pending project invites.</div>
             </div>
           </div>
-          <div id="routeMetricDetail" class="routeMetricDetail">Add stops to calculate route efficiency.</div>
         </div>
       </div>
 
-      <div id="adminDataHealthPanel" class="panel panelAdminHealth hidden">
-        <div class="panelHeaderRow">
-          <h3>Admin Data Health</h3>
-          <div class="panelHeaderTag">Audit</div>
+      <div class="sidebar-section" data-section="project">
+        <div class="section-header">
+          <span>Project</span>
+          <span class="chevron">▼</span>
         </div>
-
-        <div class="scopeSummaryGrid adminHealthGrid">
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Missing Region</div>
-            <div id="healthMissingRegion" class="scopeSummaryValue">0</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Missing Territory</div>
-            <div id="healthMissingTerritory" class="scopeSummaryValue">0</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Missing State</div>
-            <div id="healthMissingState" class="scopeSummaryValue">0</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Missing Coordinates</div>
-            <div id="healthMissingCoords" class="scopeSummaryValue">0</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Missing Status</div>
-            <div id="healthMissingStatus" class="scopeSummaryValue">0</div>
-          </div>
-
-          <div class="scopeSummaryCard">
-            <div class="scopeSummaryLabel">Plotted Issue Stores</div>
-            <div id="healthPlottedIssues" class="scopeSummaryValue">0</div>
+        <div class="section-content">
+          <div class="panel panelProject">
+            <select id="projectSelect"></select>
+            <div id="projectSourceTag" class="projectSourceTag">Loading project…</div>
+            <a id="importProjectLink" class="importLink" href="import-project.html">Import Project Data</a>
+            <button id="exportAnalyticsCsvBtn" class="btnSecondary" type="button">Export Analytics CSV</button>
+            <button id="exportAnalyticsJsonBtn" class="btnSecondary" type="button">Export Analytics JSON</button>
           </div>
         </div>
       </div>
 
-      <div class="panel panelActivity">
-        <div class="panelHeaderRow">
-          <h3>Recent Activity</h3>
-          <div id="activityCountPill" class="activityCountPill">0</div>
+      <div class="sidebar-section" data-section="filters">
+        <div class="section-header">
+          <span>Scope Filters</span>
+          <div class="section-header-actions">
+            <button id="clearFiltersBtn" class="panelInlineAction" type="button">Clear</button>
+            <span class="chevron">▼</span>
+          </div>
         </div>
-        <div id="activityList" class="activityList"></div>
+        <div class="section-content">
+          <div class="panel panelFilters">
+            <div class="filterGrid">
+              <select id="regionFilter">
+                <option value="">All Regions</option>
+              </select>
+
+              <select id="territoryFilter">
+                <option value="">All Territories</option>
+              </select>
+
+              <select id="stateFilter">
+                <option value="">All States</option>
+              </select>
+            </div>
+
+            <div id="activeFilterSummary" class="projectSourceTag">Showing all stores</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section" data-section="search">
+        <div class="section-header">
+          <span>Search Store</span>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="panel panelSearch">
+            <input id="storeSearch" placeholder="Enter Store ID #" />
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section" data-section="scope-summary">
+        <div class="section-header">
+          <span>Scope Summary</span>
+          <div class="section-header-actions">
+            <div id="scopeStoreCountPill" class="activityCountPill">0</div>
+            <span class="chevron">▼</span>
+          </div>
+        </div>
+        <div class="section-content">
+          <div class="panel panelScope">
+            <div class="scopeSummaryGrid">
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Visible Stores</div>
+                <div id="scopeVisibleStores" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Visible Completed</div>
+                <div id="scopeVisibleCompleted" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Visible Active</div>
+                <div id="scopeVisibleActive" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Visible Closed</div>
+                <div id="scopeVisibleClosed" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Visible Rescheduled</div>
+                <div id="scopeVisibleRescheduled" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">No Updates Yet</div>
+                <div id="scopeVisibleNoUpdates" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Note Coverage</div>
+                <div id="scopeVisibleNoteCoverage" class="scopeSummaryValue">0%</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Photo Coverage</div>
+                <div id="scopeVisiblePhotoCoverage" class="scopeSummaryValue">0%</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Attention Needed</div>
+                <div id="scopeVisibleAttention" class="scopeSummaryValue">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section" data-section="route-builder">
+        <div class="section-header">
+          <span>Route Builder</span>
+          <div class="section-header-actions">
+            <label class="routeToggleLabel">
+              <input type="checkbox" id="routeModeToggle" />
+              <span>Route Mode</span>
+            </label>
+            <span class="chevron">▼</span>
+          </div>
+        </div>
+        <div class="section-content">
+          <div class="panel routePanel">
+            <div class="routeControls">
+              <input id="routeStoreInput" placeholder="Add Store ID to Route" />
+              <button id="addRouteStoreBtn" class="btnSecondary" type="button">Add by Store ID</button>
+            </div>
+
+            <div id="selectedStopsEmpty" class="routeEmpty">
+              <div class="emptyStateMini">
+                <div class="emptyStateMiniTitle">No route stops selected</div>
+                <div class="emptyStateMiniText">Enable Route Mode, then add store IDs or add stops from a store card.</div>
+              </div>
+            </div>
+
+            <div id="selectedStopsList" class="selectedStopsList"></div>
+
+            <div class="routeActions">
+              <button id="clearRouteBtn" class="btnSecondary" type="button">Clear</button>
+              <button id="openRouteBtn" class="btnComplete" type="button">Open Route</button>
+            </div>
+
+            <div class="routeMetricsPanel">
+              <div class="routeMetricsHeader">Route Efficiency</div>
+              <div class="routeMetricsGrid">
+                <div class="routeMetricCard">
+                  <div class="routeMetricLabel">Stops</div>
+                  <div id="routeMetricStops" class="routeMetricValue">0</div>
+                </div>
+                <div class="routeMetricCard">
+                  <div class="routeMetricLabel">Approx Miles</div>
+                  <div id="routeMetricMiles" class="routeMetricValue">0</div>
+                </div>
+                <div class="routeMetricCard">
+                  <div class="routeMetricLabel">Efficiency</div>
+                  <div id="routeMetricScore" class="routeMetricValue">—</div>
+                </div>
+              </div>
+              <div id="routeMetricDetail" class="routeMetricDetail">Add stops to calculate route efficiency.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="adminDataHealthPanel" class="sidebar-section hidden" data-section="admin-data-health">
+        <div class="section-header">
+          <span>Admin Data Health</span>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="panel panelAdminHealth">
+            <div class="scopeSummaryGrid adminHealthGrid">
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Missing Region</div>
+                <div id="healthMissingRegion" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Missing Territory</div>
+                <div id="healthMissingTerritory" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Missing State</div>
+                <div id="healthMissingState" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Missing Coordinates</div>
+                <div id="healthMissingCoords" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Missing Status</div>
+                <div id="healthMissingStatus" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Plotted Issue Stores</div>
+                <div id="healthPlottedIssues" class="scopeSummaryValue">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section" data-section="recent-activity">
+        <div class="section-header">
+          <span>Recent Activity</span>
+          <div class="section-header-actions">
+            <div id="activityCountPill" class="activityCountPill">0</div>
+            <span class="chevron">▼</span>
+          </div>
+        </div>
+        <div class="section-content">
+          <div class="panel panelActivity">
+            <div id="activityList" class="activityList"></div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -422,64 +479,6 @@
             <div class="mapLegendRow"><span class="legendDot legendOrange"></span><span>Rescheduled dominant</span></div>
             <div class="mapLegendRow"><span class="legendDot legendGreen"></span><span>Completed dominant</span></div>
             <div class="mapLegendRow"><span class="legendDot legendRed"></span><span>Closed dominant</span></div>
-          </div>
-
-          <div class="mapExecutiveCallout exec-summary-collapsed" id="mapExecutiveCallout">
-            <div class="mapExecutiveSummaryHeader">
-              <div class="mapExecutiveSummaryHeaderText">
-                <div class="mapExecutiveCalloutEyebrow">Operational Summary</div>
-                <div id="mapExecutiveSummaryLine" class="mapExecutiveSummaryLine">Loading store execution summary…</div>
-              </div>
-              <button id="executiveSummaryToggleBtn" class="executiveSummaryToggleBtn" type="button" aria-expanded="false" aria-controls="mapExecutiveDetails">Expand</button>
-            </div>
-
-            <div class="mapExecutiveCompactRow">
-              <div class="mapExecutiveMiniStat completion">
-                <span class="mapExecutiveMiniLabel">Completion</span>
-                <span id="analyticsCompletionValue" class="mapExecutiveMiniValue">0.0%</span>
-              </div>
-              <div class="analyticsBarGroup analyticsBarGroupCompact">
-                <div class="analyticsBarLabelRow"><span>Completion</span><span id="analyticsCompletionValueMirror">Actionable delivery</span></div>
-                <div class="analyticsBarTrack"><div id="analyticsCompletionBar" class="analyticsBarFill statusCompleted"></div></div>
-              </div>
-            </div>
-
-            <div class="mapExecutiveDetailsShell" id="mapExecutiveDetails" aria-hidden="true">
-              <div class="mapExecutiveDetailsContent">
-                <div class="mapExecutiveKpiRow">
-                  <div class="mapExecutiveKpiCard">
-                    <div class="mapExecutiveKpiLabel">Open Work</div>
-                    <div id="analyticsOpenWorkValue" class="mapExecutiveKpiValue">0 open</div>
-                  </div>
-                  <div class="mapExecutiveKpiCard attention">
-                    <div class="mapExecutiveKpiLabel">Attention</div>
-                    <div id="analyticsAttentionValue" class="mapExecutiveKpiValue">0 flagged</div>
-                  </div>
-                </div>
-                <div class="mapExecutiveKpiRow compact">
-                  <div class="mapExecutiveMiniStat">
-                    <span class="mapExecutiveMiniLabel">Coverage</span>
-                    <span id="analyticsCoverageValue" class="mapExecutiveMiniValue">0.0% notes • 0.0% photos</span>
-                  </div>
-                </div>
-                <div class="analyticsBarStack">
-                  <div class="analyticsBarGroup">
-                    <div class="analyticsBarLabelRow"><span>Note Coverage</span><span>Follow-up logging</span></div>
-                    <div class="analyticsBarTrack"><div id="analyticsNoteCoverageBar" class="analyticsBarFill statusRescheduled"></div></div>
-                  </div>
-                  <div class="analyticsBarGroup">
-                    <div class="analyticsBarLabelRow"><span>Photo Coverage</span><span>Evidence capture</span></div>
-                    <div class="analyticsBarTrack"><div id="analyticsPhotoCoverageBar" class="analyticsBarFill statusActive"></div></div>
-                  </div>
-                  <div class="analyticsBarGroup">
-                    <div class="analyticsBarLabelRow"><span>Recent Follow-up</span><span>Last 14 days</span></div>
-                    <div class="analyticsBarTrack"><div id="analyticsRecentCoverageBar" class="analyticsBarFill statusClosed"></div></div>
-                  </div>
-                </div>
-                <div id="analyticsAttentionLine" class="mapExecutiveDetailLine">Loading attention signals…</div>
-                <div id="analyticsRecentLine" class="mapExecutiveDetailLine muted">Loading recent follow-up coverage…</div>
-              </div>
-            </div>
           </div>
 
           <div id="map"></div>
@@ -739,7 +738,7 @@
             <div class="panelHeaderTag">Follow-up</div>
           </div>
 
-                    <div class="scopeSummaryGrid scopeSummaryGridIntel">
+          <div class="scopeSummaryGrid scopeSummaryGridIntel">
             <div class="scopeSummaryCard">
               <div class="scopeSummaryLabel">No Updates Yet</div>
               <div id="intelNoUpdates" class="scopeSummaryValue">0</div>

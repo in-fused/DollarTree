@@ -216,11 +216,6 @@ function buildOperationalSummary(metrics) {
   return `${metrics.totalStores.toLocaleString()} stores • ${metrics.completed.toLocaleString()} completed • ${metrics.openWorkCount.toLocaleString()} open work • ${metrics.attentionNeededCount.toLocaleString()} attention signals`;
 }
 
-function buildExecutiveSummary(metrics) {
-  if (metrics.totalStores === 0) return "No mapped stores currently in scope.";
-  return `${formatPercent(metrics.completionRate)} actionable completion across ${metrics.totalStores.toLocaleString()} stores, ${formatPercent(metrics.photoCoverageRate)} photo coverage, ${formatPercent(metrics.noteCoverageRate)} note coverage, and ${metrics.attentionNeededCount.toLocaleString()} attention signals requiring follow-up.`;
-}
-
 function getCurrentScopeLabel(metrics) {
   const parts = [];
   parts.push(nationalOverviewEnabled ? "National View" : "Project View");
@@ -249,20 +244,6 @@ function getWorkspaceProgressContext(metrics) {
   return `${formatPercent(metrics.noteCoverageRate)} note coverage • ${formatPercent(metrics.photoCoverageRate)} photo coverage • ${metrics.attentionNeededCount.toLocaleString()} attention signals`;
 }
 
-function renderAnalyticsBars(metrics) {
-  const bars = [
-    ["analyticsCompletionBar", metrics.completionRate],
-    ["analyticsNoteCoverageBar", metrics.noteCoverageRate],
-    ["analyticsPhotoCoverageBar", metrics.photoCoverageRate],
-    ["analyticsRecentCoverageBar", metrics.recentActivityCoverageRate]
-  ];
-
-  bars.forEach(([id, value]) => {
-    const el = document.getElementById(id);
-    if (el) el.style.width = `${Math.max(0, Math.min(100, value))}%`;
-  });
-}
-
 function updateHeaderMetaAndSummaries() {
   const metrics = getScopeMetrics();
   setText("headerScopeSummary", getCurrentScopeLabel(metrics));
@@ -270,19 +251,8 @@ function updateHeaderMetaAndSummaries() {
   setText("headerViewModeText", currentWorkspaceView === "photos" ? "Photo Evidence Review" : "Map Operations");
   setText("headerLastUpdatedText", formatLastUpdated(lastDataRefreshAt));
   setText("workspaceProgressContext", getWorkspaceProgressContext(metrics));
-  setText("mapExecutiveSummaryLine", buildExecutiveSummary(metrics));
   setText("photoLibraryScopeBadge", metrics.totalStores > 0 ? `${metrics.totalStores.toLocaleString()} in scope` : "No Stores");
   setText("photoLibraryModeBadge", currentPhotoLibrarySelection ? "Inspection" : "Review");
-
-  setText("analyticsOpenWorkValue", `${metrics.openWorkCount.toLocaleString()} open`);
-  setText("analyticsAttentionValue", `${metrics.attentionNeededCount.toLocaleString()} flagged`);
-  setText("analyticsCompletionValue", formatPercent(metrics.completionRate));
-  setText("analyticsCompletionValueMirror", formatPercent(metrics.completionRate));
-  setText("analyticsCoverageValue", `${formatPercent(metrics.noteCoverageRate)} notes • ${formatPercent(metrics.photoCoverageRate)} photos`);
-  setText("analyticsAttentionLine", `${metrics.stalledActiveCount.toLocaleString()} active with no updates • ${metrics.rescheduledNoReasonCount.toLocaleString()} rescheduled with no reason • ${metrics.integrityIssueCount.toLocaleString()} integrity issues`);
-  setText("analyticsRecentLine", `${metrics.recentActivityCoverageCount.toLocaleString()} stores touched in the last ${RECENT_ACTIVITY_WINDOW_DAYS} days`);
-  renderAnalyticsBars(metrics);
-  updateMobileExecutiveSummaryUI();
 }
 
 function updateHeaderDashboard() {

@@ -1,7 +1,5 @@
 /* ================= LOGO / MOBILE ================= */
 
-const EXEC_SUMMARY_COLLAPSE_KEY = "execSummaryCollapsed";
-
 function bindLogoHome() {
   const logo = document.querySelector(".brandLogoWide");
   if (!logo || logo.dataset.bound) return;
@@ -16,79 +14,6 @@ function bindLogoHome() {
   logo.dataset.bound = "true";
 }
 
-function getExecutiveSummaryCollapsedState() {
-  try {
-    const stored = sessionStorage.getItem(EXEC_SUMMARY_COLLAPSE_KEY);
-    if (stored === "true") return true;
-    if (stored === "false") return false;
-  } catch (error) {
-    // Ignore storage failures and use compact default.
-  }
-  return true;
-}
-
-function setExecutiveSummaryCollapsedState(collapsed) {
-  try {
-    sessionStorage.setItem(EXEC_SUMMARY_COLLAPSE_KEY, String(collapsed));
-  } catch (error) {
-    // Ignore storage failures.
-  }
-}
-
-function bindMobileExecutiveSummary() {
-  const card = document.getElementById("mapExecutiveCallout");
-  const toggle = document.getElementById("executiveSummaryToggleBtn");
-  if (!card || !toggle || toggle.dataset.bound) return;
-
-  toggle.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const isMobileExecutiveView = isMobileViewport() && executiveModeEnabled;
-    if (isMobileExecutiveView) {
-      mobileExecutiveSummaryExpanded = !mobileExecutiveSummaryExpanded;
-      updateMobileExecutiveSummaryUI();
-      return;
-    }
-
-    const collapsed = card.classList.contains("exec-summary-collapsed");
-    setExecutiveSummaryCollapsedState(!collapsed);
-    updateMobileExecutiveSummaryUI();
-  });
-
-  toggle.dataset.bound = "true";
-}
-
-function updateMobileExecutiveSummaryUI() {
-  const card = document.getElementById("mapExecutiveCallout");
-  const line = document.getElementById("mapExecutiveSummaryLine");
-  const details = document.getElementById("mapExecutiveDetails");
-  const toggle = document.getElementById("executiveSummaryToggleBtn");
-  if (!card || !line || !details || !toggle) return;
-
-  const shouldUseMobileBehavior = isMobileViewport() && executiveModeEnabled;
-  const collapsed = shouldUseMobileBehavior
-    ? !mobileExecutiveSummaryExpanded
-    : getExecutiveSummaryCollapsedState();
-
-  card.classList.toggle("mobile-collapsible", shouldUseMobileBehavior);
-  card.classList.toggle("expanded", shouldUseMobileBehavior && !collapsed);
-  card.classList.toggle("exec-summary-collapsed", collapsed);
-  card.classList.toggle("exec-summary-expanded", !collapsed);
-
-  line.classList.toggle("collapsed", shouldUseMobileBehavior && collapsed);
-
-  toggle.setAttribute("aria-expanded", String(!collapsed));
-  toggle.setAttribute("aria-label", collapsed ? "Expand executive summary" : "Collapse executive summary");
-  toggle.textContent = collapsed ? "Expand" : "Collapse";
-
-  details.setAttribute("aria-hidden", String(collapsed));
-
-  if (shouldUseMobileBehavior) {
-    setExecutiveSummaryCollapsedState(collapsed);
-  }
-}
-
 /* ================= EXEC / NATIONAL / SIDEBAR ================= */
 
 function bindExecutiveModeUI() {
@@ -99,7 +24,6 @@ function bindExecutiveModeUI() {
     toggle.addEventListener("change", () => {
       executiveModeEnabled = toggle.checked;
       localStorage.setItem(EXECUTIVE_MODE_KEY, String(executiveModeEnabled));
-      mobileExecutiveSummaryExpanded = false;
       updateExecutiveModeUI();
     });
     toggle.dataset.bound = "true";
@@ -109,7 +33,6 @@ function bindExecutiveModeUI() {
     floatingExit.addEventListener("click", () => {
       executiveModeEnabled = false;
       localStorage.setItem(EXECUTIVE_MODE_KEY, "false");
-      mobileExecutiveSummaryExpanded = false;
       updateExecutiveModeUI();
     });
     floatingExit.dataset.bound = "true";
@@ -130,7 +53,6 @@ function updateExecutiveModeUI() {
   }
 
   updateHeaderMetaAndSummaries();
-  updateMobileExecutiveSummaryUI();
   setTimeout(() => map.resize(), 180);
 }
 
@@ -184,9 +106,97 @@ function bindMobileSidebarUI() {
     if (window.innerWidth > 900) {
       document.body.classList.remove("sidebar-open");
     }
-    updateMobileExecutiveSummaryUI();
     setTimeout(() => map.resize(), 120);
   });
+}
+
+function getSidebarStateStorageKey() {
+  const projectScope = String(currentProjectId || "global");
+  return `sidebarState:${projectScope}`;
+}
+
+function bindSidebarCollapsibles() {
+  const sections = document.querySelectorAll(".sidebar-section");
+
+  sections.forEach(section => {
+    const header = section.querySelector(".section-header");
+    if (!header || header.dataset.bound) return;
+
+    header.addEventListener("click", (event) => {
+      if (event.target.closest("button, input, select, textarea, a, label")) return;
+      section.classList.toggle("collapsed");
+      persistSidebarState();
+    });
+
+    header.dataset.bound = "true";
+  });
+
+  restoreSidebarState();
+
+  const projectSelect = document.getElementById("projectSelect");
+  if (projectSelect && !projectSelect.dataset.sidebarStateBound) {
+    projectSelect.addEventListener("change", () => {
+      setTimeout(() => {
+        restoreSidebarState();
+      }, 0);
+    });
+    projectSelect.dataset.sidebarStateBound = "true";
+  }
+}
+
+function persistSidebarState() {
+  const state = {};
+  document.querySelectorAll(".sidebar-section").forEach(section => {
+    const sectionKey = String(section.dataset.section || "").trim();
+    if (!sectionKey) return;
+    state[sectionKey] = section.classList.contains("collapsed");
+  });
+
+  localStorage.setItem(getSidebarStateStorageKey(), JSON.stringify(state));
+}
+
+function restoreSidebarState() {
+  const raw = localStorage.getItem(getSidebarStateStorageKey());
+  if (!raw) return;
+
+  try {
+    const state = JSON.parse(raw);
+    Object.entries(state).forEach(([key, collapsed]) => {
+      const section = document.querySelector(`.sidebar-section[data-section="${key}"]`);
+      if (!section) return;
+      section.classList.toggle("collapsed", !!collapsed);
+    });
+  } catch (error) {
+    console.warn("Sidebar state restore skipped:", error);
+  }
+}
+
+function bindAdminPanel() {
+  const btn = document.getElementById("adminPanelToggle");
+  const panel = document.getElementById("adminPanel");
+
+  if (!btn || !panel || btn.dataset.bound) return;
+
+  btn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    panel.classList.toggle("hidden");
+  });
+
+  panel.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+
+  document.addEventListener("click", () => {
+    panel.classList.add("hidden");
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      panel.classList.add("hidden");
+    }
+  });
+
+  btn.dataset.bound = "true";
 }
 
 /* ================= WORKSPACE VIEWS ================= */
@@ -232,9 +242,7 @@ function updateWorkspaceViewUI() {
   photoView?.classList.toggle("hidden", showingMap);
   photoView?.classList.toggle("active", !showingMap);
 
-  mobileExecutiveSummaryExpanded = false;
   updateHeaderMetaAndSummaries();
-  updateMobileExecutiveSummaryUI();
 
   if (showingMap) {
     setTimeout(() => map.resize(), 120);
