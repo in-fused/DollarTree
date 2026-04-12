@@ -743,6 +743,8 @@ async function refreshAccessAfterMembershipMutation() {
 const PROJECT_ROLE_OPTIONS = ["viewer", "editor", "admin"];
 let projectAdminMessageClearTimer = null;
 const ADMIN_ACTION_COOLDOWN_MS = 250;
+const PROJECT_BRANDING_UNAVAILABLE_MESSAGE = "Branding storage is not available yet for this environment. Other admin actions still work.";
+const projectBrandingUnavailableByProjectId = {};
 const PROJECT_ROLE_DISPLAY_META = {
   viewer: { label: "Viewer", hint: "read-only" },
   editor: { label: "Editor", hint: "can update" },
@@ -774,7 +776,37 @@ function createRoleBadge(role) {
   return badge;
 }
 
-function updateAdminPanelHeaderContext({ canManage = false, isRefreshing = false, projectNameOverride = "" } = {}) {
+function markProjectBrandingUnavailable(projectId, isUnavailable) {
+  const scopedProjectId = String(projectId || "").trim();
+  if (!scopedProjectId) return;
+  projectBrandingUnavailableByProjectId[scopedProjectId] = isUnavailable === true;
+}
+
+function isProjectBrandingUnavailable(projectId) {
+  const scopedProjectId = String(projectId || "").trim();
+  if (!scopedProjectId) return false;
+  return projectBrandingUnavailableByProjectId[scopedProjectId] === true;
+}
+
+function shouldRestoreAdminActionControls(scopedProjectId) {
+  const normalizedCurrentProjectId = String(currentProjectId || "").trim();
+  const normalizedScopedProjectId = String(scopedProjectId || "").trim();
+  const hasMatchingProject = normalizedCurrentProjectId && normalizedCurrentProjectId === normalizedScopedProjectId;
+  return Boolean(
+    isSignedIn()
+    && canManageProjectLifecycle()
+    && hasMatchingProject
+  );
+}
+
+function normalizeActionError(error, fallbackMessage) {
+  if (!error) return null;
+  if (error instanceof Error) return error;
+  const message = String(error?.message || fallbackMessage || "Action failed.").trim();
+  return new Error(message || fallbackMessage || "Action failed.");
+}
+
+function updateAdminPanelHeaderContext({ canManage = false, isRefreshing = false, projectNameOverride = "", brandingUnavailable = false } = {}) {
   const projectNameEl = document.getElementById("adminPanelProjectName");
   const helperTextEl = document.getElementById("adminPanelHelperText");
   const shell = document.querySelector("#projectAdminPanel .adminPanelShell");
@@ -794,6 +826,8 @@ function updateAdminPanelHeaderContext({ canManage = false, isRefreshing = false
   if (helperTextEl) {
     if (isRefreshing && hasProject) {
       helperTextEl.textContent = "Refreshing admin details for this project…";
+    } else if (canManage && brandingUnavailable) {
+      helperTextEl.textContent = "Branding fields are unavailable in this backend schema. Invite and member actions remain active.";
     } else if (canManage) {
       helperTextEl.textContent = "Manage invites and roles for this current project.";
     } else if (!hasProject) {
@@ -963,24 +997,28 @@ async function refreshProjectAdminPanel() {
 
   const hasProject = !!String(currentProjectId || "").trim();
   const canManage = isSignedIn() && canManageProjectLifecycle() && hasProject;
+  if (canManage && typeof dataLayer?.isProjectBrandingStorageAvailable === "function") {
+    markProjectBrandingUnavailable(currentProjectId, !dataLayer.isProjectBrandingStorageAvailable());
+  }
+  const brandingUnavailable = canManage && isProjectBrandingUnavailable(currentProjectId);
   const normalizedBrandColor = normalizeProjectBrandColor(currentProjectMeta?.brand_color) || DEFAULT_PROJECT_ACCENT_HEX;
   const normalizedBrandLogoUrl = normalizeProjectBrandLogoUrl(currentProjectMeta?.brand_logo_url);
 
   panel.classList.remove("hidden");
   actions?.classList.toggle("hidden", !canManage);
   inactiveState?.classList.toggle("hidden", canManage);
-  updateAdminPanelHeaderContext({ canManage, isRefreshing: false });
+  updateAdminPanelHeaderContext({ canManage, isRefreshing: false, brandingUnavailable });
 
   if (brandColorInput) {
     brandColorInput.value = normalizedBrandColor;
-    brandColorInput.disabled = !canManage;
+    brandColorInput.disabled = !canManage || brandingUnavailable;
   }
   if (brandLogoUrlInput) {
     brandLogoUrlInput.value = normalizedBrandLogoUrl;
-    brandLogoUrlInput.disabled = !canManage;
+    brandLogoUrlInput.disabled = !canManage || brandingUnavailable;
   }
   if (brandingSaveBtn) {
-    brandingSaveBtn.disabled = !canManage;
+    brandingSaveBtn.disabled = !canManage || brandingUnavailable || brandingSaveBtn.dataset.loading === "true";
   }
 
   if (!canManage) {
@@ -1003,7 +1041,13 @@ async function refreshProjectAdminPanel() {
   if (inviteEmailInput) inviteEmailInput.disabled = false;
   if (inviteRoleSelect) inviteRoleSelect.disabled = false;
   if (inviteSendBtn && inviteSendBtn.dataset.loading !== "true") inviteSendBtn.disabled = false;
-  if (inviteMessage && !inviteMessage.textContent) inviteMessage.textContent = "";
+  if (inviteMessage) {
+    if (brandingUnavailable) {
+      setProjectAdminMessage(PROJECT_BRANDING_UNAVAILABLE_MESSAGE, "info");
+    } else if (!inviteMessage.textContent) {
+      inviteMessage.textContent = "";
+    }
+  }
 
   membersList.innerHTML = "";
   invitesList.innerHTML = "";
@@ -1183,6 +1227,7 @@ function bindProjectAdminUI() {
       if (!isSignedIn() || !canManageProjectLifecycle() || !currentProjectId) return;
       if (inviteSendBtn.dataset.loading === "true") return;
       setProjectAdminMessage("");
+      const scopedProjectId = String(currentProjectId || "").trim();
 
       const email = String(inviteEmailInput?.value || "").trim().toLowerCase();
       const role = normalizeProjectRole(inviteRoleSelect?.value || "viewer");
@@ -1200,7 +1245,12 @@ function bindProjectAdminUI() {
       if (inviteRoleSelect) inviteRoleSelect.disabled = true;
 
       try {
-        const result = await dataLayer.createProjectInvite(currentProjectId, email, role, currentUser?.id || null);
+        let result;
+        try {
+          result = await dataLayer.createProjectInvite(scopedProjectId, email, role, currentUser?.id || null);
+        } catch (error) {
+          result = { data: null, error: normalizeActionError(error, "Unable to send invite.") };
+        }
         if (result.error) {
           setProjectAdminMessage(result.error.message || "Unable to send invite.", "error");
           return;
@@ -1222,10 +1272,11 @@ function bindProjectAdminUI() {
       } finally {
         await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
         inviteSendBtn.dataset.loading = "false";
-        inviteSendBtn.disabled = false;
+        const shouldEnable = shouldRestoreAdminActionControls(scopedProjectId);
+        inviteSendBtn.disabled = !shouldEnable;
         inviteSendBtn.textContent = originalLabel || "Send Invite";
-        if (inviteEmailInput) inviteEmailInput.disabled = false;
-        if (inviteRoleSelect) inviteRoleSelect.disabled = false;
+        if (inviteEmailInput) inviteEmailInput.disabled = !shouldEnable;
+        if (inviteRoleSelect) inviteRoleSelect.disabled = !shouldEnable;
       }
     });
     inviteSendBtn.dataset.bound = "true";
@@ -1234,8 +1285,13 @@ function bindProjectAdminUI() {
   if (brandingSaveBtn && !brandingSaveBtn.dataset.bound) {
     brandingSaveBtn.addEventListener("click", async () => {
       if (!isSignedIn() || !canManageProjectLifecycle() || !currentProjectId) return;
+      if (isProjectBrandingUnavailable(currentProjectId)) {
+        setProjectAdminMessage(PROJECT_BRANDING_UNAVAILABLE_MESSAGE, "info");
+        return;
+      }
       if (brandingSaveBtn.dataset.loading === "true") return;
       setProjectAdminMessage("");
+      const scopedProjectId = String(currentProjectId || "").trim();
 
       const enteredColor = String(brandColorInput?.value || "").trim();
       const enteredLogoUrl = String(brandLogoUrlInput?.value || "").trim();
@@ -1259,16 +1315,33 @@ function bindProjectAdminUI() {
       if (brandLogoUrlInput) brandLogoUrlInput.disabled = true;
 
       try {
-        const { error } = await dataLayer.updateProjectBranding(
-          currentProjectId,
-          normalizedColor,
-          normalizedLogoUrl || null
-        );
+        let result;
+        try {
+          result = await dataLayer.updateProjectBranding(
+            scopedProjectId,
+            normalizedColor,
+            normalizedLogoUrl || null
+          );
+        } catch (error) {
+          result = { data: null, error: normalizeActionError(error, "Unable to save branding."), brandingUnavailable: false };
+        }
 
-        if (error) {
-          setProjectAdminMessage(error.message || "Unable to save branding.", "error");
+        if (result?.brandingUnavailable) {
+          markProjectBrandingUnavailable(scopedProjectId, true);
+          setProjectAdminMessage(
+            String(result?.brandingMessage || PROJECT_BRANDING_UNAVAILABLE_MESSAGE),
+            "info"
+          );
+          await refreshProjectAdminPanel();
           return;
         }
+
+        if (result?.error) {
+          markProjectBrandingUnavailable(scopedProjectId, false);
+          setProjectAdminMessage(result.error.message || "Unable to save branding.", "error");
+          return;
+        }
+        markProjectBrandingUnavailable(scopedProjectId, false);
 
         currentProjectMeta = {
           ...currentProjectMeta,
@@ -1292,10 +1365,11 @@ function bindProjectAdminUI() {
       } finally {
         await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
         brandingSaveBtn.dataset.loading = "false";
-        brandingSaveBtn.disabled = false;
+        const shouldEnableBranding = shouldRestoreAdminActionControls(scopedProjectId) && !isProjectBrandingUnavailable(scopedProjectId);
+        brandingSaveBtn.disabled = !shouldEnableBranding;
         brandingSaveBtn.textContent = originalLabel || "Save Branding";
-        if (brandColorInput) brandColorInput.disabled = false;
-        if (brandLogoUrlInput) brandLogoUrlInput.disabled = false;
+        if (brandColorInput) brandColorInput.disabled = !shouldEnableBranding;
+        if (brandLogoUrlInput) brandLogoUrlInput.disabled = !shouldEnableBranding;
       }
     });
     brandingSaveBtn.dataset.bound = "true";
@@ -1308,6 +1382,7 @@ function bindProjectAdminUI() {
 
       const action = target.dataset.action;
       if (action === "save-member-role") {
+        const scopedProjectId = String(currentProjectId || "").trim();
         const userId = String(target.dataset.userId || "").trim();
         if (!userId) return;
         if (target.dataset.loading === "true") return;
@@ -1326,13 +1401,19 @@ function bindProjectAdminUI() {
 
         let error = null;
         try {
-          ({ error } = await dataLayer.updateProjectMembershipRole(currentProjectId, userId, role));
+          ({ error } = await dataLayer.updateProjectMembershipRole(scopedProjectId, userId, role));
+        } catch (caughtError) {
+          error = normalizeActionError(caughtError, "Unable to update role.");
         } finally {
           await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
           target.dataset.loading = "false";
-          target.disabled = false;
+          target.disabled = !shouldRestoreAdminActionControls(scopedProjectId);
           target.textContent = originalLabel || "Save";
-          if (select) select.disabled = false;
+          if (select) select.disabled = !shouldRestoreAdminActionControls(scopedProjectId);
+        }
+
+        if (!shouldRestoreAdminActionControls(scopedProjectId)) {
+          return;
         }
 
         setProjectAdminMessage(
@@ -1359,6 +1440,7 @@ function bindProjectAdminUI() {
       }
 
       if (action === "remove-member") {
+        const scopedProjectId = String(currentProjectId || "").trim();
         const userId = String(target.dataset.userId || "").trim();
         if (!userId) return;
         if (target.dataset.loading === "true") return;
@@ -1371,12 +1453,18 @@ function bindProjectAdminUI() {
         target.textContent = "Removing…";
         let error = null;
         try {
-          ({ error } = await dataLayer.removeProjectMembership(currentProjectId, userId));
+          ({ error } = await dataLayer.removeProjectMembership(scopedProjectId, userId));
+        } catch (caughtError) {
+          error = normalizeActionError(caughtError, "Unable to remove member.");
         } finally {
           await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
           target.dataset.loading = "false";
-          target.disabled = false;
+          target.disabled = !shouldRestoreAdminActionControls(scopedProjectId);
           target.textContent = originalLabel || "Remove";
+        }
+
+        if (!shouldRestoreAdminActionControls(scopedProjectId)) {
+          return;
         }
 
         setProjectAdminMessage(
@@ -1401,6 +1489,7 @@ function bindProjectAdminUI() {
       }
 
       if (action === "revoke-invite") {
+        const scopedProjectId = String(currentProjectId || "").trim();
         const inviteId = String(target.dataset.inviteId || "").trim();
         if (!inviteId) return;
         if (target.dataset.loading === "true") return;
@@ -1414,11 +1503,17 @@ function bindProjectAdminUI() {
         let error = null;
         try {
           ({ error } = await dataLayer.revokeProjectInvite(inviteId));
+        } catch (caughtError) {
+          error = normalizeActionError(caughtError, "Unable to revoke invite.");
         } finally {
           await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
           target.dataset.loading = "false";
-          target.disabled = false;
+          target.disabled = !shouldRestoreAdminActionControls(scopedProjectId);
           target.textContent = originalLabel || "Revoke";
+        }
+
+        if (!shouldRestoreAdminActionControls(scopedProjectId)) {
+          return;
         }
 
         setProjectAdminMessage(

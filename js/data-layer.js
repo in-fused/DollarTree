@@ -1,6 +1,8 @@
 /* ================= DATA LAYER ================= */
 
 const dataLayer = {
+  _projectBrandingColumnsAvailable: null,
+
   async getSession() {
     return await supabaseClient.auth.getSession();
   },
@@ -70,10 +72,17 @@ const dataLayer = {
         .order("created_at", { ascending: true });
 
       if (result?.error) {
+        const brandingColumnsMissing = this.isMissingColumnError(result.error, "brand_color")
+          || this.isMissingColumnError(result.error, "brand_logo_url");
+        if (brandingColumnsMissing) {
+          this._projectBrandingColumnsAvailable = false;
+        }
         result = await supabaseClient
           .from("projects")
           .select("project_id, name, created_at, is_archived, archived_at")
           .order("created_at", { ascending: true });
+      } else {
+        this._projectBrandingColumnsAvailable = true;
       }
 
       const { data, error } = result;
@@ -134,13 +143,44 @@ const dataLayer = {
   },
 
   async updateProjectBranding(projectId, brandColor, brandLogoUrl) {
-    return await supabaseClient
+    const result = await supabaseClient
       .from("projects")
       .update({
         brand_color: brandColor,
         brand_logo_url: brandLogoUrl
       })
       .eq("project_id", projectId);
+
+    if (!result?.error) {
+      this._projectBrandingColumnsAvailable = true;
+      return {
+        ...result,
+        brandingUnavailable: false
+      };
+    }
+
+    const brandingColumnsMissing = this.isMissingColumnError(result.error, "brand_color")
+      || this.isMissingColumnError(result.error, "brand_logo_url");
+
+    if (brandingColumnsMissing) {
+      this._projectBrandingColumnsAvailable = false;
+      return {
+        data: result?.data ?? null,
+        error: null,
+        brandingUnavailable: true,
+        brandingMessage: "Branding storage is not available yet for this environment. Other admin features continue to work.",
+        rawError: result.error
+      };
+    }
+
+    return {
+      ...result,
+      brandingUnavailable: false
+    };
+  },
+
+  isProjectBrandingStorageAvailable() {
+    return this._projectBrandingColumnsAvailable !== false;
   },
 
   async loadProjectMembers(projectId) {
