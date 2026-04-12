@@ -100,3 +100,185 @@
     initExecutiveSummaryController();
   }
 })();
+
+/*
+  Additive runtime behavior for live project logo preview in Project Branding.
+  Keeps existing save/RBAC/dropdown/input flows intact.
+*/
+(function projectBrandLogoPreviewController() {
+  function normalizeLogoUrl(value) {
+    if (typeof window.normalizeProjectBrandLogoUrl === "function") {
+      return window.normalizeProjectBrandLogoUrl(value);
+    }
+
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    if (raw.startsWith("/") || raw.startsWith("./") || raw.startsWith("../")) {
+      return raw;
+    }
+
+    try {
+      const parsed = new URL(raw, window.location.origin);
+      const protocol = parsed.protocol.toLowerCase();
+      if (!["http:", "https:", "data:", "blob:"].includes(protocol)) return "";
+      return parsed.href;
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function ensurePreviewElements() {
+    const brandingRow = document.querySelector(".projectBrandingRow");
+    if (!brandingRow) return null;
+
+    let previewBox = document.getElementById("projectBrandLogoPreview");
+    let previewImage = document.getElementById("projectBrandLogoPreviewImage");
+    let previewState = document.getElementById("projectBrandLogoPreviewState");
+
+    if (!previewBox) {
+      previewBox = document.createElement("div");
+      previewBox.id = "projectBrandLogoPreview";
+      previewBox.className = "projectBrandLogoPreview";
+      previewBox.setAttribute("aria-live", "polite");
+
+      previewImage = document.createElement("img");
+      previewImage.id = "projectBrandLogoPreviewImage";
+      previewImage.className = "projectBrandLogoPreviewImage hidden";
+      previewImage.alt = "Project logo preview";
+
+      previewState = document.createElement("div");
+      previewState.id = "projectBrandLogoPreviewState";
+      previewState.className = "projectBrandLogoPreviewState";
+      previewState.textContent = "No logo selected";
+
+      previewBox.appendChild(previewImage);
+      previewBox.appendChild(previewState);
+      brandingRow.insertAdjacentElement("afterend", previewBox);
+    }
+
+    if (!previewImage) previewImage = document.getElementById("projectBrandLogoPreviewImage");
+    if (!previewState) previewState = document.getElementById("projectBrandLogoPreviewState");
+    if (!previewBox || !previewImage || !previewState) return null;
+
+    if (previewImage.dataset.previewBound !== "true") {
+      previewImage.addEventListener("load", () => {
+        if (!previewImage.getAttribute("src")) return;
+        previewImage.classList.remove("hidden");
+        previewState.classList.add("hidden");
+        previewBox.classList.remove("is-error");
+        previewBox.classList.add("has-image");
+      });
+
+      previewImage.addEventListener("error", () => {
+        previewImage.removeAttribute("src");
+        previewImage.classList.add("hidden");
+        previewState.textContent = "Logo unavailable";
+        previewState.classList.remove("hidden");
+        previewBox.classList.remove("has-image");
+        previewBox.classList.add("is-error");
+      });
+
+      previewImage.dataset.previewBound = "true";
+    }
+
+    return { previewBox, previewImage, previewState };
+  }
+
+  function getCurrentLogoInputValue() {
+    const input = document.getElementById("projectBrandLogoUrlInput");
+    if (input) return String(input.value || "").trim();
+
+    const fallback = window.currentProjectMeta?.brand_logo_url;
+    return String(fallback || "").trim();
+  }
+
+  function updatePreview(logoValue = null) {
+    const refs = ensurePreviewElements();
+    if (!refs) return;
+
+    const { previewBox, previewImage, previewState } = refs;
+    const normalizedLogoUrl = normalizeLogoUrl(
+      logoValue === null ? getCurrentLogoInputValue() : String(logoValue || "").trim()
+    );
+
+    if (!normalizedLogoUrl) {
+      previewImage.removeAttribute("src");
+      previewImage.classList.add("hidden");
+      previewState.textContent = "No logo selected";
+      previewState.classList.remove("hidden");
+      previewBox.classList.remove("has-image", "is-error");
+      return;
+    }
+
+    previewState.classList.add("hidden");
+    previewBox.classList.remove("is-error");
+    previewImage.classList.remove("hidden");
+    previewImage.alt = `${String(window.currentProjectMeta?.name || window.currentProjectMeta?.project_id || "Project")} logo preview`;
+
+    if (previewImage.getAttribute("src") !== normalizedLogoUrl) {
+      previewImage.src = normalizedLogoUrl;
+    }
+  }
+
+  function bindBrandingInputs() {
+    const logoInput = document.getElementById("projectBrandLogoUrlInput");
+    if (logoInput && logoInput.dataset.brandPreviewBound !== "true") {
+      logoInput.addEventListener("input", () => updatePreview(logoInput.value));
+      logoInput.dataset.brandPreviewBound = "true";
+    }
+
+    const logoLibrarySelect = document.getElementById("projectBrandLogoLibrarySelect");
+    if (logoLibrarySelect && logoLibrarySelect.dataset.brandPreviewBound !== "true") {
+      logoLibrarySelect.addEventListener("change", () => {
+        const logoInputEl = document.getElementById("projectBrandLogoUrlInput");
+        const valueToPreview = logoInputEl ? logoInputEl.value : logoLibrarySelect.value;
+        updatePreview(valueToPreview);
+      });
+      logoLibrarySelect.dataset.brandPreviewBound = "true";
+    }
+  }
+
+  function patchRefreshProjectAdminPanel() {
+    if (typeof window.refreshProjectAdminPanel !== "function") return false;
+    if (window.refreshProjectAdminPanel.__brandPreviewPatched === true) return true;
+
+    const originalRefresh = window.refreshProjectAdminPanel;
+    const patchedRefresh = async function patchedRefreshProjectAdminPanel(...args) {
+      const result = await originalRefresh.apply(this, args);
+      bindBrandingInputs();
+      updatePreview();
+      return result;
+    };
+
+    patchedRefresh.__brandPreviewPatched = true;
+    window.refreshProjectAdminPanel = patchedRefresh;
+    return true;
+  }
+
+  function initializeController() {
+    bindBrandingInputs();
+    ensurePreviewElements();
+    updatePreview();
+    patchRefreshProjectAdminPanel();
+  }
+
+  function bootstrapController() {
+    initializeController();
+
+    let attempts = 0;
+    const maxAttempts = 60;
+    const bootInterval = window.setInterval(() => {
+      attempts += 1;
+      initializeController();
+      if (attempts >= maxAttempts || window.refreshProjectAdminPanel?.__brandPreviewPatched === true) {
+        window.clearInterval(bootInterval);
+      }
+    }, 250);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootstrapController);
+  } else {
+    bootstrapController();
+  }
+})();

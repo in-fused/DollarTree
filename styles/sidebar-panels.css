@@ -276,6 +276,44 @@
   white-space: nowrap;
 }
 
+.projectBrandLogoPreview {
+  margin-top: 8px;
+  min-height: 72px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.03);
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.projectBrandLogoPreviewImage {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 44px;
+  object-fit: contain;
+}
+
+.projectBrandLogoPreviewState {
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(225, 238, 255, 0.76);
+  text-align: center;
+}
+
+.projectBrandLogoPreview.has-image {
+  border-style: solid;
+  border-color: rgba(var(--project-accent-rgb), 0.34);
+  background: rgba(var(--project-accent-rgb), 0.08);
+}
+
+.projectBrandLogoPreview.is-error .projectBrandLogoPreviewState {
+  color: rgba(255, 208, 208, 0.9);
+}
+
 .adminEmptyState {
   margin-top: 4px;
   padding: 7px 9px;
@@ -580,6 +618,15 @@
 
   .projectBrandingRow #projectBrandingSaveBtn {
     grid-column: 1 / -1;
+  }
+
+  .projectBrandLogoPreview {
+    min-height: 64px;
+    padding: 7px;
+  }
+
+  .projectBrandLogoPreviewImage {
+    max-height: 40px;
   }
 
   #projectMembersList > .copy:not(:first-child) {
