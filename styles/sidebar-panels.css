@@ -236,6 +236,37 @@
   margin-bottom: 6px;
 }
 
+.adminPanelSectionHint {
+  margin: 0 0 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(225, 238, 255, 0.82);
+}
+
+.projectBrandingRow {
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.projectBrandingRow #projectBrandColorInput {
+  margin-top: 0;
+  width: 58px;
+  min-width: 58px;
+  height: 38px;
+  padding: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.projectBrandingRow #projectBrandLogoUrlInput {
+  min-width: 0;
+}
+
+.projectBrandingRow #projectBrandingSaveBtn {
+  margin-top: 0;
+  white-space: nowrap;
+}
+
 .adminEmptyState {
   margin-top: 4px;
   padding: 7px 9px;
@@ -528,6 +559,14 @@
 
   .adminInviteRow button {
     width: 100%;
+  }
+
+  .projectBrandingRow {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .projectBrandingRow #projectBrandingSaveBtn {
+    grid-column: 1 / -1;
   }
 
   #projectMembersList > .copy:not(:first-child) {
