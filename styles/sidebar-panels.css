@@ -248,6 +248,15 @@
   align-items: center;
 }
 
+.projectBrandingLibraryRow {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 2px;
+}
+
+.projectBrandingLibraryRow #projectBrandLogoLibrarySelect {
+  margin-top: 0;
+}
+
 .projectBrandingRow #projectBrandColorInput {
   margin-top: 0;
   width: 58px;
@@ -563,6 +572,10 @@
 
   .projectBrandingRow {
     grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .projectBrandingLibraryRow {
+    grid-template-columns: 1fr;
   }
 
   .projectBrandingRow #projectBrandingSaveBtn {

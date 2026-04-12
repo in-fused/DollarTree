@@ -745,6 +745,13 @@ let projectAdminMessageClearTimer = null;
 const ADMIN_ACTION_COOLDOWN_MS = 250;
 const PROJECT_BRANDING_UNAVAILABLE_MESSAGE = "Branding storage is not available yet for this environment. Other admin actions still work.";
 const projectBrandingUnavailableByProjectId = {};
+const PROJECT_LOGO_LIBRARY_BASE_PATH = "/logos";
+const PROJECT_LOGO_LIBRARY_PATHS = Object.freeze([
+  `${PROJECT_LOGO_LIBRARY_BASE_PATH}/red-bull-rebels.png`,
+  `${PROJECT_LOGO_LIBRARY_BASE_PATH}/dollar-tree.png`,
+  `${PROJECT_LOGO_LIBRARY_BASE_PATH}/family-dollar.png`,
+  `${PROJECT_LOGO_LIBRARY_BASE_PATH}/project-default.png`
+]);
 const PROJECT_ROLE_DISPLAY_META = {
   viewer: { label: "Viewer", hint: "read-only" },
   editor: { label: "Editor", hint: "can update" },
@@ -976,6 +983,44 @@ function setProjectAdminMessage(message, type = "info") {
   }
 }
 
+function ensureProjectLogoLibrarySelectOptions(selectEl) {
+  if (!selectEl) return;
+  if (selectEl.dataset.logoOptionsBuilt === "true") return;
+
+  const existingFirstOption = selectEl.querySelector("option[value='']");
+  if (existingFirstOption) {
+    existingFirstOption.textContent = "Logo Library (optional)";
+  } else {
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Logo Library (optional)";
+    selectEl.appendChild(placeholder);
+  }
+
+  PROJECT_LOGO_LIBRARY_PATHS.forEach((logoPath) => {
+    const option = document.createElement("option");
+    option.value = logoPath;
+    option.textContent = logoPath;
+    selectEl.appendChild(option);
+  });
+
+  selectEl.dataset.logoOptionsBuilt = "true";
+}
+
+function syncProjectLogoLibrarySelect(selectEl, logoUrlValue) {
+  if (!selectEl) return;
+  ensureProjectLogoLibrarySelectOptions(selectEl);
+
+  const normalizedValue = normalizeProjectBrandLogoUrl(logoUrlValue);
+  if (!normalizedValue) {
+    selectEl.value = "";
+    return;
+  }
+
+  const hasMatch = Array.from(selectEl.options).some(option => option.value === normalizedValue);
+  selectEl.value = hasMatch ? normalizedValue : "";
+}
+
 async function refreshProjectAdminPanel() {
   const panel = document.getElementById("projectAdminPanel");
   const actions = document.getElementById("projectAdminActions");
@@ -990,6 +1035,7 @@ async function refreshProjectAdminPanel() {
   const inviteSendBtn = document.getElementById("projectInviteSendBtn");
   const brandColorInput = document.getElementById("projectBrandColorInput");
   const brandLogoUrlInput = document.getElementById("projectBrandLogoUrlInput");
+  const logoLibrarySelect = document.getElementById("projectBrandLogoLibrarySelect");
   const brandingSaveBtn = document.getElementById("projectBrandingSaveBtn");
   const inviteMessage = document.getElementById("projectAdminMessage");
 
@@ -1016,6 +1062,10 @@ async function refreshProjectAdminPanel() {
   if (brandLogoUrlInput) {
     brandLogoUrlInput.value = normalizedBrandLogoUrl;
     brandLogoUrlInput.disabled = !canManage || brandingUnavailable;
+  }
+  if (logoLibrarySelect) {
+    syncProjectLogoLibrarySelect(logoLibrarySelect, normalizedBrandLogoUrl);
+    logoLibrarySelect.disabled = !canManage || brandingUnavailable;
   }
   if (brandingSaveBtn) {
     brandingSaveBtn.disabled = !canManage || brandingUnavailable || brandingSaveBtn.dataset.loading === "true";
@@ -1219,8 +1269,13 @@ function bindProjectAdminUI() {
   const inviteRoleSelect = document.getElementById("projectInviteRole");
   const brandColorInput = document.getElementById("projectBrandColorInput");
   const brandLogoUrlInput = document.getElementById("projectBrandLogoUrlInput");
+  const logoLibrarySelect = document.getElementById("projectBrandLogoLibrarySelect");
   const brandingSaveBtn = document.getElementById("projectBrandingSaveBtn");
   const inviteMessage = document.getElementById("projectAdminMessage");
+
+  if (logoLibrarySelect) {
+    ensureProjectLogoLibrarySelectOptions(logoLibrarySelect);
+  }
 
   if (inviteSendBtn && !inviteSendBtn.dataset.bound) {
     inviteSendBtn.addEventListener("click", async () => {
@@ -1313,6 +1368,7 @@ function bindProjectAdminUI() {
       brandingSaveBtn.textContent = "Saving…";
       if (brandColorInput) brandColorInput.disabled = true;
       if (brandLogoUrlInput) brandLogoUrlInput.disabled = true;
+      if (logoLibrarySelect) logoLibrarySelect.disabled = true;
 
       try {
         let result;
@@ -1370,9 +1426,27 @@ function bindProjectAdminUI() {
         brandingSaveBtn.textContent = originalLabel || "Save Branding";
         if (brandColorInput) brandColorInput.disabled = !shouldEnableBranding;
         if (brandLogoUrlInput) brandLogoUrlInput.disabled = !shouldEnableBranding;
+        if (logoLibrarySelect) logoLibrarySelect.disabled = !shouldEnableBranding;
       }
     });
     brandingSaveBtn.dataset.bound = "true";
+  }
+
+  if (logoLibrarySelect && !logoLibrarySelect.dataset.bound) {
+    logoLibrarySelect.addEventListener("change", () => {
+      const selectedLogoPath = String(logoLibrarySelect.value || "").trim();
+      if (!selectedLogoPath || !brandLogoUrlInput) return;
+      brandLogoUrlInput.value = selectedLogoPath;
+      brandLogoUrlInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    logoLibrarySelect.dataset.bound = "true";
+  }
+
+  if (brandLogoUrlInput && !brandLogoUrlInput.dataset.logoLibraryBound) {
+    brandLogoUrlInput.addEventListener("input", () => {
+      syncProjectLogoLibrarySelect(logoLibrarySelect, brandLogoUrlInput.value);
+    });
+    brandLogoUrlInput.dataset.logoLibraryBound = "true";
   }
 
   if (document.body && !document.body.dataset.projectAdminBound) {
