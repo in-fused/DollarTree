@@ -60,13 +60,11 @@ function bindPhotoLibraryUI() {
 }
 
 function getPhotoUrlFromRow(row) {
+  if (row.resolved_image_url) return row.resolved_image_url;
+  if (row.signed_url) return row.signed_url;
   if (row.image_url) return row.image_url;
   if (row.url) return row.url;
   if (row.public_url) return row.public_url;
-
-  if (row.storage_path && resolvedPhotoBucket) {
-    return dataLayer.getPublicPhotoUrl(resolvedPhotoBucket, row.storage_path);
-  }
 
   return "";
 }

@@ -2,6 +2,7 @@
 
 const dataLayer = {
   _projectBrandingColumnsAvailable: null,
+  _devJsonFallbackFlagKey: "dt:enableDevJsonFallback",
 
   async getSession() {
     return await supabaseClient.auth.getSession();
@@ -65,6 +66,11 @@ const dataLayer = {
   },
 
   async loadProjects() {
+    if (!isSignedIn()) {
+      return [];
+    }
+
+    let supabaseError = null;
     try {
       let result = await supabaseClient
         .from("projects")
@@ -86,6 +92,7 @@ const dataLayer = {
       }
 
       const { data, error } = result;
+      supabaseError = error || null;
 
       if (!error && Array.isArray(data) && data.length > 0) {
         return data.map(project => ({
@@ -100,7 +107,12 @@ const dataLayer = {
         }));
       }
     } catch (error) {
+      supabaseError = error;
       console.warn("Supabase project load failed:", error);
+    }
+
+    if (!this.shouldAttemptDevJsonFallback(supabaseError)) {
+      return [];
     }
 
     try {
@@ -118,18 +130,10 @@ const dataLayer = {
         }));
       }
     } catch (error) {
-      console.warn("Using default project list fallback:", error);
+      console.warn("Dev JSON project fallback failed:", error);
     }
 
-    return [{
-      project_id: DEFAULT_PROJECT_ID,
-      name: "Central FL Dollar Tree",
-      is_archived: false,
-      archived_at: null,
-      brand_color: "",
-      brand_logo_url: "",
-      store_file: "data/central-fl-dollar-tree/stores_with_coords.json"
-    }];
+    return [];
   },
 
   async updateProjectLifecycle(projectId, isArchived) {
@@ -289,18 +293,35 @@ const dataLayer = {
   },
 
   async loadStoresForProject(projectId, projectMeta) {
+    if (!isSignedIn()) {
+      if (projectMeta && typeof projectMeta === "object") {
+        projectMeta.sourceLabel = "Sign in required";
+      }
+      return [];
+    }
+
     const { data, error } = await supabaseClient
       .from("stores")
       .select("store_id, store_name, customer_id, lat, lng, full_address, region, territory, state, city, district, division, market, is_removed, removed_at")
       .eq("project_id", projectId);
 
-    if (!error && Array.isArray(data) && data.length > 0) {
+    if (!error) {
       projectMeta.sourceLabel = "Supabase";
-      return data.map(store => ({
+      return (Array.isArray(data) ? data : []).map(store => ({
         ...normalizeStoreRecord(store),
         is_removed: store.is_removed === true,
         removed_at: store.removed_at || null
       }));
+    }
+
+    if (this.isPermissionDeniedError(error)) {
+      projectMeta.sourceLabel = "Access denied";
+      return [];
+    }
+
+    if (!this.shouldAttemptDevJsonFallback(error)) {
+      projectMeta.sourceLabel = "Supabase unavailable";
+      return [];
     }
 
     const fallbackPaths = [
@@ -315,7 +336,7 @@ const dataLayer = {
         if (!res.ok) continue;
         const json = await res.json();
         if (Array.isArray(json) && json.length > 0) {
-          projectMeta.sourceLabel = "JSON fallback";
+          projectMeta.sourceLabel = "JSON fallback (dev)";
           return json.map(store => ({
             ...normalizeStoreRecord(store),
             is_removed: store.is_removed === true,
@@ -626,6 +647,178 @@ const dataLayer = {
     return data?.publicUrl || "";
   },
 
+  isPermissionDeniedError(error) {
+    if (!error) return false;
+
+    const status = Number(error?.status || error?.statusCode || 0);
+    if (status === 401 || status === 403) return true;
+
+    const code = String(error?.code || "").toLowerCase();
+    if (code === "42501" || code === "pgrst301") return true;
+
+    const haystack = [
+      error?.message,
+      error?.details,
+      error?.hint
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    if (!haystack) return false;
+    return (
+      haystack.includes("permission denied") ||
+      haystack.includes("row-level security") ||
+      haystack.includes("not authorized") ||
+      haystack.includes("access denied")
+    );
+  },
+
+  isLocalDevRuntime() {
+    try {
+      const locationRef = window?.location;
+      const protocol = String(locationRef?.protocol || "").toLowerCase();
+      const host = String(locationRef?.hostname || "").toLowerCase();
+
+      if (protocol === "file:") return true;
+      if (!host) return false;
+      return host === "localhost" || host === "127.0.0.1" || host === "::1";
+    } catch (_) {
+      return false;
+    }
+  },
+
+  isDevJsonFallbackEnabled() {
+    if (!this.isLocalDevRuntime()) return false;
+
+    const explicitWindowFlag = window?.__DT_ENABLE_DEV_JSON_FALLBACK__ === true;
+    let explicitStorageFlag = false;
+
+    try {
+      explicitStorageFlag = window?.localStorage?.getItem(this._devJsonFallbackFlagKey) === "true";
+    } catch (_) {
+      explicitStorageFlag = false;
+    }
+
+    return explicitWindowFlag || explicitStorageFlag;
+  },
+
+  shouldAttemptDevJsonFallback(error = null) {
+    if (!isSignedIn()) return false;
+    if (!this.isDevJsonFallbackEnabled()) return false;
+    if (error && this.isPermissionDeniedError(error)) return false;
+    return true;
+  },
+
+  async createSignedPhotoUrl(bucketName, path, expiresInSeconds = 3600) {
+    const normalizedBucketName = String(bucketName || "").trim();
+    const normalizedPath = String(path || "").trim();
+    if (!normalizedBucketName || !normalizedPath) return "";
+
+    const { data, error } = await supabaseClient.storage
+      .from(normalizedBucketName)
+      .createSignedUrl(normalizedPath, expiresInSeconds);
+
+    if (error) {
+      console.warn("Signed photo URL generation failed:", normalizedPath, error);
+      return "";
+    }
+
+    return String(data?.signedUrl || "");
+  },
+
+  async createSignedPhotoUrlMap(bucketName, storagePaths, expiresInSeconds = 3600) {
+    const normalizedBucketName = String(bucketName || "").trim();
+    const uniquePaths = [...new Set(
+      (Array.isArray(storagePaths) ? storagePaths : [])
+        .map(path => String(path || "").trim())
+        .filter(Boolean)
+    )];
+
+    const signedUrlByPath = {};
+    if (!normalizedBucketName || uniquePaths.length === 0) return signedUrlByPath;
+
+    const bucket = supabaseClient.storage.from(normalizedBucketName);
+    if (typeof bucket.createSignedUrls === "function") {
+      try {
+        const { data, error } = await bucket.createSignedUrls(uniquePaths, expiresInSeconds);
+        if (!error && Array.isArray(data)) {
+          data.forEach(row => {
+            const path = String(row?.path || row?.key || "").trim();
+            const signedUrl = String(row?.signedUrl || row?.signed_url || "").trim();
+            if (path && signedUrl) {
+              signedUrlByPath[path] = signedUrl;
+            }
+          });
+        }
+      } catch (error) {
+        console.warn("Batch signed photo URL generation failed:", error);
+      }
+    }
+
+    for (const path of uniquePaths) {
+      if (signedUrlByPath[path]) continue;
+      signedUrlByPath[path] = await this.createSignedPhotoUrl(normalizedBucketName, path, expiresInSeconds);
+    }
+
+    return signedUrlByPath;
+  },
+
+  resolvePhotoRowUrl(row, signedUrlByPath = {}) {
+    const storagePath = String(row?.storage_path || "").trim();
+    if (storagePath && signedUrlByPath[storagePath]) {
+      return signedUrlByPath[storagePath];
+    }
+
+    const resolvedImageUrl = String(row?.resolved_image_url || "").trim();
+    if (resolvedImageUrl) {
+      return resolvedImageUrl;
+    }
+
+    const isSafeSignedUrl = (value) => {
+      const url = String(value || "").trim();
+      if (!url) return false;
+      if (/^blob:/i.test(url)) return true;
+      if (!/^https?:\/\//i.test(url)) return false;
+      return (
+        /[?&]token=/i.test(url)
+        || /[?&]signature=/i.test(url)
+        || /[?&]x-amz-signature=/i.test(url)
+        || /[?&]x-amz-credential=/i.test(url)
+        || /[?&]expires=/i.test(url)
+        || /[?&]x-amz-expires=/i.test(url)
+      );
+    };
+
+    const signedUrl = String(row?.signed_url || "").trim();
+    if (isSafeSignedUrl(signedUrl)) {
+      return signedUrl;
+    }
+
+    const explicitSafeUrl = String(row?.url || "").trim();
+    if (isSafeSignedUrl(explicitSafeUrl)) {
+      return explicitSafeUrl;
+    }
+
+    return "";
+  },
+
+  async resolvePhotoRenderRows(rows, expiresInSeconds = 3600) {
+    const normalizedRows = Array.isArray(rows) ? rows : [];
+    if (normalizedRows.length === 0) return [];
+
+    const bucketName = await this.resolvePhotoBucketName();
+    const storagePaths = normalizedRows
+      .map(row => String(row?.storage_path || "").trim())
+      .filter(Boolean);
+    const signedUrlByPath = await this.createSignedPhotoUrlMap(bucketName, storagePaths, expiresInSeconds);
+
+    return normalizedRows.map(row => ({
+      ...row,
+      resolved_image_url: this.resolvePhotoRowUrl(row, signedUrlByPath)
+    }));
+  },
+
   async hydrateProject(projectId, projectMeta) {
     const stores = await this.loadStoresForProject(projectId, projectMeta);
 
@@ -636,13 +829,16 @@ const dataLayer = {
       this.loadActivityEvents(projectId)
     ]);
 
+    const rawPhotoRows = Array.isArray(photosResult.data) ? photosResult.data : [];
+    const resolvedPhotoRows = await this.resolvePhotoRenderRows(rawPhotoRows);
+
     return {
       stores,
       statusRows: Array.isArray(statusResult.data) ? statusResult.data : [],
       statusError: statusResult.error || null,
       noteRows: Array.isArray(notesResult.data) ? notesResult.data : [],
       noteError: notesResult.error || null,
-      photoRows: Array.isArray(photosResult.data) ? photosResult.data : [],
+      photoRows: resolvedPhotoRows,
       photoError: photosResult.error || null,
       activityEventRows: Array.isArray(activityEventsResult.data) ? activityEventsResult.data : [],
       activityEventError: activityEventsResult.error || null
