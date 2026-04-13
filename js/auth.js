@@ -19,6 +19,7 @@ async function initializeAuth() {
     await loadCurrentUserRole();
     await loadCurrentUserProjectAccess();
   } else {
+    currentProfile = null;
     currentRole = "viewer";
     currentProjectRole = "viewer";
     projectMemberships = [];
@@ -42,6 +43,7 @@ async function initializeAuth() {
       await loadCurrentUserRole();
       await loadCurrentUserProjectAccess();
     } else {
+      currentProfile = null;
       currentRole = "viewer";
       currentProjectRole = "viewer";
       projectMemberships = [];
@@ -63,6 +65,7 @@ async function initializeAuth() {
 
 async function loadCurrentUserRole() {
   if (!currentUser) {
+    currentProfile = null;
     currentRole = "viewer";
     return;
   }
@@ -71,10 +74,12 @@ async function loadCurrentUserRole() {
 
   if (error) {
     console.error("Profile lookup failed:", error);
+    currentProfile = null;
     currentRole = "viewer";
     return;
   }
 
+  currentProfile = data || null;
   currentRole = normalizeRole(data?.role);
 }
 
@@ -105,14 +110,11 @@ async function loadCurrentUserProjectAccess() {
     projectMembershipsLoaded = true;
   }
 
-  const email = String(currentUser.email || "").trim();
-  if (email) {
-    const invitesResult = await dataLayer.loadPendingProjectInvitesByEmail(email);
-    if (invitesResult.error) {
-      console.error("Pending invite lookup failed:", invitesResult.error);
-    } else {
-      pendingProjectInvites = Array.isArray(invitesResult.data) ? invitesResult.data : [];
-    }
+  const invitesResult = await dataLayer.loadPendingProjectInvitesForCurrentUser();
+  if (invitesResult.error) {
+    console.error("Pending invite lookup failed:", invitesResult.error);
+  } else {
+    pendingProjectInvites = Array.isArray(invitesResult.data) ? invitesResult.data : [];
   }
 
   refreshCurrentProjectRole();
@@ -120,11 +122,28 @@ async function loadCurrentUserProjectAccess() {
 
 function bindAuthUI() {
   const signInBtn = document.getElementById("signInBtn");
+  const loggedOutPanel = document.getElementById("authLoggedOut");
+  let createAccountBtn = document.getElementById("createAccountBtn");
   const signOutBtn = document.getElementById("signOutBtn");
+
+  if (!createAccountBtn && signInBtn && loggedOutPanel) {
+    createAccountBtn = document.createElement("button");
+    createAccountBtn.id = "createAccountBtn";
+    createAccountBtn.type = "button";
+    createAccountBtn.className = "btnSecondary";
+    createAccountBtn.textContent = "Create Account";
+    createAccountBtn.style.marginTop = "7px";
+    loggedOutPanel.appendChild(createAccountBtn);
+  }
 
   if (signInBtn && !signInBtn.dataset.bound) {
     signInBtn.addEventListener("click", signIn);
     signInBtn.dataset.bound = "true";
+  }
+
+  if (createAccountBtn && !createAccountBtn.dataset.bound) {
+    createAccountBtn.addEventListener("click", createAccount);
+    createAccountBtn.dataset.bound = "true";
   }
 
   if (signOutBtn && !signOutBtn.dataset.bound) {
@@ -152,6 +171,37 @@ async function signIn() {
   }
 
   setAuthMessage("Signed in successfully.", "success");
+}
+
+async function createAccount() {
+  const email = document.getElementById("authEmail")?.value.trim() || "";
+  const password = document.getElementById("authPassword")?.value || "";
+
+  setAuthMessage("");
+
+  if (!email || !password) {
+    setAuthMessage("Email and password are required.", "error");
+    return;
+  }
+
+  if (password.length < 6) {
+    setAuthMessage("Password must be at least 6 characters.", "error");
+    return;
+  }
+
+  const { data, error } = await dataLayer.signUp(email, password);
+
+  if (error) {
+    setAuthMessage(error.message || "Account creation failed.", "error");
+    return;
+  }
+
+  if (data?.session) {
+    setAuthMessage("Account created. You are signed in.", "success");
+    return;
+  }
+
+  setAuthMessage("Account created. Check your email to verify before signing in.", "success");
 }
 
 async function signOut() {
@@ -203,6 +253,12 @@ function updateAuthUI() {
   }
 
   renderPendingProjectInvites();
+  if (typeof refreshAccountSettingsUI === "function") {
+    refreshAccountSettingsUI();
+  }
+  if (typeof refreshUsernameOnboardingGate === "function") {
+    refreshUsernameOnboardingGate();
+  }
 
   updateWriteAccessUI();
 
@@ -332,7 +388,14 @@ function renderPendingProjectInvites() {
 
   rows.forEach(invite => {
     const projectId = String(invite.project_id || "").trim();
+    const inviteId = String(invite.id || "").trim();
     const role = normalizeProjectRole(invite.role);
+    const targetType = String(invite.invite_target_type || (invite.phone ? "phone" : "email")).trim().toLowerCase() === "phone"
+      ? "phone"
+      : "email";
+    const targetValue = targetType === "phone"
+      ? String(invite.phone || invite.target_phone || "").trim()
+      : String(invite.email || invite.target_email || "").trim();
     if (!projectId) return;
     const projectName = String(
       invite.project_name ||
@@ -366,14 +429,23 @@ function renderPendingProjectInvites() {
     roleBadge.style.opacity = "0.95";
     label.appendChild(roleBadge);
 
+    const targetMeta = document.createElement("div");
+    targetMeta.className = "projectSourceTag";
+    targetMeta.style.marginTop = "0";
+    targetMeta.style.opacity = "0.82";
+    targetMeta.style.fontSize = "11px";
+    targetMeta.textContent = `${targetType === "phone" ? "Phone" : "Email"} invite for ${targetValue || "unknown target"}`;
+
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btnSecondary";
     btn.textContent = "Accept Invite";
+    btn.dataset.inviteId = inviteId;
     btn.dataset.projectId = projectId;
     btn.dataset.action = "accept-project-invite";
 
     row.appendChild(label);
+    row.appendChild(targetMeta);
     row.appendChild(btn);
     list.appendChild(row);
   });
@@ -391,16 +463,17 @@ async function reloadCurrentUserAccessAndProjectScope() {
   }
 }
 
-async function handleAcceptProjectInvite(projectId) {
-  if (!projectId || !isSignedIn()) return;
+async function handleAcceptProjectInvite({ inviteId = "", projectId = "" } = {}) {
+  if (!isSignedIn()) return;
+  if (!inviteId && !projectId) return;
 
-  const { error } = await dataLayer.acceptProjectInvite(projectId);
+  const { error } = await dataLayer.acceptProjectInvite({ inviteId, projectId });
   if (error) {
     setAuthMessage(error.message || "Unable to accept invite.", "error");
     return;
   }
 
-  setAuthMessage(`Accepted invite for ${projectId}.`, "success");
+  setAuthMessage(`Accepted invite for ${projectId || "project"}.`, "success");
   await reloadCurrentUserAccessAndProjectScope();
 }
 
@@ -415,8 +488,9 @@ document.addEventListener("click", async event => {
   trigger.textContent = "Accepting...";
 
   const projectId = String(trigger.dataset.projectId || "").trim();
+  const inviteId = String(trigger.dataset.inviteId || "").trim();
   try {
-    await handleAcceptProjectInvite(projectId);
+    await handleAcceptProjectInvite({ inviteId, projectId });
   } finally {
     trigger.dataset.loading = "false";
     trigger.disabled = false;

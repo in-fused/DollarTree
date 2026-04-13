@@ -8,6 +8,7 @@ map.on("load", async () => {
   bindLogoHome();
   await initializeAuth();
   bindAuthUI();
+  await bindAccountSettingsUI();
   bindExecutiveModeUI();
   bindNationalOverviewUI();
   bindMobileSidebarUI();

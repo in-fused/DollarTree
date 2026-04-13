@@ -1082,7 +1082,8 @@ async function refreshProjectAdminPanel() {
   const membersEmpty = document.getElementById("projectMembersEmpty");
   const invitesList = document.getElementById("projectInvitesList");
   const invitesEmpty = document.getElementById("projectInvitesEmpty");
-  const inviteEmailInput = document.getElementById("projectInviteEmail");
+  const inviteTargetInput = document.getElementById("projectInviteTarget");
+  const inviteTargetTypeSelect = document.getElementById("projectInviteTargetType");
   const inviteRoleSelect = document.getElementById("projectInviteRole");
   const inviteSendBtn = document.getElementById("projectInviteSendBtn");
   const brandColorInput = document.getElementById("projectBrandColorInput");
@@ -1134,13 +1135,18 @@ async function refreshProjectAdminPanel() {
       }
     }
 
-    if (inviteEmailInput) inviteEmailInput.disabled = true;
+    if (inviteTargetInput) inviteTargetInput.disabled = true;
+    if (inviteTargetTypeSelect) inviteTargetTypeSelect.disabled = true;
     if (inviteRoleSelect) inviteRoleSelect.disabled = true;
     if (inviteSendBtn) inviteSendBtn.disabled = true;
+    if (typeof refreshOrgOversightPanel === "function") {
+      await refreshOrgOversightPanel();
+    }
     return;
   }
 
-  if (inviteEmailInput) inviteEmailInput.disabled = false;
+  if (inviteTargetInput) inviteTargetInput.disabled = false;
+  if (inviteTargetTypeSelect) inviteTargetTypeSelect.disabled = false;
   if (inviteRoleSelect) inviteRoleSelect.disabled = false;
   if (inviteSendBtn && inviteSendBtn.dataset.loading !== "true") inviteSendBtn.disabled = false;
   if (inviteMessage) {
@@ -1276,14 +1282,19 @@ async function refreshProjectAdminPanel() {
     invitesEmpty.classList.add("hidden");
     invites.forEach(invite => {
       const inviteId = String(invite.id || "").trim();
-      const email = String(invite.email || "").trim() || "Unknown email";
+      const targetType = String(invite.invite_target_type || (invite.phone ? "phone" : "email")).trim().toLowerCase() === "phone"
+        ? "phone"
+        : "email";
+      const targetValue = targetType === "phone"
+        ? String(invite.phone || invite.target_phone || "").trim()
+        : String(invite.email || invite.target_email || "").trim();
       const role = normalizeProjectRole(invite.role);
 
       const row = document.createElement("div");
       row.className = "copy";
       row.classList.add("adminInviteRowItem");
       row.style.display = "grid";
-      row.style.gridTemplateColumns = "1fr auto";
+      row.style.gridTemplateColumns = "1fr auto auto";
       row.style.gap = "8px";
       row.style.alignItems = "center";
       row.style.padding = "8px 0";
@@ -1294,10 +1305,21 @@ async function refreshProjectAdminPanel() {
       label.style.display = "inline-flex";
       label.style.alignItems = "center";
       label.style.gap = "6px";
-      label.textContent = `${email}`;
+      const targetLabel = targetValue || (targetType === "phone" ? "Unknown phone" : "Unknown email");
+      label.textContent = `${targetLabel}`;
       label.style.fontWeight = "600";
       label.title = inviteId ? `Invite ID: ${inviteId}` : "";
+      label.dataset.targetType = targetType;
       label.appendChild(createRoleBadge(role));
+
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "btnSecondary";
+      copyBtn.classList.add("adminRowActionBtn");
+      copyBtn.textContent = targetType === "phone" ? "Copy Share" : "Copy";
+      copyBtn.dataset.action = "copy-invite-target";
+      copyBtn.dataset.targetValue = targetLabel;
+      copyBtn.dataset.targetType = targetType;
 
       const revokeBtn = document.createElement("button");
       revokeBtn.type = "button";
@@ -1309,15 +1331,21 @@ async function refreshProjectAdminPanel() {
       revokeBtn.disabled = !inviteId;
 
       row.appendChild(label);
+      row.appendChild(copyBtn);
       row.appendChild(revokeBtn);
       invitesList.appendChild(row);
     });
+  }
+
+  if (typeof refreshOrgOversightPanel === "function") {
+    await refreshOrgOversightPanel();
   }
 }
 
 function bindProjectAdminUI() {
   const inviteSendBtn = document.getElementById("projectInviteSendBtn");
-  const inviteEmailInput = document.getElementById("projectInviteEmail");
+  const inviteTargetInput = document.getElementById("projectInviteTarget");
+  const inviteTargetTypeSelect = document.getElementById("projectInviteTargetType");
   const inviteRoleSelect = document.getElementById("projectInviteRole");
   const brandColorInput = document.getElementById("projectBrandColorInput");
   const brandLogoUrlInput = document.getElementById("projectBrandLogoUrlInput");
@@ -1336,25 +1364,49 @@ function bindProjectAdminUI() {
       setProjectAdminMessage("");
       const scopedProjectId = String(currentProjectId || "").trim();
 
-      const email = String(inviteEmailInput?.value || "").trim().toLowerCase();
+      const inviteTargetType = String(inviteTargetTypeSelect?.value || detectInviteTargetType(inviteTargetInput?.value || "email")).trim().toLowerCase() === "phone"
+        ? "phone"
+        : "email";
+      const inviteTargetRaw = String(inviteTargetInput?.value || "").trim();
+      const inviteTargetValue = inviteTargetType === "phone"
+        ? normalizePhoneForStorage(inviteTargetRaw)
+        : inviteTargetRaw.toLowerCase();
       const role = normalizeProjectRole(inviteRoleSelect?.value || "viewer");
 
-      if (!email) {
-        setProjectAdminMessage("Invite email is required.", "error");
+      if (!inviteTargetValue) {
+        setProjectAdminMessage(inviteTargetType === "phone" ? "Invite phone is required." : "Invite email is required.", "error");
         return;
+      }
+      if (inviteTargetType === "email" && !isLikelyEmail(inviteTargetValue)) {
+        setProjectAdminMessage("Enter a valid invite email.", "error");
+        return;
+      }
+      if (inviteTargetType === "phone") {
+        const phoneDigits = inviteTargetValue.replace(/\D/g, "");
+        if (phoneDigits.length < 8 || phoneDigits.length > 15) {
+          setProjectAdminMessage("Enter a valid invite phone.", "error");
+          return;
+        }
       }
 
       inviteSendBtn.dataset.loading = "true";
       inviteSendBtn.disabled = true;
       const originalLabel = inviteSendBtn.textContent;
       inviteSendBtn.textContent = "Sending…";
-      if (inviteEmailInput) inviteEmailInput.disabled = true;
+      if (inviteTargetInput) inviteTargetInput.disabled = true;
+      if (inviteTargetTypeSelect) inviteTargetTypeSelect.disabled = true;
       if (inviteRoleSelect) inviteRoleSelect.disabled = true;
 
       try {
         let result;
         try {
-          result = await dataLayer.createProjectInvite(scopedProjectId, email, role, currentUser?.id || null);
+          result = await dataLayer.createProjectInvite({
+            projectId: scopedProjectId,
+            targetType: inviteTargetType,
+            targetValue: inviteTargetValue,
+            role,
+            invitedBy: currentUser?.id || null
+          });
         } catch (error) {
           result = { data: null, error: normalizeActionError(error, "Unable to send invite.") };
         }
@@ -1368,13 +1420,18 @@ function bindProjectAdminUI() {
           actor_user_id: currentUser?.id || null,
           invite_id: result?.data?.id || null,
           metadata: {
-            email,
+            target_type: inviteTargetType,
+            invite_target: inviteTargetValue,
             role
           }
         });
 
-        if (inviteEmailInput) inviteEmailInput.value = "";
-        setProjectAdminMessage(`Invite sent to ${email} as ${role}.`, "success");
+        if (inviteTargetInput) inviteTargetInput.value = "";
+        if (inviteTargetType === "phone") {
+          setProjectAdminMessage(`Phone invite recorded for ${inviteTargetValue}. Share this invite manually via SMS or chat.`, "success");
+        } else {
+          setProjectAdminMessage(`Invite sent to ${inviteTargetValue} as ${role}.`, "success");
+        }
         await refreshProjectAdminPanel();
       } finally {
         await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
@@ -1382,7 +1439,8 @@ function bindProjectAdminUI() {
         const shouldEnable = shouldRestoreAdminActionControls(scopedProjectId);
         inviteSendBtn.disabled = !shouldEnable;
         inviteSendBtn.textContent = originalLabel || "Send Invite";
-        if (inviteEmailInput) inviteEmailInput.disabled = !shouldEnable;
+        if (inviteTargetInput) inviteTargetInput.disabled = !shouldEnable;
+        if (inviteTargetTypeSelect) inviteTargetTypeSelect.disabled = !shouldEnable;
         if (inviteRoleSelect) inviteRoleSelect.disabled = !shouldEnable;
       }
     });
@@ -1664,6 +1722,34 @@ function bindProjectAdminUI() {
           await refreshAccessAfterMembershipMutation();
         }
         await refreshProjectAdminPanel();
+        return;
+      }
+
+      if (action === "copy-invite-target") {
+        const targetValue = String(target.dataset.targetValue || "").trim();
+        if (!targetValue) return;
+        const targetType = String(target.dataset.targetType || "").trim();
+        const originalLabel = target.textContent;
+        try {
+          if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(targetValue);
+            setProjectAdminMessage(
+              targetType === "phone"
+                ? "Phone invite copied. Share it via your SMS app."
+                : "Invite email copied.",
+              "success"
+            );
+          } else {
+            setProjectAdminMessage("Clipboard is unavailable on this device.", "error");
+          }
+        } catch (error) {
+          setProjectAdminMessage("Unable to copy invite target.", "error");
+        } finally {
+          target.textContent = "Copied";
+          setTimeout(() => {
+            target.textContent = originalLabel || (targetType === "phone" ? "Copy Share" : "Copy");
+          }, 900);
+        }
       }
     });
 

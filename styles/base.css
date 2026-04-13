@@ -40,6 +40,10 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+body.onboarding-gate-active {
+  overflow: hidden;
+}
+
 .hidden {
   display: none !important;
 }
