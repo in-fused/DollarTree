@@ -402,13 +402,17 @@ const dataLayer = {
       return rpcResult;
     }
 
-    const payload = {
-      project_id: normalizedProjectId,
-      email: normalizedTargetValue,
-      role: normalizedRole,
-      invited_by: invitedBy || null
-    };
-
+const payload = {
+  project_id: normalizedProjectId,
+  email: normalizedTargetValue,
+  role: normalizedRole,
+  invited_by: invitedBy || null,
+  invite_target_type: "email",
+  target_email: normalizedTargetValue,
+  accepted_at: null,
+  revoked_at: null,
+  status: "pending"
+};
     return await supabaseClient
       .from("project_invites")
       .upsert(payload, { onConflict: "project_id,email" });

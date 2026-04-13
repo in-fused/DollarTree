@@ -434,28 +434,36 @@ async function loadPhotos(storeId) {
   gallery.innerHTML = "";
 
   resolvedRows.forEach(row => {
-    const imageUrl = String(row.resolved_image_url || row.image_url || row.url || row.public_url || "").trim();
-    if (!imageUrl) return;
+    const src = dataLayer.resolvePhotoRowUrl(row) || null;
 
     const card = document.createElement("div");
     card.className = "photoCard";
 
-    const img = document.createElement("img");
-    img.className = "photoThumb";
-    img.alt = `Store ${storeId} photo`;
-    img.src = imageUrl;
-    img.loading = "lazy";
+    if (src) {
+      const img = document.createElement("img");
+      img.className = "photoThumb";
+      img.alt = `Store ${storeId} photo`;
+      img.src = src;
+      img.loading = "lazy";
+      card.appendChild(img);
+    } else {
+      const placeholder = document.createElement("div");
+      placeholder.className = "photoEmptyState";
+      placeholder.textContent = "Photo unavailable";
+      card.appendChild(placeholder);
+    }
 
     const meta = document.createElement("div");
     meta.className = "photoMeta";
     meta.textContent = formatPhotoDate(row.created_at);
 
-    card.appendChild(img);
     card.appendChild(meta);
 
-    card.addEventListener("click", () => {
-      if (imageUrl) openPhotoLightbox(imageUrl);
-    });
+    if (src) {
+      card.addEventListener("click", () => {
+        openPhotoLightbox(src);
+      });
+    }
 
     gallery.appendChild(card);
   });

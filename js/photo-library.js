@@ -60,13 +60,8 @@ function bindPhotoLibraryUI() {
 }
 
 function getPhotoUrlFromRow(row) {
-  if (row.resolved_image_url) return row.resolved_image_url;
-  if (row.signed_url) return row.signed_url;
-  if (row.image_url) return row.image_url;
-  if (row.url) return row.url;
-  if (row.public_url) return row.public_url;
-
-  return "";
+  const resolvedUrl = dataLayer.resolvePhotoRowUrl(row);
+  return resolvedUrl ? String(resolvedUrl).trim() : "";
 }
 
 function getScopedPhotoRows() {
@@ -78,18 +73,18 @@ function getScopedPhotoRows() {
     .map(row => {
       const store = storeData.find(s => String(s.store_id) === String(row.store_id)) || null;
       const photoType = normalizePhotoType(row.photo_type || row.type || "");
-      const url = getPhotoUrlFromRow(row);
+      const resolvedImageUrl = getPhotoUrlFromRow(row) || null;
 
       return {
         ...row,
         store,
         store_id: String(row.store_id),
         photo_type: photoType,
-        url,
+        resolved_image_url: resolvedImageUrl,
+        url: resolvedImageUrl,
         created_at: row.created_at || null
       };
-    })
-    .filter(item => !!item.url);
+    });
 }
 
 function getFilteredPhotoLibraryRows() {
@@ -221,12 +216,20 @@ function renderPhotoLibrary() {
       const imageWrap = document.createElement("div");
       imageWrap.className = "photoLibraryImageWrap";
 
-      const image = document.createElement("img");
-      image.className = "photoLibraryImage";
-      image.src = row.url;
-      image.alt = `Store ${row.store_id} photo`;
-      image.loading = "lazy";
-      imageWrap.appendChild(image);
+      const src = row.resolved_image_url || null;
+      if (src) {
+        const image = document.createElement("img");
+        image.className = "photoLibraryImage";
+        image.src = src;
+        image.alt = `Store ${row.store_id} photo`;
+        image.loading = "lazy";
+        imageWrap.appendChild(image);
+      } else {
+        const placeholder = document.createElement("div");
+        placeholder.className = "photoEmptyState";
+        placeholder.textContent = "Photo unavailable";
+        imageWrap.appendChild(placeholder);
+      }
 
       const body = document.createElement("div");
       body.className = "photoLibraryCardBody";
@@ -263,7 +266,7 @@ function renderPhotoLibrary() {
         currentPhotoLibrarySelection = {
           key,
           store_id: row.store_id,
-          url: row.url,
+          url: src,
           row
         };
         populatePhotoLibraryDetail(row);
@@ -302,7 +305,16 @@ function populatePhotoLibraryDetail(row) {
 
   empty?.classList.add("hidden");
   content?.classList.remove("hidden");
-  if (preview) preview.src = row.url;
+  if (preview) {
+    const src = row.resolved_image_url || null;
+    if (src) {
+      preview.src = src;
+      preview.alt = `Store ${row.store_id} photo`;
+    } else {
+      preview.removeAttribute("src");
+      preview.alt = "Photo unavailable";
+    }
+  }
 
   setText("photoDetailHeroTitle", `Store ${row.store_id} evidence`);
   setText("photoDetailStore", `Store ${row.store_id}`);
