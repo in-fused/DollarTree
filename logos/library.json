@@ -1,0 +1,20 @@
+{
+  "logos": [
+    {
+      "label": "Red Bull Rebels",
+      "path": "/logos/red-bull-rebels-logo.png"
+    },
+    {
+      "label": "Meat Market Map",
+      "path": "/logos/meat-market-map-logo.png"
+    },
+    {
+      "label": "Publix SCO Coolers",
+      "path": "/logos/publix-sco-coolers-logo.png"
+    },
+    {
+      "label": "Red Bull Rebels (Legacy Root)",
+      "path": "/red-bull-rebels-logo.png"
+    }
+  ]
+}
