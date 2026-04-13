@@ -641,6 +641,8 @@ if (colorHexValue && colorHexValue.dataset.copyBound !== "true") {
       bindBrandingInputs();
       updateColorPreviewUi();
       updatePreview();
+      ensureBrandingUiShell();
+
       return result;
     };
 
