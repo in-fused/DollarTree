@@ -477,6 +477,15 @@
       });
   }
 
+  window.syncProjectLogoLibrarySelectFromManifest = function syncProjectLogoLibrarySelectFromManifest(selectEl, logoUrlValue) {
+    if (!selectEl) return;
+    syncLogoLibrarySelectFromInput(selectEl, { value: String(logoUrlValue || "") });
+  };
+
+  window.refreshProjectLogoLibrarySelectFromManifest = function refreshProjectLogoLibrarySelectFromManifest(selectEl, logoInputEl) {
+    refreshLogoLibrarySelect(selectEl, logoInputEl);
+  };
+
   function ensureBrandingUiShell() {
     ensureBrandingStyles();
 
