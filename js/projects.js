@@ -1067,17 +1067,10 @@ function setProjectAdminMessage(message, type = "info") {
   }
 }
 
-function syncProjectLogoLibrarySelect(selectEl, logoUrlValue) {
+function syncProjectLogoLibrarySelectFromManifest(selectEl, logoUrlValue) {
   if (!selectEl) return;
-
-  const normalizedValue = normalizeProjectBrandLogoUrl(logoUrlValue);
-  if (!normalizedValue) {
-    selectEl.value = "";
-    return;
-  }
-
-  const hasMatch = Array.from(selectEl.options).some(option => option.value === normalizedValue);
-  selectEl.value = hasMatch ? normalizedValue : "";
+  if (typeof window.syncProjectLogoLibrarySelectFromManifest !== "function") return;
+  window.syncProjectLogoLibrarySelectFromManifest(selectEl, logoUrlValue);
 }
 
 async function refreshProjectAdminPanel() {
@@ -1123,7 +1116,7 @@ async function refreshProjectAdminPanel() {
     brandLogoUrlInput.disabled = !canManage || brandingUnavailable;
   }
   if (logoLibrarySelect) {
-    syncProjectLogoLibrarySelect(logoLibrarySelect, normalizedBrandLogoUrl);
+    syncProjectLogoLibrarySelectFromManifest(logoLibrarySelect, normalizedBrandLogoUrl);
     logoLibrarySelect.disabled = !canManage || brandingUnavailable;
   }
   if (brandingSaveBtn) {
@@ -1507,7 +1500,7 @@ function bindProjectAdminUI() {
 
   if (brandLogoUrlInput && !brandLogoUrlInput.dataset.logoLibraryBound) {
     brandLogoUrlInput.addEventListener("input", () => {
-      syncProjectLogoLibrarySelect(logoLibrarySelect, brandLogoUrlInput.value);
+      syncProjectLogoLibrarySelectFromManifest(logoLibrarySelect, brandLogoUrlInput.value);
     });
     brandLogoUrlInput.dataset.logoLibraryBound = "true";
   }
