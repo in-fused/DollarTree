@@ -61,21 +61,50 @@ function applyProjectBranding(projectMeta = currentProjectMeta) {
   rootStyle.setProperty("--project-accent", brandColor);
   rootStyle.setProperty("--project-accent-rgb", brandColorRgb);
 
-  ["projectBrandLogoHeader", "projectBrandLogoAdmin"].forEach((elementId) => {
-    const logoEl = document.getElementById(elementId);
-    if (!logoEl) return;
+  const headerLogoEl = document.getElementById("projectBrandLogoHeader");
+  if (headerLogoEl) {
+    const defaultHeaderLogoSrc = String(headerLogoEl.dataset.defaultSrc || "").trim();
+    const defaultHeaderLogoAlt = String(headerLogoEl.dataset.defaultAlt || "Project logo").trim();
 
-    if (!logoUrl) {
-      logoEl.removeAttribute("src");
-      logoEl.alt = "";
-      logoEl.classList.add("hidden");
-      return;
+    if (logoUrl) {
+      headerLogoEl.src = logoUrl;
+      headerLogoEl.alt = `${projectName} logo`;
+      headerLogoEl.classList.add("is-project-logo");
+      headerLogoEl.classList.remove("hidden");
+      headerLogoEl.onerror = () => {
+        if (!defaultHeaderLogoSrc) return;
+        headerLogoEl.src = defaultHeaderLogoSrc;
+        headerLogoEl.alt = defaultHeaderLogoAlt;
+        headerLogoEl.classList.remove("is-project-logo");
+        headerLogoEl.onerror = null;
+      };
+    } else if (defaultHeaderLogoSrc) {
+      headerLogoEl.src = defaultHeaderLogoSrc;
+      headerLogoEl.alt = defaultHeaderLogoAlt;
+      headerLogoEl.classList.remove("is-project-logo");
+      headerLogoEl.classList.remove("hidden");
+      headerLogoEl.onerror = null;
+    } else {
+      headerLogoEl.removeAttribute("src");
+      headerLogoEl.alt = "";
+      headerLogoEl.classList.remove("is-project-logo");
+      headerLogoEl.classList.add("hidden");
+      headerLogoEl.onerror = null;
     }
+  }
 
-    logoEl.src = logoUrl;
-    logoEl.alt = `${projectName} logo`;
-    logoEl.classList.remove("hidden");
-  });
+  const adminLogoEl = document.getElementById("projectBrandLogoAdmin");
+  if (adminLogoEl) {
+    if (!logoUrl) {
+      adminLogoEl.removeAttribute("src");
+      adminLogoEl.alt = "";
+      adminLogoEl.classList.add("hidden");
+    } else {
+      adminLogoEl.src = logoUrl;
+      adminLogoEl.alt = `${projectName} logo`;
+      adminLogoEl.classList.remove("hidden");
+    }
+  }
 }
 
 function setProjectHydrationVisualState(isHydrating, nextProjectName = "") {
@@ -743,15 +772,9 @@ async function refreshAccessAfterMembershipMutation() {
 const PROJECT_ROLE_OPTIONS = ["viewer", "editor", "admin"];
 let projectAdminMessageClearTimer = null;
 const ADMIN_ACTION_COOLDOWN_MS = 250;
+const PROJECT_BRANDING_SAVE_TIMEOUT_MS = 14000;
 const PROJECT_BRANDING_UNAVAILABLE_MESSAGE = "Branding storage is not available yet for this environment. Other admin actions still work.";
 const projectBrandingUnavailableByProjectId = {};
-const PROJECT_LOGO_LIBRARY_BASE_PATH = "/logos";
-const PROJECT_LOGO_LIBRARY_PATHS = Object.freeze([
-  `${PROJECT_LOGO_LIBRARY_BASE_PATH}/red-bull-rebels.png`,
-  `${PROJECT_LOGO_LIBRARY_BASE_PATH}/dollar-tree.png`,
-  `${PROJECT_LOGO_LIBRARY_BASE_PATH}/family-dollar.png`,
-  `${PROJECT_LOGO_LIBRARY_BASE_PATH}/project-default.png`
-]);
 const PROJECT_ROLE_DISPLAY_META = {
   viewer: { label: "Viewer", hint: "read-only" },
   editor: { label: "Editor", hint: "can update" },
@@ -811,6 +834,67 @@ function normalizeActionError(error, fallbackMessage) {
   if (error instanceof Error) return error;
   const message = String(error?.message || fallbackMessage || "Action failed.").trim();
   return new Error(message || fallbackMessage || "Action failed.");
+}
+
+function createActionTimeoutError(actionLabel, timeoutMs) {
+  const seconds = Math.max(1, Math.round(Number(timeoutMs || 0) / 1000));
+  const error = new Error(`${actionLabel || "This action"} timed out after ${seconds}s. Please try again.`);
+  error.name = "TimeoutError";
+  error.code = "ACTION_TIMEOUT";
+  return error;
+}
+
+function withTimeout(promise, timeoutMs, timeoutErrorFactory) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const safeTimeoutMs = Math.max(1, Number(timeoutMs) || 1);
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      const timeoutError = typeof timeoutErrorFactory === "function"
+        ? timeoutErrorFactory()
+        : createActionTimeoutError("This action", safeTimeoutMs);
+      reject(timeoutError);
+    }, safeTimeoutMs);
+
+    Promise.resolve(promise).then(
+      value => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      error => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
+function getBrandingSaveErrorMessage(error) {
+  if (!error) return "Unable to save branding.";
+
+  const baseMessage = String(error.message || "").trim();
+  const normalizedCode = String(error.code || error.error_code || "").trim();
+  const detail = String(error.details || error.detail || "").trim();
+  const hint = String(error.hint || "").trim();
+  const status = String(error.status || error.statusCode || "").trim();
+
+  if (normalizedCode === "ACTION_TIMEOUT") {
+    return baseMessage || "Saving branding timed out. Please try again.";
+  }
+
+  const details = [];
+  if (status) details.push(`status ${status}`);
+  if (normalizedCode) details.push(`code ${normalizedCode}`);
+  if (detail) details.push(detail);
+  if (hint) details.push(`Hint: ${hint}`);
+
+  const lead = baseMessage || "Unable to save branding.";
+  return details.length > 0 ? `${lead} (${details.join(" • ")})` : lead;
 }
 
 function updateAdminPanelHeaderContext({ canManage = false, isRefreshing = false, projectNameOverride = "", brandingUnavailable = false } = {}) {
@@ -983,33 +1067,8 @@ function setProjectAdminMessage(message, type = "info") {
   }
 }
 
-function ensureProjectLogoLibrarySelectOptions(selectEl) {
-  if (!selectEl) return;
-  if (selectEl.dataset.logoOptionsBuilt === "true") return;
-
-  const existingFirstOption = selectEl.querySelector("option[value='']");
-  if (existingFirstOption) {
-    existingFirstOption.textContent = "Logo Library (optional)";
-  } else {
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = "Logo Library (optional)";
-    selectEl.appendChild(placeholder);
-  }
-
-  PROJECT_LOGO_LIBRARY_PATHS.forEach((logoPath) => {
-    const option = document.createElement("option");
-    option.value = logoPath;
-    option.textContent = logoPath;
-    selectEl.appendChild(option);
-  });
-
-  selectEl.dataset.logoOptionsBuilt = "true";
-}
-
 function syncProjectLogoLibrarySelect(selectEl, logoUrlValue) {
   if (!selectEl) return;
-  ensureProjectLogoLibrarySelectOptions(selectEl);
 
   const normalizedValue = normalizeProjectBrandLogoUrl(logoUrlValue);
   if (!normalizedValue) {
@@ -1273,8 +1332,8 @@ function bindProjectAdminUI() {
   const brandingSaveBtn = document.getElementById("projectBrandingSaveBtn");
   const inviteMessage = document.getElementById("projectAdminMessage");
 
-  if (logoLibrarySelect) {
-    ensureProjectLogoLibrarySelectOptions(logoLibrarySelect);
+  if (logoLibrarySelect && typeof window.refreshProjectLogoLibrarySelectFromManifest === "function") {
+    window.refreshProjectLogoLibrarySelectFromManifest(logoLibrarySelect, brandLogoUrlInput);
   }
 
   if (inviteSendBtn && !inviteSendBtn.dataset.bound) {
@@ -1373,10 +1432,14 @@ function bindProjectAdminUI() {
       try {
         let result;
         try {
-          result = await dataLayer.updateProjectBranding(
-            scopedProjectId,
-            normalizedColor,
-            normalizedLogoUrl || null
+          result = await withTimeout(
+            dataLayer.updateProjectBranding(
+              scopedProjectId,
+              normalizedColor,
+              normalizedLogoUrl || null
+            ),
+            PROJECT_BRANDING_SAVE_TIMEOUT_MS,
+            () => createActionTimeoutError("Saving branding", PROJECT_BRANDING_SAVE_TIMEOUT_MS)
           );
         } catch (error) {
           result = { data: null, error: normalizeActionError(error, "Unable to save branding."), brandingUnavailable: false };
@@ -1394,7 +1457,7 @@ function bindProjectAdminUI() {
 
         if (result?.error) {
           markProjectBrandingUnavailable(scopedProjectId, false);
-          setProjectAdminMessage(result.error.message || "Unable to save branding.", "error");
+          setProjectAdminMessage(getBrandingSaveErrorMessage(result.error), "error");
           return;
         }
         markProjectBrandingUnavailable(scopedProjectId, false);
