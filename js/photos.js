@@ -328,7 +328,7 @@ async function uploadPhoto(storeId) {
       throw uploadResult.error;
     }
 
-    const imageUrl = dataLayer.getPublicPhotoUrl(bucketName, path);
+    const imageUrl = "";
 
     const rowResult = await runPhotoUploadStepWithTimeout(
       "Photo metadata save",
@@ -340,6 +340,12 @@ async function uploadPhoto(storeId) {
       throw rowResult.error;
     }
 
+    const signedImageUrl = await runPhotoUploadStepWithTimeout(
+      "Photo URL signing",
+      () => dataLayer.createSignedPhotoUrl(bucketName, path),
+      15000
+    );
+
     if (activePhotoUploadState.token !== uploadToken) return;
 
     photoRowsCache.unshift({
@@ -348,6 +354,7 @@ async function uploadPhoto(storeId) {
       store_id: String(storeId),
       image_url: imageUrl,
       storage_path: path,
+      resolved_image_url: signedImageUrl || "",
       created_at: new Date().toISOString(),
       photo_type: "other"
     });
@@ -403,6 +410,11 @@ async function loadPhotos(storeId) {
   const gallery = document.getElementById("photoGallery");
   if (!gallery) return;
 
+  if (!isSignedIn()) {
+    gallery.innerHTML = `<div class="photoEmptyState">Sign in to view photos.</div>`;
+    return;
+  }
+
   gallery.innerHTML = `<div class="photoEmptyState">Loading photos…</div>`;
 
   const { data, error } = await dataLayer.loadPhotosForStore(currentProjectId, storeId);
@@ -418,15 +430,12 @@ async function loadPhotos(storeId) {
     return;
   }
 
-  const bucketName = await dataLayer.resolvePhotoBucketName();
+  const resolvedRows = await dataLayer.resolvePhotoRenderRows(data);
   gallery.innerHTML = "";
 
-  data.forEach(row => {
-    let imageUrl = row.image_url || "";
-
-    if (!imageUrl && row.storage_path) {
-      imageUrl = dataLayer.getPublicPhotoUrl(bucketName, row.storage_path);
-    }
+  resolvedRows.forEach(row => {
+    const imageUrl = String(row.resolved_image_url || row.image_url || row.url || row.public_url || "").trim();
+    if (!imageUrl) return;
 
     const card = document.createElement("div");
     card.className = "photoCard";

@@ -67,7 +67,7 @@ function getEffectiveProjectRole() {
 function canAccessProject(projectId) {
   if (!projectId) return false;
   if (isGlobalAdmin()) return true;
-  if (!isSignedIn()) return true;
+  if (!isSignedIn()) return false;
   if (!projectMembershipsLoaded) return false;
   if (projectMembershipsLoadError) return false;
   return !!projectMembershipByProjectId?.[projectId];
