@@ -90,7 +90,11 @@
 
                 <div id="projectAdminActions" class="adminPanelActions">
                 <div class="adminInviteRow">
-                  <input id="projectInviteEmail" type="email" placeholder="Invite email" />
+                  <select id="projectInviteTargetType" aria-label="Invite target type">
+                    <option value="email">email</option>
+                    <option value="phone">phone</option>
+                  </select>
+                  <input id="projectInviteTarget" type="text" placeholder="Invite email or phone" />
                   <select id="projectInviteRole">
                     <option value="viewer">viewer</option>
                     <option value="editor">editor</option>
@@ -98,7 +102,6 @@
                   </select>
                   <button id="projectInviteSendBtn" class="btnComplete" type="button">Send Invite</button>
                 </div>
-
                 <div id="projectAdminMessage" class="projectSourceTag adminPanelMessage"></div>
 
                 <section class="adminPanelSection">
@@ -132,6 +135,28 @@
                   </div>
                   <div id="projectInvitesList"></div>
                   <div id="projectInvitesEmpty" class="projectSourceTag adminEmptyState">No pending invites. New invites will appear here.</div>
+                </section>
+
+                <section id="orgOversightPanel" class="adminPanelSection hidden">
+                  <div class="panelHeaderRow adminPanelSectionHeader">
+                    <h3 style="font-size:14px;">Organization Oversight</h3>
+                    <div class="panelHeaderTag">Owner/Admin</div>
+                  </div>
+                  <div class="adminPanelSectionHint">Org owners and global admins can review accounts and all pending invites across projects. Only org owners can change global roles.</div>
+                  <div id="orgOversightMessage" class="projectSourceTag adminPanelMessage"></div>
+
+                  <div class="orgOversightSplit">
+                    <div class="orgOversightBlock">
+                      <div class="orgOversightBlockTitle">Accounts</div>
+                      <div id="orgOversightAccountsList" class="orgOversightList"></div>
+                      <div id="orgOversightAccountsEmpty" class="projectSourceTag adminEmptyState">No accounts found.</div>
+                    </div>
+                    <div class="orgOversightBlock">
+                      <div class="orgOversightBlockTitle">Pending Invites</div>
+                      <div id="orgOversightInvitesList" class="orgOversightList"></div>
+                      <div id="orgOversightInvitesEmpty" class="projectSourceTag adminEmptyState">No pending invites.</div>
+                    </div>
+                  </div>
                 </section>
                 </div>
 
@@ -230,10 +255,23 @@
             <div id="authLoggedIn" class="hidden">
               <div id="authUserDisplay" class="authUserDisplay"></div>
               <div id="authRoleDisplay" class="authRoleDisplay"></div>
+              <button id="accountSettingsToggleBtn" class="btnSecondary hidden" type="button">Personal Settings</button>
               <button id="signOutBtn" class="btnSecondary" type="button">Sign Out</button>
             </div>
 
             <div id="authMessage" class="authMessage"></div>
+
+            <div id="accountSettingsPanel" class="panel hidden accountSettingsPanel">
+              <div class="panelHeaderRow">
+                <h3 style="font-size:14px;">Personal Settings</h3>
+              </div>
+              <div class="projectSourceTag">Email: <span id="accountSettingsEmail">—</span></div>
+              <div class="projectSourceTag" style="margin-top:4px;">Global role: <span id="accountSettingsRole">viewer</span></div>
+              <input id="accountDisplayNameInput" type="text" placeholder="Display name" />
+              <input id="accountPhoneInput" type="tel" placeholder="Phone (optional, normalized)" />
+              <button id="accountSettingsSaveBtn" class="btnComplete" type="button">Save Settings</button>
+              <div id="accountSettingsMessage" class="authMessage"></div>
+            </div>
 
             <div id="pendingInvitesPanel" class="hidden" style="margin-top:12px;">
               <div class="panelHeaderRow">
@@ -929,6 +967,17 @@
   <img id="lightboxImage" class="lightboxImage" alt="Expanded store photo" />
 </div>
 
+<div id="usernameOnboardingGate" class="usernameOnboardingGate hidden">
+  <div class="usernameOnboardingCard">
+    <h3>Finish Your Account Setup</h3>
+    <div class="projectSourceTag" style="margin-top:0;">Add a display name to continue. You can change it later in Personal Settings.</div>
+    <input id="usernameOnboardingInput" type="text" placeholder="Display name" />
+    <input id="usernameOnboardingPhoneInput" type="tel" placeholder="Phone (optional, helps match phone invites)" />
+    <button id="usernameOnboardingSaveBtn" class="btnComplete" type="button">Continue</button>
+    <div id="usernameOnboardingMessage" class="authMessage"></div>
+  </div>
+</div>
+
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <script src="js/state.js"></script>
@@ -937,6 +986,7 @@
 <script src="js/data-integrity.js"></script>
 <script src="js/map-integrity.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/account-settings.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/filters.js"></script>
 <script src="js/projects.js"></script>

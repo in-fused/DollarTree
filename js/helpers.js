@@ -18,6 +18,7 @@ function isSignedIn() {
 
 function normalizeRole(role) {
   const normalized = String(role || "").trim().toLowerCase();
+  if (normalized === "owner") return "owner";
   if (normalized === "admin") return "admin";
   if (normalized === "editor") return "editor";
   return "viewer";
@@ -31,6 +32,7 @@ function normalizeProjectRole(role) {
 }
 
 function roleRank(role) {
+  if (role === "owner") return 4;
   if (role === "admin") return 3;
   if (role === "editor") return 2;
   return 1;
@@ -41,7 +43,12 @@ function getCurrentRole() {
 }
 
 function isGlobalAdmin() {
-  return getCurrentRole() === "admin";
+  const role = getCurrentRole();
+  return role === "owner" || role === "admin";
+}
+
+function isOrgOwner() {
+  return getCurrentRole() === "owner";
 }
 
 function getProjectMembershipRole(projectId = currentProjectId) {
@@ -79,15 +86,57 @@ function canViewApp() {
 
 function canEditStores() {
   const role = getEffectiveProjectRole();
-  return role === "editor" || role === "admin";
+  return role === "editor" || role === "admin" || role === "owner";
 }
 
 function canManageStoreLifecycle() {
-  return getEffectiveProjectRole() === "admin";
+  const role = getEffectiveProjectRole();
+  return role === "admin" || role === "owner";
 }
 
 function canManageProjectLifecycle() {
-  return getEffectiveProjectRole() === "admin";
+  const role = getEffectiveProjectRole();
+  return role === "admin" || role === "owner";
+}
+
+function normalizePhoneForStorage(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  let hasPlusPrefix = raw.startsWith("+");
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+
+  let normalizedDigits = digits;
+  if (!hasPlusPrefix) {
+    if (digits.length === 10) {
+      normalizedDigits = `1${digits}`;
+      hasPlusPrefix = true;
+    } else if (digits.length === 11 && digits.startsWith("1")) {
+      normalizedDigits = digits;
+      hasPlusPrefix = true;
+    }
+  }
+
+  if (!hasPlusPrefix && normalizedDigits.length >= 8 && normalizedDigits.length <= 15) {
+    hasPlusPrefix = true;
+  }
+
+  if (hasPlusPrefix) {
+    return `+${normalizedDigits}`;
+  }
+
+  return normalizedDigits;
+}
+
+function isLikelyEmail(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+}
+
+function detectInviteTargetType(value) {
+  return isLikelyEmail(value) ? "email" : "phone";
 }
 
 function canUploadPhotos() {
@@ -312,6 +361,7 @@ function mapActivityEventRow(row) {
   }
 
   if (eventType === "invite_sent") {
+    const inviteTarget = payload.invite_target || payload.phone || payload.email;
     return {
       type: "invite-sent",
       store_id: "",
@@ -319,7 +369,7 @@ function mapActivityEventRow(row) {
       timestamp,
       title: "Invite sent",
       detail: appendActorToDetail(
-        payload.email ? `${payload.email}${payload.role ? ` (${payload.role})` : ""}` : "Project invite created",
+        inviteTarget ? `${inviteTarget}${payload.role ? ` (${payload.role})` : ""}` : "Project invite created",
         actorLabel
       )
     };

@@ -207,7 +207,7 @@
 
 .adminInviteRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 130px auto;
+  grid-template-columns: 110px minmax(0, 1fr) 130px auto;
   gap: 8px;
   align-items: end;
 }
@@ -369,7 +369,7 @@
 }
 
 #projectInvitesList > .copy:not(:first-child) {
-  grid-template-columns: minmax(0, 1fr) auto !important;
+  grid-template-columns: minmax(0, 1fr) auto auto !important;
   gap: 8px !important;
   align-items: center !important;
   border-bottom: 1px solid rgba(255,255,255,0.08) !important;
@@ -460,6 +460,112 @@
   min-height: 32px;
   margin-top: 0 !important;
   justify-self: stretch;
+}
+
+.accountSettingsPanel {
+  margin-top: 10px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.34);
+  background:
+    radial-gradient(circle at top right, rgba(var(--project-accent-rgb), 0.14), transparent 44%),
+    rgba(255,255,255,0.03);
+}
+
+.accountSettingsPanel input {
+  margin-top: 8px;
+}
+
+.orgOversightSplit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.orgOversightBlock {
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+}
+
+.orgOversightBlockTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  color: rgba(226, 238, 255, 0.92);
+}
+
+.orgOversightList {
+  display: grid;
+  gap: 6px;
+}
+
+.orgOversightRow,
+.orgOversightInviteRow {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 9px;
+  padding: 8px;
+  background: rgba(255,255,255,0.03);
+}
+
+.orgOversightRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.orgOversightPrimary {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.96);
+  overflow-wrap: anywhere;
+}
+
+.orgOversightSecondary {
+  font-size: 11px;
+  color: rgba(225, 238, 255, 0.82);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.orgOversightRoleWrap {
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.orgOversightRoleWrap select,
+.orgOversightRoleWrap button {
+  margin-top: 0;
+}
+
+.usernameOnboardingGate {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(5, 10, 18, 0.84);
+  display: grid;
+  place-items: center;
+  padding: 14px;
+}
+
+.usernameOnboardingCard {
+  width: min(460px, 100%);
+  border-radius: 14px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.36);
+  background:
+    radial-gradient(circle at top right, rgba(var(--project-accent-rgb), 0.2), transparent 54%),
+    linear-gradient(180deg, rgba(16, 27, 43, 0.98), rgba(8, 14, 23, 0.98));
+  padding: 14px;
+  box-shadow: 0 22px 52px rgba(0,0,0,0.44);
+}
+
+.usernameOnboardingCard h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
 }
 
 .adminRoleSelect {
@@ -643,6 +749,18 @@
 
   #projectInvitesList > .copy:not(:first-child) button {
     width: 100%;
+  }
+
+  .orgOversightSplit {
+    grid-template-columns: 1fr;
+  }
+
+  .orgOversightRow {
+    grid-template-columns: 1fr;
+  }
+
+  .orgOversightRoleWrap {
+    grid-auto-flow: row;
   }
 }
 

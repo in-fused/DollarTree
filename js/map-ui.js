@@ -247,7 +247,7 @@ function bindAdminPanel() {
   const btn = document.getElementById("adminPanelToggle");
   const panel = document.getElementById("adminPanel");
   const closeBtn = panel?.querySelector(".adminPanelCloseBtn");
-  const inviteEmailInput = document.getElementById("projectInviteEmail");
+  const inviteTargetInput = document.getElementById("projectInviteTarget");
   const ANIMATION_MS = 140;
 
   if (!btn || !panel || btn.dataset.bound) return;
@@ -348,8 +348,8 @@ function bindAdminPanel() {
     });
     positionPanel();
     requestAnimationFrame(() => {
-      if (inviteEmailInput && !inviteEmailInput.disabled) {
-        inviteEmailInput.focus();
+      if (inviteTargetInput && !inviteTargetInput.disabled) {
+        inviteTargetInput.focus();
         return;
       }
       if (closeBtn && !closeBtn.disabled) {

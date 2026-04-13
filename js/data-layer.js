@@ -16,6 +16,10 @@ const dataLayer = {
     return await supabaseClient.auth.signInWithPassword({ email, password });
   },
 
+  async signUp(email, password) {
+    return await supabaseClient.auth.signUp({ email, password });
+  },
+
   async signOut() {
     return await supabaseClient.auth.signOut();
   },
@@ -23,11 +27,20 @@ const dataLayer = {
   async getProfileRole(userId) {
     const { data, error } = await supabaseClient
       .from("profiles")
-      .select("role, email")
+      .select("role, email, display_name, phone")
       .eq("user_id", userId)
       .single();
 
     return { data, error };
+  },
+
+  async upsertMyProfile({ displayName = "", phone = "" } = {}) {
+    const normalizedDisplayName = String(displayName || "").trim();
+    const normalizedPhone = normalizePhoneForStorage(phone);
+    return await supabaseClient.rpc("upsert_my_profile", {
+      p_display_name: normalizedDisplayName || null,
+      p_phone: normalizedPhone || null
+    });
   },
 
   async loadProjectMembershipsForUser(userId) {
@@ -37,31 +50,110 @@ const dataLayer = {
       .eq("user_id", userId);
   },
 
-  async loadPendingProjectInvitesByEmail(email) {
-    if (!email) return { data: [], error: null };
+  async loadPendingProjectInvitesForCurrentUser() {
+    const rpcResult = await supabaseClient.rpc("list_my_pending_project_invites");
+    const dedupeInvites = (rows) => {
+      const uniqueRows = [];
+      const seen = new Set();
+      (Array.isArray(rows) ? rows : []).forEach(row => {
+        const inviteId = String(row?.id || "").trim();
+        const email = String(row?.email || row?.target_email || "").trim().toLowerCase();
+        const phone = normalizePhoneForStorage(String(row?.phone || row?.target_phone || "").trim());
+        const projectId = String(row?.project_id || "").trim();
+        const role = normalizeProjectRole(row?.role);
+        const status = String(
+          row?.status
+          || (row?.revoked_at ? "revoked" : (row?.accepted_at ? "accepted" : "pending"))
+        ).trim().toLowerCase();
+        const dedupeKey = inviteId || `${projectId}|${role}|${email}|${phone}|${status}`;
+        if (!dedupeKey || seen.has(dedupeKey)) return;
+        seen.add(dedupeKey);
+        uniqueRows.push({
+          ...row,
+          invite_target_type: String(row?.invite_target_type || (phone ? "phone" : "email")).trim().toLowerCase() === "phone"
+            ? "phone"
+            : "email"
+        });
+      });
 
-    let result = await supabaseClient
-      .from("project_invites")
-      .select("*")
-      .eq("email", email)
-      .is("accepted_at", null)
-      .is("revoked_at", null)
-      .order("created_at", { ascending: false });
+      uniqueRows.sort((a, b) => getTimestampValue(b?.created_at) - getTimestampValue(a?.created_at));
+      return uniqueRows;
+    };
 
-    if (!result.error) return result;
+    if (!rpcResult.error) {
+      return {
+        data: dedupeInvites(rpcResult.data),
+        error: null
+      };
+    }
 
-    result = await supabaseClient
-      .from("project_invites")
-      .select("*")
-      .eq("email", email)
-      .order("created_at", { ascending: false });
+    const fallbackEmail = String(currentUser?.email || "").trim().toLowerCase();
+    const fallbackPhone = normalizePhoneForStorage(currentProfile?.phone || "");
+    const fallbackRows = [];
+    let fallbackError = null;
 
-    return result;
+    const loadRowsByTarget = async (column, value) => {
+      const scopedValue = String(value || "").trim();
+      if (!scopedValue) return;
+
+      let result = await supabaseClient
+        .from("project_invites")
+        .select("*")
+        .eq(column, scopedValue)
+        .is("accepted_at", null)
+        .is("revoked_at", null)
+        .order("created_at", { ascending: false });
+
+      if (result.error) {
+        fallbackError = fallbackError || result.error;
+        result = await supabaseClient
+          .from("project_invites")
+          .select("*")
+          .eq(column, scopedValue)
+          .order("created_at", { ascending: false });
+        if (result.error) {
+          fallbackError = fallbackError || result.error;
+          return;
+        }
+      }
+
+      if (Array.isArray(result.data)) {
+        fallbackRows.push(...result.data);
+      }
+    };
+
+    await loadRowsByTarget("email", fallbackEmail);
+    await loadRowsByTarget("phone", fallbackPhone);
+
+    return {
+      data: dedupeInvites(fallbackRows),
+      error: fallbackRows.length > 0 ? null : (fallbackError || rpcResult.error)
+    };
   },
 
-  async acceptProjectInvite(projectId) {
+  async acceptProjectInvite({ inviteId = "", projectId = "" } = {}) {
+    const normalizedInviteId = String(inviteId || "").trim();
+    const normalizedProjectId = String(projectId || "").trim();
+
+    if (normalizedInviteId) {
+      const v2Result = await supabaseClient.rpc("accept_project_invite_v2", {
+        p_invite_id: normalizedInviteId
+      });
+      if (!v2Result.error) return v2Result;
+      if (normalizedProjectId) {
+        return await supabaseClient.rpc("accept_project_invite", {
+          project_id: normalizedProjectId
+        });
+      }
+      return v2Result;
+    }
+
+    if (!normalizedProjectId) {
+      return { data: null, error: new Error("Missing invite id or project id.") };
+    }
+
     return await supabaseClient.rpc("accept_project_invite", {
-      project_id: projectId
+      project_id: normalizedProjectId
     });
   },
 
@@ -208,15 +300,32 @@ const dataLayer = {
     if (userIds.length > 0) {
       const profileResult = await supabaseClient
         .from("profiles")
-        .select("user_id, email")
+        .select("user_id, email, display_name, phone, role")
         .in("user_id", userIds);
 
       if (!profileResult.error && Array.isArray(profileResult.data)) {
+        const profileByUserId = {};
         profileResult.data.forEach(row => {
           const userId = String(row.user_id || "").trim();
           if (!userId) return;
           emailByUserId[userId] = row.email || "";
+          profileByUserId[userId] = row;
         });
+
+        return {
+          data: membershipsResult.data.map(row => {
+            const userId = String(row.user_id || "").trim();
+            const profile = profileByUserId[userId] || {};
+            return {
+              ...row,
+              email: String(profile.email || emailByUserId[userId] || "").trim(),
+              display_name: String(profile.display_name || "").trim(),
+              phone: String(profile.phone || "").trim(),
+              global_role: normalizeRole(profile.role)
+            };
+          }),
+          error: null
+        };
       }
     }
 
@@ -265,11 +374,38 @@ const dataLayer = {
     return result;
   },
 
-  async createProjectInvite(projectId, email, role, invitedBy) {
+  async createProjectInvite({ projectId, targetType, targetValue, role, invitedBy }) {
+    const normalizedProjectId = String(projectId || "").trim();
+    const normalizedTargetType = String(targetType || detectInviteTargetType(targetValue)).trim().toLowerCase() === "phone"
+      ? "phone"
+      : "email";
+    const normalizedRole = normalizeProjectRole(role);
+    const rawTargetValue = String(targetValue || "").trim();
+    const normalizedTargetValue = normalizedTargetType === "phone"
+      ? normalizePhoneForStorage(rawTargetValue)
+      : rawTargetValue.toLowerCase();
+
+    if (!normalizedProjectId || !normalizedTargetValue) {
+      return { data: null, error: new Error("Invite target is required.") };
+    }
+
+    const rpcResult = await supabaseClient.rpc("create_project_invite_v2", {
+      p_project_id: normalizedProjectId,
+      p_role: normalizedRole,
+      p_target_type: normalizedTargetType,
+      p_target_value: normalizedTargetValue,
+      p_invited_by: invitedBy || null
+    });
+    if (!rpcResult.error) return rpcResult;
+
+    if (normalizedTargetType !== "email") {
+      return rpcResult;
+    }
+
     const payload = {
-      project_id: projectId,
-      email,
-      role,
+      project_id: normalizedProjectId,
+      email: normalizedTargetValue,
+      role: normalizedRole,
       invited_by: invitedBy || null
     };
 
@@ -290,6 +426,21 @@ const dataLayer = {
       .from("project_invites")
       .delete()
       .eq("id", inviteId);
+  },
+
+  async loadOrgOversightAccounts() {
+    return await supabaseClient.rpc("org_list_accounts");
+  },
+
+  async loadOrgOversightInvites() {
+    return await supabaseClient.rpc("org_list_project_invites");
+  },
+
+  async updateGlobalRole(userId, role) {
+    return await supabaseClient.rpc("org_update_global_role", {
+      p_user_id: userId,
+      p_role: normalizeRole(role)
+    });
   },
 
   async loadStoresForProject(projectId, projectMeta) {

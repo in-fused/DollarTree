@@ -115,6 +115,7 @@ let currentWorkspaceView = localStorage.getItem(ACTIVE_VIEW_KEY) || "map";
 
 let currentSession = null;
 let currentUser = null;
+let currentProfile = null;
 let currentRole = "viewer";
 let currentProjectRole = "viewer";
 let projectMemberships = [];
