@@ -102,11 +102,61 @@
 })();
 
 /*
+  Additive cleanup for legacy hidden header "default project" button.
+  Safe no-op when the legacy element is not present.
+*/
+(function legacyHeaderDefaultProjectButtonCleanup() {
+  function getLegacyButtonCandidates() {
+    const candidates = [];
+    const knownSelectors = [
+      "#defaultProjectHeaderBtn",
+      "#headerDefaultProjectBtn",
+      "#projectDefaultHeaderBtn",
+      "button[data-role='default-project-header']"
+    ];
+    knownSelectors.forEach((selector) => {
+      const node = document.querySelector(selector);
+      if (node) candidates.push(node);
+    });
+
+    document.querySelectorAll(".topHeader button.hidden").forEach((buttonEl) => {
+      const text = String(buttonEl.textContent || "").trim().toLowerCase();
+      if (text.includes("default project")) {
+        candidates.push(buttonEl);
+      }
+    });
+
+    return Array.from(new Set(candidates));
+  }
+
+  function removeLegacyButtons() {
+    getLegacyButtonCandidates().forEach((buttonEl) => {
+      if (!buttonEl.classList.contains("hidden")) return;
+      buttonEl.remove();
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", removeLegacyButtons);
+    return;
+  }
+  removeLegacyButtons();
+})();
+
+/*
   Additive runtime behavior for live project logo preview in Project Branding.
   Keeps existing save/RBAC/dropdown/input flows intact.
 */
 (function projectBrandLogoPreviewController() {
   const BRANDING_STYLE_TAG_ID = "projectBrandingEnhancementsStyle";
+  const LOGO_LIBRARY_MANIFEST_PATH = "/logos/library.json";
+  const LOGO_LIBRARY_PLACEHOLDER_TEXT = "Logo Library (optional)";
+  const LOGO_LIBRARY_FALLBACK_ENTRIES = Object.freeze([
+    { label: "Red Bull Rebels", path: "/logos/red-bull-rebels-logo.png" },
+    { label: "Meat Market Map", path: "/logos/meat-market-map-logo.png" },
+    { label: "Publix SCO Coolers", path: "/logos/publix-sco-coolers-logo.png" },
+    { label: "Red Bull Rebels (Legacy Root)", path: "/red-bull-rebels-logo.png" }
+  ]);
   const SWATCH_COLORS = Object.freeze([
     "#c8102e",
     "#0ea5e9",
@@ -115,6 +165,9 @@
     "#7c3aed",
     "#ef4444"
   ]);
+  let logoLibraryEntries = [...LOGO_LIBRARY_FALLBACK_ENTRIES];
+  let logoLibraryLoadPromise = null;
+  let logoLibraryLoaded = false;
 
   function ensureBrandingStyles() {
     if (document.getElementById(BRANDING_STYLE_TAG_ID)) return;
@@ -319,6 +372,109 @@
     } catch (_) {
       return "";
     }
+  }
+
+  function normalizeLogoLibraryEntry(entry) {
+    if (!entry || typeof entry !== "object") return null;
+    const label = String(entry.label || "").trim();
+    const path = normalizeLogoUrl(entry.path || entry.url || "");
+    if (!label || !path) return null;
+    return { label, path };
+  }
+
+  function getLogoLibraryEntriesFromManifest(payload) {
+    const rawEntries = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.logos)
+        ? payload.logos
+        : [];
+    const normalizedEntries = rawEntries
+      .map(normalizeLogoLibraryEntry)
+      .filter(Boolean);
+
+    return normalizedEntries.length > 0
+      ? normalizedEntries
+      : [...LOGO_LIBRARY_FALLBACK_ENTRIES];
+  }
+
+  async function ensureLogoLibraryManifestLoaded() {
+    if (logoLibraryLoaded) return logoLibraryEntries;
+    if (logoLibraryLoadPromise) return logoLibraryLoadPromise;
+
+    logoLibraryLoadPromise = (async () => {
+      try {
+        const response = await fetch(LOGO_LIBRARY_MANIFEST_PATH, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`Logo manifest fetch failed (${response.status}).`);
+        }
+        const payload = await response.json();
+        logoLibraryEntries = getLogoLibraryEntriesFromManifest(payload);
+      } catch (error) {
+        console.warn("Using fallback logo library entries:", error);
+        logoLibraryEntries = [...LOGO_LIBRARY_FALLBACK_ENTRIES];
+      } finally {
+        logoLibraryLoaded = true;
+        logoLibraryLoadPromise = null;
+      }
+      return logoLibraryEntries;
+    })();
+
+    return logoLibraryLoadPromise;
+  }
+
+  function setLogoLibraryOptions(selectEl, entries) {
+    if (!selectEl) return;
+    const scopedEntries = Array.isArray(entries) && entries.length > 0
+      ? entries
+      : [...LOGO_LIBRARY_FALLBACK_ENTRIES];
+    const currentValue = String(selectEl.value || "").trim();
+
+    selectEl.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = LOGO_LIBRARY_PLACEHOLDER_TEXT;
+    selectEl.appendChild(placeholder);
+
+    scopedEntries.forEach(({ label, path }) => {
+      const option = document.createElement("option");
+      option.value = path;
+      option.textContent = label;
+      selectEl.appendChild(option);
+    });
+
+    const hasCurrent = Array.from(selectEl.options).some((option) => option.value === currentValue);
+    selectEl.value = hasCurrent ? currentValue : "";
+  }
+
+  function syncLogoLibrarySelectFromInput(selectEl, logoInputEl) {
+    if (!selectEl) return;
+    const inputValue = normalizeLogoUrl(
+      logoInputEl ? logoInputEl.value : (window.currentProjectMeta?.brand_logo_url || "")
+    );
+    if (!inputValue) {
+      selectEl.value = "";
+      return;
+    }
+
+    const hasMatch = Array.from(selectEl.options).some((option) => option.value === inputValue);
+    selectEl.value = hasMatch ? inputValue : "";
+  }
+
+  function refreshLogoLibrarySelect(selectEl, logoInputEl) {
+    if (!selectEl) return;
+    setLogoLibraryOptions(selectEl, logoLibraryEntries);
+    syncLogoLibrarySelectFromInput(selectEl, logoInputEl);
+
+    ensureLogoLibraryManifestLoaded()
+      .then((entries) => {
+        if (!document.body?.contains(selectEl)) return;
+        setLogoLibraryOptions(selectEl, entries);
+        syncLogoLibrarySelectFromInput(selectEl, logoInputEl);
+        updatePreview();
+      })
+      .catch(() => {
+        // Keep fallback entries; no further action needed.
+      });
   }
 
   function ensureBrandingUiShell() {
@@ -621,6 +777,9 @@ if (colorHexValue && colorHexValue.dataset.copyBound !== "true") {
     }
 
     const logoLibrarySelect = document.getElementById("projectBrandLogoLibrarySelect");
+    if (logoLibrarySelect) {
+      refreshLogoLibrarySelect(logoLibrarySelect, logoInput);
+    }
     if (logoLibrarySelect && logoLibrarySelect.dataset.brandPreviewBound !== "true") {
       logoLibrarySelect.addEventListener("change", () => {
         const logoInputEl = document.getElementById("projectBrandLogoUrlInput");
@@ -628,6 +787,14 @@ if (colorHexValue && colorHexValue.dataset.copyBound !== "true") {
         updatePreview(valueToPreview);
       });
       logoLibrarySelect.dataset.brandPreviewBound = "true";
+    }
+
+    if (logoInput && logoInput.dataset.logoLibrarySyncBound !== "true") {
+      logoInput.addEventListener("input", () => {
+        const selectEl = document.getElementById("projectBrandLogoLibrarySelect");
+        syncLogoLibrarySelectFromInput(selectEl, logoInput);
+      });
+      logoInput.dataset.logoLibrarySyncBound = "true";
     }
   }
 
