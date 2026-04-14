@@ -772,6 +772,7 @@ async function refreshAccessAfterMembershipMutation() {
 const PROJECT_ROLE_OPTIONS = ["viewer", "editor", "admin"];
 let projectAdminMessageClearTimer = null;
 const ADMIN_ACTION_COOLDOWN_MS = 250;
+const PROJECT_INVITE_SEND_TIMEOUT_MS = 12000;
 const PROJECT_BRANDING_SAVE_TIMEOUT_MS = 14000;
 const PROJECT_BRANDING_UNAVAILABLE_MESSAGE = "Branding storage is not available yet for this environment. Other admin actions still work.";
 const projectBrandingUnavailableByProjectId = {};
@@ -1397,16 +1398,20 @@ function bindProjectAdminUI() {
       if (inviteTargetTypeSelect) inviteTargetTypeSelect.disabled = true;
       if (inviteRoleSelect) inviteRoleSelect.disabled = true;
 
-      try {
-        let result;
-        try {
-          result = await dataLayer.createProjectInvite({
-            projectId: scopedProjectId,
-            targetType: inviteTargetType,
-            targetValue: inviteTargetValue,
-            role,
-            invitedBy: currentUser?.id || null
-          });
+console.log("INVITE START");
+
+result = await dataLayer.createProjectInvite({
+  projectId: scopedProjectId,
+  target: {
+    type: inviteTargetType,
+    value: inviteTargetValue
+  },
+  role,
+  invitedBy: currentUser?.id || null
+});
+
+console.log("INVITE RESULT:", result);
+
         } catch (error) {
           result = { data: null, error: normalizeActionError(error, "Unable to send invite.") };
         }
@@ -1483,16 +1488,17 @@ function bindProjectAdminUI() {
       try {
         let result;
         try {
-          result = await withTimeout(
-            dataLayer.updateProjectBranding(
-              scopedProjectId,
-              normalizedColor,
-              normalizedLogoUrl || null
-            ),
-            PROJECT_BRANDING_SAVE_TIMEOUT_MS,
-            () => createActionTimeoutError("Saving branding", PROJECT_BRANDING_SAVE_TIMEOUT_MS)
-          );
-        } catch (error) {
+          console.log("BRANDING START");
+
+result = await dataLayer.updateProjectBranding(
+  scopedProjectId,
+  normalizedColor,
+  normalizedLogoUrl || null
+);
+
+console.log("BRANDING RESULT:", result);
+     
+   } catch (error) {
           result = { data: null, error: normalizeActionError(error, "Unable to save branding."), brandingUnavailable: false };
         }
 

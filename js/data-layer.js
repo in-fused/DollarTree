@@ -239,13 +239,22 @@ const dataLayer = {
   },
 
   async updateProjectBranding(projectId, brandColor, brandLogoUrl) {
-    const result = await supabaseClient
-      .from("projects")
-      .update({
-        brand_color: brandColor,
-        brand_logo_url: brandLogoUrl
-      })
-      .eq("project_id", projectId);
+    const normalizedProjectId = String(projectId || "").trim();
+    if (!normalizedProjectId) {
+      return { data: null, error: new Error("Missing project id for branding update."), brandingUnavailable: false };
+    }
+
+    const result = await this.withSupabaseTimeout(
+      supabaseClient
+        .from("projects")
+        .update({
+          brand_color: brandColor,
+          brand_logo_url: brandLogoUrl
+        })
+        .eq("project_id", normalizedProjectId),
+      12000,
+      "Saving branding"
+    );
 
     if (!result?.error) {
       this._projectBrandingColumnsAvailable = true;
@@ -374,48 +383,83 @@ const dataLayer = {
     return result;
   },
 
-  async createProjectInvite({ projectId, targetType, targetValue, role, invitedBy }) {
-    const normalizedProjectId = String(projectId || "").trim();
-    const normalizedTargetType = String(targetType || detectInviteTargetType(targetValue)).trim().toLowerCase() === "phone"
+  async createProjectInvite(input = {}) {
+    const invite = input && typeof input === "object" ? input : {};
+    const inviteTarget = invite.target && typeof invite.target === "object" ? invite.target : {};
+
+    const normalizedProjectId = String(invite.projectId || "").trim();
+    const rawTargetType = invite.targetType || inviteTarget.type || "";
+    const rawTargetValue = String(invite.targetValue || inviteTarget.value || "").trim();
+    const normalizedTargetType = String(rawTargetType || detectInviteTargetType(rawTargetValue)).trim().toLowerCase() === "phone"
       ? "phone"
       : "email";
-    const normalizedRole = normalizeProjectRole(role);
-    const rawTargetValue = String(targetValue || "").trim();
+    const normalizedRole = normalizeProjectRole(invite.role);
     const normalizedTargetValue = normalizedTargetType === "phone"
       ? normalizePhoneForStorage(rawTargetValue)
       : rawTargetValue.toLowerCase();
+    const normalizedInvitedBy = String(invite.invitedBy || "").trim() || null;
 
     if (!normalizedProjectId || !normalizedTargetValue) {
       return { data: null, error: new Error("Invite target is required.") };
     }
 
-    const rpcResult = await supabaseClient.rpc("create_project_invite_v2", {
-      p_project_id: normalizedProjectId,
-      p_role: normalizedRole,
-      p_target_type: normalizedTargetType,
-      p_target_value: normalizedTargetValue,
-      p_invited_by: invitedBy || null
-    });
+    const rpcResult = await this.withSupabaseTimeout(
+      supabaseClient.rpc("create_project_invite_v2", {
+        p_project_id: normalizedProjectId,
+        p_role: normalizedRole,
+        p_target_type: normalizedTargetType,
+        p_target_value: normalizedTargetValue,
+        p_invited_by: normalizedInvitedBy
+      }),
+      12000,
+      "Sending invite"
+    );
     if (!rpcResult.error) return rpcResult;
 
-    if (normalizedTargetType !== "email") {
+    if (!this.shouldFallbackInviteWrite(rpcResult.error)) {
       return rpcResult;
     }
 
-const payload = {
-  project_id: normalizedProjectId,
-  email: normalizedTargetValue,
-  role: normalizedRole,
-  invited_by: invitedBy || null,
-  invite_target_type: "email",
-  target_email: normalizedTargetValue,
-  accepted_at: null,
-  revoked_at: null,
-  status: "pending"
-};
-    return await supabaseClient
-      .from("project_invites")
-      .upsert(payload, { onConflict: "project_id,email" });
+    const fallbackPayload = {
+      project_id: normalizedProjectId,
+      role: normalizedRole,
+      invited_by: normalizedInvitedBy,
+      invite_target_type: normalizedTargetType,
+      target_email: normalizedTargetType === "email" ? normalizedTargetValue : null,
+      target_phone: normalizedTargetType === "phone" ? normalizedTargetValue : null,
+      email: normalizedTargetType === "email" ? normalizedTargetValue : null,
+      phone: normalizedTargetType === "phone" ? normalizedTargetValue : null,
+      status: "pending",
+      accepted_by_user_id: null,
+      accepted_at: null,
+      revoked_at: null
+    };
+
+    const conflictTargets = normalizedTargetType === "phone"
+      ? ["project_id,target_phone", "project_id,phone"]
+      : ["project_id,target_email", "project_id,email"];
+
+    for (const conflictTarget of conflictTargets) {
+      const upsertResult = await this.withSupabaseTimeout(
+        supabaseClient
+          .from("project_invites")
+          .upsert(fallbackPayload, { onConflict: conflictTarget }),
+        12000,
+        "Sending invite"
+      );
+      if (!upsertResult.error) return upsertResult;
+      if (!this.isMissingColumnError(upsertResult.error, normalizedTargetType === "phone" ? "target_phone" : "target_email")) {
+        return upsertResult;
+      }
+    }
+
+    return await this.withSupabaseTimeout(
+      supabaseClient
+        .from("project_invites")
+        .insert(fallbackPayload),
+      12000,
+      "Sending invite"
+    );
   },
 
   async revokeProjectInvite(inviteId) {
@@ -624,6 +668,65 @@ const payload = {
       haystack.includes("could not find") ||
       haystack.includes("does not exist")
     );
+  },
+
+  shouldFallbackInviteWrite(error) {
+    if (!error) return false;
+    if (this.isPermissionDeniedError(error)) return false;
+
+    const code = String(error?.code || "").trim().toLowerCase();
+    if (code === "42883" || code === "pgrst202") {
+      return true;
+    }
+
+    const haystack = [
+      error?.message,
+      error?.details,
+      error?.hint
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    if (!haystack) return false;
+    return (
+      haystack.includes("create_project_invite_v2") &&
+      (
+        haystack.includes("does not exist")
+        || haystack.includes("could not find")
+        || haystack.includes("schema cache")
+        || haystack.includes("not found")
+      )
+    );
+  },
+
+  async withSupabaseTimeout(promise, timeoutMs = 12000, actionLabel = "This action") {
+    const safeTimeoutMs = Math.max(1, Number(timeoutMs) || 12000);
+
+    let timeoutId = null;
+    const timeoutPromise = new Promise(resolve => {
+      timeoutId = setTimeout(() => {
+        const timeoutError = new Error(`${actionLabel} timed out after ${Math.round(safeTimeoutMs / 1000)}s. Please try again.`);
+        timeoutError.name = "TimeoutError";
+        timeoutError.code = "ACTION_TIMEOUT";
+        resolve({ data: null, error: timeoutError });
+      }, safeTimeoutMs);
+    });
+
+    try {
+      const settled = await Promise.race([
+        Promise.resolve(promise).catch(error => ({
+          data: null,
+          error: error instanceof Error ? error : new Error(String(error?.message || `${actionLabel} failed.`))
+        })),
+        timeoutPromise
+      ]);
+      return settled;
+    } finally {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+    }
   },
 
   async writeStoreStatusScoped(payload) {
