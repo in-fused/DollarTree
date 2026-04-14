@@ -420,59 +420,6 @@ async createProjectInvite(input = {}) {
     revoked_at: null
   };
 
-  // First try to update an existing pending invite for the same target
-  let existingQuery = supabaseClient
-    .from("project_invites")
-    .select("*")
-    .eq("project_id", normalizedProjectId)
-    .is("accepted_at", null)
-    .is("revoked_at", null)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (normalizedTargetType === "phone") {
-    existingQuery = existingQuery.eq("target_phone", targetPhone);
-  } else {
-    existingQuery = existingQuery.eq("target_email", targetEmail);
-  }
-
-  const existingResult = await this.withSupabaseTimeout(
-    existingQuery,
-    4000,
-    "Checking existing invite"
-  );
-
-  if (existingResult.error) {
-    return existingResult;
-  }
-
-  const existingInvite = Array.isArray(existingResult.data) ? existingResult.data[0] : null;
-
-  if (existingInvite?.id) {
-    return await this.withSupabaseTimeout(
-      supabaseClient
-        .from("project_invites")
-        .update({
-          role: normalizedRole,
-          invited_by: normalizedInvitedBy,
-          invite_target_type: normalizedTargetType,
-          target_email: targetEmail,
-          target_phone: targetPhone,
-          email: targetEmail,
-          status: "pending",
-          accepted_by_user_id: null,
-          accepted_at: null,
-          revoked_at: null
-        })
-        .eq("id", existingInvite.id)
-        .select("*")
-        .limit(1),
-      4000,
-      "Updating invite"
-    );
-  }
-
   return await this.withSupabaseTimeout(
     supabaseClient
       .from("project_invites")
