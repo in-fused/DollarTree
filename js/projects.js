@@ -1390,33 +1390,33 @@ function bindProjectAdminUI() {
         }
       }
 
-      inviteSendBtn.dataset.loading = "true";
-      inviteSendBtn.disabled = true;
-      const originalLabel = inviteSendBtn.textContent;
-      inviteSendBtn.textContent = "Sending…";
-      if (inviteTargetInput) inviteTargetInput.disabled = true;
-      if (inviteTargetTypeSelect) inviteTargetTypeSelect.disabled = true;
-      if (inviteRoleSelect) inviteRoleSelect.disabled = true;
+inviteSendBtn.dataset.loading = "true";
+inviteSendBtn.disabled = true;
+const originalLabel = inviteSendBtn.textContent;
+inviteSendBtn.textContent = "Sending…";
+if (inviteTargetInput) inviteTargetInput.disabled = true;
+if (inviteTargetTypeSelect) inviteTargetTypeSelect.disabled = true;
+if (inviteRoleSelect) inviteRoleSelect.disabled = true;
 
-console.log("INVITE START");
+try {
+  let result;
+  try {
+    console.log("INVITE START");
+    result = await dataLayer.createProjectInvite({
+      projectId: scopedProjectId,
+      target: {
+        type: inviteTargetType,
+        value: inviteTargetValue
+      },
+      role,
+      invitedBy: currentUser?.id || null
+    });
+    console.log("INVITE RESULT:", result);
+  } catch (error) {
+    result = { data: null, error: normalizeActionError(error, "Unable to send invite.") };
+  }
 
-result = await dataLayer.createProjectInvite({
-  projectId: scopedProjectId,
-  target: {
-    type: inviteTargetType,
-    value: inviteTargetValue
-  },
-  role,
-  invitedBy: currentUser?.id || null
-});
-
-console.log("INVITE RESULT:", result);
-
-        } catch (error) {
-          result = { data: null, error: normalizeActionError(error, "Unable to send invite.") };
-        }
-        if (result.error) {
-          setProjectAdminMessage(result.error.message || "Unable to send invite.", "error");
+  if (result.error) {          setProjectAdminMessage(result.error.message || "Unable to send invite.", "error");
           return;
         }
 
@@ -1477,32 +1477,33 @@ console.log("INVITE RESULT:", result);
         return;
       }
 
-      const originalLabel = brandingSaveBtn.textContent;
-      brandingSaveBtn.dataset.loading = "true";
-      brandingSaveBtn.disabled = true;
-      brandingSaveBtn.textContent = "Saving…";
-      if (brandColorInput) brandColorInput.disabled = true;
-      if (brandLogoUrlInput) brandLogoUrlInput.disabled = true;
-      if (logoLibrarySelect) logoLibrarySelect.disabled = true;
+const originalLabel = brandingSaveBtn.textContent;
+brandingSaveBtn.dataset.loading = "true";
+brandingSaveBtn.disabled = true;
+brandingSaveBtn.textContent = "Saving…";
+if (brandColorInput) brandColorInput.disabled = true;
+if (brandLogoUrlInput) brandLogoUrlInput.disabled = true;
+if (logoLibrarySelect) logoLibrarySelect.disabled = true;
 
-      try {
-        let result;
-        try {
-          console.log("BRANDING START");
+try {
+  let result;
+  try {
+    console.log("BRANDING START");
+    result = await dataLayer.updateProjectBranding(
+      scopedProjectId,
+      normalizedColor,
+      normalizedLogoUrl || null
+    );
+    console.log("BRANDING RESULT:", result);
+  } catch (error) {
+    result = {
+      data: null,
+      error: normalizeActionError(error, "Unable to save branding."),
+      brandingUnavailable: false
+    };
+  }
 
-result = await dataLayer.updateProjectBranding(
-  scopedProjectId,
-  normalizedColor,
-  normalizedLogoUrl || null
-);
-
-console.log("BRANDING RESULT:", result);
-     
-   } catch (error) {
-          result = { data: null, error: normalizeActionError(error, "Unable to save branding."), brandingUnavailable: false };
-        }
-
-        if (result?.brandingUnavailable) {
+  if (result?.brandingUnavailable) {
           markProjectBrandingUnavailable(scopedProjectId, true);
           setProjectAdminMessage(
             String(result?.brandingMessage || PROJECT_BRANDING_UNAVAILABLE_MESSAGE),
