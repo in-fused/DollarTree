@@ -151,25 +151,29 @@
 }
 
 .brandLogoWide {
-  width: auto;
-  max-width: var(--header-brand-logo-max-width);
-  height: var(--header-brand-logo-height);
+  width: auto !important;
+  max-width: 320px !important;
+  height: 80px !important;
   object-fit: contain;
   display: block;
   margin: 0 auto;
   cursor: pointer;
   pointer-events: auto;
-  filter: drop-shadow(0 6px 14px rgba(0,0,0,0.35));
+  transform: scale(1.15);
+  transform-origin: center;
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,0.45));
 }
 
 #projectBrandLogoHeader {
   width: auto !important;
-  height: var(--header-brand-logo-height) !important;
-  max-width: var(--header-brand-logo-max-width) !important;
+  height: 80px !important;
+  max-width: 320px !important;
   min-width: 0;
   object-fit: contain;
   display: block;
   flex-shrink: 0;
+  transform: scale(1.15);
+  transform-origin: center;
 }
 
 #projectBrandLogoHeader.projectBrandLogo {
