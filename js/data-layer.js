@@ -420,15 +420,32 @@ async createProjectInvite(input = {}) {
     revoked_at: null
   };
 
-  return await this.withSupabaseTimeout(
+    const insertResult = await this.withSupabaseTimeout(
     supabaseClient
       .from("project_invites")
-      .insert(basePayload)
-      .select("*")
-      .limit(1),
+      .insert(basePayload),
     4000,
     "Sending invite"
   );
+
+  if (insertResult?.error) {
+    return insertResult;
+  }
+
+  return {
+    data: {
+      id: null,
+      project_id: normalizedProjectId,
+      role: normalizedRole,
+      invite_target_type: normalizedTargetType,
+      target_email: targetEmail,
+      target_phone: targetPhone,
+      email: targetEmail,
+      invited_by: normalizedInvitedBy,
+      status: "pending"
+    },
+    error: null
+  };
 },
   async revokeProjectInvite(inviteId) {
     const updateResult = await supabaseClient
