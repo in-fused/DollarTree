@@ -383,85 +383,106 @@ const dataLayer = {
     return result;
   },
 
-  async createProjectInvite(input = {}) {
-    const invite = input && typeof input === "object" ? input : {};
-    const inviteTarget = invite.target && typeof invite.target === "object" ? invite.target : {};
+async createProjectInvite(input = {}) {
+  const invite = input && typeof input === "object" ? input : {};
+  const inviteTarget = invite.target && typeof invite.target === "object" ? invite.target : {};
 
-    const normalizedProjectId = String(invite.projectId || "").trim();
-    const rawTargetType = invite.targetType || inviteTarget.type || "";
-    const rawTargetValue = String(invite.targetValue || inviteTarget.value || "").trim();
-    const normalizedTargetType = String(rawTargetType || detectInviteTargetType(rawTargetValue)).trim().toLowerCase() === "phone"
-      ? "phone"
-      : "email";
-    const normalizedRole = normalizeProjectRole(invite.role);
-    const normalizedTargetValue = normalizedTargetType === "phone"
-      ? normalizePhoneForStorage(rawTargetValue)
-      : rawTargetValue.toLowerCase();
-    const normalizedInvitedBy = String(invite.invitedBy || "").trim() || null;
+  const normalizedProjectId = String(invite.projectId || "").trim();
+  const rawTargetType = invite.targetType || inviteTarget.type || "";
+  const rawTargetValue = String(invite.targetValue || inviteTarget.value || "").trim();
+  const normalizedTargetType = String(rawTargetType || detectInviteTargetType(rawTargetValue)).trim().toLowerCase() === "phone"
+    ? "phone"
+    : "email";
+  const normalizedRole = normalizeProjectRole(invite.role);
+  const normalizedTargetValue = normalizedTargetType === "phone"
+    ? normalizePhoneForStorage(rawTargetValue)
+    : rawTargetValue.toLowerCase();
+  const normalizedInvitedBy = String(invite.invitedBy || "").trim() || null;
 
-    if (!normalizedProjectId || !normalizedTargetValue) {
-      return { data: null, error: new Error("Invite target is required.") };
-    }
+  if (!normalizedProjectId || !normalizedTargetValue) {
+    return { data: null, error: new Error("Invite target is required.") };
+  }
 
-    const rpcResult = await this.withSupabaseTimeout(
-      supabaseClient.rpc("create_project_invite_v2", {
-        p_project_id: normalizedProjectId,
-        p_role: normalizedRole,
-        p_target_type: normalizedTargetType,
-        p_target_value: normalizedTargetValue,
-        p_invited_by: normalizedInvitedBy
-      }),
-      12000,
-      "Sending invite"
-    );
-    if (!rpcResult.error) return rpcResult;
+  const targetEmail = normalizedTargetType === "email" ? normalizedTargetValue : null;
+  const targetPhone = normalizedTargetType === "phone" ? normalizedTargetValue : null;
 
-    if (!this.shouldFallbackInviteWrite(rpcResult.error)) {
-      return rpcResult;
-    }
+  const basePayload = {
+    project_id: normalizedProjectId,
+    role: normalizedRole,
+    invited_by: normalizedInvitedBy,
+    invite_target_type: normalizedTargetType,
+    target_email: targetEmail,
+    target_phone: targetPhone,
+    email: targetEmail,
+    status: "pending",
+    accepted_by_user_id: null,
+    accepted_at: null,
+    revoked_at: null
+  };
 
-    const fallbackPayload = {
-      project_id: normalizedProjectId,
-      role: normalizedRole,
-      invited_by: normalizedInvitedBy,
-      invite_target_type: normalizedTargetType,
-      target_email: normalizedTargetType === "email" ? normalizedTargetValue : null,
-      target_phone: normalizedTargetType === "phone" ? normalizedTargetValue : null,
-      email: normalizedTargetType === "email" ? normalizedTargetValue : null,
-      phone: normalizedTargetType === "phone" ? normalizedTargetValue : null,
-      status: "pending",
-      accepted_by_user_id: null,
-      accepted_at: null,
-      revoked_at: null
-    };
+  // First try to update an existing pending invite for the same target
+  let existingQuery = supabaseClient
+    .from("project_invites")
+    .select("*")
+    .eq("project_id", normalizedProjectId)
+    .is("accepted_at", null)
+    .is("revoked_at", null)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1);
 
-    const conflictTargets = normalizedTargetType === "phone"
-      ? ["project_id,target_phone", "project_id,phone"]
-      : ["project_id,target_email", "project_id,email"];
+  if (normalizedTargetType === "phone") {
+    existingQuery = existingQuery.eq("target_phone", targetPhone);
+  } else {
+    existingQuery = existingQuery.eq("target_email", targetEmail);
+  }
 
-    for (const conflictTarget of conflictTargets) {
-      const upsertResult = await this.withSupabaseTimeout(
-        supabaseClient
-          .from("project_invites")
-          .upsert(fallbackPayload, { onConflict: conflictTarget }),
-        12000,
-        "Sending invite"
-      );
-      if (!upsertResult.error) return upsertResult;
-      if (!this.isMissingColumnError(upsertResult.error, normalizedTargetType === "phone" ? "target_phone" : "target_email")) {
-        return upsertResult;
-      }
-    }
+  const existingResult = await this.withSupabaseTimeout(
+    existingQuery,
+    4000,
+    "Checking existing invite"
+  );
 
+  if (existingResult.error) {
+    return existingResult;
+  }
+
+  const existingInvite = Array.isArray(existingResult.data) ? existingResult.data[0] : null;
+
+  if (existingInvite?.id) {
     return await this.withSupabaseTimeout(
       supabaseClient
         .from("project_invites")
-        .insert(fallbackPayload),
-      12000,
-      "Sending invite"
+        .update({
+          role: normalizedRole,
+          invited_by: normalizedInvitedBy,
+          invite_target_type: normalizedTargetType,
+          target_email: targetEmail,
+          target_phone: targetPhone,
+          email: targetEmail,
+          status: "pending",
+          accepted_by_user_id: null,
+          accepted_at: null,
+          revoked_at: null
+        })
+        .eq("id", existingInvite.id)
+        .select("*")
+        .limit(1),
+      4000,
+      "Updating invite"
     );
-  },
+  }
 
+  return await this.withSupabaseTimeout(
+    supabaseClient
+      .from("project_invites")
+      .insert(basePayload)
+      .select("*")
+      .limit(1),
+    4000,
+    "Sending invite"
+  );
+},
   async revokeProjectInvite(inviteId) {
     const updateResult = await supabaseClient
       .from("project_invites")
