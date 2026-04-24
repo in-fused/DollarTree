@@ -424,7 +424,7 @@ async createProjectInvite(input = {}) {
     supabaseClient
       .from("project_invites")
       .insert(basePayload),
-    4000,
+    15000,
     "Sending invite"
   );
 
