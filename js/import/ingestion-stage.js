@@ -175,23 +175,60 @@
     const normalizedAt = options && typeof options.normalizedAt === "string"
       ? options.normalizedAt
       : new Date().toISOString();
+    const addressLine1 = String(
+      canonicalValues.address_line_1 == null
+        ? (canonicalValues.address == null ? "" : canonicalValues.address)
+        : canonicalValues.address_line_1
+    ).trim();
+    const addressLine2 = String(
+      canonicalValues.address_line_2 == null
+        ? (canonicalValues.address_2 == null ? "" : canonicalValues.address_2)
+        : canonicalValues.address_line_2
+    ).trim();
+    const postalCode = String(
+      canonicalValues.postal_code == null
+        ? (canonicalValues.zip == null ? "" : canonicalValues.zip)
+        : canonicalValues.postal_code
+    ).trim();
+    const rawLatitude = canonicalValues.latitude == null ? canonicalValues.lat : canonicalValues.latitude;
+    const rawLongitude = canonicalValues.longitude == null ? canonicalValues.lng : canonicalValues.longitude;
+    const latitudeText = String(rawLatitude == null ? "" : rawLatitude).trim();
+    const longitudeText = String(rawLongitude == null ? "" : rawLongitude).trim();
+    const latitudeValue = latitudeText && Number.isFinite(Number(latitudeText)) ? Number(latitudeText) : null;
+    const longitudeValue = longitudeText && Number.isFinite(Number(longitudeText)) ? Number(longitudeText) : null;
+    const fullAddress = String(canonicalValues.full_address == null ? "" : canonicalValues.full_address).trim() ||
+      [addressLine1, addressLine2, canonicalValues.city, canonicalValues.state, postalCode]
+        .map((value) => String(value == null ? "" : value).trim())
+        .filter(Boolean)
+        .join(", ");
 
     return {
       store_id: String(canonicalValues.store_id == null ? "" : canonicalValues.store_id).trim(),
-      full_address: String(canonicalValues.full_address == null ? "" : canonicalValues.full_address).trim(),
-      address_line_1: String(canonicalValues.address_line_1 == null ? "" : canonicalValues.address_line_1).trim(),
-      address_line_2: String(canonicalValues.address_line_2 == null ? "" : canonicalValues.address_line_2).trim(),
+      store_name: String(canonicalValues.store_name == null ? "" : canonicalValues.store_name).trim(),
+      customer_id: String(canonicalValues.customer_id == null ? "" : canonicalValues.customer_id).trim(),
+      full_address: fullAddress,
+      address_line_1: addressLine1,
+      address_line_2: addressLine2,
       city: String(canonicalValues.city == null ? "" : canonicalValues.city).trim(),
       state: String(canonicalValues.state == null ? "" : canonicalValues.state).trim(),
-      postal_code: String(canonicalValues.postal_code == null ? "" : canonicalValues.postal_code).trim(),
+      postal_code: postalCode,
       region: String(canonicalValues.region == null ? "" : canonicalValues.region).trim(),
       territory: String(canonicalValues.territory == null ? "" : canonicalValues.territory).trim(),
-      status: String(canonicalValues.status == null ? "active" : canonicalValues.status).trim().toLowerCase() || "active",
+      district: String(canonicalValues.district == null ? "" : canonicalValues.district).trim(),
+      division: String(canonicalValues.division == null ? "" : canonicalValues.division).trim(),
+      market: String(canonicalValues.market == null ? "" : canonicalValues.market).trim(),
+      status: String(
+        canonicalValues.status == null
+          ? (canonicalValues.status_code == null ? "active" : canonicalValues.status_code)
+          : canonicalValues.status
+      ).trim().toLowerCase() || "active",
       status_reason: String(canonicalValues.status_reason == null ? "" : canonicalValues.status_reason).trim(),
       completed: false,
       closed: false,
-      latitude: null,
-      longitude: null,
+      latitude: latitudeValue,
+      longitude: longitudeValue,
+      lat: latitudeValue,
+      lng: longitudeValue,
       notes_count: 0,
       photos_count: 0,
       last_activity_at: "",
@@ -371,6 +408,19 @@
               },
               { rowIndex, normalizedAt }
             );
+
+        if (normalized && typeof normalized === "object" && !Array.isArray(normalized)) {
+          normalized.__meta = {
+            ...(normalized.__meta && typeof normalized.__meta === "object" ? normalized.__meta : {}),
+            canonicalValues: { ...projected.canonicalValues },
+            unknownFields: {
+              ...(normalized.__meta && normalized.__meta.unknownFields && typeof normalized.__meta.unknownFields === "object"
+                ? normalized.__meta.unknownFields
+                : {}),
+              ...projected.unknownValues
+            }
+          };
+        }
 
         acceptedRecords.push(normalized);
       } else {

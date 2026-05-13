@@ -1,6 +1,6 @@
 (function importUiShellModule() {
   const STYLE_ID = "import-ui-shell-styles";
-  const OPEN_BTN_ID = "openImportShellBtn";
+  const OPEN_BTN_ID = "importProjectLink";
   const MODAL_ID = "importShellModal";
   const FILE_INPUT_ID = "importShellFileInput";
   const FILE_META_ID = "importShellFileMeta";
@@ -11,6 +11,13 @@
   const CANCEL_BTN_ID = "importShellCancelBtn";
   const CLEAR_BTN_ID = "importShellClearBtn";
   const DROP_ZONE_ID = "importShellDropZone";
+  const APPLY_BTN_ID = "importShellApplyBtn";
+  const APPLY_SECTION_ID = "importShellApplySection";
+  const APPLY_CONFIRM_ID = "importShellApplyConfirm";
+  const APPLY_RESULT_ID = "importShellApplyResult";
+  const APPLY_CONFIRM_BTN_ID = "importShellConfirmApplyBtn";
+  const APPLY_BACK_BTN_ID = "importShellApplyBackBtn";
+  const OPEN_INTENT_KEY = "dt:openImportShell";
 
   function getRuntime() {
     return window.ImportRuntime || null;
@@ -176,7 +183,52 @@
         flex-wrap: wrap;
       }
 
+      .importShellActions button.is-hidden {
+        display: none;
+      }
+
+      .importShellApplySection {
+        display: none;
+        margin-top: 14px;
+      }
+
+      .importShellApplySection.is-visible {
+        display: block;
+      }
+
+      .importShellApplyBlock + .importShellApplyBlock {
+        margin-top: 10px;
+      }
+
+      .importShellApplyWarning {
+        margin: 0 0 10px;
+        color: #fff0c4;
+        font-weight: 700;
+      }
+
+      .importShellApplyList {
+        margin: 8px 0 0;
+        padding-left: 18px;
+        display: grid;
+        gap: 4px;
+      }
+
+      .importShellApplyConfirmActions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .importShellApplyResultList {
+        margin: 0;
+        padding-left: 18px;
+        display: grid;
+        gap: 4px;
+      }
+
       .importShellActions button,
+      .importShellApplyConfirmActions button,
       .importShellHeader button,
       #${OPEN_BTN_ID} {
         appearance: none;
@@ -190,13 +242,21 @@
       }
 
       .importShellActions button:hover,
+      .importShellApplyConfirmActions button:hover,
       .importShellHeader button:hover,
       #${OPEN_BTN_ID}:hover {
         background: rgba(255,255,255,0.08);
       }
 
+      .importShellActions button:disabled,
+      .importShellApplyConfirmActions button:disabled {
+        opacity: 0.56;
+        cursor: not-allowed;
+      }
+
       #${OPEN_BTN_ID} {
         margin-top: 8px;
+        text-decoration: none;
       }
 
       .importShellMetaRow {
@@ -228,6 +288,7 @@
         }
 
         .importShellActions button,
+        .importShellApplyConfirmActions button,
         .importShellHeader button {
           width: 100%;
         }
@@ -264,22 +325,204 @@
     return `${(value / (1024 * 1024)).toFixed(2)} MB`;
   }
 
+  function clearChildren(node) {
+    while (node && node.firstChild) {
+      node.removeChild(node.firstChild);
+    }
+  }
+
+  function getAcceptedRowCount(snapshot) {
+    const stageResult = snapshot && snapshot.stageResult;
+    const acceptedRecords = stageResult && Array.isArray(stageResult.acceptedRecords)
+      ? stageResult.acceptedRecords
+      : [];
+    return acceptedRecords.length;
+  }
+
+  function appendApplyList(container, rows) {
+    const list = document.createElement("ul");
+    list.className = "importShellApplyList";
+
+    rows.forEach(function appendRow(row) {
+      const item = document.createElement("li");
+      const strong = document.createElement("strong");
+      strong.textContent = `${row.key}: `;
+      const value = document.createElement("span");
+      value.textContent = row.value;
+      item.appendChild(strong);
+      item.appendChild(value);
+      list.appendChild(item);
+    });
+
+    container.appendChild(list);
+  }
+
+  function renderApplyConfirmation(snapshot, elements) {
+    const confirm = elements.applyConfirm;
+    if (!confirm) return;
+
+    clearChildren(confirm);
+
+    if (!snapshot.applyConfirmOpen) {
+      confirm.style.display = "none";
+      return;
+    }
+
+    confirm.style.display = "block";
+
+    const warning = document.createElement("p");
+    warning.className = "importShellApplyWarning";
+    warning.textContent = "This will write to Supabase.";
+    confirm.appendChild(warning);
+
+    appendApplyList(confirm, [
+      { key: "Current project name", value: String((snapshot.applyTarget && snapshot.applyTarget.projectName) || "") },
+      { key: "Current project_id", value: String((snapshot.applyTarget && snapshot.applyTarget.projectId) || "") },
+      { key: "Accepted rows", value: String(getAcceptedRowCount(snapshot)) },
+      { key: "Mode", value: "Merge into current project" }
+    ]);
+
+    const explanation = document.createElement("ul");
+    explanation.className = "importShellApplyList";
+    [
+      "Existing stores matched by store_id will be updated.",
+      "New stores will be inserted.",
+      "Notes/photos will not be touched.",
+      "Existing statuses will not be reset."
+    ].forEach(function appendText(text) {
+      const item = document.createElement("li");
+      item.textContent = text;
+      explanation.appendChild(item);
+    });
+    confirm.appendChild(explanation);
+
+    const actions = document.createElement("div");
+    actions.className = "importShellApplyConfirmActions";
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.id = APPLY_CONFIRM_BTN_ID;
+    confirmBtn.type = "button";
+    confirmBtn.textContent = snapshot.applyInProgress ? "Applying..." : "Confirm Apply";
+    confirmBtn.disabled = Boolean(snapshot.applyInProgress);
+
+    const backBtn = document.createElement("button");
+    backBtn.id = APPLY_BACK_BTN_ID;
+    backBtn.type = "button";
+    backBtn.textContent = "Back";
+    backBtn.disabled = Boolean(snapshot.applyInProgress);
+
+    actions.appendChild(confirmBtn);
+    actions.appendChild(backBtn);
+    confirm.appendChild(actions);
+  }
+
+  function renderApplyResult(snapshot, elements) {
+    const resultNode = elements.applyResult;
+    if (!resultNode) return;
+
+    clearChildren(resultNode);
+
+    const result = snapshot && snapshot.applyResult;
+    if (!result) {
+      resultNode.style.display = "none";
+      return;
+    }
+
+    resultNode.style.display = "block";
+
+    const title = document.createElement("div");
+    title.className = "importShellSectionLabel";
+    title.textContent = result.errorCount > 0 ? "Apply Result - Review Needed" : "Apply Result";
+    resultNode.appendChild(title);
+
+    const list = document.createElement("ul");
+    list.className = "importShellApplyResultList";
+
+    [
+      { key: "Inserted stores", value: result.insertedCount },
+      { key: "Updated stores", value: result.updatedCount },
+      { key: "Skipped rows", value: result.skippedCount },
+      { key: "Errors", value: result.errorCount },
+      { key: "Warnings", value: result.warningCount },
+      { key: "Geocoded", value: result.geocodedCount },
+      { key: "Cache hits", value: result.cacheHitCount }
+    ].forEach(function appendMetric(row) {
+      const item = document.createElement("li");
+      item.textContent = `${row.key}: ${Number(row.value) || 0}`;
+      list.appendChild(item);
+    });
+
+    resultNode.appendChild(list);
+
+    const messages = []
+      .concat(Array.isArray(result.errors) ? result.errors.slice(0, 5) : [])
+      .concat(Array.isArray(result.warnings) ? result.warnings.slice(0, 5) : []);
+
+    if (messages.length) {
+      const messageList = document.createElement("ul");
+      messageList.className = "importShellApplyList";
+      messages.forEach(function appendMessage(message) {
+        const item = document.createElement("li");
+        item.textContent = message;
+        messageList.appendChild(item);
+      });
+      resultNode.appendChild(messageList);
+    }
+  }
+
+  function renderApplyUi(snapshot, elements) {
+    const applyBtn = elements.applyBtn;
+    const applySection = elements.applySection;
+    if (!applyBtn || !applySection) return;
+
+    const eligibility = snapshot.applyEligibility || { eligible: false };
+    const shouldShowApply = Boolean(eligibility.eligible || snapshot.applyInProgress || snapshot.applyConfirmOpen);
+
+    applyBtn.classList.toggle("is-hidden", !shouldShowApply);
+    applyBtn.disabled = Boolean(!eligibility.eligible || snapshot.applyInProgress);
+    applyBtn.textContent = snapshot.applyInProgress ? "Applying..." : "Apply Import";
+    applyBtn.title = eligibility.eligible ? "" : (eligibility.reason || "");
+
+    renderApplyConfirmation(snapshot, elements);
+    renderApplyResult(snapshot, elements);
+
+    applySection.classList.toggle(
+      "is-visible",
+      Boolean(snapshot.applyConfirmOpen || snapshot.applyResult)
+    );
+  }
+
   function ensureOpenButton() {
     let openBtn = document.getElementById(OPEN_BTN_ID);
-    if (openBtn) return openBtn;
+    if (openBtn) {
+      openBtn.textContent = "Import Project Data";
+      openBtn.setAttribute("href", "#import");
+      openBtn.setAttribute("data-import-project-link", "true");
+      return openBtn;
+    }
 
     const anchor =
-      document.getElementById("importProjectLink") ||
       document.querySelector("[data-import-project-link]") ||
       document.querySelector(".importProjectLink");
 
-    if (!anchor || !anchor.parentElement) return null;
+    if (anchor) {
+      anchor.id = OPEN_BTN_ID;
+      anchor.textContent = "Import Project Data";
+      anchor.setAttribute("href", "#import");
+      anchor.setAttribute("data-import-project-link", "true");
+      return anchor;
+    }
+
+    const projectPanel = document.querySelector(".panelProject");
+    if (!projectPanel) return null;
 
     openBtn = document.createElement("button");
     openBtn.id = OPEN_BTN_ID;
     openBtn.type = "button";
-    openBtn.textContent = "Import Data Shell";
-    anchor.insertAdjacentElement("afterend", openBtn);
+    openBtn.className = "importLink";
+    openBtn.textContent = "Import Project Data";
+    openBtn.setAttribute("data-import-project-link", "true");
+    projectPanel.appendChild(openBtn);
 
     return openBtn;
   }
@@ -311,7 +554,7 @@
 
     const copy = document.createElement("p");
     copy.className = "importShellCopy";
-    copy.textContent = "Shell-local dry-run only. No live project mutation, no apply path, no backend writes.";
+    copy.textContent = "Dry-run validates the CSV first. Apply writes only after explicit confirmation.";
 
     titleWrap.appendChild(title);
     titleWrap.appendChild(copy);
@@ -326,7 +569,7 @@
 
     const note = document.createElement("div");
     note.className = "importShellNote";
-    note.textContent = "CSV dry-run is supported here. This shell is isolated and does not replace active production data.";
+    note.textContent = "Apply mode for this phase is merge into the current project. It does not create projects, replace projects, reset statuses, notes, or photos.";
 
     const presetSection = document.createElement("section");
     presetSection.className = "importShellSection";
@@ -413,8 +656,29 @@
     statusSection.appendChild(statusLabel);
     statusSection.appendChild(statusCard);
 
+    const applySection = document.createElement("section");
+    applySection.id = APPLY_SECTION_ID;
+    applySection.className = "importShellApplySection";
+
+    const applyConfirm = document.createElement("div");
+    applyConfirm.id = APPLY_CONFIRM_ID;
+    applyConfirm.className = "importShellCard importShellApplyBlock";
+
+    const applyResult = document.createElement("div");
+    applyResult.id = APPLY_RESULT_ID;
+    applyResult.className = "importShellCard importShellApplyBlock";
+
+    applySection.appendChild(applyConfirm);
+    applySection.appendChild(applyResult);
+
     const actions = document.createElement("div");
     actions.className = "importShellActions";
+
+    const applyBtn = document.createElement("button");
+    applyBtn.id = APPLY_BTN_ID;
+    applyBtn.type = "button";
+    applyBtn.textContent = "Apply Import";
+    applyBtn.classList.add("is-hidden");
 
     const clearBtn = document.createElement("button");
     clearBtn.id = CLEAR_BTN_ID;
@@ -426,6 +690,7 @@
     cancelBtn.type = "button";
     cancelBtn.textContent = "Cancel";
 
+    actions.appendChild(applyBtn);
     actions.appendChild(clearBtn);
     actions.appendChild(cancelBtn);
 
@@ -435,6 +700,7 @@
     content.appendChild(fileSection);
     content.appendChild(metaSection);
     content.appendChild(statusSection);
+    content.appendChild(applySection);
     content.appendChild(actions);
 
     modal.appendChild(content);
@@ -455,7 +721,13 @@
       closeBtn: document.getElementById(CLOSE_BTN_ID),
       cancelBtn: document.getElementById(CANCEL_BTN_ID),
       clearBtn: document.getElementById(CLEAR_BTN_ID),
-      dropZone: document.getElementById(DROP_ZONE_ID)
+      dropZone: document.getElementById(DROP_ZONE_ID),
+      applyBtn: document.getElementById(APPLY_BTN_ID),
+      applySection: document.getElementById(APPLY_SECTION_ID),
+      applyConfirm: document.getElementById(APPLY_CONFIRM_ID),
+      applyResult: document.getElementById(APPLY_RESULT_ID),
+      applyConfirmBtn: document.getElementById(APPLY_CONFIRM_BTN_ID),
+      applyBackBtn: document.getElementById(APPLY_BACK_BTN_ID)
     };
   }
 
@@ -547,6 +819,12 @@
     populatePresetOptions(snapshot);
     updatePresetStatus(snapshot);
 
+    if (elements.fileInput) elements.fileInput.disabled = Boolean(snapshot.applyInProgress);
+    if (elements.presetSelect) elements.presetSelect.disabled = Boolean(snapshot.applyInProgress);
+    if (elements.clearBtn) elements.clearBtn.disabled = Boolean(snapshot.applyInProgress);
+    if (elements.cancelBtn) elements.cancelBtn.disabled = Boolean(snapshot.applyInProgress);
+    if (elements.closeBtn) elements.closeBtn.disabled = Boolean(snapshot.applyInProgress);
+
     if (!snapshot.file) {
       fileMeta.textContent = "No file selected.";
     } else {
@@ -571,6 +849,7 @@
     if (snapshot.statusLevel === "error") status.classList.add("status-error");
 
     status.textContent = snapshot.statusMessage || "Awaiting file selection for staged validation preview.";
+    renderApplyUi(snapshot, elements);
   }
 
   function bindEvents() {
@@ -589,22 +868,53 @@
     }
     if (elements.modal.dataset.importShellBound === "true") return;
 
-    elements.openBtn.addEventListener("click", function onOpen() {
+    elements.openBtn.addEventListener("click", function onOpen(event) {
+      event.preventDefault();
+      if (elements.openBtn.classList.contains("disabled")) return;
       runtime.openShell();
     });
 
     elements.closeBtn.addEventListener("click", function onClose() {
+      if (runtime.getState().applyInProgress) return;
       runtime.closeShell();
     });
 
     elements.cancelBtn.addEventListener("click", function onCancel() {
+      if (runtime.getState().applyInProgress) return;
       runtime.closeShell();
     });
 
     elements.clearBtn.addEventListener("click", function onClear() {
+      if (runtime.getState().applyInProgress) return;
       runtime.resetAll();
       elements.fileInput.value = "";
     });
+
+    if (elements.applyBtn) {
+      elements.applyBtn.addEventListener("click", function onApplyClick() {
+        const opened = runtime.requestApplyConfirmation();
+        if (opened && elements.applySection) {
+          window.requestAnimationFrame(function scrollToApply() {
+            elements.applySection.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          });
+        }
+      });
+    }
+
+    if (elements.applySection) {
+      elements.applySection.addEventListener("click", function onApplySectionClick(event) {
+        const target = event.target;
+        if (!target || !target.id) return;
+
+        if (target.id === APPLY_CONFIRM_BTN_ID) {
+          runtime.applyImport();
+        }
+
+        if (target.id === APPLY_BACK_BTN_ID) {
+          runtime.cancelApplyConfirmation();
+        }
+      });
+    }
 
     elements.presetSelect.addEventListener("change", function onPresetChange() {
       runtime.setSelectedPreset(elements.presetSelect.value);
@@ -612,6 +922,7 @@
 
     elements.modal.addEventListener("click", function onBackdrop(event) {
       if (event.target === elements.modal) {
+        if (runtime.getState().applyInProgress) return;
         runtime.closeShell();
       }
     });
@@ -663,7 +974,7 @@
     window.addEventListener("keydown", function onEscape(event) {
       if (event.key === "Escape") {
         const snapshot = runtime.getState();
-        if (snapshot && snapshot.isOpen) {
+        if (snapshot && snapshot.isOpen && !snapshot.applyInProgress) {
           runtime.closeShell();
         }
       }
@@ -673,12 +984,33 @@
     runtime.subscribe(render);
   }
 
+  function maybeOpenFromLegacyIntent() {
+    const runtime = getRuntime();
+    if (!runtime) return;
+
+    let hasStoredIntent = false;
+
+    try {
+      hasStoredIntent = window.sessionStorage.getItem(OPEN_INTENT_KEY) === "true";
+      if (hasStoredIntent) {
+        window.sessionStorage.removeItem(OPEN_INTENT_KEY);
+      }
+    } catch (error) {
+      hasStoredIntent = false;
+    }
+
+    if (hasStoredIntent || window.location.hash === "#import") {
+      runtime.openShell();
+    }
+  }
+
   function init() {
     if (!getRuntime()) return;
     ensureStyles();
     ensureOpenButton();
     ensureModal();
     bindEvents();
+    maybeOpenFromLegacyIntent();
   }
 
   if (document.readyState === "loading") {

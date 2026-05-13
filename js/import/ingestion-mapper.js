@@ -6,19 +6,22 @@
     store_name: Object.freeze(["store_name", "store name", "location name", "location_name", "site name", "site_name", "store"]),
     customer_id: Object.freeze(["customer_id", "customer id", "customer", "customer number", "customer_number"]),
     full_address: Object.freeze(["full_address", "full address", "address_full", "fulladdress", "address line", "address_line", "street address", "street_address"]),
-    address: Object.freeze(["address", "address1", "address 1", "street", "street1", "street 1", "addr", "address_line_1", "address line 1"]),
-    address_2: Object.freeze(["address2", "address 2", "street2", "street 2", "address_line_2", "address line 2", "suite", "unit"]),
+    address_line_1: Object.freeze(["address", "address1", "address 1", "street", "street1", "street 1", "addr", "address_line_1", "address line 1"]),
+    address_line_2: Object.freeze(["address2", "address 2", "street2", "street 2", "address_line_2", "address line 2", "suite", "unit"]),
     city: Object.freeze(["city", "town"]),
     state: Object.freeze(["state", "province", "state_code", "state code"]),
-    zip: Object.freeze(["zip", "zipcode", "zip code", "postal_code", "postal code", "postcode"]),
+    postal_code: Object.freeze(["postal_code", "postal code", "zip", "zipcode", "zip code", "postcode"]),
     region: Object.freeze(["region", "area", "zone"]),
     territory: Object.freeze(["territory", "territory_name", "territory name", "territory code", "territory_code"]),
     district: Object.freeze(["district", "district_name", "district name"]),
     division: Object.freeze(["division", "division_name", "division name"]),
     market: Object.freeze(["market", "market_name", "market name"]),
-    lat: Object.freeze(["lat", "latitude", "ycoord", "y_coord", "geo_lat", "geo latitude"]),
-    lng: Object.freeze(["lng", "lon", "long", "longitude", "xcoord", "x_coord", "geo_lng", "geo_longitude"]),
-    status_code: Object.freeze(["status_code", "status", "store status", "store_status"])
+    latitude: Object.freeze(["latitude", "lat", "ycoord", "y_coord", "geo_lat", "geo latitude"]),
+    longitude: Object.freeze(["longitude", "lng", "lon", "long", "xcoord", "x_coord", "geo_lng", "geo_longitude"]),
+    status: Object.freeze(["status", "status_code", "store status", "store_status"]),
+    status_reason: Object.freeze(["status_reason", "status reason", "reason", "reschedule reason"]),
+    completed: Object.freeze(["completed", "complete", "done", "is_completed"]),
+    closed: Object.freeze(["closed", "store_closed", "is_closed"])
   });
 
   const CANONICAL_FIELDS = Object.freeze(Object.keys(IMPORT_COLUMN_ALIASES));

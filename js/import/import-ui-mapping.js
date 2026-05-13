@@ -6,6 +6,8 @@
 
   const FALLBACK_CANONICAL_FIELDS = [
     "store_id",
+    "store_name",
+    "customer_id",
     "full_address",
     "address_line_1",
     "address_line_2",
@@ -14,6 +16,9 @@
     "postal_code",
     "region",
     "territory",
+    "district",
+    "division",
+    "market",
     "status",
     "status_reason",
     "completed",

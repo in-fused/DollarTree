@@ -293,7 +293,7 @@
           <div class="panel panelProject">
             <select id="projectSelect"></select>
             <div id="projectSourceTag" class="projectSourceTag">Loading project…</div>
-            <a id="importProjectLink" class="importLink" href="import-project.html">Import Project Data</a>
+            <a id="importProjectLink" class="importLink" href="#import" data-import-project-link="true">Import Project Data</a>
             <button id="exportAnalyticsCsvBtn" class="btnSecondary" type="button">Export Analytics CSV</button>
             <button id="exportAnalyticsJsonBtn" class="btnSecondary" type="button">Export Analytics JSON</button>
           </div>
@@ -1002,6 +1002,7 @@
 <script src="js/import/ingestion-validator.js"></script>
 <script src="js/import/ingestion-stage.js"></script>
 <script src="js/import/ingestion-diagnostics.js"></script>
+<script src="js/import/import-apply.js"></script>
 <script src="js/import/import-runtime.js"></script>
 <script src="js/import/import-ui-shell.js"></script>
 <script src="js/import/import-ui-review.js"></script>
