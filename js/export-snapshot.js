@@ -1581,12 +1581,755 @@ function buildSnapshotHtml(payload) {
 </html>`;
 }
 
+function getExecutiveSnapshotBranding() {
+  const brandColor = typeof normalizeProjectBrandColor === "function"
+    ? normalizeProjectBrandColor(currentProjectMeta?.brand_color)
+    : String(currentProjectMeta?.brand_color || "").trim();
+  const brandLogoUrl = typeof normalizeProjectBrandLogoUrl === "function"
+    ? normalizeProjectBrandLogoUrl(currentProjectMeta?.brand_logo_url)
+    : String(currentProjectMeta?.brand_logo_url || "").trim();
+
+  const safeBrandColor = /^#([0-9a-f]{6})$/i.test(brandColor || "") ? brandColor : "#c8102e";
+  const brandRgb = typeof getHexRgbTriplet === "function" ? getHexRgbTriplet(safeBrandColor) : "200, 16, 46";
+
+  return {
+    brandColor: safeBrandColor,
+    brandRgb,
+    brandLogoUrl
+  };
+}
+
+function getSnapshotAnalyticsMetrics(payload) {
+  const analyticsMetrics = payload?.analyticsSnapshot?.metrics || {};
+  const metrics = payload?.metrics || {};
+
+  return {
+    openWorkCount: Number.isFinite(Number(analyticsMetrics.openWorkCount))
+      ? Number(analyticsMetrics.openWorkCount)
+      : metrics.active + metrics.rescheduled,
+    attentionNeededCount: Number.isFinite(Number(analyticsMetrics.attentionNeededCount))
+      ? Number(analyticsMetrics.attentionNeededCount)
+      : metrics.rescheduled,
+    completedToday: Number.isFinite(Number(analyticsMetrics.completedToday))
+      ? Number(analyticsMetrics.completedToday)
+      : 0,
+    avgCompletedPerDay: Number.isFinite(Number(analyticsMetrics.avgCompletedPerDay))
+      ? Number(analyticsMetrics.avgCompletedPerDay)
+      : 0,
+    etaDays: Number.isFinite(Number(analyticsMetrics.etaDays))
+      ? Number(analyticsMetrics.etaDays)
+      : null,
+    recentActivityCoverageRate: Number.isFinite(Number(analyticsMetrics.recentActivityCoverageRate))
+      ? Number(analyticsMetrics.recentActivityCoverageRate)
+      : metrics.activityCoverageRate
+  };
+}
+
+function buildExecutiveSummaryCards(metrics, analyticsMetrics) {
+  const cards = [
+    { label: "Total Stores", value: metrics.total.toLocaleString(), note: "Project scope" },
+    { label: "Completed", value: metrics.completed.toLocaleString(), note: `${metrics.completionRate.toFixed(1)}% complete` },
+    { label: "Active/Open", value: analyticsMetrics.openWorkCount.toLocaleString(), note: "Remaining field work" },
+    { label: "Rescheduled", value: metrics.rescheduled.toLocaleString(), note: "Follow-up queue" },
+    { label: "Closed", value: metrics.closed.toLocaleString(), note: "Out of active scope" },
+    { label: "ETA", value: analyticsMetrics.etaDays !== null ? formatEta(analyticsMetrics.etaDays) : "Not available", note: analyticsMetrics.avgCompletedPerDay > 0 ? `${analyticsMetrics.avgCompletedPerDay.toFixed(1)} / day` : "Pace unavailable" }
+  ];
+
+  return cards.map(card => `
+    <div class="execMetricCard">
+      <div class="execMetricLabel">${escapeSnapshotHtml(card.label)}</div>
+      <div class="execMetricValue">${escapeSnapshotHtml(card.value)}</div>
+      <div class="execMetricNote">${escapeSnapshotHtml(card.note)}</div>
+    </div>
+  `).join("");
+}
+
+function buildDoneLeftCards(metrics, analyticsMetrics, dataHealth) {
+  const remainingWork = Math.max(0, analyticsMetrics.openWorkCount);
+  const attentionCount = Math.max(0, analyticsMetrics.attentionNeededCount + dataHealth.totalIssueCount);
+  const completedPercent = metrics.actionableTotal > 0 ? (metrics.completed / metrics.actionableTotal) * 100 : 0;
+  const remainingPercent = metrics.actionableTotal > 0 ? (remainingWork / metrics.actionableTotal) * 100 : 0;
+
+  const cards = [
+    {
+      key: "completed",
+      title: "Completed Work",
+      value: metrics.completed.toLocaleString(),
+      detail: `${completedPercent.toFixed(1)}% of actionable stores are complete.`,
+      width: completedPercent
+    },
+    {
+      key: "remaining",
+      title: "Remaining Work",
+      value: remainingWork.toLocaleString(),
+      detail: `${metrics.active.toLocaleString()} active and ${metrics.rescheduled.toLocaleString()} rescheduled stores remain.`,
+      width: remainingPercent
+    },
+    {
+      key: "attention",
+      title: "Follow-up / Attention Needed",
+      value: attentionCount.toLocaleString(),
+      detail: attentionCount > 0 ? "Review reschedules and data exceptions before sharing downstream." : "No attention signals in the current scope.",
+      width: metrics.total > 0 ? (attentionCount / metrics.total) * 100 : 0
+    }
+  ];
+
+  return cards.map(card => `
+    <div class="doneLeftCard doneLeftCard-${escapeSnapshotHtml(card.key)}">
+      <div class="doneLeftTop">
+        <div>
+          <div class="doneLeftTitle">${escapeSnapshotHtml(card.title)}</div>
+          <div class="doneLeftDetail">${escapeSnapshotHtml(card.detail)}</div>
+        </div>
+        <div class="doneLeftValue">${escapeSnapshotHtml(card.value)}</div>
+      </div>
+      <div class="doneLeftTrack">
+        <div class="doneLeftFill" style="width:${Math.max(0, Math.min(100, card.width)).toFixed(2)}%;"></div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function getExecutiveSnapshotDataHealth(stores) {
+  const scopedStores = Array.isArray(stores) ? stores : [];
+  const report = typeof getDataIntegrityReport === "function"
+    ? getDataIntegrityReport(scopedStores, statusMap, typeof getGeoAuditConfig === "function" ? getGeoAuditConfig(scopedStores) : undefined)
+    : {
+        missingRegion: [],
+        missingTerritory: [],
+        missingState: [],
+        missingCoords: scopedStores.filter(store => !(typeof hasValidCoordinatePair === "function" && hasValidCoordinatePair(store?.lat, store?.lng))),
+        missingStatus: []
+      };
+
+  const items = [
+    { label: "Missing coordinates", value: report.missingCoords?.length || 0 },
+    { label: "Missing status", value: report.missingStatus?.length || 0 },
+    { label: "Missing region", value: report.missingRegion?.length || 0 },
+    { label: "Missing territory", value: report.missingTerritory?.length || 0 },
+    { label: "Missing state", value: report.missingState?.length || 0 }
+  ].filter(item => item.value > 0);
+
+  return {
+    items,
+    totalIssueCount: items.reduce((sum, item) => sum + item.value, 0)
+  };
+}
+
+function buildExecutiveDataHealth(dataHealth) {
+  if (!dataHealth?.items?.length) return "";
+
+  return `
+    <section class="reportPanel">
+      <div class="sectionHeader">
+        <div>
+          <div class="sectionEyebrow">Data Health / Exceptions</div>
+          <h2>Items to Resolve</h2>
+        </div>
+        <div class="sectionBadge">${dataHealth.totalIssueCount.toLocaleString()} exceptions</div>
+      </div>
+      <div class="exceptionGrid">
+        ${dataHealth.items.map(item => `
+          <div class="exceptionCard">
+            <div class="exceptionValue">${item.value.toLocaleString()}</div>
+            <div class="exceptionLabel">${escapeSnapshotHtml(item.label)}</div>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function buildSnapshotGeoBreakdown(stores, key, label) {
+  const counts = new Map();
+  (Array.isArray(stores) ? stores : []).forEach(store => {
+    const value = String(store?.[key] || "").trim();
+    if (!value) return;
+    counts.set(value, (counts.get(value) || 0) + 1);
+  });
+
+  const rows = Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, 8);
+
+  if (!rows.length) {
+    return `
+      <div class="geoBreakdown">
+        <div class="geoBreakdownTitle">${escapeSnapshotHtml(label)}</div>
+        <div class="emptyCopy">No ${escapeSnapshotHtml(label.toLowerCase())} metadata in this scope.</div>
+      </div>
+    `;
+  }
+
+  const total = Math.max(1, rows.reduce((sum, row) => sum + row.count, 0));
+  return `
+    <div class="geoBreakdown">
+      <div class="geoBreakdownTitle">${escapeSnapshotHtml(label)}</div>
+      <div class="geoRows">
+        ${rows.map(row => {
+          const percent = (row.count / total) * 100;
+          return `
+            <div class="geoRow">
+              <div class="geoRowMeta">
+                <span>${escapeSnapshotHtml(row.name)}</span>
+                <strong>${row.count.toLocaleString()}</strong>
+              </div>
+              <div class="geoTrack"><div class="geoFill" style="width:${percent.toFixed(2)}%;"></div></div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function buildExecutiveGeographicOverview(stores) {
+  const plottableCount = (Array.isArray(stores) ? stores : []).filter(store =>
+    typeof hasValidCoordinatePair === "function" && hasValidCoordinatePair(store?.lat, store?.lng)
+  ).length;
+
+  return `
+    <section class="reportPanel">
+      <div class="sectionHeader">
+        <div>
+          <div class="sectionEyebrow">Geographic Overview</div>
+          <h2>Coverage Spread</h2>
+        </div>
+        <div class="sectionBadge">${plottableCount.toLocaleString()} plotted / ${(stores || []).length.toLocaleString()} total</div>
+      </div>
+      <div class="geoGrid">
+        ${buildSnapshotGeoBreakdown(stores, "region", "Regions")}
+        ${buildSnapshotGeoBreakdown(stores, "territory", "Territories")}
+        ${buildSnapshotGeoBreakdown(stores, "state", "States")}
+      </div>
+    </section>
+  `;
+}
+
+function buildExecutiveRecentActivity() {
+  const safeEvents = (Array.isArray(activityFeed) ? activityFeed : [])
+    .filter(item => String(item?.store_id || "").trim())
+    .slice(0, 8);
+
+  return `
+    <section class="reportPanel">
+      <div class="sectionHeader">
+        <div>
+          <div class="sectionEyebrow">Recent Activity</div>
+          <h2>Latest Relevant Store Updates</h2>
+        </div>
+        <div class="sectionBadge">${safeEvents.length.toLocaleString()} shown</div>
+      </div>
+      <div class="activityReportList">
+        ${safeEvents.length ? safeEvents.map(item => `
+          <div class="activityReportItem">
+            <div class="activityReportTime">${escapeSnapshotHtml(item.timestamp ? formatActivityTime(item.timestamp) : "Recent")}</div>
+            <div class="activityReportTitle">${escapeSnapshotHtml(item.title || "Store activity")}</div>
+            <div class="activityReportDetail">${escapeSnapshotHtml(item.detail || "")}</div>
+          </div>
+        `).join("") : `<div class="emptyStateCard">No recent store-level activity is available in this scope.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function buildExecutiveSnapshotHtml(payload) {
+  const {
+    generatedAt,
+    generatedTimeLabel,
+    projectTitle,
+    projectId,
+    scopeMeta,
+    metrics,
+    rows,
+    evidenceRows,
+    returnUrl,
+    stores
+  } = payload;
+  const branding = payload.branding || getExecutiveSnapshotBranding();
+  const analyticsMetrics = getSnapshotAnalyticsMetrics(payload);
+  const dataHealth = getExecutiveSnapshotDataHealth(stores);
+  const reportIdentity = getSnapshotReportIdentity(payload);
+  const logoMarkup = branding.brandLogoUrl
+    ? `<img class="reportLogo" src="${escapeSnapshotHtml(branding.brandLogoUrl)}" alt="${escapeSnapshotHtml(projectTitle)} logo" />`
+    : `<div class="reportLogoMark">${escapeSnapshotHtml(String(projectTitle || "P").slice(0, 1).toUpperCase())}</div>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>${escapeSnapshotHtml(projectTitle)} Snapshot</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #09111b;
+    --bg-deep: #050b12;
+    --panel: rgba(255,255,255,0.065);
+    --panel-strong: rgba(255,255,255,0.095);
+    --line: rgba(255,255,255,0.11);
+    --line-strong: rgba(255,255,255,0.18);
+    --text: #ffffff;
+    --muted: rgba(255,255,255,0.72);
+    --soft: rgba(255,255,255,0.54);
+    --brand: ${escapeSnapshotHtml(branding.brandColor)};
+    --brand-rgb: ${escapeSnapshotHtml(branding.brandRgb)};
+    --active: #64b5f6;
+    --completed: #2ecc71;
+    --rescheduled: #ff9900;
+    --closed: #ff2d2d;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg-deep); }
+  body {
+    margin: 0;
+    color: var(--text);
+    background:
+      radial-gradient(circle at top left, rgba(var(--brand-rgb), 0.24), transparent 34rem),
+      linear-gradient(180deg, #0b1522 0%, #060c14 100%);
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page { width: min(1220px, 100%); margin: 0 auto; padding: 18px; display: grid; gap: 14px; }
+  .reportHero, .reportPanel, .utilityBar, .reportFooter {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    box-shadow: 0 18px 44px rgba(0,0,0,0.28);
+  }
+  .reportHero {
+    padding: 18px;
+    background:
+      linear-gradient(135deg, rgba(var(--brand-rgb), 0.22), rgba(255,255,255,0.06) 42%, rgba(255,255,255,0.035)),
+      rgba(8, 16, 27, 0.94);
+  }
+  .heroTop { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+  .heroIdentity { display: flex; gap: 14px; align-items: center; min-width: 0; }
+  .reportLogo, .reportLogoMark {
+    width: 70px;
+    height: 70px;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--brand-rgb), 0.48);
+    background: rgba(255,255,255,0.08);
+    flex-shrink: 0;
+  }
+  .reportLogo { object-fit: contain; padding: 7px; }
+  .reportLogoMark { display: grid; place-items: center; font-size: 34px; font-weight: 900; color: #fff; }
+  .eyebrow, .sectionEyebrow, .metricLabel, .doneLeftTitle {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(226,238,255,0.72);
+    font-weight: 800;
+  }
+  h1 { margin: 5px 0 6px; font-size: clamp(30px, 5vw, 56px); line-height: 0.98; letter-spacing: 0; }
+  h2 { margin: 3px 0 0; font-size: 18px; line-height: 1.2; }
+  .heroSummary { color: var(--muted); font-size: 14px; line-height: 1.5; max-width: 820px; }
+  .heroCompletion {
+    min-width: 220px;
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--brand-rgb), 0.34);
+    background: rgba(var(--brand-rgb), 0.12);
+  }
+  .completionValue { font-size: 42px; font-weight: 900; line-height: 1; }
+  .completionLabel { margin-top: 5px; color: var(--muted); font-size: 12px; }
+  .progressTrack, .doneLeftTrack, .statusBreakdownBarTrack, .geoTrack {
+    height: 9px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.11);
+  }
+  .progressFill, .doneLeftFill, .geoFill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--brand), var(--completed));
+  }
+  .heroMetaGrid { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .heroMetaCard, .execMetricCard, .doneLeftCard, .exceptionCard, .geoBreakdown, .activityReportItem {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    padding: 11px;
+  }
+  .heroMetaLabel, .execMetricLabel, .execMetricNote, .doneLeftDetail, .emptyCopy, .activityReportTime, .activityReportDetail, .footnote {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .heroMetaValue { margin-top: 4px; font-size: 13px; font-weight: 800; overflow-wrap: anywhere; }
+  .utilityBar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 11px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    background: rgba(8, 16, 27, 0.96);
+    backdrop-filter: blur(8px);
+  }
+  .utilityCopy { color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .utilityActions { display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .utilityBtn {
+    min-height: 36px;
+    border: 1px solid rgba(var(--brand-rgb), 0.38);
+    border-radius: 8px;
+    padding: 0 12px;
+    color: #fff;
+    background: rgba(var(--brand-rgb), 0.22);
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .utilityBtn.secondary { background: rgba(255,255,255,0.08); border-color: var(--line-strong); }
+  .reportPanel { padding: 14px; }
+  .sectionHeader { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+  .sectionBadge {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0 10px;
+    color: #fff;
+    border: 1px solid rgba(var(--brand-rgb), 0.34);
+    background: rgba(var(--brand-rgb), 0.14);
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .execMetricGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; }
+  .execMetricValue { margin-top: 7px; font-size: 28px; font-weight: 900; line-height: 1; }
+  .execMetricNote { margin-top: 7px; }
+  .doneLeftGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .doneLeftTop { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .doneLeftValue { font-size: 34px; font-weight: 900; line-height: 1; }
+  .doneLeftCard-remaining .doneLeftFill { background: var(--active); }
+  .doneLeftCard-attention { border-color: rgba(255,153,0,0.32); background: rgba(255,153,0,0.08); }
+  .doneLeftCard-attention .doneLeftFill { background: var(--rescheduled); }
+  .statusGrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr); gap: 12px; }
+  .statusBreakdownStack { display: grid; gap: 9px; }
+  .statusBreakdownRow { display: grid; gap: 6px; }
+  .statusBreakdownMeta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); }
+  .statusBreakdownLabelWrap { display: inline-flex; align-items: center; gap: 7px; }
+  .statusSwatch { width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; }
+  .statusSwatch-active, .statusBreakdownBarFill-active { background: var(--active); }
+  .statusSwatch-rescheduled, .statusBreakdownBarFill-rescheduled { background: var(--rescheduled); }
+  .statusSwatch-completed, .statusBreakdownBarFill-completed { background: var(--completed); }
+  .statusSwatch-closed, .statusBreakdownBarFill-closed { background: var(--closed); }
+  .statusBreakdownValue { color: #fff; font-weight: 800; }
+  .statusBreakdownValue span { color: var(--soft); font-size: 11px; margin-left: 4px; }
+  .statusBreakdownBarFill { height: 100%; border-radius: inherit; }
+  .statusReadout { display: grid; gap: 8px; }
+  .statusReadoutLine { display: flex; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+  .statusReadoutLine strong { color: #fff; }
+  .geoGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .geoBreakdownTitle { font-size: 13px; font-weight: 900; margin-bottom: 9px; }
+  .geoRows { display: grid; gap: 8px; }
+  .geoRow { display: grid; gap: 5px; }
+  .geoRowMeta { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; }
+  .geoRowMeta strong { color: #fff; }
+  .activityReportList { display: grid; gap: 8px; }
+  .activityReportTitle { margin-top: 3px; font-weight: 800; font-size: 13px; }
+  .exceptionGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; }
+  .exceptionCard { border-color: rgba(255,153,0,0.3); background: rgba(255,153,0,0.08); }
+  .exceptionValue { font-size: 26px; font-weight: 900; line-height: 1; }
+  .exceptionLabel { margin-top: 6px; color: var(--muted); font-size: 12px; }
+  .detailGrid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 12px; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th, td { padding: 9px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 12px; }
+  th { color: rgba(226,238,255,0.72); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+  .store-id { font-weight: 900; }
+  .status, .count-pill, .muted-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    border-radius: 999px;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .status-active { color: #d9efff; background: rgba(100,181,246,0.2); border: 1px solid rgba(100,181,246,0.35); }
+  .status-rescheduled { color: #ffe0b0; background: rgba(255,153,0,0.18); border: 1px solid rgba(255,153,0,0.36); }
+  .status-completed { color: #d7fbe6; background: rgba(46,204,113,0.18); border: 1px solid rgba(46,204,113,0.34); }
+  .status-closed { color: #ffd1d1; background: rgba(255,45,45,0.16); border: 1px solid rgba(255,45,45,0.34); }
+  .count-pill, .muted-pill { color: rgba(255,255,255,0.78); background: rgba(255,255,255,0.08); border: 1px solid var(--line); }
+  .count-pill.has-data { color: #fff; background: rgba(var(--brand-rgb),0.16); border-color: rgba(var(--brand-rgb),0.34); }
+  .location-main, .reason-text, .activity-time-inline, .activity-summary-inline { line-height: 1.4; overflow-wrap: anywhere; }
+  .activity-time-inline { color: rgba(255,255,255,0.82); font-weight: 800; }
+  .activity-summary-inline, .reason-text { color: var(--muted); font-size: 11px; }
+  .evidence-card, .empty-state-card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.045);
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .evidence-summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 0.6fr); gap: 12px; padding: 12px; }
+  .evidence-summary::-webkit-details-marker { display: none; }
+  .evidence-store-line, .evidence-count-row { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+  .evidence-store-id { font-weight: 900; }
+  .evidence-address, .evidence-preview, .evidence-expand-hint, .evidence-empty-mini, .evidence-note-meta { color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .evidence-summary-side { display: grid; gap: 8px; justify-items: end; }
+  .evidence-photo-rail, .evidence-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; width: 100%; }
+  .evidence-photo-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .evidence-photo-shell { min-height: 70px; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.08); display: grid; place-items: center; }
+  .evidence-photo-shell-expanded { min-height: 118px; }
+  .evidence-photo { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
+  .evidence-photo-expanded { object-fit: contain; }
+  .evidence-photo-fallback { display: none; color: var(--muted); font-size: 11px; padding: 10px; text-align: center; }
+  .evidence-photo-shell.is-broken .evidence-photo-fallback { display: block; }
+  .evidence-expanded { padding: 12px; border-top: 1px solid var(--line); }
+  .evidence-expanded-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .summary-title { font-size: 12px; font-weight: 900; margin-bottom: 8px; }
+  .evidence-note-item + .evidence-note-item { margin-top: 9px; }
+  .evidence-note-text { font-size: 12px; line-height: 1.5; }
+  .empty-state-title { font-weight: 900; margin-bottom: 4px; }
+  .empty-state-copy { color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .reportFooter { padding: 13px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .snapshot-photo-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(6, 12, 20, 0.84);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .snapshot-photo-modal[aria-hidden="false"] { opacity: 1; pointer-events: auto; }
+  .snapshot-photo-modal-dialog { position: relative; width: min(1100px,94vw); max-height: 92vh; border-radius: 8px; overflow: hidden; background: #09111b; border: 1px solid var(--line-strong); }
+  #snapshotPhotoModalImage { display: block; width: 100%; height: 100%; max-height: 92vh; object-fit: contain; }
+  #snapshotPhotoModalClose { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(0,0,0,0.6); color: #fff; font-size: 24px; cursor: pointer; }
+  .print-only { display: none; }
+  @media print {
+    body { background: #fff; color: #111827; }
+    .page { width: 100%; max-width: none; padding: 10mm; gap: 9px; }
+    .reportHero, .reportPanel, .utilityBar, .reportFooter, .heroMetaCard, .execMetricCard, .doneLeftCard, .exceptionCard, .geoBreakdown, .activityReportItem { box-shadow: none; background: #fff; color: #111827; border-color: #d6dce3; }
+    .utilityBar, .snapshot-photo-modal, .no-print { display: none !important; }
+    .print-only { display: block; }
+    [data-evidence-card] { page-break-inside: avoid; }
+    [data-evidence-card] .evidence-expanded { display: block !important; }
+    .reportHero, .reportPanel { page-break-inside: avoid; }
+  }
+  @media screen and (max-width: 1040px) {
+    .heroTop, .utilityBar { flex-direction: column; align-items: stretch; }
+    .heroMetaGrid, .doneLeftGrid, .statusGrid, .geoGrid, .detailGrid, .evidence-expanded-grid, .evidence-summary { grid-template-columns: 1fr; }
+    .execMetricGrid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .exceptionGrid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+  @media screen and (max-width: 680px) {
+    .page { padding: 10px; }
+    .heroIdentity { align-items: flex-start; }
+    .reportLogo, .reportLogoMark { width: 52px; height: 52px; }
+    .execMetricGrid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    table, thead, tbody, tr, th, td { display: block; width: 100%; }
+    thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+    tr { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+    td { position: relative; padding-left: 120px; min-height: 34px; }
+    td::before { content: attr(data-label); position: absolute; left: 8px; top: 9px; width: 100px; color: var(--soft); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 900; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <section class="reportHero">
+      <div class="heroTop">
+        <div class="heroIdentity">
+          ${logoMarkup}
+          <div>
+            <div class="eyebrow">${escapeSnapshotHtml(reportIdentity.reportTitle)}</div>
+            <h1>${escapeSnapshotHtml(projectTitle)}</h1>
+            <div class="heroSummary">${escapeSnapshotHtml(buildSnapshotHeroSummary({ metrics, scopeMeta }))}</div>
+          </div>
+        </div>
+        <div class="heroCompletion">
+          <div class="completionValue">${metrics.completionRate.toFixed(1)}%</div>
+          <div class="completionLabel">Overall completion</div>
+          <div class="progressTrack" style="margin-top:12px;"><div class="progressFill" style="width:${Math.max(0, Math.min(100, metrics.completionRate)).toFixed(2)}%;"></div></div>
+        </div>
+      </div>
+      <div class="heroMetaGrid">
+        <div class="heroMetaCard"><div class="heroMetaLabel">Generated</div><div class="heroMetaValue">${escapeSnapshotHtml(generatedAt)}</div></div>
+        <div class="heroMetaCard"><div class="heroMetaLabel">Source / Project</div><div class="heroMetaValue">${escapeSnapshotHtml(projectId)} / ${escapeSnapshotHtml(currentProjectMeta?.sourceLabel || "Operations Console")}</div></div>
+        <div class="heroMetaCard"><div class="heroMetaLabel">Scope</div><div class="heroMetaValue">${escapeSnapshotHtml(scopeMeta.scopeLabel)} - ${escapeSnapshotHtml(scopeMeta.scopeDescription)}</div></div>
+      </div>
+    </section>
+
+    <section class="utilityBar no-print">
+      <div class="utilityCopy">Read-only executive snapshot generated from live project data at ${escapeSnapshotHtml(generatedAt)}.</div>
+      <div class="utilityActions">
+        <button id="snapshotReturnBtn" class="utilityBtn secondary" type="button">Back to App</button>
+        <button id="snapshotPrintBtn" class="utilityBtn" type="button">Print / Save as PDF</button>
+      </div>
+    </section>
+
+    <section class="reportPanel">
+      <div class="sectionHeader">
+        <div><div class="sectionEyebrow">Executive Summary</div><h2>What changed, what remains, what needs attention</h2></div>
+        <div class="sectionBadge">${escapeSnapshotHtml(generatedTimeLabel)}</div>
+      </div>
+      <div class="execMetricGrid">${buildExecutiveSummaryCards(metrics, analyticsMetrics)}</div>
+    </section>
+
+    <section class="reportPanel">
+      <div class="sectionHeader">
+        <div><div class="sectionEyebrow">Done vs Left</div><h2>Execution Position</h2></div>
+        <div class="sectionBadge">${analyticsMetrics.openWorkCount.toLocaleString()} open work</div>
+      </div>
+      <div class="doneLeftGrid">${buildDoneLeftCards(metrics, analyticsMetrics, dataHealth)}</div>
+    </section>
+
+    <section class="reportPanel">
+      <div class="sectionHeader">
+        <div><div class="sectionEyebrow">Status Breakdown</div><h2>Current Status Mix</h2></div>
+        <div class="sectionBadge">${metrics.total.toLocaleString()} stores</div>
+      </div>
+      <div class="statusGrid">
+        <div class="statusBreakdownStack">${buildExecutionStatusBreakdown(metrics)}</div>
+        <div class="statusReadout">
+          <div class="statusReadoutLine"><span>Completed today</span><strong>${analyticsMetrics.completedToday.toLocaleString()}</strong></div>
+          <div class="statusReadoutLine"><span>Recent follow-up coverage</span><strong>${analyticsMetrics.recentActivityCoverageRate.toFixed(1)}%</strong></div>
+          <div class="statusReadoutLine"><span>Notes coverage</span><strong>${metrics.noteCoverageRate.toFixed(1)}%</strong></div>
+          <div class="statusReadoutLine"><span>Photo evidence coverage</span><strong>${metrics.photoCoverageRate.toFixed(1)}%</strong></div>
+        </div>
+      </div>
+    </section>
+
+    ${buildExecutiveGeographicOverview(stores)}
+    ${buildExecutiveRecentActivity()}
+    ${buildExecutiveDataHealth(dataHealth)}
+
+    <section class="detailGrid">
+      <div class="reportPanel">
+        <div class="sectionHeader">
+          <div><div class="sectionEyebrow">Store Detail Appendix</div><h2>Read-only Store Status</h2></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Store ID</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Reschedule Reason</th>
+              <th>Notes</th>
+              <th>Photos</th>
+              <th>Latest Activity</th>
+            </tr>
+          </thead>
+          <tbody>${buildSnapshotTableRows(rows)}</tbody>
+        </table>
+      </div>
+      <div class="reportPanel">
+        <div class="sectionHeader">
+          <div><div class="sectionEyebrow">Field Evidence</div><h2>Notes & Photos</h2></div>
+        </div>
+        ${buildSnapshotEvidenceCards(evidenceRows || [])}
+      </div>
+    </section>
+
+    <footer class="reportFooter">
+      Generated from Route Builder / Operations Console. This report is read-only and intended for project visibility, not administration or field updates.
+    </footer>
+    <div class="print-only footnote">Generated from Route Builder / Operations Console on ${escapeSnapshotHtml(generatedAt)}.</div>
+  </div>
+
+  <div id="snapshotPhotoModal" class="snapshot-photo-modal no-print" aria-hidden="true">
+    <div class="snapshot-photo-modal-dialog" role="dialog" aria-modal="true" aria-label="Photo preview">
+      <button id="snapshotPhotoModalClose" type="button" aria-label="Close photo preview">&times;</button>
+      <img id="snapshotPhotoModalImage" alt="Expanded store evidence photo" />
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const returnUrl = ${JSON.stringify(returnUrl)};
+      const printBtn = document.getElementById("snapshotPrintBtn");
+      const returnBtn = document.getElementById("snapshotReturnBtn");
+      const snapshotPhotoModal = document.getElementById("snapshotPhotoModal");
+      const snapshotPhotoModalImage = document.getElementById("snapshotPhotoModalImage");
+      const snapshotPhotoModalClose = document.getElementById("snapshotPhotoModalClose");
+      const evidenceCards = Array.from(document.querySelectorAll("[data-evidence-card]"));
+      const clickablePhotos = Array.from(document.querySelectorAll("img[data-full-image][role='button']"));
+
+      const closePhotoModal = () => {
+        if (!snapshotPhotoModal) return;
+        snapshotPhotoModal.setAttribute("aria-hidden", "true");
+        if (snapshotPhotoModalImage) snapshotPhotoModalImage.removeAttribute("src");
+      };
+
+      const openPhotoModal = (imageUrl) => {
+        if (!snapshotPhotoModal || !snapshotPhotoModalImage || !imageUrl) return;
+        snapshotPhotoModalImage.src = imageUrl;
+        snapshotPhotoModal.setAttribute("aria-hidden", "false");
+      };
+
+      const applyEvidencePrintState = (openAll) => {
+        evidenceCards.forEach(card => {
+          if (openAll) {
+            card.dataset.wasOpenBeforePrint = card.open ? "true" : "false";
+            card.open = true;
+          } else if (card.dataset.wasOpenBeforePrint === "false") {
+            card.open = false;
+          }
+        });
+      };
+
+      if (printBtn) printBtn.addEventListener("click", () => window.print());
+      if (returnBtn) {
+        returnBtn.addEventListener("click", () => {
+          if (returnUrl) {
+            window.location.href = returnUrl;
+            return;
+          }
+          window.location.href = "/";
+        });
+      }
+      window.addEventListener("beforeprint", () => {
+        closePhotoModal();
+        applyEvidencePrintState(true);
+      });
+      window.addEventListener("afterprint", () => applyEvidencePrintState(false));
+      clickablePhotos.forEach(photo => {
+        photo.addEventListener("click", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          openPhotoModal(photo.dataset.fullImage);
+        });
+        photo.addEventListener("keydown", event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            event.stopPropagation();
+            openPhotoModal(photo.dataset.fullImage);
+          }
+        });
+      });
+      if (snapshotPhotoModalClose) snapshotPhotoModalClose.addEventListener("click", closePhotoModal);
+      if (snapshotPhotoModal) {
+        snapshotPhotoModal.addEventListener("click", event => {
+          if (event.target === snapshotPhotoModal) closePhotoModal();
+        });
+      }
+      window.addEventListener("keydown", event => {
+        if (event.key === "Escape") closePhotoModal();
+      });
+    })();
+  </script>
+</body>
+</html>`;
+}
+
 function exportProjectSnapshot() {
   const filteredStores = typeof getFilteredStores === "function" ? getFilteredStores() : [];
   const scopeMeta = getSnapshotScopeMeta(filteredStores);
   const rows = getSnapshotRows(filteredStores);
   const evidenceRows = getSnapshotEvidenceRows(filteredStores);
   const metrics = getSnapshotMetrics(filteredStores, rows);
+  const analyticsSnapshot = typeof getProjectAnalyticsSnapshot === "function" ? getProjectAnalyticsSnapshot() : null;
   const generatedDate = new Date();
   const generatedAt = generatedDate.toLocaleString();
   const generatedTimeLabel = `Generated ${generatedDate.toLocaleDateString()} • ${generatedDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
@@ -1595,7 +2338,7 @@ function exportProjectSnapshot() {
   const returnUrl = window.location.href;
 
   document.open();
-  document.write(buildSnapshotHtml({
+  document.write(buildExecutiveSnapshotHtml({
     generatedAt,
     generatedTimeLabel,
     projectTitle,
@@ -1604,6 +2347,9 @@ function exportProjectSnapshot() {
     metrics,
     rows,
     evidenceRows,
+    stores: filteredStores,
+    analyticsSnapshot,
+    branding: getExecutiveSnapshotBranding(),
     operationalSummary,
     returnUrl
   }));

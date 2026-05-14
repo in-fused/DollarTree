@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Project Overview Share</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <link rel="stylesheet" href="styles/share-view.css" />
+</head>
+<body>
+  <div id="shareApp" class="shareApp is-loading">
+    <header class="shareHeader">
+      <div class="shareHeaderIdentity">
+        <div id="shareLogoFrame" class="shareLogoFrame hidden">
+          <img id="shareProjectLogo" alt="" />
+        </div>
+        <div>
+          <div class="shareEyebrow">Read-only project overview</div>
+          <h1 id="shareProjectName">Loading overview...</h1>
+          <div id="shareGeneratedMeta" class="shareHeaderMeta">Resolving secure share link</div>
+        </div>
+      </div>
+      <div class="shareHeaderBadges">
+        <div class="shareBadge">
+          <span>Scope</span>
+          <strong>Single Project</strong>
+        </div>
+        <div class="shareBadge">
+          <span>Access</span>
+          <strong>Read Only</strong>
+        </div>
+      </div>
+    </header>
+
+    <main class="shareShell">
+      <section class="shareSummaryPanel">
+        <div class="progressCard">
+          <div class="progressCardTop">
+            <div>
+              <div class="sectionLabel">Project Progress</div>
+              <div id="shareProgressText" class="progressValue">0.0% complete</div>
+            </div>
+            <div id="shareOpenWorkText" class="progressOpenWork">0 open</div>
+          </div>
+          <div class="shareProgressTrack">
+            <div id="shareProgressFill" class="shareProgressFill"></div>
+          </div>
+        </div>
+
+        <div class="shareMetricGrid">
+          <div class="shareMetric">
+            <span>Total Stores</span>
+            <strong id="summaryTotal">0</strong>
+          </div>
+          <div class="shareMetric">
+            <span>Completed</span>
+            <strong id="summaryCompleted">0</strong>
+          </div>
+          <div class="shareMetric">
+            <span>Active/Open</span>
+            <strong id="summaryActive">0</strong>
+          </div>
+          <div class="shareMetric">
+            <span>Rescheduled</span>
+            <strong id="summaryRescheduled">0</strong>
+          </div>
+          <div class="shareMetric">
+            <span>Closed</span>
+            <strong id="summaryClosed">0</strong>
+          </div>
+          <div class="shareMetric attentionMetric">
+            <span>Needs Attention</span>
+            <strong id="summaryAttention">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="shareMapPanel">
+        <div class="shareMapToolbar">
+          <div>
+            <div class="sectionLabel">Geographic Spread</div>
+            <div id="shareMapScope">Stores with valid coordinates are plotted below.</div>
+          </div>
+          <div class="shareLegend" aria-label="Status legend">
+            <span><i class="legendDot status-active"></i>Active</span>
+            <span><i class="legendDot status-rescheduled"></i>Rescheduled</span>
+            <span><i class="legendDot status-completed"></i>Completed</span>
+            <span><i class="legendDot status-closed"></i>Closed</span>
+          </div>
+        </div>
+        <div id="shareMap" class="shareMap"></div>
+      </section>
+
+      <aside class="shareSidebar">
+        <section class="sharePanel">
+          <div class="panelHeader">
+            <div>
+              <div class="sectionLabel">Safe Filters</div>
+              <h2>Scope</h2>
+            </div>
+            <button id="shareClearFiltersBtn" type="button" class="iconTextBtn">Clear</button>
+          </div>
+          <div class="shareFilterGrid">
+            <select id="shareRegionFilter" aria-label="Region filter">
+              <option value="">All Regions</option>
+            </select>
+            <select id="shareTerritoryFilter" aria-label="Territory filter">
+              <option value="">All Territories</option>
+            </select>
+            <select id="shareStateFilter" aria-label="State filter">
+              <option value="">All States</option>
+            </select>
+            <select id="shareStatusFilter" aria-label="Status filter">
+              <option value="">All Statuses</option>
+            </select>
+          </div>
+          <div id="shareFilterSummary" class="shareMiniText">Showing all stores.</div>
+        </section>
+
+        <section class="sharePanel">
+          <div class="panelHeader">
+            <div>
+              <div class="sectionLabel">Selected Location</div>
+              <h2 id="shareSelectedStoreTitle">No store selected</h2>
+            </div>
+          </div>
+          <div id="shareSelectedStoreBody" class="selectedStoreBody">Select a map point to inspect store status and public project metadata.</div>
+        </section>
+
+        <section class="sharePanel">
+          <div class="panelHeader">
+            <div>
+              <div class="sectionLabel">Status Mix</div>
+              <h2>Current View</h2>
+            </div>
+          </div>
+          <div id="shareStatusBreakdown" class="statusBreakdown"></div>
+        </section>
+
+        <section id="shareDataHealthPanel" class="sharePanel hidden">
+          <div class="panelHeader">
+            <div>
+              <div class="sectionLabel">Data Health</div>
+              <h2>Exceptions</h2>
+            </div>
+          </div>
+          <div id="shareDataHealthList" class="dataHealthList"></div>
+        </section>
+
+        <section class="sharePanel">
+          <div class="panelHeader">
+            <div>
+              <div class="sectionLabel">Recent Activity</div>
+              <h2>Latest Safe Updates</h2>
+            </div>
+          </div>
+          <div id="shareActivityList" class="shareActivityList"></div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="shareFooter">
+      Generated from Route Builder / Operations Console. This temporary overview is read-only and scoped to the shared project link.
+    </footer>
+  </div>
+
+  <div id="shareErrorState" class="shareErrorState hidden">
+    <div class="shareErrorCard">
+      <div class="shareEyebrow">Share link unavailable</div>
+      <h1 id="shareErrorTitle">Unable to load overview</h1>
+      <p id="shareErrorMessage">The link may be expired, revoked, or malformed.</p>
+    </div>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <script src="js/share-view.js"></script>
+</body>
+</html>

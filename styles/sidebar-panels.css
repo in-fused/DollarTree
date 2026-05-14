@@ -243,6 +243,61 @@
   color: rgba(225, 238, 255, 0.82);
 }
 
+.projectShareLinkActionRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.projectShareLinkActionRow button {
+  margin-top: 0;
+}
+
+.projectShareLinkResult {
+  margin-top: 8px;
+  padding: 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.34);
+  background:
+    linear-gradient(180deg, rgba(var(--project-accent-rgb), 0.12), rgba(255,255,255,0.035)),
+    rgba(255,255,255,0.03);
+}
+
+.projectShareLinkLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(226, 238, 255, 0.76);
+}
+
+.projectShareLinkCopyRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.projectShareLinkCopyRow input,
+.projectShareLinkCopyRow button {
+  margin-top: 0;
+}
+
+.projectShareLinkCopyRow input {
+  min-width: 0;
+  font-size: 12px;
+}
+
+.projectShareLinkCopyRow button {
+  white-space: nowrap;
+}
+
+.projectShareLinkMeta {
+  margin-top: 7px;
+  color: rgba(225, 238, 255, 0.82);
+}
+
 .projectBrandingRow {
   grid-template-columns: 58px minmax(0, 1fr) auto;
   align-items: center;
@@ -712,6 +767,14 @@
 
   .adminInviteRow button {
     width: 100%;
+  }
+
+  .projectShareLinkActionRow {
+    display: grid;
+  }
+
+  .projectShareLinkCopyRow {
+    grid-template-columns: 1fr;
   }
 
   .projectBrandingRow {
