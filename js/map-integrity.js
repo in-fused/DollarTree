@@ -7,7 +7,7 @@ function getStoreIntegrityFlags(store, statusMap, geoAudit = getGeoAuditConfig(s
     hasMissingRegion: geoAudit.shouldAuditRegion && !String(store?.region || "").trim(),
     hasMissingTerritory: geoAudit.shouldAuditTerritory && !String(store?.territory || "").trim(),
     hasMissingState: geoAudit.shouldAuditState && !String(store?.state || "").trim(),
-    hasMissingCoords: !hasValidCoordinate(store?.lat) || !hasValidCoordinate(store?.lng),
+    hasMissingCoords: !hasValidCoordinatePair(store?.lat, store?.lng),
     hasMissingStatus: !storeId || !hasPersistedStatusRow(storeId)
   };
 }

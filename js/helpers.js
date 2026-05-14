@@ -226,6 +226,27 @@ function uniqueSortedValues(values) {
   )].sort((a, b) => a.localeCompare(b));
 }
 
+function toFiniteNumberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeStoreCoordinatePair(latValue, lngValue) {
+  const lat = toFiniteNumberOrNull(latValue);
+  const lng = toFiniteNumberOrNull(lngValue);
+  const validLat = lat !== null && lat >= -90 && lat <= 90;
+  const validLng = lng !== null && lng >= -180 && lng <= 180;
+  const zeroPair = lat === 0 && lng === 0;
+
+  if (!validLat || !validLng || zeroPair) {
+    return { lat: null, lng: null };
+  }
+
+  return { lat, lng };
+}
+
 function prependActivity(event) {
   activityFeed.unshift(event);
   activityFeed = activityFeed
@@ -267,12 +288,14 @@ function getPhotoSelectionKey(row) {
 }
 
 function normalizeStoreRecord(store) {
+  const coordinates = normalizeStoreCoordinatePair(store?.lat, store?.lng);
+
   return {
     store_id: String(store.store_id),
     store_name: String(store.store_name || "").trim(),
     customer_id: String(store.customer_id || "").trim(),
-    lat: Number(store.lat),
-    lng: Number(store.lng),
+    lat: coordinates.lat,
+    lng: coordinates.lng,
     full_address: String(store.full_address || "").trim(),
     region: String(store.region || "").trim(),
     territory: String(store.territory || "").trim(),

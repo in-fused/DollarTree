@@ -21,6 +21,10 @@
   const CHUNK_SIZE = 500;
   const SUPABASE_OPERATION_TIMEOUT_MS = 20000;
   const GEOCODE_FETCH_TIMEOUT_MS = 15000;
+  const LATITUDE_MIN = -90;
+  const LATITUDE_MAX = 90;
+  const LONGITUDE_MIN = -180;
+  const LONGITUDE_MAX = 180;
 
   let cachedPostalColumn;
 
@@ -212,8 +216,40 @@
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  function toCoordinateNumber(value) {
+    if (value === null || value === undefined || value === "") return null;
+    if (typeof value === "string" && value.trim() === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function isValidLatitude(value) {
+    const parsed = toCoordinateNumber(value);
+    return parsed !== null && parsed >= LATITUDE_MIN && parsed <= LATITUDE_MAX;
+  }
+
+  function isValidLongitude(value) {
+    const parsed = toCoordinateNumber(value);
+    return parsed !== null && parsed >= LONGITUDE_MIN && parsed <= LONGITUDE_MAX;
+  }
+
+  function isZeroCoordinatePair(lat, lng) {
+    const parsedLat = toCoordinateNumber(lat);
+    const parsedLng = toCoordinateNumber(lng);
+    return parsedLat === 0 && parsedLng === 0;
+  }
+
   function hasCoordinatePair(record) {
-    return Number.isFinite(Number(record && record.lat)) && Number.isFinite(Number(record && record.lng));
+    const lat = record && record.lat;
+    const lng = record && record.lng;
+    return isValidLatitude(lat) && isValidLongitude(lng) && !isZeroCoordinatePair(lat, lng);
+  }
+
+  function clearInvalidCoordinates(record) {
+    if (!record || hasCoordinatePair(record)) return record;
+    record.lat = null;
+    record.lng = null;
+    return record;
   }
 
   function getUnknownFields(record) {
@@ -253,13 +289,16 @@
     return "";
   }
 
-  function appendPostalCode(fullAddress, postalCode) {
+  function appendMissingAddressParts(fullAddress, parts) {
     const address = toText(fullAddress);
-    const postal = toText(postalCode);
-    if (!postal) return address;
-    if (!address) return postal;
-    if (address.toLowerCase().includes(postal.toLowerCase())) return address;
-    return `${address}, ${postal}`;
+    const values = (Array.isArray(parts) ? parts : []).map(toText).filter(Boolean);
+    if (!values.length) return address;
+
+    return values.reduce((current, value) => {
+      if (!current) return value;
+      if (current.toLowerCase().includes(value.toLowerCase())) return current;
+      return `${current}, ${value}`;
+    }, address);
   }
 
   function buildFullAddress(record) {
@@ -270,7 +309,7 @@
     const state = toText(readFirst(record, "state"));
     const postalCode = toText(readFirst(record, ["postal_code", "zip"]));
 
-    if (fullAddress) return appendPostalCode(fullAddress, postalCode);
+    if (fullAddress) return appendMissingAddressParts(fullAddress, [city, state, postalCode]);
     return [addressLine1, addressLine2, city, state, postalCode].filter(Boolean).join(", ");
   }
 
@@ -293,7 +332,7 @@
       lng: toNumberOrNull(readFirst(record, ["lng", "longitude"]))
     };
 
-    return normalized;
+    return clearInvalidCoordinates(normalized);
   }
 
   function normalizeAddressKey(address) {
@@ -351,7 +390,7 @@
     }
 
     if (!data) return null;
-    if (!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lng))) return null;
+    if (!hasCoordinatePair(data)) return null;
 
     return {
       lat: Number(data.lat),
@@ -362,7 +401,7 @@
   }
 
   async function setSupabaseGeocode(addressKey, lat, lng, fullAddress) {
-    if (!addressKey || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return false;
+    if (!addressKey || !hasCoordinatePair({ lat, lng })) return false;
 
     const client = getSupabaseClient();
     let response;
@@ -443,11 +482,27 @@
     const lng = Number(coords[0]);
     const lat = Number(coords[1]);
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    if (!hasCoordinatePair({ lat, lng })) {
       throw new Error(`Invalid geocode result for: ${fullAddress}`);
     }
 
     return { lat, lng };
+  }
+
+  function createGeocodeFailureError(record, message) {
+    const rowNumber = Number.isInteger(record && record.sourceRowIndex)
+      ? record.sourceRowIndex + 2
+      : null;
+    const storeId = toText(record && record.store_id) || "(missing)";
+    const prefix = rowNumber ? `Row ${rowNumber}, store ${storeId}` : `Store ${storeId}`;
+    const error = new Error(`${prefix}: ${message}`);
+    error.code = "IMPORT_GEOCODE_FAILED";
+    error.isGeocodeFailure = true;
+    return error;
+  }
+
+  function isGeocodeFailure(error) {
+    return Boolean(error && (error.isGeocodeFailure === true || error.code === "IMPORT_GEOCODE_FAILED"));
   }
 
   async function resolveCoordinates(record, cacheState) {
@@ -456,9 +511,14 @@
       return record;
     }
 
+    clearInvalidCoordinates(record);
+
     const fullAddress = toText(record.full_address);
     if (!fullAddress) {
-      throw new Error(`Store ${record.store_id || "(missing)"} requires coordinates or a usable address.`);
+      throw createGeocodeFailureError(
+        record,
+        "valid coordinates are missing or invalid, and no usable address is available for geocoding."
+      );
     }
 
     const addressKey = normalizeAddressKey(fullAddress);
@@ -499,9 +559,24 @@
       return record;
     }
 
-    const geo = await geocodeAddress(fullAddress);
+    let geo;
+    try {
+      geo = await geocodeAddress(fullAddress);
+    } catch (error) {
+      throw createGeocodeFailureError(
+        record,
+        `geocode failed for "${fullAddress}": ${error && error.message ? error.message : String(error)}`
+      );
+    }
+
     record.lat = geo.lat;
     record.lng = geo.lng;
+
+    if (!hasCoordinatePair(record)) {
+      clearInvalidCoordinates(record);
+      throw createGeocodeFailureError(record, `geocode returned invalid coordinates for "${fullAddress}".`);
+    }
+
     cacheState.geocoded += 1;
 
     if (addressKey) {
@@ -547,6 +622,10 @@
   }
 
   function buildStorePayload(projectId, record, postalColumn) {
+    if (!hasCoordinatePair(record)) {
+      throw new Error(`Store ${record && record.store_id ? record.store_id : "(missing)"} has invalid coordinates and cannot be written.`);
+    }
+
     const payload = {
       project_id: projectId,
       store_id: record.store_id
@@ -760,6 +839,7 @@
       errorCount: 0,
       warningCount: 0,
       geocodedCount: 0,
+      geocodeFailureCount: 0,
       cacheHitCount: 0,
       coordsProvidedCount: 0,
       statusSeededCount: 0,
@@ -895,6 +975,9 @@
         }
       } catch (error) {
         result.skippedCount += 1;
+        if (isGeocodeFailure(error)) {
+          result.geocodeFailureCount += 1;
+        }
         appendError(result, error && error.message ? error.message : String(error));
       }
     }

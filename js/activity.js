@@ -204,10 +204,12 @@ function updateActivityList() {
       localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
       updateWorkspaceViewUI();
 
-      map.flyTo({
-        center: [match.lng, match.lat],
-        zoom: 14
-      });
+      if (hasValidCoordinatePair(match.lat, match.lng)) {
+        map.flyTo({
+          center: [match.lng, match.lat],
+          zoom: 14
+        });
+      }
 
       if (window.innerWidth <= 900) {
         document.body.classList.remove("sidebar-open");
