@@ -772,6 +772,7 @@ async function refreshAccessAfterMembershipMutation() {
 const PROJECT_ROLE_OPTIONS = ["viewer", "editor", "admin"];
 let projectAdminMessageClearTimer = null;
 const ADMIN_ACTION_COOLDOWN_MS = 250;
+const PROJECT_SHARE_LINK_CREATE_TIMEOUT_MS = 18000;
 const PROJECT_INVITE_SEND_TIMEOUT_MS = 12000;
 const PROJECT_BRANDING_SAVE_TIMEOUT_MS = 14000;
 const PROJECT_BRANDING_UNAVAILABLE_MESSAGE = "Branding storage is not available yet for this environment. Other admin actions still work.";
@@ -988,6 +989,33 @@ function getBrandingSaveErrorMessage(error) {
 
   const lead = baseMessage || "Unable to save branding.";
   return details.length > 0 ? `${lead} (${details.join(" • ")})` : lead;
+}
+
+function getShareLinkCreateErrorMessage(error) {
+  if (!error) return "Unable to create share link.";
+
+  const payloadError = error?.payload?.error && typeof error.payload.error === "object"
+    ? error.payload.error
+    : {};
+  const baseMessage = String(
+    error.message
+    || payloadError.message
+    || "Unable to create share link."
+  ).trim() || "Unable to create share link.";
+  const status = String(error.status || error.statusCode || "").trim();
+  const code = String(
+    error.code
+    || error.error_code
+    || payloadError.code
+    || error.payload?.code
+    || ""
+  ).trim();
+
+  const details = [];
+  if (status && status !== "0") details.push(`status ${status}`);
+  if (code) details.push(`code ${code}`);
+
+  return details.length > 0 ? `${baseMessage} (${details.join("; ")})` : baseMessage;
 }
 
 function updateAdminPanelHeaderContext({ canManage = false, isRefreshing = false, projectNameOverride = "", brandingUnavailable = false } = {}) {
@@ -1562,21 +1590,40 @@ function bindProjectAdminUI() {
 
   if (shareLinkCreateBtn && !shareLinkCreateBtn.dataset.bound) {
     shareLinkCreateBtn.addEventListener("click", async () => {
-      if (!isSignedIn() || !canManageProjectLifecycle() || !currentProjectId) return;
+      if (!isSignedIn()) {
+        setProjectShareLinkMessage("Sign in again before creating a share link.", "error");
+        return;
+      }
+      if (!String(currentProjectId || "").trim()) {
+        setProjectShareLinkMessage("Select a project before creating a share link.", "error");
+        return;
+      }
+      if (!canManageProjectLifecycle()) {
+        setProjectShareLinkMessage("Project admin access is required to create a public overview link.", "error");
+        return;
+      }
       if (shareLinkCreateBtn.dataset.loading === "true") return;
 
       const scopedProjectId = String(currentProjectId || "").trim();
       setProjectShareLinkMessage("");
       shareLinkCreateBtn.dataset.loading = "true";
       shareLinkCreateBtn.disabled = true;
-      const originalLabel = shareLinkCreateBtn.textContent;
       shareLinkCreateBtn.textContent = "Generating...";
 
       try {
-        const result = await dataLayer.createProjectShareLink(scopedProjectId, 7);
+        const result = await withTimeout(
+          dataLayer.createProjectShareLink(scopedProjectId, 7, PROJECT_SHARE_LINK_CREATE_TIMEOUT_MS),
+          PROJECT_SHARE_LINK_CREATE_TIMEOUT_MS,
+          () => createActionTimeoutError("Creating share link", PROJECT_SHARE_LINK_CREATE_TIMEOUT_MS)
+        );
         if (result?.error) {
-          setProjectShareLinkMessage(result.error.message || "Unable to create share link.", "error");
+          setProjectShareLinkMessage(getShareLinkCreateErrorMessage(result.error), "error");
           return;
+        }
+        if (!String(result?.data?.url || "").trim()) {
+          const invalidResponseError = new Error("Share link API returned no URL.");
+          invalidResponseError.code = "INVALID_SHARE_LINK_RESPONSE";
+          throw invalidResponseError;
         }
 
         renderProjectShareLinkResult(result.data);
@@ -1590,12 +1637,12 @@ function bindProjectAdminUI() {
           }
         });
       } catch (error) {
-        setProjectShareLinkMessage(error?.message || "Unable to create share link.", "error");
+        setProjectShareLinkMessage(getShareLinkCreateErrorMessage(error), "error");
       } finally {
         await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
         shareLinkCreateBtn.dataset.loading = "false";
         shareLinkCreateBtn.disabled = !shouldRestoreAdminActionControls(scopedProjectId);
-        shareLinkCreateBtn.textContent = originalLabel || "Generate 7-Day Link";
+        shareLinkCreateBtn.textContent = "Generate 7-Day Link";
       }
     });
     shareLinkCreateBtn.dataset.bound = "true";

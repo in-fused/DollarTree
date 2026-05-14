@@ -536,9 +536,14 @@ const dataLayer = {
       return { data: null, error: new Error("Missing project id for share link.") };
     }
 
+    const safeTimeoutMs = Math.max(1, Number(timeoutMs) || 18000);
     let sessionResult;
     try {
-      sessionResult = await this.getSession();
+      sessionResult = await this.withSupabaseTimeout(
+        this.getSession(),
+        safeTimeoutMs,
+        "Reading session"
+      );
     } catch (error) {
       return {
         data: null,
@@ -557,60 +562,71 @@ const dataLayer = {
 
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     let timeoutId = null;
-    if (controller) {
-      timeoutId = setTimeout(() => controller.abort(), Math.max(1, Number(timeoutMs) || 18000));
-    }
 
     try {
-      let response;
-      try {
-        response = await fetch("/api/share-links/create", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`
-          },
-          body: JSON.stringify({
-            projectId: normalizedProjectId,
-            durationDays
-          }),
-          signal: controller?.signal
-        });
-      } catch (error) {
-        const networkError = new Error(error?.name === "AbortError"
-          ? "Creating share link timed out. Please try again."
-          : "Share link API route is unavailable.");
-        networkError.code = error?.name === "AbortError" ? "ACTION_TIMEOUT" : "NETWORK_ERROR";
-        networkError.status = 0;
-        throw networkError;
-      }
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          if (controller) controller.abort();
+          const timeoutError = new Error("Creating share link timed out. Please try again.");
+          timeoutError.code = "ACTION_TIMEOUT";
+          timeoutError.status = 0;
+          reject(timeoutError);
+        }, safeTimeoutMs);
+      });
 
-      const text = await response.text();
-      let parsed = null;
-      if (text) {
+      const requestPromise = (async () => {
+        let response;
         try {
-          parsed = JSON.parse(text);
-        } catch (_) {
-          const parseError = new Error("Share link API returned an invalid response.");
-          parseError.code = "INVALID_JSON";
-          parseError.status = response.status;
-          throw parseError;
+          response = await fetch("/api/share-links/create", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({
+              projectId: normalizedProjectId,
+              durationDays
+            }),
+            signal: controller?.signal
+          });
+        } catch (error) {
+          const networkError = new Error(error?.name === "AbortError"
+            ? "Creating share link timed out. Please try again."
+            : "Share link API route is unavailable.");
+          networkError.code = error?.name === "AbortError" ? "ACTION_TIMEOUT" : "NETWORK_ERROR";
+          networkError.status = 0;
+          throw networkError;
         }
-      }
 
-      if (!response.ok || parsed?.ok !== true) {
-        const message = this.getShareLinkApiErrorMessage(parsed, "Unable to create share link.");
-        const apiError = new Error(message);
-        apiError.status = response.status;
-        apiError.code = parsed?.error?.code || parsed?.code || "SHARE_LINK_API_ERROR";
-        apiError.payload = parsed;
-        throw apiError;
-      }
+        const text = await response.text();
+        let parsed = null;
+        if (text) {
+          try {
+            parsed = JSON.parse(text);
+          } catch (_) {
+            const parseError = new Error("Share link API returned an invalid response.");
+            parseError.code = "INVALID_JSON";
+            parseError.status = response.status;
+            throw parseError;
+          }
+        }
 
-      return {
-        data: parsed.share || null,
-        error: null
-      };
+        if (!response.ok || parsed?.ok !== true) {
+          const message = this.getShareLinkApiErrorMessage(parsed, "Unable to create share link.");
+          const apiError = new Error(message);
+          apiError.status = response.status;
+          apiError.code = parsed?.error?.code || parsed?.code || "SHARE_LINK_API_ERROR";
+          apiError.payload = parsed;
+          throw apiError;
+        }
+
+        return {
+          data: parsed.share || null,
+          error: null
+        };
+      })();
+
+      return await Promise.race([requestPromise, timeoutPromise]);
     } catch (error) {
       return {
         data: null,
