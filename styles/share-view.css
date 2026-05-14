@@ -1,0 +1,590 @@
+:root {
+  --bg: #09111b;
+  --bg-deep: #050b12;
+  --panel: rgba(255, 255, 255, 0.06);
+  --panel-strong: rgba(255, 255, 255, 0.09);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.72);
+  --soft: rgba(255, 255, 255, 0.54);
+  --green: #2ecc71;
+  --orange: #ff9900;
+  --red: #ff2d2d;
+  --blue: #64b5f6;
+  --project-accent: #c8102e;
+  --project-accent-rgb: 200, 16, 46;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(var(--project-accent-rgb), 0.24), transparent 34rem),
+    linear-gradient(180deg, #0b1522 0%, #060c14 100%);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(var(--project-accent-rgb), 0.7);
+  outline-offset: 2px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.shareApp {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 14px;
+  padding: 16px;
+}
+
+.shareHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.34);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(var(--project-accent-rgb), 0.2), rgba(255,255,255,0.055) 42%, rgba(255,255,255,0.035)),
+    rgba(8, 16, 27, 0.92);
+  box-shadow: 0 18px 44px rgba(0,0,0,0.34);
+}
+
+.shareHeaderIdentity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.shareLogoFrame {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.45);
+  background: rgba(255,255,255,0.08);
+  display: grid;
+  place-items: center;
+  padding: 7px;
+  flex-shrink: 0;
+}
+
+.shareLogoFrame img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.shareEyebrow,
+.sectionLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(226, 238, 255, 0.72);
+  font-weight: 800;
+}
+
+.shareHeader h1 {
+  margin: 4px 0 4px;
+  font-size: clamp(24px, 4vw, 42px);
+  line-height: 1.03;
+  letter-spacing: 0;
+}
+
+.shareHeaderMeta {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.shareHeaderBadges {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(112px, 1fr));
+  gap: 8px;
+  min-width: 244px;
+}
+
+.shareBadge,
+.shareMetric,
+.progressCard,
+.sharePanel,
+.shareMapPanel {
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  border-radius: 8px;
+}
+
+.shareBadge {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 10px;
+}
+
+.shareBadge span,
+.shareMetric span {
+  color: var(--soft);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+}
+
+.shareBadge strong,
+.shareMetric strong {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.shareShell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(540px, 1fr);
+  grid-template-areas:
+    "summary sidebar"
+    "map sidebar";
+  gap: 14px;
+  min-height: 0;
+}
+
+.shareSummaryPanel {
+  grid-area: summary;
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.5fr);
+  gap: 12px;
+  min-width: 0;
+}
+
+.progressCard {
+  padding: 13px;
+  display: grid;
+  gap: 12px;
+  background:
+    linear-gradient(180deg, rgba(var(--project-accent-rgb), 0.16), rgba(255,255,255,0.05)),
+    var(--panel);
+}
+
+.progressCardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.progressValue {
+  margin-top: 5px;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.progressOpenWork {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.shareProgressTrack {
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.12);
+}
+
+.shareProgressFill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--project-accent), #2ecc71);
+  transition: width 240ms ease;
+}
+
+.shareMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.shareMetric {
+  min-height: 86px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 11px;
+}
+
+.shareMetric strong {
+  font-size: 25px;
+}
+
+.attentionMetric {
+  border-color: rgba(255, 191, 92, 0.32);
+  background: rgba(255, 153, 0, 0.09);
+}
+
+.shareMapPanel {
+  grid-area: map;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.shareMapToolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+#shareMapScope {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shareLegend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.shareLegend span,
+.statusBreakdownMeta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.status-active {
+  background: var(--blue);
+}
+
+.status-rescheduled {
+  background: var(--orange);
+}
+
+.status-completed {
+  background: var(--green);
+}
+
+.status-closed {
+  background: var(--red);
+}
+
+.shareMap {
+  min-height: 480px;
+  height: 100%;
+}
+
+.shareSidebar {
+  grid-area: sidebar;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.sharePanel {
+  padding: 12px;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.panelHeader h2 {
+  margin: 3px 0 0;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.iconTextBtn {
+  min-height: 30px;
+  padding: 0 10px;
+  margin: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.28);
+  color: #ffffff;
+  background: rgba(var(--project-accent-rgb), 0.14);
+  cursor: pointer;
+}
+
+.shareFilterGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.shareFilterGrid select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.08);
+  color: #ffffff;
+}
+
+.shareFilterGrid option {
+  color: #111827;
+}
+
+.shareMiniText,
+.selectedStoreBody,
+.emptyText {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.shareMiniText {
+  margin-top: 9px;
+}
+
+.selectedStoreBody {
+  display: grid;
+  gap: 6px;
+}
+
+.selectedStoreBody div {
+  overflow-wrap: anywhere;
+}
+
+.statusBreakdown {
+  display: grid;
+  gap: 9px;
+}
+
+.statusBreakdownRow {
+  display: grid;
+  gap: 6px;
+}
+
+.statusBreakdownMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.statusBreakdownMeta strong {
+  color: #ffffff;
+}
+
+.statusBreakdownMeta em {
+  color: var(--soft);
+  font-style: normal;
+  font-size: 11px;
+}
+
+.statusBreakdownTrack {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.1);
+}
+
+.statusBreakdownFill {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.dataHealthList {
+  display: grid;
+  gap: 7px;
+}
+
+.dataHealthItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 191, 92, 0.24);
+  background: rgba(255, 153, 0, 0.08);
+  font-size: 12px;
+}
+
+.shareActivityList {
+  display: grid;
+  gap: 7px;
+}
+
+.activityItem {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 9px;
+  margin: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.activityItem:hover {
+  border-color: rgba(var(--project-accent-rgb), 0.34);
+  background: rgba(var(--project-accent-rgb), 0.1);
+}
+
+.activityItem span,
+.activityItem em {
+  color: var(--soft);
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.activityItem strong {
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.shareFooter {
+  padding: 10px 12px;
+  color: var(--soft);
+  font-size: 11px;
+  line-height: 1.4;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+}
+
+.shareErrorState {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.shareErrorCard {
+  width: min(520px, 100%);
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(12, 22, 36, 0.94);
+  box-shadow: 0 18px 44px rgba(0,0,0,0.36);
+}
+
+.shareErrorCard h1 {
+  margin: 8px 0;
+  font-size: 28px;
+}
+
+.shareErrorCard p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 1200px) {
+  .shareMetricGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .shareSummaryPanel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 980px) {
+  .shareApp {
+    padding: 10px;
+  }
+
+  .shareHeader {
+    flex-direction: column;
+  }
+
+  .shareHeaderBadges {
+    min-width: 0;
+  }
+
+  .shareShell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(520px, 64vh) auto;
+    grid-template-areas:
+      "summary"
+      "map"
+      "sidebar";
+  }
+
+  .shareSidebar {
+    overflow: visible;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .shareHeaderIdentity {
+    align-items: flex-start;
+  }
+
+  .shareLogoFrame {
+    width: 50px;
+    height: 50px;
+  }
+
+  .shareHeaderBadges,
+  .shareMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shareMapToolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .shareLegend {
+    justify-content: flex-start;
+  }
+
+  .progressCardTop {
+    flex-direction: column;
+  }
+}

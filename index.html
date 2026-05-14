@@ -104,6 +104,26 @@
                 </div>
                 <div id="projectAdminMessage" class="projectSourceTag adminPanelMessage"></div>
 
+                <section id="projectShareLinkSection" class="adminPanelSection">
+                  <div class="panelHeaderRow adminPanelSectionHeader">
+                    <h3 style="font-size:14px;">Share Project Overview</h3>
+                    <div class="panelHeaderTag">Read Only</div>
+                  </div>
+                  <div class="adminPanelSectionHint">Create a temporary read-only project overview link for external stakeholders. Links expire after 7 days and expose only sanitized project data.</div>
+                  <div class="projectShareLinkActionRow">
+                    <button id="projectShareLinkCreateBtn" class="btnComplete" type="button">Generate 7-Day Link</button>
+                  </div>
+                  <div id="projectShareLinkResult" class="projectShareLinkResult hidden" aria-live="polite">
+                    <label class="projectShareLinkLabel" for="projectShareLinkUrl">Public overview URL</label>
+                    <div class="projectShareLinkCopyRow">
+                      <input id="projectShareLinkUrl" type="text" readonly value="" />
+                      <button id="projectShareLinkCopyBtn" class="btnSecondary" type="button">Copy Link</button>
+                    </div>
+                    <div id="projectShareLinkExpires" class="projectSourceTag projectShareLinkMeta"></div>
+                  </div>
+                  <div id="projectShareLinkMessage" class="projectSourceTag adminPanelMessage"></div>
+                </section>
+
                 <section class="adminPanelSection">
                   <div class="panelHeaderRow adminPanelSectionHeader">
                     <h3 style="font-size:14px;">Project Branding</h3>

@@ -521,6 +521,108 @@ const dataLayer = {
     }
   },
 
+  getShareLinkApiErrorMessage(payload, fallbackMessage = "Unable to create share link.") {
+    if (!payload) return fallbackMessage;
+    if (typeof payload === "string") return payload || fallbackMessage;
+    if (payload.error && typeof payload.error === "object") {
+      return String(payload.error.message || fallbackMessage).trim() || fallbackMessage;
+    }
+    return String(payload.message || payload.error || fallbackMessage).trim() || fallbackMessage;
+  },
+
+  async createProjectShareLink(projectId, durationDays = 7, timeoutMs = 18000) {
+    const normalizedProjectId = String(projectId || "").trim();
+    if (!normalizedProjectId) {
+      return { data: null, error: new Error("Missing project id for share link.") };
+    }
+
+    let sessionResult;
+    try {
+      sessionResult = await this.getSession();
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error("Unable to read the current session.")
+      };
+    }
+
+    if (sessionResult?.error) {
+      return { data: null, error: sessionResult.error };
+    }
+
+    const accessToken = String(sessionResult?.data?.session?.access_token || "").trim();
+    if (!accessToken) {
+      return { data: null, error: new Error("Sign in again before creating a share link.") };
+    }
+
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    let timeoutId = null;
+    if (controller) {
+      timeoutId = setTimeout(() => controller.abort(), Math.max(1, Number(timeoutMs) || 18000));
+    }
+
+    try {
+      let response;
+      try {
+        response = await fetch("/api/share-links/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({
+            projectId: normalizedProjectId,
+            durationDays
+          }),
+          signal: controller?.signal
+        });
+      } catch (error) {
+        const networkError = new Error(error?.name === "AbortError"
+          ? "Creating share link timed out. Please try again."
+          : "Share link API route is unavailable.");
+        networkError.code = error?.name === "AbortError" ? "ACTION_TIMEOUT" : "NETWORK_ERROR";
+        networkError.status = 0;
+        throw networkError;
+      }
+
+      const text = await response.text();
+      let parsed = null;
+      if (text) {
+        try {
+          parsed = JSON.parse(text);
+        } catch (_) {
+          const parseError = new Error("Share link API returned an invalid response.");
+          parseError.code = "INVALID_JSON";
+          parseError.status = response.status;
+          throw parseError;
+        }
+      }
+
+      if (!response.ok || parsed?.ok !== true) {
+        const message = this.getShareLinkApiErrorMessage(parsed, "Unable to create share link.");
+        const apiError = new Error(message);
+        apiError.status = response.status;
+        apiError.code = parsed?.error?.code || parsed?.code || "SHARE_LINK_API_ERROR";
+        apiError.payload = parsed;
+        throw apiError;
+      }
+
+      return {
+        data: parsed.share || null,
+        error: null
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error(String(error?.message || "Unable to create share link."))
+      };
+    } finally {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+    }
+  },
+
   async createRecordedOnlyProjectInvite(basePayload, deliveryMessage) {
     const deliveryChannel = this.getProjectInviteDeliveryChannel(basePayload.invite_target_type);
     const deliveryProvider = this.getProjectInviteDeliveryProvider(basePayload.invite_target_type);

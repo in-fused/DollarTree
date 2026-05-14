@@ -1160,6 +1160,77 @@ function setProjectAdminMessage(message, type = "info") {
   }
 }
 
+function setProjectShareLinkMessage(message, type = "info") {
+  const messageEl = document.getElementById("projectShareLinkMessage");
+  if (!messageEl) return;
+
+  messageEl.textContent = message || "";
+  messageEl.style.color = "";
+  messageEl.style.fontWeight = message ? "600" : "";
+  messageEl.style.padding = message ? "7px 9px" : "";
+  messageEl.style.borderRadius = message ? "8px" : "";
+  messageEl.style.border = "";
+  messageEl.style.background = "";
+
+  if (type === "success") {
+    messageEl.style.color = "#8bd3a8";
+    messageEl.style.border = "1px solid rgba(139,211,168,0.42)";
+    messageEl.style.background = "rgba(31, 64, 48, 0.42)";
+    return;
+  }
+
+  if (type === "error") {
+    messageEl.style.color = "#ffd1d1";
+    messageEl.style.border = "1px solid rgba(255, 119, 119, 0.48)";
+    messageEl.style.background = "rgba(82, 20, 20, 0.42)";
+  }
+}
+
+function formatShareLinkExpiration(value) {
+  const timestamp = getTimestampValue(value);
+  if (!timestamp) return "Expiration unavailable";
+  return `Expires ${new Date(timestamp).toLocaleString()}`;
+}
+
+function renderProjectShareLinkResult(share) {
+  const resultEl = document.getElementById("projectShareLinkResult");
+  const urlInput = document.getElementById("projectShareLinkUrl");
+  const copyBtn = document.getElementById("projectShareLinkCopyBtn");
+  const expiresEl = document.getElementById("projectShareLinkExpires");
+
+  const url = String(share?.url || "").trim();
+  if (!resultEl || !urlInput || !url) return;
+
+  resultEl.classList.remove("hidden");
+  resultEl.dataset.projectId = String(share?.project_id || currentProjectId || "").trim();
+  urlInput.value = url;
+
+  if (expiresEl) {
+    expiresEl.textContent = formatShareLinkExpiration(share?.expires_at);
+  }
+  if (copyBtn) {
+    copyBtn.disabled = !shouldRestoreAdminActionControls(resultEl.dataset.projectId);
+  }
+}
+
+function resetProjectShareLinkResultIfStale() {
+  const resultEl = document.getElementById("projectShareLinkResult");
+  const urlInput = document.getElementById("projectShareLinkUrl");
+  const expiresEl = document.getElementById("projectShareLinkExpires");
+  const currentProjectKey = String(currentProjectId || "").trim();
+  const resultProjectId = String(resultEl?.dataset.projectId || "").trim();
+
+  if (!resultEl) return;
+  if (resultProjectId && resultProjectId === currentProjectKey) return;
+  if (!resultProjectId && resultEl.classList.contains("hidden")) return;
+
+  resultEl.classList.add("hidden");
+  resultEl.dataset.projectId = "";
+  if (urlInput) urlInput.value = "";
+  if (expiresEl) expiresEl.textContent = "";
+  setProjectShareLinkMessage("");
+}
+
 function syncProjectLogoLibrarySelectFromManifest(selectEl, logoUrlValue) {
   if (!selectEl) return;
   if (typeof window.syncProjectLogoLibrarySelectFromManifest !== "function") return;
@@ -1184,6 +1255,10 @@ async function refreshProjectAdminPanel() {
   const logoLibrarySelect = document.getElementById("projectBrandLogoLibrarySelect");
   const brandingSaveBtn = document.getElementById("projectBrandingSaveBtn");
   const inviteMessage = document.getElementById("projectAdminMessage");
+  const shareLinkSection = document.getElementById("projectShareLinkSection");
+  const shareLinkCreateBtn = document.getElementById("projectShareLinkCreateBtn");
+  const shareLinkCopyBtn = document.getElementById("projectShareLinkCopyBtn");
+  const shareLinkUrlInput = document.getElementById("projectShareLinkUrl");
 
   if (!panel || !membersList || !membersEmpty || !invitesList || !invitesEmpty) return;
 
@@ -1199,7 +1274,10 @@ async function refreshProjectAdminPanel() {
   panel.classList.remove("hidden");
   actions?.classList.toggle("hidden", !canManage);
   inactiveState?.classList.toggle("hidden", canManage);
+  shareLinkSection?.classList.toggle("hidden", !canManage);
   updateAdminPanelHeaderContext({ canManage, isRefreshing: false, brandingUnavailable });
+  resetProjectShareLinkResultIfStale();
+  const hasShareLinkUrl = !!String(shareLinkUrlInput?.value || "").trim();
 
   if (brandColorInput) {
     brandColorInput.value = normalizedBrandColor;
@@ -1215,6 +1293,12 @@ async function refreshProjectAdminPanel() {
   }
   if (brandingSaveBtn) {
     brandingSaveBtn.disabled = !canManage || brandingUnavailable || brandingSaveBtn.dataset.loading === "true";
+  }
+  if (shareLinkCreateBtn) {
+    shareLinkCreateBtn.disabled = !canManage || shareLinkCreateBtn.dataset.loading === "true";
+  }
+  if (shareLinkCopyBtn) {
+    shareLinkCopyBtn.disabled = !canManage || !hasShareLinkUrl;
   }
 
   if (!canManage) {
@@ -1232,6 +1316,8 @@ async function refreshProjectAdminPanel() {
     if (inviteTargetTypeSelect) inviteTargetTypeSelect.disabled = true;
     if (inviteRoleSelect) inviteRoleSelect.disabled = true;
     if (inviteSendBtn) inviteSendBtn.disabled = true;
+    if (shareLinkCreateBtn) shareLinkCreateBtn.disabled = true;
+    if (shareLinkCopyBtn) shareLinkCopyBtn.disabled = true;
     if (typeof refreshOrgOversightPanel === "function") {
       await refreshOrgOversightPanel();
     }
@@ -1242,6 +1328,8 @@ async function refreshProjectAdminPanel() {
   if (inviteTargetTypeSelect) inviteTargetTypeSelect.disabled = false;
   if (inviteRoleSelect) inviteRoleSelect.disabled = false;
   if (inviteSendBtn && inviteSendBtn.dataset.loading !== "true") inviteSendBtn.disabled = false;
+  if (shareLinkCreateBtn && shareLinkCreateBtn.dataset.loading !== "true") shareLinkCreateBtn.disabled = false;
+  if (shareLinkCopyBtn) shareLinkCopyBtn.disabled = !hasShareLinkUrl;
   if (inviteMessage) {
     if (brandingUnavailable) {
       setProjectAdminMessage(PROJECT_BRANDING_UNAVAILABLE_MESSAGE, "info");
@@ -1464,9 +1552,95 @@ function bindProjectAdminUI() {
   const logoLibrarySelect = document.getElementById("projectBrandLogoLibrarySelect");
   const brandingSaveBtn = document.getElementById("projectBrandingSaveBtn");
   const inviteMessage = document.getElementById("projectAdminMessage");
+  const shareLinkCreateBtn = document.getElementById("projectShareLinkCreateBtn");
+  const shareLinkCopyBtn = document.getElementById("projectShareLinkCopyBtn");
+  const shareLinkUrlInput = document.getElementById("projectShareLinkUrl");
 
   if (logoLibrarySelect && typeof window.refreshProjectLogoLibrarySelectFromManifest === "function") {
     window.refreshProjectLogoLibrarySelectFromManifest(logoLibrarySelect, brandLogoUrlInput);
+  }
+
+  if (shareLinkCreateBtn && !shareLinkCreateBtn.dataset.bound) {
+    shareLinkCreateBtn.addEventListener("click", async () => {
+      if (!isSignedIn() || !canManageProjectLifecycle() || !currentProjectId) return;
+      if (shareLinkCreateBtn.dataset.loading === "true") return;
+
+      const scopedProjectId = String(currentProjectId || "").trim();
+      setProjectShareLinkMessage("");
+      shareLinkCreateBtn.dataset.loading = "true";
+      shareLinkCreateBtn.disabled = true;
+      const originalLabel = shareLinkCreateBtn.textContent;
+      shareLinkCreateBtn.textContent = "Generating...";
+
+      try {
+        const result = await dataLayer.createProjectShareLink(scopedProjectId, 7);
+        if (result?.error) {
+          setProjectShareLinkMessage(result.error.message || "Unable to create share link.", "error");
+          return;
+        }
+
+        renderProjectShareLinkResult(result.data);
+        setProjectShareLinkMessage("Public overview link generated. Copy and share it with stakeholders.", "success");
+        logAuditEvent("share_link_created", {
+          project_id: scopedProjectId,
+          actor_user_id: currentUser?.id || null,
+          metadata: {
+            scope: "overview",
+            expires_at: result?.data?.expires_at || null
+          }
+        });
+      } catch (error) {
+        setProjectShareLinkMessage(error?.message || "Unable to create share link.", "error");
+      } finally {
+        await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
+        shareLinkCreateBtn.dataset.loading = "false";
+        shareLinkCreateBtn.disabled = !shouldRestoreAdminActionControls(scopedProjectId);
+        shareLinkCreateBtn.textContent = originalLabel || "Generate 7-Day Link";
+      }
+    });
+    shareLinkCreateBtn.dataset.bound = "true";
+  }
+
+  if (shareLinkCopyBtn && !shareLinkCopyBtn.dataset.bound) {
+    shareLinkCopyBtn.addEventListener("click", async () => {
+      if (!isSignedIn() || !canManageProjectLifecycle() || !currentProjectId) return;
+      const url = String(shareLinkUrlInput?.value || "").trim();
+      if (!url) {
+        setProjectShareLinkMessage("Generate a link before copying.", "error");
+        return;
+      }
+
+      const originalLabel = shareLinkCopyBtn.textContent;
+      let copied = false;
+      try {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(url);
+          copied = true;
+        } else if (shareLinkUrlInput && typeof document.execCommand === "function") {
+          shareLinkUrlInput.focus();
+          shareLinkUrlInput.select();
+          copied = document.execCommand("copy");
+        } else {
+          setProjectShareLinkMessage("Clipboard is unavailable on this device.", "error");
+        }
+
+        if (copied) {
+          setProjectShareLinkMessage("Share link copied.", "success");
+        } else {
+          setProjectShareLinkMessage("Clipboard is unavailable on this device.", "error");
+        }
+      } catch (error) {
+        setProjectShareLinkMessage("Unable to copy share link.", "error");
+      } finally {
+        if (copied) {
+          shareLinkCopyBtn.textContent = "Copied";
+          setTimeout(() => {
+            shareLinkCopyBtn.textContent = originalLabel || "Copy Link";
+          }, 900);
+        }
+      }
+    });
+    shareLinkCopyBtn.dataset.bound = "true";
   }
 
   if (inviteSendBtn && !inviteSendBtn.dataset.bound) {
