@@ -579,6 +579,10 @@
   }
 
   async function applyImport() {
+    if (state.applyInProgress) {
+      return state.applyResult;
+    }
+
     const eligibility = getApplyEligibility();
 
     if (!eligibility.eligible) {
@@ -617,7 +621,9 @@
       state.applyResult = result;
       state.applyConfirmOpen = false;
 
-      if (result && result.errorCount > 0) {
+      if (result && result.geocodeFailureCount > 0) {
+        setStatus("warn", "Apply completed with geocode failures. Review skipped rows in the summary.");
+      } else if (result && result.errorCount > 0) {
         setStatus("warn", "Apply completed with row-level errors. Review the apply summary.");
       } else {
         setStatus("ok", "Apply completed. Refreshing current project data...");
@@ -632,7 +638,9 @@
             PROJECT_REFRESH_TIMEOUT_MS,
             "Project refresh timed out after apply. Reload the app to verify the latest data."
           );
-          if (result && result.errorCount > 0) {
+          if (result && result.geocodeFailureCount > 0) {
+            setStatus("warn", "Apply completed with geocode failures and current project data was refreshed.");
+          } else if (result && result.errorCount > 0) {
             setStatus("warn", "Apply completed with row-level errors and current project data was refreshed.");
           } else {
             setStatus("ok", "Apply completed and current project data was refreshed.");
@@ -659,7 +667,9 @@
         errorCount: 1,
         warningCount: 0,
         geocodedCount: 0,
+        geocodeFailureCount: 0,
         cacheHitCount: 0,
+        coordsProvidedCount: 0,
         warnings: [],
         errors: [error && error.message ? error.message : "Import apply failed."],
         success: false

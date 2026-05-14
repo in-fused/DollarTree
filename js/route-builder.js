@@ -26,11 +26,7 @@ function getRouteCandidateStores() {
 function getOrderedRouteStores() {
   return selectedRouteStops
     .map(storeId => storeData.find(store => String(store.store_id) === String(storeId)))
-    .filter(store =>
-      store &&
-      Number.isFinite(Number(store.lat)) &&
-      Number.isFinite(Number(store.lng))
-    );
+    .filter(store => store && hasValidCoordinatePair(store.lat, store.lng));
 }
 
 function syncRouteMapLine() {
@@ -315,6 +311,11 @@ function addStoreToRoute(storeId) {
     return;
   }
 
+  if (!hasValidCoordinatePair(store.lat, store.lng)) {
+    alert("Store does not have valid coordinates for routing.");
+    return;
+  }
+
   if (selectedRouteStops.includes(normalized)) {
     alert("That store is already in the route.");
     return;
@@ -417,7 +418,9 @@ function renderRouteStops() {
       localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
       updateWorkspaceViewUI();
 
-      map.flyTo({ center: [store.lng, store.lat], zoom: 14 });
+      if (hasValidCoordinatePair(store.lat, store.lng)) {
+        map.flyTo({ center: [store.lng, store.lat], zoom: 14 });
+      }
 
       if (window.innerWidth <= 900) {
         document.body.classList.remove("sidebar-open");

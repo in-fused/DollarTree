@@ -353,8 +353,10 @@ function jumpToStoreFromPhoto(storeId) {
   currentSelectedStoreId = String(storeId);
   updateSelectedStorePanel(storeId);
 
-  map.flyTo({
-    center: [store.lng, store.lat],
-    zoom: 14
-  });
+  if (hasValidCoordinatePair(store.lat, store.lng)) {
+    map.flyTo({
+      center: [store.lng, store.lat],
+      zoom: 14
+    });
+  }
 }

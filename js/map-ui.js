@@ -610,7 +610,7 @@ function createGeoJson(stores) {
   return {
     type: "FeatureCollection",
     features: stores
-      .filter(store => hasValidCoordinate(store?.lat) && hasValidCoordinate(store?.lng))
+      .filter(store => hasValidCoordinatePair(store?.lat, store?.lng))
       .map(store => {
         const status = statusMap[String(store.store_id)] || getStatusState("active");
 
@@ -826,8 +826,9 @@ function updateMapViewportForMode() {
   if (currentWorkspaceView !== "map") return;
 
   const filteredStores = getFilteredStores();
+  const plottableStores = filteredStores.filter(store => hasValidCoordinatePair(store?.lat, store?.lng));
 
-  if (filteredStores.length === 0) {
+  if (plottableStores.length === 0) {
     map.easeTo({
       center: nationalOverviewEnabled ? NATIONAL_CENTER : DEFAULT_LOCAL_CENTER,
       zoom: nationalOverviewEnabled ? NATIONAL_ZOOM : DEFAULT_LOCAL_ZOOM,
@@ -837,20 +838,20 @@ function updateMapViewportForMode() {
   }
 
   if (nationalOverviewEnabled) {
-    fitMapToStores(filteredStores, 48, 5.5);
+    fitMapToStores(plottableStores, 48, 5.5);
     return;
   }
 
-  if (filteredStores.length === 1) {
+  if (plottableStores.length === 1) {
     map.easeTo({
-      center: [filteredStores[0].lng, filteredStores[0].lat],
+      center: [plottableStores[0].lng, plottableStores[0].lat],
       zoom: 12.5,
       duration: 700
     });
     return;
   }
 
-  fitMapToStores(filteredStores, 58, 8.75);
+  fitMapToStores(plottableStores, 58, 8.75);
 }
 
 function fitMapToStores(stores, padding = 40, maxZoom = 8.5) {
@@ -859,7 +860,7 @@ function fitMapToStores(stores, padding = 40, maxZoom = 8.5) {
   const bounds = new mapboxgl.LngLatBounds();
 
   stores.forEach(store => {
-    if (Number.isFinite(store.lng) && Number.isFinite(store.lat)) {
+    if (hasValidCoordinatePair(store?.lat, store?.lng)) {
       bounds.extend([store.lng, store.lat]);
     }
   });
@@ -911,10 +912,12 @@ function bindSearch() {
     localStorage.setItem(ACTIVE_VIEW_KEY, currentWorkspaceView);
     updateWorkspaceViewUI();
 
-    map.flyTo({
-      center: [match.lng, match.lat],
-      zoom: 14
-    });
+    if (hasValidCoordinatePair(match?.lat, match?.lng)) {
+      map.flyTo({
+        center: [match.lng, match.lat],
+        zoom: 14
+      });
+    }
 
     if (window.innerWidth <= 900) {
       document.body.classList.remove("sidebar-open");

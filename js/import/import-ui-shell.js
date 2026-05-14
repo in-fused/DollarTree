@@ -387,6 +387,8 @@
     [
       "Existing stores matched by store_id will be updated.",
       "New stores will be inserted.",
+      "Rows without valid coordinates will geocode before writing.",
+      "Rows that cannot geocode will be skipped.",
       "Notes/photos will not be touched.",
       "Existing statuses will not be reset."
     ].forEach(function appendText(text) {
@@ -445,6 +447,7 @@
       { key: "Errors", value: result.errorCount },
       { key: "Warnings", value: result.warningCount },
       { key: "Geocoded", value: result.geocodedCount },
+      { key: "Geocode failures", value: result.geocodeFailureCount },
       { key: "Cache hits", value: result.cacheHitCount }
     ].forEach(function appendMetric(row) {
       const item = document.createElement("li");

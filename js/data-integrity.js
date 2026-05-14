@@ -1,7 +1,41 @@
 /* ================= DATA INTEGRITY ================= */
 
 function hasValidCoordinate(value) {
-  return Number.isFinite(Number(value));
+  if (value === null || value === undefined || value === "") return false;
+  if (typeof value === "string" && value.trim() === "") return false;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= -180 && parsed <= 180;
+}
+
+function hasValidLatitude(value) {
+  if (value === null || value === undefined || value === "") return false;
+  if (typeof value === "string" && value.trim() === "") return false;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= -90 && parsed <= 90;
+}
+
+function hasValidLongitude(value) {
+  if (value === null || value === undefined || value === "") return false;
+  if (typeof value === "string" && value.trim() === "") return false;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= -180 && parsed <= 180;
+}
+
+function hasValidCoordinatePair(lat, lng) {
+  if (lat === null || lat === undefined || lat === "" || lng === null || lng === undefined || lng === "") {
+    return false;
+  }
+  if ((typeof lat === "string" && lat.trim() === "") || (typeof lng === "string" && lng.trim() === "")) {
+    return false;
+  }
+
+  const parsedLat = Number(lat);
+  const parsedLng = Number(lng);
+  return (
+    hasValidLatitude(parsedLat) &&
+    hasValidLongitude(parsedLng) &&
+    !(parsedLat === 0 && parsedLng === 0)
+  );
 }
 
 function getGeoAuditConfig(stores = storeData) {
@@ -54,7 +88,7 @@ function getDataIntegrityReport(storeData, statusMap, geoAudit = getGeoAuditConf
       report.missingState.push(store);
     }
 
-    if (!hasValidCoordinate(store?.lat) || !hasValidCoordinate(store?.lng)) {
+    if (!hasValidCoordinatePair(store?.lat, store?.lng)) {
       report.missingCoords.push(store);
     }
 
