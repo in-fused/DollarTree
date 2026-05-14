@@ -3,6 +3,7 @@ const crypto = require("node:crypto");
 const SUPABASE_REST_PATH = "/rest/v1";
 const SUPABASE_AUTH_USER_PATH = "/auth/v1/user";
 const SUPABASE_TIMEOUT_MS = 15000;
+const REQUEST_BODY_TIMEOUT_MS = 5000;
 const DEFAULT_SHARE_DAYS = 7;
 const MAX_SHARE_DAYS = 30;
 
@@ -74,18 +75,49 @@ function getPayloadMessage(payload, fallback) {
   ).trim() || fallback;
 }
 
-async function fetchWithTimeout(url, options = {}, timeoutMs = SUPABASE_TIMEOUT_MS) {
+async function fetchTextWithTimeout(url, options = {}, timeoutMs = SUPABASE_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let timeoutId = null;
+  const safeTimeoutMs = Math.max(1, Number(timeoutMs) || SUPABASE_TIMEOUT_MS);
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      controller.abort();
+      reject(new HttpError(504, "supabase_timeout", "Supabase request timed out."));
+    }, safeTimeoutMs);
+  });
 
   try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
+    const requestPromise = (async () => {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      const text = await response.text();
+      return { response, text };
+    })();
+    return await Promise.race([requestPromise, timeoutPromise]);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new HttpError(504, "supabase_timeout", "Supabase request timed out.");
+    }
+    throw error;
   } finally {
-    clearTimeout(timeoutId);
+    if (timeoutId !== null) clearTimeout(timeoutId);
   }
+}
+
+function withTimeout(promise, timeoutMs, errorFactory) {
+  let timeoutId = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(typeof errorFactory === "function" ? errorFactory() : new HttpError(504, "request_timeout", "Request timed out."));
+    }, Math.max(1, Number(timeoutMs) || 1));
+  });
+
+  return Promise.race([Promise.resolve(promise), timeoutPromise])
+    .finally(() => {
+      if (timeoutId !== null) clearTimeout(timeoutId);
+    });
 }
 
 async function readBody(req) {
@@ -147,17 +179,17 @@ async function supabaseRequest(config, path, options = {}) {
     headers.Prefer = options.prefer;
   }
 
-  const response = await fetchWithTimeout(url, {
+  const { response, text } = await fetchTextWithTimeout(url, {
     method: options.method || "GET",
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined
   });
 
-  const payload = parseJsonMaybe(await response.text());
+  const payload = parseJsonMaybe(text);
   if (!response.ok) {
     throw new HttpError(
       response.status,
-      "supabase_request_failed",
+      options.errorCode || "supabase_request_failed",
       getPayloadMessage(payload, "Supabase request failed."),
       payload
     );
@@ -167,7 +199,7 @@ async function supabaseRequest(config, path, options = {}) {
 }
 
 async function verifyUser(config, accessToken) {
-  const response = await fetchWithTimeout(`${config.supabaseUrl}${SUPABASE_AUTH_USER_PATH}`, {
+  const { response, text } = await fetchTextWithTimeout(`${config.supabaseUrl}${SUPABASE_AUTH_USER_PATH}`, {
     method: "GET",
     headers: {
       apikey: config.serviceRoleKey,
@@ -176,7 +208,7 @@ async function verifyUser(config, accessToken) {
     }
   });
 
-  const payload = parseJsonMaybe(await response.text());
+  const payload = parseJsonMaybe(text);
   if (!response.ok) {
     throw new HttpError(401, "invalid_auth_token", getPayloadMessage(payload, "Invalid or expired Supabase session."));
   }
@@ -255,6 +287,38 @@ function normalizeDurationDays(value) {
   return Math.min(MAX_SHARE_DAYS, Math.max(1, Math.round(numeric)));
 }
 
+function getErrorHaystack(error) {
+  let details = "";
+  try {
+    details = typeof error?.details === "string" ? error.details : JSON.stringify(error?.details || "");
+  } catch (_) {
+    details = "";
+  }
+
+  return [
+    error?.message,
+    error?.code,
+    error?.hint,
+    details
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function isMissingProjectShareLinksTableError(error) {
+  const haystack = getErrorHaystack(error);
+  if (!haystack.includes("project_share_links")) return false;
+  if (haystack.includes("column")) return false;
+
+  return (
+    haystack.includes("could not find the table")
+    || haystack.includes("relation")
+    || haystack.includes("does not exist")
+    || haystack.includes("schema cache")
+  );
+}
+
 function createRawToken() {
   return crypto
     .randomBytes(32)
@@ -306,7 +370,11 @@ module.exports = async function handler(req, res) {
       throw new HttpError(401, "missing_auth_token", "Authorization bearer token is required.");
     }
 
-    const body = await readBody(req);
+    const body = await withTimeout(
+      readBody(req),
+      REQUEST_BODY_TIMEOUT_MS,
+      () => new HttpError(408, "request_body_timeout", "Request body was not received in time.")
+    );
     const projectId = String(body?.projectId || body?.project_id || "").trim();
     if (!projectId) {
       throw new HttpError(400, "missing_project_id", "projectId is required.");
@@ -320,19 +388,32 @@ module.exports = async function handler(req, res) {
     const tokenHash = hashToken(token);
     const label = String(body?.label || "7-day public overview").trim().slice(0, 120) || null;
 
-    const rows = await supabaseRequest(config, "project_share_links", {
-      method: "POST",
-      prefer: "return=representation",
-      body: {
-        project_id: projectId,
-        token_hash: tokenHash,
-        created_by: user.id,
-        expires_at: expiresAt,
-        revoked_at: null,
-        scope: "overview",
-        label
+    let rows;
+    try {
+      rows = await supabaseRequest(config, "project_share_links", {
+        method: "POST",
+        prefer: "return=representation",
+        errorCode: "share_link_insert_failed",
+        body: {
+          project_id: projectId,
+          token_hash: tokenHash,
+          created_by: user.id,
+          expires_at: expiresAt,
+          revoked_at: null,
+          scope: "overview",
+          label
+        }
+      });
+    } catch (error) {
+      if (isMissingProjectShareLinksTableError(error)) {
+        throw new HttpError(
+          500,
+          "project_share_links_missing",
+          "project_share_links table is unavailable. Run the project_share_links SQL migration."
+        );
       }
-    });
+      throw error;
+    }
 
     const linkRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
     const origin = getRequestOrigin(req, config);
