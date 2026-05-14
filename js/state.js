@@ -1,7 +1,9 @@
 mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
 
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
-const SUPABASE_KEY = "sb_publishable_DF55L6u6QxGU9Tfo_9MvZw_0Rv7zsJS";
+// Browser-safe Supabase anon/public publishable key only.
+// Never use service_role or other secret keys in this static frontend.
+const SUPABASE_KEY = "sb_publishable_7IQ3q8-lQbLw_bXb-zb8OQ_eQMocraT";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
