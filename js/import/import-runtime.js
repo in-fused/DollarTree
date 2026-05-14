@@ -5,6 +5,7 @@
     { id: "store-number-heavy", label: "Store-Number-Heavy" },
     { id: "address-heavy", label: "Address-Heavy" }
   ];
+  const PROJECT_REFRESH_TIMEOUT_MS = 20000;
 
   const subscribers = new Set();
 
@@ -23,8 +24,68 @@
     availablePresets: FALLBACK_PRESETS.slice(),
     overrideMappings: {},
     statusLevel: "idle",
-    statusMessage: "Awaiting file selection for staged validation preview."
+    statusMessage: "Awaiting file selection for staged validation preview.",
+    applyConfirmOpen: false,
+    applyInProgress: false,
+    applyResult: null
   };
+
+  function getCurrentProjectId() {
+    return typeof currentProjectId !== "undefined" ? String(currentProjectId || "").trim() : "";
+  }
+
+  function getCurrentProjectMeta() {
+    return typeof currentProjectMeta !== "undefined" && currentProjectMeta
+      ? currentProjectMeta
+      : null;
+  }
+
+  function canCurrentUserApplyImport() {
+    return Boolean(
+      typeof isSignedIn === "function" &&
+      isSignedIn() &&
+      typeof canManageProjectLifecycle === "function" &&
+      canManageProjectLifecycle()
+    );
+  }
+
+  function getApplyEligibility() {
+    const stageResult = state.stageResult;
+    const summary = stageResult && stageResult.summary ? stageResult.summary : null;
+    const acceptedRecords = stageResult && Array.isArray(stageResult.acceptedRecords)
+      ? stageResult.acceptedRecords
+      : [];
+
+    if (!state.file || !state.parsedRows.length) {
+      return { eligible: false, reason: "Select and parse a CSV before applying." };
+    }
+
+    if (!stageResult || !summary) {
+      return { eligible: false, reason: "Run a dry-run before applying." };
+    }
+
+    if (stageResult.canProceed !== true || stageResult.isValid !== true) {
+      return { eligible: false, reason: "Resolve dry-run validation issues before applying." };
+    }
+
+    if ((Number(summary.rejectedRowCount) || 0) > 0) {
+      return { eligible: false, reason: "Rejected rows must be resolved before applying." };
+    }
+
+    if (!acceptedRecords.length) {
+      return { eligible: false, reason: "No accepted rows are available to apply." };
+    }
+
+    if (!getCurrentProjectId()) {
+      return { eligible: false, reason: "Select a current project before applying." };
+    }
+
+    if (!canCurrentUserApplyImport()) {
+      return { eligible: false, reason: "Project admin or global admin access is required to apply imports." };
+    }
+
+    return { eligible: true, reason: "" };
+  }
 
   function cloneState() {
     return {
@@ -49,7 +110,15 @@
       availablePresets: state.availablePresets.slice(),
       overrideMappings: { ...state.overrideMappings },
       statusLevel: state.statusLevel,
-      statusMessage: state.statusMessage
+      statusMessage: state.statusMessage,
+      applyConfirmOpen: state.applyConfirmOpen,
+      applyInProgress: state.applyInProgress,
+      applyResult: state.applyResult,
+      applyEligibility: getApplyEligibility(),
+      applyTarget: {
+        projectId: getCurrentProjectId(),
+        projectName: (getCurrentProjectMeta() && getCurrentProjectMeta().name) || getCurrentProjectId()
+      }
     };
   }
 
@@ -139,6 +208,36 @@
     state.statusMessage = message;
   }
 
+  function withRuntimeTimeout(operation, timeoutMs, message) {
+    const effectiveTimeout = Number(timeoutMs) > 0 ? Number(timeoutMs) : PROJECT_REFRESH_TIMEOUT_MS;
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error(message || `Operation timed out after ${Math.ceil(effectiveTimeout / 1000)} seconds.`));
+      }, effectiveTimeout);
+
+      Promise.resolve()
+        .then(() => (typeof operation === "function" ? operation() : operation))
+        .then(
+          (value) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(value);
+          },
+          (error) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            reject(error);
+          }
+        );
+    });
+  }
+
   function clearDryRunArtifacts() {
     state.parsedHeaders = [];
     state.parsedRows = [];
@@ -146,6 +245,54 @@
     state.headerReport = null;
     state.stageResult = null;
     state.diagnosticsSummary = null;
+    clearApplyArtifacts();
+  }
+
+  function clearApplyArtifacts() {
+    state.applyConfirmOpen = false;
+    state.applyInProgress = false;
+    state.applyResult = null;
+  }
+
+  function setErrorState(nextState) {
+    const patch = nextState && typeof nextState === "object" ? nextState : {};
+
+    if (Object.prototype.hasOwnProperty.call(patch, "file")) {
+      const filePayload = patch.file;
+      state.file = filePayload
+        ? {
+            name: filePayload.name || "",
+            size: Number(filePayload.size) || 0,
+            type: filePayload.type || "",
+            lastModified: Number(filePayload.lastModified) || 0
+          }
+        : null;
+
+      if (!state.file) {
+        state.fileText = "";
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(patch, "fileText")) {
+      state.fileText = typeof patch.fileText === "string" ? patch.fileText : "";
+    }
+
+    if (Object.prototype.hasOwnProperty.call(patch, "parsedHeaders")) {
+      state.parsedHeaders = Array.isArray(patch.parsedHeaders) ? patch.parsedHeaders.slice() : [];
+    }
+
+    if (Object.prototype.hasOwnProperty.call(patch, "parsedRows")) {
+      state.parsedRows = Array.isArray(patch.parsedRows) ? patch.parsedRows.slice() : [];
+    }
+
+    state.dragActive = false;
+    state.mappingReport = null;
+    state.headerReport = null;
+    state.stageResult = null;
+    state.diagnosticsSummary = null;
+    clearApplyArtifacts();
+    setStatus(patch.statusLevel || "error", patch.statusMessage || "Import failed safely. No project data was changed.");
+    notify();
   }
 
   function setOpen(nextOpen) {
@@ -244,6 +391,8 @@
       return;
     }
 
+    state.applyConfirmOpen = false;
+    state.applyResult = null;
     refreshAvailablePresets();
 
     const apis = getIngestionApis();
@@ -317,14 +466,14 @@
       );
 
       if (state.stageResult.canProceed === true && state.stageResult.isValid === true) {
-        setStatus("ok", "Dry-run completed successfully. Results are shell-local only and were not applied.");
+        setStatus("ok", "Dry-run completed successfully. No backend writes have occurred.");
       } else if (
         (state.stageResult.summary && state.stageResult.summary.errorCount) ||
         (state.stageResult.summary && state.stageResult.summary.rejectedRowCount)
       ) {
         setStatus("error", "Dry-run blocked by validation errors. Review staged results below.");
       } else {
-        setStatus("warn", "Dry-run completed with warnings. No live project data was modified.");
+        setStatus("warn", "Dry-run completed with warnings. No backend writes have occurred.");
       }
     } catch (error) {
       console.error(error);
@@ -408,6 +557,122 @@
     }
   }
 
+  function requestApplyConfirmation() {
+    const eligibility = getApplyEligibility();
+
+    if (!eligibility.eligible) {
+      state.applyConfirmOpen = false;
+      setStatus("error", eligibility.reason || "Apply is not available for this dry-run.");
+      notify();
+      return false;
+    }
+
+    state.applyResult = null;
+    state.applyConfirmOpen = true;
+    notify();
+    return true;
+  }
+
+  function cancelApplyConfirmation() {
+    state.applyConfirmOpen = false;
+    notify();
+  }
+
+  async function applyImport() {
+    const eligibility = getApplyEligibility();
+
+    if (!eligibility.eligible) {
+      state.applyConfirmOpen = false;
+      setStatus("error", eligibility.reason || "Apply is not available for this dry-run.");
+      notify();
+      return null;
+    }
+
+    if (!window.ImportApply || typeof window.ImportApply.applyImport !== "function") {
+      state.applyConfirmOpen = false;
+      setStatus("error", "Import apply engine is unavailable. No project data was changed.");
+      notify();
+      return null;
+    }
+
+    state.applyInProgress = true;
+    state.applyResult = null;
+    setStatus("warn", "Applying import to the current project...");
+    notify();
+
+    let result = null;
+
+    try {
+      const projectId = getCurrentProjectId();
+      const projectMeta = getCurrentProjectMeta();
+
+      result = await window.ImportApply.applyImport({
+        stageResult: state.stageResult,
+        acceptedRecords: state.stageResult ? state.stageResult.acceptedRecords : [],
+        currentProjectId: projectId,
+        currentProjectName: (projectMeta && projectMeta.name) || projectId,
+        canManage: canCurrentUserApplyImport()
+      });
+
+      state.applyResult = result;
+      state.applyConfirmOpen = false;
+
+      if (result && result.errorCount > 0) {
+        setStatus("warn", "Apply completed with row-level errors. Review the apply summary.");
+      } else {
+        setStatus("ok", "Apply completed. Refreshing current project data...");
+      }
+
+      notify();
+
+      if (typeof loadActiveProject === "function") {
+        try {
+          await withRuntimeTimeout(
+            () => loadActiveProject(),
+            PROJECT_REFRESH_TIMEOUT_MS,
+            "Project refresh timed out after apply. Reload the app to verify the latest data."
+          );
+          if (result && result.errorCount > 0) {
+            setStatus("warn", "Apply completed with row-level errors and current project data was refreshed.");
+          } else {
+            setStatus("ok", "Apply completed and current project data was refreshed.");
+          }
+        } catch (refreshError) {
+          console.error(refreshError);
+          if (state.applyResult && Array.isArray(state.applyResult.warnings)) {
+            state.applyResult.warnings.push("Project refresh failed after apply. Reload the app to verify the latest data.");
+            state.applyResult.warningCount = state.applyResult.warnings.length;
+          }
+          setStatus("warn", "Apply completed, but the active project refresh failed. Reload the app to verify data.");
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      state.applyConfirmOpen = false;
+      state.applyResult = {
+        mode: "merge_current_project",
+        projectId: getCurrentProjectId(),
+        projectName: (getCurrentProjectMeta() && getCurrentProjectMeta().name) || getCurrentProjectId(),
+        insertedCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
+        errorCount: 1,
+        warningCount: 0,
+        geocodedCount: 0,
+        cacheHitCount: 0,
+        warnings: [],
+        errors: [error && error.message ? error.message : "Import apply failed."],
+        success: false
+      };
+      setStatus("error", error && error.message ? error.message : "Import apply failed.");
+    } finally {
+      state.applyInProgress = false;
+      notify();
+    }
+
+    return result;
+  }
+
   function resetAll() {
     state.file = null;
     state.fileText = "";
@@ -435,10 +700,14 @@
     setDragActive,
     refreshAvailablePresets,
     resetAll,
+    setErrorState,
     selectFile,
     setSelectedPreset,
     setOverrideMapping,
     clearOverrideMappings,
+    requestApplyConfirmation,
+    cancelApplyConfirmation,
+    applyImport,
     runDryRunPipeline
   };
 })();

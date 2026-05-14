@@ -807,6 +807,98 @@ function createRoleBadge(role) {
   return badge;
 }
 
+function normalizeInviteDeliveryStatus(invite = {}) {
+  const status = String(invite?.delivery_status || "").trim().toLowerCase();
+  if (["sent", "failed", "recorded_only", "not_sent"].includes(status)) return status;
+  return status || "not_sent";
+}
+
+function getInviteDeliveryChannel(invite = {}, targetType = "") {
+  const channel = String(invite?.delivery_channel || "").trim().toLowerCase();
+  if (channel === "sms" || channel === "email") return channel;
+  return String(targetType || invite?.invite_target_type || "").trim().toLowerCase() === "phone" ? "sms" : "email";
+}
+
+function formatInviteTimestamp(value) {
+  const timestamp = getTimestampValue(value);
+  if (!timestamp) return "";
+  try {
+    return new Date(timestamp).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    });
+  } catch (_) {
+    return "";
+  }
+}
+
+function getInviteDeliveryLabel(invite = {}, targetType = "") {
+  const status = normalizeInviteDeliveryStatus(invite);
+  const channel = getInviteDeliveryChannel(invite, targetType);
+  const channelLabel = channel === "sms" ? "SMS" : "Email";
+
+  if (status === "sent") return `${channelLabel} sent`;
+  if (status === "failed") return `${channelLabel} delivery failed`;
+  if (status === "recorded_only") return "Recorded only";
+  if (status === "not_sent") return "Not sent";
+  return `Delivery: ${status}`;
+}
+
+function getInviteDeliveryMeta(invite = {}, targetType = "") {
+  const parts = [getInviteDeliveryLabel(invite, targetType)];
+  const sentAt = formatInviteTimestamp(invite?.sent_at);
+  const createdAt = formatInviteTimestamp(invite?.created_at);
+  if (sentAt) {
+    parts.push(`sent ${sentAt}`);
+  } else if (createdAt) {
+    parts.push(`created ${createdAt}`);
+  }
+  return parts.filter(Boolean).join(" • ");
+}
+
+function getInviteDeliveryMessage(invite = {}, targetType = "", targetValue = "", role = "") {
+  const status = normalizeInviteDeliveryStatus(invite);
+  const channel = getInviteDeliveryChannel(invite, targetType);
+  const targetLabel = String(targetValue || "").trim() || "invite target";
+  const roleLabel = normalizeProjectRole(role || invite?.role);
+  const deliveryError = String(invite?.delivery_error || invite?.error || "").trim();
+
+  if (status === "sent" && channel === "sms") {
+    return {
+      message: `SMS invite sent to ${targetLabel} as ${roleLabel}.`,
+      type: "success"
+    };
+  }
+
+  if (status === "sent") {
+    return {
+      message: `Email invite sent to ${targetLabel} as ${roleLabel}.`,
+      type: "success"
+    };
+  }
+
+  if (status === "failed") {
+    return {
+      message: `Invite recorded but delivery failed${deliveryError ? `: ${deliveryError}` : "."}`,
+      type: "error"
+    };
+  }
+
+  if (status === "recorded_only") {
+    return {
+      message: `Invite recorded only for ${targetLabel}. ${channel === "sms" ? "SMS" : "Email"} was not sent.`,
+      type: "success"
+    };
+  }
+
+  return {
+    message: `Invite recorded for ${targetLabel} as ${roleLabel}.`,
+    type: "success"
+  };
+}
+
 function markProjectBrandingUnavailable(projectId, isUnavailable) {
   const scopedProjectId = String(projectId || "").trim();
   if (!scopedProjectId) return;
@@ -1303,21 +1395,40 @@ async function refreshProjectAdminPanel() {
 
       const label = document.createElement("div");
       label.className = "adminRowLabel";
-      label.style.display = "inline-flex";
-      label.style.alignItems = "center";
-      label.style.gap = "6px";
+      label.style.display = "grid";
+      label.style.gap = "3px";
       const targetLabel = targetValue || (targetType === "phone" ? "Unknown phone" : "Unknown email");
-      label.textContent = `${targetLabel}`;
       label.style.fontWeight = "600";
       label.title = inviteId ? `Invite ID: ${inviteId}` : "";
       label.dataset.targetType = targetType;
-      label.appendChild(createRoleBadge(role));
+
+      const primaryLabel = document.createElement("div");
+      primaryLabel.style.display = "inline-flex";
+      primaryLabel.style.alignItems = "center";
+      primaryLabel.style.gap = "6px";
+      primaryLabel.textContent = targetLabel;
+      primaryLabel.appendChild(createRoleBadge(role));
+
+      const deliveryMeta = document.createElement("div");
+      deliveryMeta.className = "projectSourceTag";
+      deliveryMeta.style.marginTop = "0";
+      deliveryMeta.style.opacity = "0.82";
+      deliveryMeta.style.fontSize = "11px";
+      deliveryMeta.style.fontWeight = "500";
+      deliveryMeta.textContent = getInviteDeliveryMeta(invite, targetType);
+      const deliveryError = String(invite.delivery_error || "").trim();
+      if (deliveryError) {
+        deliveryMeta.title = deliveryError;
+      }
+
+      label.appendChild(primaryLabel);
+      label.appendChild(deliveryMeta);
 
       const copyBtn = document.createElement("button");
       copyBtn.type = "button";
       copyBtn.className = "btnSecondary";
       copyBtn.classList.add("adminRowActionBtn");
-      copyBtn.textContent = targetType === "phone" ? "Copy Share" : "Copy";
+      copyBtn.textContent = "Copy";
       copyBtn.dataset.action = "copy-invite-target";
       copyBtn.dataset.targetValue = targetLabel;
       copyBtn.dataset.targetType = targetType;
@@ -1390,53 +1501,57 @@ function bindProjectAdminUI() {
         }
       }
 
-inviteSendBtn.dataset.loading = "true";
-inviteSendBtn.disabled = true;
-const originalLabel = inviteSendBtn.textContent;
-inviteSendBtn.textContent = "Sending…";
-if (inviteTargetInput) inviteTargetInput.disabled = true;
-if (inviteTargetTypeSelect) inviteTargetTypeSelect.disabled = true;
-if (inviteRoleSelect) inviteRoleSelect.disabled = true;
+      inviteSendBtn.dataset.loading = "true";
+      inviteSendBtn.disabled = true;
+      const originalLabel = inviteSendBtn.textContent;
+      inviteSendBtn.textContent = "Sending…";
+      if (inviteTargetInput) inviteTargetInput.disabled = true;
+      if (inviteTargetTypeSelect) inviteTargetTypeSelect.disabled = true;
+      if (inviteRoleSelect) inviteRoleSelect.disabled = true;
 
-try {
-  let result;
-  try {
-    console.log("INVITE START");
-    result = await dataLayer.createProjectInvite({
-      projectId: scopedProjectId,
-      target: {
-        type: inviteTargetType,
-        value: inviteTargetValue
-      },
-      role,
-      invitedBy: currentUser?.id || null
-    });
-    console.log("INVITE RESULT:", result);
-  } catch (error) {
-    result = { data: null, error: normalizeActionError(error, "Unable to send invite.") };
-  }
+      try {
+        let result;
+        try {
+          result = await dataLayer.createProjectInvite({
+            projectId: scopedProjectId,
+            target: {
+              type: inviteTargetType,
+              value: inviteTargetValue
+            },
+            role,
+            invitedBy: currentUser?.id || null
+          });
+        } catch (error) {
+          result = { data: null, error: normalizeActionError(error, "Unable to send invite.") };
+        }
 
-  if (result.error) {          setProjectAdminMessage(result.error.message || "Unable to send invite.", "error");
+        if (result.error) {
+          setProjectAdminMessage(result.error.message || "Unable to send invite.", "error");
           return;
         }
 
+        const inviteResult = result?.data || {};
+        const deliveryStatus = normalizeInviteDeliveryStatus(inviteResult);
         logAuditEvent("invite_sent", {
           project_id: currentProjectId,
           actor_user_id: currentUser?.id || null,
-          invite_id: result?.data?.id || null,
+          invite_id: inviteResult?.id || null,
           metadata: {
             target_type: inviteTargetType,
             invite_target: inviteTargetValue,
-            role
+            role,
+            delivery_channel: getInviteDeliveryChannel(inviteResult, inviteTargetType),
+            delivery_status: deliveryStatus,
+            provider_message_id: inviteResult?.provider_message_id || null
           }
         });
 
-        if (inviteTargetInput) inviteTargetInput.value = "";
-        if (inviteTargetType === "phone") {
-          setProjectAdminMessage(`Phone invite recorded for ${inviteTargetValue}. Share this invite manually via SMS or chat.`, "success");
-        } else {
-          setProjectAdminMessage(`Invite sent to ${inviteTargetValue} as ${role}.`, "success");
+        if (inviteTargetInput && deliveryStatus !== "failed") {
+          inviteTargetInput.value = "";
         }
+
+        const deliveryMessage = getInviteDeliveryMessage(inviteResult, inviteTargetType, inviteTargetValue, role);
+        setProjectAdminMessage(deliveryMessage.message, deliveryMessage.type);
         await refreshProjectAdminPanel();
       } finally {
         await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
@@ -1488,13 +1603,11 @@ if (logoLibrarySelect) logoLibrarySelect.disabled = true;
 try {
   let result;
   try {
-    console.log("BRANDING START");
     result = await dataLayer.updateProjectBranding(
       scopedProjectId,
       normalizedColor,
       normalizedLogoUrl || null
     );
-    console.log("BRANDING RESULT:", result);
   } catch (error) {
     result = {
       data: null,
@@ -1742,7 +1855,7 @@ try {
             await navigator.clipboard.writeText(targetValue);
             setProjectAdminMessage(
               targetType === "phone"
-                ? "Phone invite copied. Share it via your SMS app."
+                ? "Invite phone copied."
                 : "Invite email copied.",
               "success"
             );
@@ -1754,7 +1867,7 @@ try {
         } finally {
           target.textContent = "Copied";
           setTimeout(() => {
-            target.textContent = originalLabel || (targetType === "phone" ? "Copy Share" : "Copy");
+            target.textContent = originalLabel || "Copy";
           }, 900);
         }
       }

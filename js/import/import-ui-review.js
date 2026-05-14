@@ -216,7 +216,7 @@
     if (stageResult.canProceed === true && stageResult.isValid === true) {
       return {
         className: "ready",
-        text: "Ready for future apply phase (still disabled)"
+        text: "Ready to apply after confirmation"
       };
     }
 

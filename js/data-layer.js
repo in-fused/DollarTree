@@ -383,70 +383,272 @@ const dataLayer = {
     return result;
   },
 
-async createProjectInvite(input = {}) {
-  const invite = input && typeof input === "object" ? input : {};
-  const inviteTarget = invite.target && typeof invite.target === "object" ? invite.target : {};
+  getProjectInviteDeliveryChannel(targetType) {
+    return String(targetType || "").trim().toLowerCase() === "phone" ? "sms" : "email";
+  },
 
-  const normalizedProjectId = String(invite.projectId || "").trim();
-  const rawTargetType = invite.targetType || inviteTarget.type || "";
-  const rawTargetValue = String(invite.targetValue || inviteTarget.value || "").trim();
-  const normalizedTargetType = String(rawTargetType || detectInviteTargetType(rawTargetValue)).trim().toLowerCase() === "phone"
-    ? "phone"
-    : "email";
-  const normalizedRole = normalizeProjectRole(invite.role);
-  const normalizedTargetValue = normalizedTargetType === "phone"
-    ? normalizePhoneForStorage(rawTargetValue)
-    : rawTargetValue.toLowerCase();
-  const normalizedInvitedBy = String(invite.invitedBy || "").trim() || null;
+  getProjectInviteDeliveryProvider(targetType) {
+    return String(targetType || "").trim().toLowerCase() === "phone" ? "twilio" : "resend";
+  },
 
-  if (!normalizedProjectId || !normalizedTargetValue) {
-    return { data: null, error: new Error("Invite target is required.") };
-  }
+  isMissingInviteDeliveryColumn(error) {
+    return [
+      "delivery_channel",
+      "delivery_status",
+      "delivery_error",
+      "delivery_provider",
+      "provider_message_id",
+      "sent_at"
+    ].some(columnName => this.isMissingColumnError(error, columnName));
+  },
 
-  const targetEmail = normalizedTargetType === "email" ? normalizedTargetValue : null;
-  const targetPhone = normalizedTargetType === "phone" ? normalizedTargetValue : null;
+  normalizeProjectInviteApiResult(response, basePayload) {
+    const invite = response?.invite && typeof response.invite === "object" ? response.invite : {};
+    const deliveryChannel = String(
+      response?.delivery_channel ||
+      invite.delivery_channel ||
+      this.getProjectInviteDeliveryChannel(basePayload.invite_target_type)
+    ).trim().toLowerCase();
+    const deliveryProvider = String(
+      response?.delivery_provider ||
+      invite.delivery_provider ||
+      this.getProjectInviteDeliveryProvider(basePayload.invite_target_type)
+    ).trim().toLowerCase();
+    const deliveryStatus = String(
+      response?.delivery_status ||
+      invite.delivery_status ||
+      "not_sent"
+    ).trim().toLowerCase();
+    const deliveryError = response?.error && typeof response.error === "object"
+      ? String(response.error.message || "").trim()
+      : String(response?.error || invite.delivery_error || "").trim();
 
-  const basePayload = {
-    project_id: normalizedProjectId,
-    role: normalizedRole,
-    invited_by: normalizedInvitedBy,
-    invite_target_type: normalizedTargetType,
-    target_email: targetEmail,
-    target_phone: targetPhone,
-    email: targetEmail,
-    status: "pending",
-    accepted_by_user_id: null,
-    accepted_at: null,
-    revoked_at: null
-  };
+    return {
+      data: {
+        ...basePayload,
+        ...invite,
+        delivery_channel: deliveryChannel,
+        delivery_status: deliveryStatus,
+        delivery_error: deliveryError || null,
+        delivery_provider: deliveryProvider || null,
+        provider_message_id: response?.provider_message_id || invite.provider_message_id || null,
+        sent_at: invite.sent_at || null,
+        delivery_warning: response?.warning || null
+      },
+      error: null
+    };
+  },
 
-    const insertResult = await this.withSupabaseTimeout(
-    supabaseClient
-      .from("project_invites")
-      .insert(basePayload),
-    15000,
-    "Sending invite"
-  );
+  getProjectInviteApiErrorMessage(payload, fallbackMessage = "Unable to send invite.") {
+    if (!payload) return fallbackMessage;
+    if (typeof payload === "string") return payload || fallbackMessage;
+    if (payload.error && typeof payload.error === "object") {
+      return String(payload.error.message || fallbackMessage).trim() || fallbackMessage;
+    }
+    return String(payload.message || payload.error || fallbackMessage).trim() || fallbackMessage;
+  },
 
-  if (insertResult?.error) {
-    return insertResult;
-  }
+  shouldFallbackToRecordedOnlyInvite(error) {
+    if (!this.isLocalDevRuntime()) return false;
 
-  return {
-    data: {
-      id: null,
+    const status = Number(error?.status || 0);
+    const code = String(error?.code || "").trim();
+    return (
+      status === 404 ||
+      status === 405 ||
+      code === "NETWORK_ERROR" ||
+      code === "INVALID_JSON" ||
+      error?.name === "TypeError"
+    );
+  },
+
+  async fetchProjectInviteSend(payload, accessToken, timeoutMs = 22000) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    let timeoutId = null;
+
+    if (controller) {
+      timeoutId = setTimeout(() => controller.abort(), Math.max(1, Number(timeoutMs) || 22000));
+    }
+
+    try {
+      let response;
+      try {
+        response = await fetch("/api/project-invites/send", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`
+          },
+          body: JSON.stringify(payload),
+          signal: controller?.signal
+        });
+      } catch (error) {
+        const networkError = new Error(error?.name === "AbortError"
+          ? "Sending invite timed out. Please try again."
+          : "Invite API route is unavailable.");
+        networkError.code = error?.name === "AbortError" ? "ACTION_TIMEOUT" : "NETWORK_ERROR";
+        networkError.status = 0;
+        throw networkError;
+      }
+
+      const text = await response.text();
+      let parsed = null;
+      if (text) {
+        try {
+          parsed = JSON.parse(text);
+        } catch (_) {
+          const parseError = new Error("Invite API returned an invalid response.");
+          parseError.code = "INVALID_JSON";
+          parseError.status = response.status;
+          throw parseError;
+        }
+      }
+
+      if (!response.ok) {
+        const message = this.getProjectInviteApiErrorMessage(parsed, "Unable to send invite.");
+        const apiError = new Error(message);
+        apiError.status = response.status;
+        apiError.code = parsed?.error?.code || parsed?.code || "INVITE_API_ERROR";
+        apiError.payload = parsed;
+        throw apiError;
+      }
+
+      return parsed || {};
+    } finally {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+    }
+  },
+
+  async createRecordedOnlyProjectInvite(basePayload, deliveryMessage) {
+    const deliveryChannel = this.getProjectInviteDeliveryChannel(basePayload.invite_target_type);
+    const deliveryProvider = this.getProjectInviteDeliveryProvider(basePayload.invite_target_type);
+    const deliveryPayload = {
+      ...basePayload,
+      delivery_channel: deliveryChannel,
+      delivery_status: "recorded_only",
+      delivery_error: deliveryMessage,
+      delivery_provider: deliveryProvider,
+      provider_message_id: null,
+      sent_at: null
+    };
+
+    let insertResult = await this.withSupabaseTimeout(
+      supabaseClient
+        .from("project_invites")
+        .insert(deliveryPayload)
+        .select("*")
+        .limit(1),
+      15000,
+      "Recording invite"
+    );
+
+    if (insertResult?.error && this.isMissingInviteDeliveryColumn(insertResult.error)) {
+      insertResult = await this.withSupabaseTimeout(
+        supabaseClient
+          .from("project_invites")
+          .insert(basePayload)
+          .select("*")
+          .limit(1),
+        15000,
+        "Recording invite"
+      );
+    }
+
+    if (insertResult?.error) {
+      return insertResult;
+    }
+
+    const insertedInvite = Array.isArray(insertResult?.data) && insertResult.data.length > 0
+      ? insertResult.data[0]
+      : {};
+
+    return {
+      data: {
+        ...deliveryPayload,
+        ...insertedInvite,
+        delivery_channel: deliveryChannel,
+        delivery_status: "recorded_only",
+        delivery_error: deliveryMessage,
+        delivery_provider: deliveryProvider,
+        provider_message_id: null
+      },
+      error: null
+    };
+  },
+
+  async createProjectInvite(input = {}) {
+    const invite = input && typeof input === "object" ? input : {};
+    const inviteTarget = invite.target && typeof invite.target === "object" ? invite.target : {};
+
+    const normalizedProjectId = String(invite.projectId || "").trim();
+    const rawTargetType = invite.targetType || inviteTarget.type || "";
+    const rawTargetValue = String(invite.targetValue || inviteTarget.value || "").trim();
+    const normalizedTargetType = String(rawTargetType || detectInviteTargetType(rawTargetValue)).trim().toLowerCase() === "phone"
+      ? "phone"
+      : "email";
+    const normalizedRole = normalizeProjectRole(invite.role);
+    const normalizedTargetValue = normalizedTargetType === "phone"
+      ? normalizePhoneForStorage(rawTargetValue)
+      : rawTargetValue.toLowerCase();
+    const normalizedInvitedBy = String(invite.invitedBy || "").trim() || null;
+
+    if (!normalizedProjectId || !normalizedTargetValue) {
+      return { data: null, error: new Error("Invite target is required.") };
+    }
+
+    const targetEmail = normalizedTargetType === "email" ? normalizedTargetValue : null;
+    const targetPhone = normalizedTargetType === "phone" ? normalizedTargetValue : null;
+    const deliveryChannel = this.getProjectInviteDeliveryChannel(normalizedTargetType);
+
+    const basePayload = {
       project_id: normalizedProjectId,
       role: normalizedRole,
+      invited_by: normalizedInvitedBy,
       invite_target_type: normalizedTargetType,
       target_email: targetEmail,
       target_phone: targetPhone,
       email: targetEmail,
-      invited_by: normalizedInvitedBy,
-      status: "pending"
-    },
-    error: null
-  };
-},
+      status: "pending",
+      accepted_by_user_id: null,
+      accepted_at: null,
+      revoked_at: null
+    };
+
+    const sessionResult = await supabaseClient.auth.getSession();
+    if (sessionResult?.error) {
+      return { data: null, error: sessionResult.error };
+    }
+
+    const accessToken = String(sessionResult?.data?.session?.access_token || "").trim();
+    if (!accessToken) {
+      return { data: null, error: new Error("Sign in again before sending an invite.") };
+    }
+
+    try {
+      const response = await this.fetchProjectInviteSend({
+        projectId: normalizedProjectId,
+        targetType: normalizedTargetType,
+        targetValue: normalizedTargetValue,
+        role: normalizedRole
+      }, accessToken);
+
+      return this.normalizeProjectInviteApiResult(response, basePayload);
+    } catch (error) {
+      if (!this.shouldFallbackToRecordedOnlyInvite(error)) {
+        return {
+          data: null,
+          error: error instanceof Error ? error : new Error("Unable to send invite.")
+        };
+      }
+
+      return await this.createRecordedOnlyProjectInvite(
+        basePayload,
+        `Invite API route unavailable in local dev; ${deliveryChannel === "sms" ? "SMS" : "email"} was not sent.`
+      );
+    }
+  },
   async revokeProjectInvite(inviteId) {
     const updateResult = await supabaseClient
       .from("project_invites")
