@@ -1896,7 +1896,7 @@ function buildExecutiveDataHealth(dataHealth) {
   if (!dataHealth?.items?.length) return "";
 
   return `
-    <section class="reportPanel">
+    <section class="reportPanel printDataHealthPanel">
       <div class="sectionHeader">
         <div>
           <div class="sectionEyebrow">Data Health / Exceptions</div>
@@ -1966,7 +1966,7 @@ function buildExecutiveGeographicOverview(stores) {
   ).length;
 
   return `
-    <section class="reportPanel">
+    <section class="reportPanel printGeoPanel">
       <div class="sectionHeader">
         <div>
           <div class="sectionEyebrow">Geographic Overview</div>
@@ -1989,7 +1989,7 @@ function buildExecutiveRecentActivity() {
     .slice(0, 8);
 
   return `
-    <section class="reportPanel">
+    <section class="reportPanel printRecentPanel">
       <div class="sectionHeader">
         <div>
           <div class="sectionEyebrow">Recent Activity</div>
@@ -2056,6 +2056,10 @@ function buildExecutiveSnapshotHtml(payload) {
     --closed: #ff2d2d;
   }
   * { box-sizing: border-box; }
+  @page {
+    size: Letter landscape;
+    margin: 0.35in;
+  }
   html { background: var(--bg-deep); }
   body {
     margin: 0;
@@ -2149,6 +2153,19 @@ function buildExecutiveSnapshotHtml(payload) {
   }
   .utilityCopy { color: var(--muted); font-size: 12px; line-height: 1.45; }
   .utilityActions { display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .utilityPrintStack { display: grid; gap: 4px; justify-items: stretch; }
+  .utilityPrintHint { color: rgba(255,255,255,0.72); font-size: 11px; line-height: 1.35; text-align: center; }
+  .utilityPdfGuidance {
+    margin-top: 8px;
+    padding: 9px 10px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.055);
+    color: rgba(255,255,255,0.78);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .utilityPdfGuidance strong { color: #fff; }
   .utilityBtn {
     min-height: 36px;
     border: 1px solid rgba(var(--brand-rgb), 0.38);
@@ -2284,14 +2301,361 @@ function buildExecutiveSnapshotHtml(payload) {
   #snapshotPhotoModalClose { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(0,0,0,0.6); color: #fff; font-size: 24px; cursor: pointer; }
   .print-only { display: none; }
   @media print {
-    body { background: #fff; color: #111827; }
-    .page { width: 100%; max-width: none; padding: 10mm; gap: 9px; }
-    .reportHero, .reportPanel, .utilityBar, .reportFooter, .heroMetaCard, .execMetricCard, .doneLeftCard, .exceptionCard, .geoBreakdown, .activityReportItem { box-shadow: none; background: #fff; color: #111827; border-color: #d6dce3; }
-    .utilityBar, .snapshot-photo-modal, .no-print { display: none !important; }
+    html, body {
+      background: #fff !important;
+      color: #111827;
+      width: auto;
+      min-height: auto;
+    }
+    body {
+      font-size: 9.5pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .page {
+      width: auto;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      display: block;
+      gap: 0;
+    }
+    .reportHero,
+    .reportPanel,
+    .reportFooter,
+    .heroMetaCard,
+    .execMetricCard,
+    .doneLeftCard,
+    .exceptionCard,
+    .geoBreakdown,
+    .activityReportItem,
+    .evidence-card,
+    .empty-state-card {
+      box-shadow: none !important;
+      background: #fff !important;
+      color: #111827;
+      border-color: #cfd8e3;
+    }
+    .reportHero,
+    .printSummaryPanel,
+    .printDoneLeftPanel,
+    .printStatusPanel,
+    .printGeoPanel,
+    .printDataHealthPanel,
+    .reportFooter {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .reportHero {
+      padding: 0.18in;
+      margin: 0 0 0.08in;
+      background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.10), #fff 48%, #f8fafc) !important;
+    }
+    .reportPanel {
+      padding: 0.10in;
+      margin: 0 0 0.08in;
+      border-radius: 6px;
+    }
+    .printStatusPanel {
+      break-after: page;
+      page-break-after: always;
+    }
+    .printRecentPanel {
+      break-inside: auto;
+      page-break-inside: auto;
+    }
+    .detailGrid {
+      display: block;
+      break-before: page;
+      page-break-before: always;
+    }
+    .storeAppendixPanel {
+      break-inside: auto;
+      page-break-inside: auto;
+    }
+    .fieldEvidencePanel {
+      break-before: page;
+      page-break-before: always;
+    }
+    .utilityBar,
+    .snapshot-photo-modal,
+    .no-print,
+    .screen-only {
+      display: none !important;
+    }
     .print-only { display: block; }
-    [data-evidence-card] { page-break-inside: avoid; }
+    h1 {
+      margin: 3px 0 4px;
+      font-size: 25pt;
+      line-height: 1;
+      color: #111827;
+    }
+    h2 { font-size: 11pt; color: #111827; }
+    .heroTop { gap: 0.14in; align-items: stretch; }
+    .heroIdentity { gap: 0.10in; align-items: flex-start; }
+    .reportLogo,
+    .reportLogoMark {
+      width: 0.58in;
+      height: 0.58in;
+      border-color: rgba(var(--brand-rgb), 0.44);
+      background: #fff;
+    }
+    .reportLogo { padding: 0.05in; }
+    .reportLogoMark { color: var(--brand); font-size: 21pt; }
+    .heroSummary {
+      max-width: 6.8in;
+      color: #475569;
+      font-size: 8.8pt;
+      line-height: 1.35;
+    }
+    .heroCompletion {
+      min-width: 1.45in;
+      padding: 0.10in;
+      color: #111827;
+      background: #fff7f9 !important;
+      border-color: rgba(var(--brand-rgb), 0.32);
+    }
+    .completionValue { font-size: 25pt; }
+    .completionLabel { color: #475569; font-size: 8pt; }
+    .progressTrack,
+    .doneLeftTrack,
+    .statusBreakdownBarTrack,
+    .geoTrack {
+      height: 0.07in;
+      background: #e5e7eb;
+    }
+    .heroMetaGrid {
+      margin-top: 0.11in;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.07in;
+    }
+    .heroMetaCard,
+    .execMetricCard,
+    .doneLeftCard,
+    .geoBreakdown,
+    .activityReportItem {
+      padding: 0.07in;
+      background: #f8fafc !important;
+    }
+    .eyebrow,
+    .sectionEyebrow,
+    .metricLabel,
+    .doneLeftTitle,
+    th {
+      color: #64748b;
+      font-size: 7pt;
+      letter-spacing: 0.08em;
+    }
+    .heroMetaLabel,
+    .execMetricLabel,
+    .execMetricNote,
+    .doneLeftDetail,
+    .emptyCopy,
+    .activityReportTime,
+    .activityReportDetail,
+    .footnote,
+    .geoRowMeta,
+    .evidence-address,
+    .evidence-preview,
+    .evidence-empty-mini,
+    .evidence-note-meta,
+    .activity-summary-inline,
+    .reason-text {
+      color: #475569;
+    }
+    .heroMetaValue,
+    .statusBreakdownValue,
+    .statusReadoutLine strong,
+    .geoRowMeta strong,
+    .activityReportTitle,
+    .store-id,
+    .evidence-store-id,
+    .summary-title,
+    .geoBreakdownTitle {
+      color: #111827;
+    }
+    .sectionHeader {
+      margin-bottom: 0.07in;
+      gap: 0.09in;
+    }
+    .sectionBadge {
+      min-height: 0.20in;
+      padding: 0 0.07in;
+      color: #111827;
+      background: #f1f5f9;
+      border-color: #cfd8e3;
+      font-size: 7.5pt;
+    }
+    .execMetricGrid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 0.06in;
+    }
+    .execMetricValue {
+      margin-top: 0.04in;
+      font-size: 17pt;
+    }
+    .execMetricNote { margin-top: 0.04in; font-size: 7.8pt; }
+    .doneLeftGrid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.07in;
+    }
+    .doneLeftTop {
+      gap: 0.08in;
+      margin-bottom: 0.07in;
+    }
+    .doneLeftValue { font-size: 20pt; }
+    .statusGrid {
+      grid-template-columns: minmax(0, 1fr) minmax(2.2in, 0.42fr);
+      gap: 0.08in;
+    }
+    .statusBreakdownStack,
+    .geoRows,
+    .activityReportList {
+      gap: 0.05in;
+    }
+    .statusBreakdownMeta,
+    .statusReadoutLine {
+      color: #475569;
+      font-size: 8pt;
+    }
+    .statusReadoutLine {
+      padding-bottom: 0.05in;
+      border-bottom-color: #d6dce3;
+    }
+    .geoGrid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.07in;
+    }
+    .activityReportList {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .activityReportItem {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .exceptionGrid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.06in;
+    }
+    .exceptionCard {
+      padding: 0.07in;
+      background: #fff7ed !important;
+      border-color: #fed7aa;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .exceptionValue { font-size: 17pt; color: #9a3412; }
+    .exceptionLabel { color: #9a3412; font-size: 7.8pt; }
+    table {
+      width: 100%;
+      table-layout: auto;
+      border-collapse: collapse;
+      font-size: 7.6pt;
+    }
+    thead { display: table-header-group; }
+    tbody { display: table-row-group; }
+    tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    th,
+    td {
+      padding: 0.045in 0.05in;
+      border-bottom-color: #d6dce3;
+      color: #111827;
+      font-size: 7.6pt;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+    .status,
+    .count-pill,
+    .muted-pill {
+      min-height: 0.18in;
+      padding: 0 0.06in;
+      font-size: 7.2pt;
+    }
+    .status-active { color: #075985; background: #e0f2fe; border-color: #7dd3fc; }
+    .status-rescheduled { color: #92400e; background: #ffedd5; border-color: #fdba74; }
+    .status-completed { color: #166534; background: #dcfce7; border-color: #86efac; }
+    .status-closed { color: #991b1b; background: #fee2e2; border-color: #fca5a5; }
+    .count-pill,
+    .muted-pill {
+      color: #334155;
+      background: #f8fafc;
+      border-color: #cfd8e3;
+    }
+    .count-pill.has-data {
+      color: #111827;
+      background: rgba(var(--brand-rgb), 0.10);
+      border-color: rgba(var(--brand-rgb), 0.30);
+    }
+    [data-evidence-card] {
+      margin-bottom: 0.08in;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
     [data-evidence-card] .evidence-expanded { display: block !important; }
-    .reportHero, .reportPanel { page-break-inside: avoid; }
+    .evidence-summary {
+      grid-template-columns: minmax(0, 1fr) minmax(1.85in, 0.48fr);
+      gap: 0.08in;
+      padding: 0.08in;
+    }
+    .evidence-summary-side { gap: 0.05in; }
+    .evidence-expand-hint { display: none; }
+    .evidence-expanded {
+      padding: 0.08in;
+      border-top-color: #d6dce3;
+    }
+    .evidence-expanded-grid {
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: 0.08in;
+    }
+    .evidence-photo-rail,
+    .evidence-photo-grid {
+      gap: 0.05in;
+    }
+    .evidence-photo-shell {
+      height: 0.62in;
+      min-height: 0.62in;
+      background: #f1f5f9;
+      border: 1px solid #d6dce3;
+    }
+    .evidence-photo-shell-expanded {
+      height: 0.88in;
+      min-height: 0.88in;
+    }
+    .evidence-photo {
+      cursor: default;
+      object-fit: cover;
+    }
+    .evidence-photo-expanded { object-fit: contain; }
+    .evidence-diagnostics {
+      margin-bottom: 0.06in;
+      color: #475569;
+      font-size: 7.6pt;
+    }
+    .reportFooter {
+      margin-top: 0.08in;
+      padding: 0.08in;
+      color: #475569;
+    }
+  }
+  @media print and (max-width: 9in) {
+    .heroTop,
+    .statusGrid,
+    .evidence-summary,
+    .evidence-expanded-grid {
+      grid-template-columns: 1fr;
+    }
+    .heroTop { display: grid; }
+    .execMetricGrid,
+    .geoGrid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .activityReportList,
+    .exceptionGrid {
+      grid-template-columns: 1fr;
+    }
   }
   @media screen and (max-width: 1040px) {
     .heroTop, .utilityBar { flex-direction: column; align-items: stretch; }
@@ -2314,7 +2678,7 @@ function buildExecutiveSnapshotHtml(payload) {
 </head>
 <body>
   <div class="page">
-    <section class="reportHero">
+    <section class="reportHero printHeroPanel">
       <div class="heroTop">
         <div class="heroIdentity">
           ${logoMarkup}
@@ -2338,14 +2702,23 @@ function buildExecutiveSnapshotHtml(payload) {
     </section>
 
     <section class="utilityBar no-print">
-      <div class="utilityCopy">Read-only executive snapshot generated from live project data at ${escapeSnapshotHtml(generatedAt)}.</div>
+      <div class="utilityCopy">
+        <div>Read-only executive snapshot generated from live project data at ${escapeSnapshotHtml(generatedAt)}.</div>
+        <div class="utilityPdfGuidance screen-only">
+          <strong>Recommended PDF settings:</strong>
+          Destination: Save as PDF &bull; Layout: Landscape &bull; Paper: Letter &bull; Background graphics: On &bull; Headers/footers: Off &bull; Scale: Default/100%, or 90% if content clips
+        </div>
+      </div>
       <div class="utilityActions">
         <button id="snapshotReturnBtn" class="utilityBtn secondary" type="button">Back to App</button>
-        <button id="snapshotPrintBtn" class="utilityBtn" type="button">Print / Save as PDF</button>
+        <div class="utilityPrintStack">
+          <button id="snapshotPrintBtn" class="utilityBtn" type="button">Print / Save as PDF</button>
+          <div class="utilityPrintHint">Optimized for Letter Landscape PDF.</div>
+        </div>
       </div>
     </section>
 
-    <section class="reportPanel">
+    <section class="reportPanel printSummaryPanel">
       <div class="sectionHeader">
         <div><div class="sectionEyebrow">Executive Summary</div><h2>What changed, what remains, what needs attention</h2></div>
         <div class="sectionBadge">${escapeSnapshotHtml(generatedTimeLabel)}</div>
@@ -2353,7 +2726,7 @@ function buildExecutiveSnapshotHtml(payload) {
       <div class="execMetricGrid">${buildExecutiveSummaryCards(metrics, analyticsMetrics)}</div>
     </section>
 
-    <section class="reportPanel">
+    <section class="reportPanel printDoneLeftPanel">
       <div class="sectionHeader">
         <div><div class="sectionEyebrow">Done vs Left</div><h2>Execution Position</h2></div>
         <div class="sectionBadge">${analyticsMetrics.openWorkCount.toLocaleString()} open work</div>
@@ -2361,7 +2734,7 @@ function buildExecutiveSnapshotHtml(payload) {
       <div class="doneLeftGrid">${buildDoneLeftCards(metrics, analyticsMetrics, dataHealth)}</div>
     </section>
 
-    <section class="reportPanel">
+    <section class="reportPanel printStatusPanel">
       <div class="sectionHeader">
         <div><div class="sectionEyebrow">Status Breakdown</div><h2>Current Status Mix</h2></div>
         <div class="sectionBadge">${metrics.total.toLocaleString()} stores</div>
@@ -2381,8 +2754,8 @@ function buildExecutiveSnapshotHtml(payload) {
     ${buildExecutiveRecentActivity()}
     ${buildExecutiveDataHealth(dataHealth)}
 
-    <section class="detailGrid">
-      <div class="reportPanel">
+    <section class="detailGrid printDetailSection">
+      <div class="reportPanel storeAppendixPanel">
         <div class="sectionHeader">
           <div><div class="sectionEyebrow">Store Detail Appendix</div><h2>Read-only Store Status</h2></div>
         </div>
@@ -2401,7 +2774,7 @@ function buildExecutiveSnapshotHtml(payload) {
           <tbody>${buildSnapshotTableRows(rows)}</tbody>
         </table>
       </div>
-      <div class="reportPanel">
+      <div class="reportPanel fieldEvidencePanel">
         <div class="sectionHeader">
           <div><div class="sectionEyebrow">Field Evidence</div><h2>Notes & Photos</h2></div>
         </div>
