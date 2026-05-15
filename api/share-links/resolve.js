@@ -3,6 +3,13 @@ const crypto = require("node:crypto");
 const SUPABASE_REST_PATH = "/rest/v1";
 const SUPABASE_TIMEOUT_MS = 15000;
 const RECENT_ACTIVITY_LIMIT = 12;
+const NOTES_PER_STORE_LIMIT = 5;
+const PHOTOS_PER_STORE_LIMIT = 6;
+const MAX_NOTE_EVIDENCE_ROWS = 2500;
+const MAX_PHOTO_EVIDENCE_ROWS = 3000;
+const SIGNED_PHOTO_URL_TTL_SECONDS = 60 * 60;
+const SIGNED_PHOTO_URL_BATCH_SIZE = 100;
+const PHOTO_BUCKET_CANDIDATES = ["store-photos", "store_photos", "photos"];
 
 class HttpError extends Error {
   constructor(statusCode, code, message, details = null) {
@@ -113,6 +120,38 @@ async function supabaseRequest(config, path, options = {}) {
   return payload;
 }
 
+async function supabaseStorageRequest(config, path, options = {}) {
+  const url = new URL(`${config.supabaseUrl}/storage/v1/${path}`);
+
+  const headers = {
+    apikey: config.serviceRoleKey,
+    Authorization: `Bearer ${config.serviceRoleKey}`,
+    Accept: "application/json"
+  };
+
+  if (options.body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const response = await fetchWithTimeout(url, {
+    method: options.method || "GET",
+    headers,
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined
+  });
+
+  const payload = parseJsonMaybe(await response.text());
+  if (!response.ok) {
+    throw new HttpError(
+      response.status,
+      "supabase_storage_request_failed",
+      getPayloadMessage(payload, "Supabase Storage request failed."),
+      payload
+    );
+  }
+
+  return payload;
+}
+
 async function loadOne(config, table, query) {
   const rows = await supabaseRequest(config, table, {
     query: {
@@ -174,6 +213,50 @@ function truncate(value, maxLength) {
   return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
 }
 
+function getEvidenceFetchLimit(storeCount, perStoreLimit, maxRows) {
+  const normalizedStoreCount = Math.max(0, Number(storeCount) || 0);
+  if (normalizedStoreCount === 0) return 0;
+  return Math.min(maxRows, Math.max(perStoreLimit, normalizedStoreCount * perStoreLimit));
+}
+
+function isSafeHttpUrl(value) {
+  const url = String(value || "").trim();
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch (_) {
+    return false;
+  }
+}
+
+function normalizeStoragePath(value) {
+  const path = String(value || "").trim().replace(/^\/+/, "");
+  if (!path || /^https?:\/\//i.test(path) || path.includes("\0")) return "";
+  return path;
+}
+
+function normalizeSignedStorageUrl(config, value) {
+  const signedUrl = String(value || "").trim();
+  if (!signedUrl) return "";
+  if (/^https?:\/\//i.test(signedUrl)) return signedUrl;
+  if (signedUrl.startsWith("/storage/v1/")) return `${config.supabaseUrl}${signedUrl}`;
+  if (signedUrl.startsWith("/")) return `${config.supabaseUrl}/storage/v1${signedUrl}`;
+  return `${config.supabaseUrl}/storage/v1/${signedUrl.replace(/^\/+/, "")}`;
+}
+
+function normalizePhotoType(value) {
+  return truncate(String(value || "").trim().toLowerCase(), 40);
+}
+
+function chunkArray(values, size) {
+  const chunks = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 function sanitizeProject(project) {
   return {
     project_id: String(project?.project_id || "").trim(),
@@ -203,6 +286,42 @@ function sanitizeStore(store, statusState, hasPersistedStatus) {
     status_reason: statusCode === "rescheduled" ? statusReason : "",
     has_persisted_status: hasPersistedStatus === true
   };
+}
+
+function sanitizeNoteEvidence(row, safeStoreIds) {
+  const storeId = String(row?.store_id || "").trim();
+  if (!storeId || !safeStoreIds.has(storeId)) return null;
+
+  const note = truncate(row?.note, 2000);
+  if (!note) return null;
+
+  return {
+    store_id: storeId,
+    note,
+    created_at: row?.created_at || null
+  };
+}
+
+function sanitizePhotoEvidence(row, safeStoreIds, signedUrlByPath) {
+  const storeId = String(row?.store_id || "").trim();
+  if (!storeId || !safeStoreIds.has(storeId)) return null;
+
+  const storagePath = normalizeStoragePath(row?.storage_path);
+  const publicImageUrl = String(row?.image_url || row?.resolved_image_url || row?.url || "").trim();
+  const signedImageUrl = storagePath ? String(signedUrlByPath[storagePath] || "").trim() : "";
+  const imageUrl = isSafeHttpUrl(publicImageUrl) ? publicImageUrl : signedImageUrl;
+
+  if (!isSafeHttpUrl(imageUrl)) return null;
+
+  const photoType = normalizePhotoType(row?.photo_type || row?.type);
+  const payload = {
+    store_id: storeId,
+    image_url: imageUrl,
+    created_at: row?.created_at || null
+  };
+
+  if (photoType) payload.photo_type = photoType;
+  return payload;
 }
 
 function buildStatusMap(statusRows) {
@@ -409,6 +528,171 @@ function buildRecentActivity(statusRows, activityRows) {
     .slice(0, RECENT_ACTIVITY_LIMIT);
 }
 
+async function loadNoteEvidenceRows(config, projectId, storeCount) {
+  const limit = getEvidenceFetchLimit(storeCount, NOTES_PER_STORE_LIMIT, MAX_NOTE_EVIDENCE_ROWS);
+  if (!limit) return [];
+
+  try {
+    const rows = await supabaseRequest(config, "store_notes", {
+      query: {
+        select: "store_id,note,created_at",
+        project_id: `eq.${projectId}`,
+        order: "created_at.desc",
+        limit
+      }
+    });
+    return Array.isArray(rows) ? rows : [];
+  } catch (error) {
+    console.warn("Public share note evidence unavailable:", error?.message || error);
+    return [];
+  }
+}
+
+async function loadPhotoEvidenceRows(config, projectId, storeCount) {
+  const limit = getEvidenceFetchLimit(storeCount, PHOTOS_PER_STORE_LIMIT, MAX_PHOTO_EVIDENCE_ROWS);
+  if (!limit) return [];
+
+  const selectAttempts = [
+    "store_id,image_url,storage_path,created_at,photo_type,type",
+    "store_id,image_url,storage_path,created_at,photo_type",
+    "store_id,image_url,storage_path,created_at,type",
+    "store_id,image_url,storage_path,created_at",
+    "*"
+  ];
+
+  for (const select of selectAttempts) {
+    try {
+      const rows = await supabaseRequest(config, "store_photos", {
+        query: {
+          select,
+          project_id: `eq.${projectId}`,
+          order: "created_at.desc",
+          limit
+        }
+      });
+      return Array.isArray(rows) ? rows : [];
+    } catch (error) {
+      if (select === selectAttempts[selectAttempts.length - 1]) {
+        console.warn("Public share photo evidence unavailable:", error?.message || error);
+        return [];
+      }
+    }
+  }
+
+  return [];
+}
+
+async function createSignedPhotoUrlMap(config, storagePaths, expiresInSeconds = SIGNED_PHOTO_URL_TTL_SECONDS) {
+  const uniquePaths = [...new Set(
+    (Array.isArray(storagePaths) ? storagePaths : [])
+      .map(normalizeStoragePath)
+      .filter(Boolean)
+  )];
+  const signedUrlByPath = {};
+  if (uniquePaths.length === 0) return signedUrlByPath;
+
+  for (const bucketName of PHOTO_BUCKET_CANDIDATES) {
+    const remainingPaths = uniquePaths.filter(path => !signedUrlByPath[path]);
+    if (remainingPaths.length === 0) break;
+
+    try {
+      for (const batchPaths of chunkArray(remainingPaths, SIGNED_PHOTO_URL_BATCH_SIZE)) {
+        const payload = await supabaseStorageRequest(config, `object/sign/${encodeURIComponent(bucketName)}`, {
+          method: "POST",
+          body: {
+            expiresIn: expiresInSeconds,
+            paths: batchPaths
+          }
+        });
+
+        const rows = Array.isArray(payload)
+          ? payload
+          : (Array.isArray(payload?.data)
+            ? payload.data
+            : (Array.isArray(payload?.signedUrls) ? payload.signedUrls : []));
+        rows.forEach((row, index) => {
+          const path = normalizeStoragePath(row?.path || row?.name || batchPaths[index]);
+          const signedUrl = normalizeSignedStorageUrl(config, row?.signedURL || row?.signedUrl || row?.signed_url);
+          if (path && isSafeHttpUrl(signedUrl)) {
+            signedUrlByPath[path] = signedUrl;
+          }
+        });
+      }
+    } catch (_) {
+      // Try the next candidate bucket. The frontend only receives successfully signed URLs.
+    }
+  }
+
+  return signedUrlByPath;
+}
+
+async function buildEvidenceByStoreId(config, projectId, stores) {
+  const safeStoreIds = new Set(
+    (Array.isArray(stores) ? stores : [])
+      .map(store => String(store?.store_id || "").trim())
+      .filter(Boolean)
+  );
+  const storeCount = safeStoreIds.size;
+  if (storeCount === 0) return {};
+
+  const [noteRows, photoRows] = await Promise.all([
+    loadNoteEvidenceRows(config, projectId, storeCount),
+    loadPhotoEvidenceRows(config, projectId, storeCount)
+  ]);
+
+  const storagePathsToSign = (Array.isArray(photoRows) ? photoRows : [])
+    .filter(row => {
+      const storeId = String(row?.store_id || "").trim();
+      const imageUrl = String(row?.image_url || row?.resolved_image_url || row?.url || "").trim();
+      return storeId && safeStoreIds.has(storeId) && !isSafeHttpUrl(imageUrl);
+    })
+    .map(row => normalizeStoragePath(row?.storage_path))
+    .filter(Boolean);
+  const signedUrlByPath = await createSignedPhotoUrlMap(config, storagePathsToSign);
+  const evidenceByStoreId = {};
+
+  const getEntry = (storeId) => {
+    if (!evidenceByStoreId[storeId]) {
+      evidenceByStoreId[storeId] = {
+        notes: [],
+        photos: []
+      };
+    }
+    return evidenceByStoreId[storeId];
+  };
+
+  [...noteRows]
+    .sort((a, b) => getTimestampValue(b?.created_at) - getTimestampValue(a?.created_at))
+    .forEach(row => {
+      const note = sanitizeNoteEvidence(row, safeStoreIds);
+      if (!note) return;
+      const entry = getEntry(note.store_id);
+      if (entry.notes.length < NOTES_PER_STORE_LIMIT) {
+        entry.notes.push(note);
+      }
+    });
+
+  [...photoRows]
+    .sort((a, b) => getTimestampValue(b?.created_at) - getTimestampValue(a?.created_at))
+    .forEach(row => {
+      const photo = sanitizePhotoEvidence(row, safeStoreIds, signedUrlByPath);
+      if (!photo) return;
+      const entry = getEntry(photo.store_id);
+      if (entry.photos.length < PHOTOS_PER_STORE_LIMIT) {
+        entry.photos.push(photo);
+      }
+    });
+
+  Object.keys(evidenceByStoreId).forEach(storeId => {
+    const entry = evidenceByStoreId[storeId];
+    if (!entry.notes.length && !entry.photos.length) {
+      delete evidenceByStoreId[storeId];
+    }
+  });
+
+  return evidenceByStoreId;
+}
+
 async function recordShareAccess(config, link) {
   if (!link?.id) return;
   try {
@@ -524,6 +808,7 @@ module.exports = async function handler(req, res) {
     const summary = buildSummary(sourceStores, statusMap);
     const geography = buildGeography(sourceStores);
     const activity = buildRecentActivity(statusRows, activityRows);
+    const evidenceByStoreId = await buildEvidenceByStoreId(config, projectId, stores);
 
     await recordShareAccess(config, link);
 
@@ -536,7 +821,8 @@ module.exports = async function handler(req, res) {
       summary,
       geography,
       stores,
-      activity
+      activity,
+      evidenceByStoreId
     });
   } catch (error) {
     const statusCode = error instanceof HttpError ? error.statusCode : 500;

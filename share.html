@@ -125,6 +125,15 @@
             </div>
           </div>
           <div id="shareSelectedStoreBody" class="selectedStoreBody">Select a map point to inspect store status and public project metadata.</div>
+          <div id="shareSelectedStoreEvidence" class="selectedEvidenceBlock hidden">
+            <div class="evidenceSectionHeader">
+              <span>Store Evidence</span>
+              <strong id="shareSelectedStoreEvidenceSummary">0 items</strong>
+            </div>
+            <div id="shareSelectedStoreNotes" class="shareEvidenceNotes"></div>
+            <div id="shareSelectedStorePhotos" class="shareEvidencePhotos"></div>
+            <div id="shareSelectedStoreEvidenceEmpty" class="shareEvidenceEmpty hidden">No public evidence attached to this store yet.</div>
+          </div>
         </section>
 
         <section class="sharePanel">
@@ -170,6 +179,12 @@
       <h1 id="shareErrorTitle">Unable to load overview</h1>
       <p id="shareErrorMessage">The link may be expired, revoked, or malformed.</p>
     </div>
+  </div>
+
+  <div id="sharePhotoLightbox" class="sharePhotoLightbox hidden" role="dialog" aria-modal="true" aria-label="Photo evidence preview">
+    <button id="sharePhotoLightboxClose" type="button" class="sharePhotoLightboxClose" aria-label="Close photo preview">Close</button>
+    <img id="sharePhotoLightboxImage" alt="" />
+    <div id="sharePhotoLightboxMeta" class="sharePhotoLightboxMeta"></div>
   </div>
 
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
