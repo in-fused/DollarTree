@@ -32,7 +32,16 @@
       </div>
     </header>
 
-    <main class="shareShell">
+    <nav id="shareViewTabs" class="shareViewTabs" role="tablist" aria-label="Shared project views">
+      <button id="shareOverviewTabBtn" class="shareTabBtn active" type="button" role="tab" aria-selected="true" aria-controls="shareOverviewView">
+        Overview
+      </button>
+      <button id="shareReportTabBtn" class="shareTabBtn" type="button" role="tab" aria-selected="false" aria-controls="shareReportView" tabindex="-1">
+        Full Report
+      </button>
+    </nav>
+
+    <main id="shareOverviewView" class="shareShell shareViewPanel" role="tabpanel" aria-labelledby="shareOverviewTabBtn">
       <section class="shareSummaryPanel">
         <div class="progressCard">
           <div class="progressCardTop">
@@ -166,6 +175,12 @@
           <div id="shareActivityList" class="shareActivityList"></div>
         </section>
       </aside>
+    </main>
+
+    <main id="shareReportView" class="shareReportView shareViewPanel hidden" role="tabpanel" aria-labelledby="shareReportTabBtn" hidden>
+      <section id="shareReportContent" class="shareReportContent" aria-live="polite">
+        <div class="shareReportEmpty">Resolving report...</div>
+      </section>
     </main>
 
     <footer class="shareFooter">
