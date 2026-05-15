@@ -53,7 +53,7 @@ select:focus-visible {
 .shareApp {
   min-height: 100vh;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 14px;
   padding: 16px;
 }
@@ -124,6 +124,46 @@ select:focus-visible {
   grid-template-columns: repeat(2, minmax(112px, 1fr));
   gap: 8px;
   min-width: 244px;
+}
+
+.shareViewTabs {
+  width: fit-content;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.055);
+}
+
+.shareTabBtn {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.shareTabBtn:hover,
+.shareTabBtn:focus-visible {
+  color: #ffffff;
+  background: rgba(255,255,255,0.075);
+}
+
+.shareTabBtn.active,
+.shareTabBtn[aria-selected="true"] {
+  color: #ffffff;
+  background: rgba(var(--project-accent-rgb), 0.24);
+  box-shadow: inset 0 0 0 1px rgba(var(--project-accent-rgb), 0.34);
+}
+
+.shareViewPanel {
+  min-width: 0;
 }
 
 .shareBadge,
@@ -606,6 +646,682 @@ select:focus-visible {
   line-height: 1.3;
 }
 
+.shareReportView {
+  min-width: 0;
+}
+
+.shareReportContent {
+  width: min(1220px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 14px;
+}
+
+.shareReportHero,
+.shareReportPanel,
+.shareReportUtilityBar {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 18px 44px rgba(0,0,0,0.28);
+}
+
+.shareReportHero {
+  padding: 18px;
+  background:
+    linear-gradient(135deg, rgba(var(--project-accent-rgb), 0.22), rgba(255,255,255,0.06) 42%, rgba(255,255,255,0.035)),
+    rgba(8, 16, 27, 0.94);
+}
+
+.shareReportHeroTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.shareReportIdentity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.shareReportLogo,
+.shareReportLogoMark {
+  width: 70px;
+  height: 70px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.48);
+  background: rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+
+.shareReportLogo {
+  object-fit: contain;
+  padding: 7px;
+}
+
+.shareReportLogoMark {
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.shareReportEyebrow,
+.shareReportSectionLabel,
+.shareReportMetricLabel,
+.shareReportDoneTitle {
+  color: rgba(226, 238, 255, 0.72);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.shareReportHero h1 {
+  margin: 5px 0 6px;
+  font-size: 42px;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.shareReportHeroSummary {
+  max-width: 820px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.shareReportCompletionCard {
+  min-width: 220px;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.34);
+  background: rgba(var(--project-accent-rgb), 0.12);
+}
+
+.shareReportCompletionValue {
+  font-size: 42px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.shareReportCompletionLabel {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shareReportProgressTrack,
+.shareReportDoneTrack,
+.shareReportStatusTrack,
+.shareReportGeoTrack {
+  height: 9px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.11);
+}
+
+.shareReportProgressFill,
+.shareReportDoneFill,
+.shareReportGeoFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--project-accent), var(--green));
+}
+
+.shareReportHeroMetaGrid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.shareReportMetaCard,
+.shareReportMetricCard,
+.shareReportDoneCard,
+.shareReportExceptionCard,
+.shareReportGeoCard,
+.shareReportActivityItem {
+  padding: 11px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+}
+
+.shareReportMetaLabel,
+.shareReportMetaValue,
+.shareReportMetricNote,
+.shareReportDoneDetail,
+.shareReportMuted,
+.shareReportActivityTime,
+.shareReportActivityDetail,
+.shareReportEmpty,
+.shareReportEvidenceMeta,
+.shareReportEvidencePreview {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.shareReportMetaValue {
+  margin-top: 4px;
+  color: #ffffff;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.shareReportUtilityBar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  background: rgba(8, 16, 27, 0.96);
+  backdrop-filter: blur(8px);
+}
+
+.shareReportUtilityCopy {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.shareReportActions {
+  display: inline-flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shareReportButton {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.38);
+  background: rgba(var(--project-accent-rgb), 0.22);
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.shareReportButton.secondary {
+  border-color: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.08);
+}
+
+.shareReportButton:hover,
+.shareReportButton:focus-visible {
+  border-color: rgba(var(--project-accent-rgb), 0.6);
+  background: rgba(var(--project-accent-rgb), 0.28);
+}
+
+.shareReportCopyStatus {
+  min-height: 16px;
+  color: rgba(255,255,255,0.72);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.shareReportPanel {
+  padding: 14px;
+}
+
+.shareReportSectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.shareReportSectionHeader h2 {
+  margin: 3px 0 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.shareReportSectionBadge {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.34);
+  background: rgba(var(--project-accent-rgb), 0.14);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.shareReportExecGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.shareReportMetricValue {
+  margin-top: 7px;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.shareReportMetricNote {
+  margin-top: 7px;
+}
+
+.shareReportDoneGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.shareReportDoneTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.shareReportDoneValue {
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.shareReportDoneCard-remaining .shareReportDoneFill {
+  background: var(--blue);
+}
+
+.shareReportDoneCard-attention {
+  border-color: rgba(255, 153, 0, 0.32);
+  background: rgba(255, 153, 0, 0.08);
+}
+
+.shareReportDoneCard-attention .shareReportDoneFill {
+  background: var(--orange);
+}
+
+.shareReportStatusGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
+  gap: 12px;
+}
+
+.shareReportStatusStack,
+.shareReportReadout,
+.shareReportGeoRows,
+.shareReportActivityList,
+.shareReportEvidenceList {
+  display: grid;
+  gap: 9px;
+}
+
+.shareReportStatusRow {
+  display: grid;
+  gap: 6px;
+}
+
+.shareReportStatusMeta,
+.shareReportGeoRowMeta,
+.shareReportReadoutLine,
+.shareReportEvidenceCounts,
+.shareReportEvidenceStoreLine {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.shareReportStatusMeta,
+.shareReportGeoRowMeta,
+.shareReportReadoutLine {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shareReportStatusLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.shareReportStatusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.shareReportStatusDot-active,
+.shareReportStatusFill-active {
+  background: var(--blue);
+}
+
+.shareReportStatusDot-rescheduled,
+.shareReportStatusFill-rescheduled {
+  background: var(--orange);
+}
+
+.shareReportStatusDot-completed,
+.shareReportStatusFill-completed {
+  background: var(--green);
+}
+
+.shareReportStatusDot-closed,
+.shareReportStatusFill-closed {
+  background: var(--red);
+}
+
+.shareReportStatusValue,
+.shareReportGeoRowMeta strong,
+.shareReportReadoutLine strong,
+.shareReportActivityTitle,
+.shareReportStoreId,
+.shareReportEvidenceStoreId,
+.shareReportEvidenceSummaryTitle {
+  color: #ffffff;
+  font-weight: 850;
+}
+
+.shareReportStatusValue span {
+  margin-left: 4px;
+  color: var(--soft);
+  font-size: 11px;
+}
+
+.shareReportStatusFill {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.shareReportReadoutLine {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.shareReportGeoSummary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+  margin-bottom: 10px;
+}
+
+.shareReportGeoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.shareReportGeoTitle {
+  margin-bottom: 9px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.shareReportGeoRow {
+  display: grid;
+  gap: 5px;
+}
+
+.shareReportActivityTitle {
+  margin-top: 3px;
+  font-size: 13px;
+}
+
+.shareReportExceptionGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.shareReportExceptionCard {
+  border-color: rgba(255, 153, 0, 0.3);
+  background: rgba(255, 153, 0, 0.08);
+}
+
+.shareReportExceptionValue {
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.shareReportExceptionLabel {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shareReportDetailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(330px, 0.88fr);
+  gap: 12px;
+}
+
+.shareReportTableWrap {
+  overflow-x: auto;
+}
+
+.shareReportStoreTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.shareReportStoreTable th,
+.shareReportStoreTable td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--panel-border);
+  text-align: left;
+  vertical-align: top;
+  font-size: 12px;
+}
+
+.shareReportStoreTable th {
+  color: rgba(226, 238, 255, 0.72);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.shareReportLocation,
+.shareReportActivityInline,
+.shareReportReason {
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.shareReportActivityInline,
+.shareReportReason {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.shareReportStatusBadge,
+.shareReportPill {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.shareReportStatus-active {
+  border: 1px solid rgba(100,181,246,0.35);
+  background: rgba(100,181,246,0.2);
+  color: #d9efff;
+}
+
+.shareReportStatus-rescheduled {
+  border: 1px solid rgba(255,153,0,0.36);
+  background: rgba(255,153,0,0.18);
+  color: #ffe0b0;
+}
+
+.shareReportStatus-completed {
+  border: 1px solid rgba(46,204,113,0.34);
+  background: rgba(46,204,113,0.18);
+  color: #d7fbe6;
+}
+
+.shareReportStatus-closed {
+  border: 1px solid rgba(255,45,45,0.34);
+  background: rgba(255,45,45,0.16);
+  color: #ffd1d1;
+}
+
+.shareReportPill {
+  border: 1px solid var(--panel-border);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.78);
+}
+
+.shareReportPill.has-data {
+  border-color: rgba(var(--project-accent-rgb), 0.34);
+  background: rgba(var(--project-accent-rgb), 0.16);
+  color: #ffffff;
+}
+
+.shareReportEvidenceDiagnostics {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.shareReportEvidenceCard,
+.shareReportEmptyCard {
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.045);
+}
+
+.shareReportEvidenceSummary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.62fr);
+  gap: 12px;
+  padding: 12px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.shareReportEvidenceSummary::-webkit-details-marker {
+  display: none;
+}
+
+.shareReportEvidenceStoreLine,
+.shareReportEvidenceCounts {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.shareReportEvidenceAddress,
+.shareReportEvidencePreview,
+.shareReportEvidenceHint,
+.shareReportEvidenceEmpty,
+.shareReportEvidenceNoteMeta {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.shareReportEvidenceSide {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.shareReportPhotoRail,
+.shareReportPhotoGrid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.shareReportPhotoGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shareReportEvidenceCard[open] .shareReportPhotoRail {
+  display: none;
+}
+
+.shareReportPhotoButton {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.08);
+  cursor: pointer;
+}
+
+.shareReportPhotoButton:hover,
+.shareReportPhotoButton:focus-visible {
+  border-color: rgba(var(--project-accent-rgb), 0.54);
+}
+
+.shareReportPhotoButton img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.shareReportEvidenceExpanded {
+  padding: 12px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.shareReportEvidenceExpandedGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.shareReportEvidenceSummaryTitle {
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.shareReportEvidenceNote + .shareReportEvidenceNote {
+  margin-top: 9px;
+}
+
+.shareReportEvidenceNoteText {
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.shareReportEmptyCard {
+  padding: 12px;
+}
+
+.shareReportEmptyTitle {
+  margin-bottom: 4px;
+  color: #ffffff;
+  font-weight: 900;
+}
+
 .shareFooter {
   padding: 10px 12px;
   color: var(--soft);
@@ -701,6 +1417,14 @@ select:focus-visible {
   .shareSummaryPanel {
     grid-template-columns: 1fr;
   }
+
+  .shareReportExecGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .shareReportGeoSummary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 980px) {
@@ -728,6 +1452,30 @@ select:focus-visible {
   .shareSidebar {
     overflow: visible;
     padding-right: 0;
+  }
+
+  .shareReportHeroTop,
+  .shareReportUtilityBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .shareReportHeroMetaGrid,
+  .shareReportDoneGrid,
+  .shareReportStatusGrid,
+  .shareReportGeoGrid,
+  .shareReportDetailGrid,
+  .shareReportEvidenceExpandedGrid,
+  .shareReportEvidenceSummary {
+    grid-template-columns: 1fr;
+  }
+
+  .shareReportExecGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .shareReportExceptionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -769,5 +1517,101 @@ select:focus-visible {
 
   .sharePhotoLightbox img {
     max-height: 74vh;
+  }
+
+  .shareViewTabs {
+    width: 100%;
+  }
+
+  .shareTabBtn {
+    flex: 1 1 0;
+  }
+
+  .shareReportContent {
+    gap: 10px;
+  }
+
+  .shareReportHero,
+  .shareReportPanel {
+    padding: 12px;
+  }
+
+  .shareReportIdentity {
+    align-items: flex-start;
+  }
+
+  .shareReportLogo,
+  .shareReportLogoMark {
+    width: 52px;
+    height: 52px;
+  }
+
+  .shareReportHero h1 {
+    font-size: 30px;
+  }
+
+  .shareReportExecGrid,
+  .shareReportGeoSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shareReportPhotoRail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shareReportStoreTable,
+  .shareReportStoreTable thead,
+  .shareReportStoreTable tbody,
+  .shareReportStoreTable tr,
+  .shareReportStoreTable th,
+  .shareReportStoreTable td {
+    display: block;
+    width: 100%;
+  }
+
+  .shareReportStoreTable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .shareReportStoreTable tr {
+    margin-bottom: 8px;
+    overflow: hidden;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+  }
+
+  .shareReportStoreTable td {
+    position: relative;
+    min-height: 34px;
+    padding-left: 122px;
+  }
+
+  .shareReportStoreTable td::before {
+    content: attr(data-label);
+    position: absolute;
+    top: 9px;
+    left: 8px;
+    width: 100px;
+    color: var(--soft);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+}
+
+@media print {
+  .shareViewTabs,
+  .shareReportActions,
+  .shareReportCopyStatus {
+    display: none !important;
+  }
+
+  .shareReportUtilityBar {
+    position: static;
   }
 }
