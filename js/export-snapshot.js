@@ -295,23 +295,129 @@ function buildSnapshotTableRows(rows) {
   `).join("");
 }
 
-function getSnapshotStoreNotes(storeId) {
-  return noteRowsCache
-    .filter(row => String(row.store_id) === String(storeId))
+function getSnapshotScopedStoreIds(filteredStores) {
+  return new Set(
+    (Array.isArray(filteredStores) ? filteredStores : [])
+      .map(store => String(store?.store_id || "").trim())
+      .filter(Boolean)
+  );
+}
+
+function isSnapshotCurrentProjectEvidenceRow(row) {
+  const rowProjectId = String(row?.project_id || "").trim();
+  const scopedProjectId = typeof currentProjectId === "undefined"
+    ? ""
+    : String(currentProjectId || "").trim();
+
+  return !rowProjectId || !scopedProjectId || rowProjectId === scopedProjectId;
+}
+
+function isSnapshotScopedEvidenceRow(row, storeId, scopedStoreIds = null) {
+  const rowStoreId = String(row?.store_id || "").trim();
+  const normalizedStoreId = String(storeId || "").trim();
+
+  if (!rowStoreId) return false;
+  if (normalizedStoreId && rowStoreId !== normalizedStoreId) return false;
+  if (scopedStoreIds instanceof Set && !scopedStoreIds.has(rowStoreId)) return false;
+
+  return isSnapshotCurrentProjectEvidenceRow(row);
+}
+
+function isSnapshotSafeDisplayPhotoUrl(value) {
+  const url = String(value || "").trim();
+  if (!url) return false;
+  if (/^(javascript|vbscript):/i.test(url)) return false;
+  if (/^data:image\//i.test(url)) return true;
+  if (/^blob:/i.test(url)) return true;
+  if (/^\/(?!\/)/.test(url)) return true;
+  if (!/^https?:\/\//i.test(url)) return false;
+
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch (_) {
+    return false;
+  }
+}
+
+function isSnapshotSafeSignedPhotoUrl(value) {
+  const url = String(value || "").trim();
+  if (!isSnapshotSafeDisplayPhotoUrl(url)) return false;
+  if (!/^https?:\/\//i.test(url)) return /^blob:/i.test(url);
+
+  return (
+    /[?&]token=/i.test(url)
+    || /[?&]signature=/i.test(url)
+    || /[?&]x-amz-signature=/i.test(url)
+    || /[?&]x-amz-credential=/i.test(url)
+    || /[?&]expires=/i.test(url)
+    || /[?&]x-amz-expires=/i.test(url)
+  );
+}
+
+function resolveSnapshotPhotoRowUrl(row) {
+  if (!row) return "";
+
+  let appResolvedUrl = "";
+  if (typeof dataLayer !== "undefined" && dataLayer && typeof dataLayer.resolvePhotoRowUrl === "function") {
+    appResolvedUrl = String(dataLayer.resolvePhotoRowUrl(row) || "").trim();
+  }
+
+  if (isSnapshotSafeDisplayPhotoUrl(appResolvedUrl)) return appResolvedUrl;
+
+  const resolvedImageUrl = String(row.resolved_image_url || "").trim();
+  if (isSnapshotSafeDisplayPhotoUrl(resolvedImageUrl)) return resolvedImageUrl;
+
+  const signedUrl = String(row.signed_url || "").trim();
+  if (isSnapshotSafeSignedPhotoUrl(signedUrl)) return signedUrl;
+
+  const imageUrl = String(row.image_url || "").trim();
+  if (isSnapshotSafeDisplayPhotoUrl(imageUrl)) return imageUrl;
+
+  const explicitUrl = String(row.url || "").trim();
+  if (isSnapshotSafeDisplayPhotoUrl(explicitUrl)) return explicitUrl;
+
+  return "";
+}
+
+function getSnapshotStoreNotes(storeId, scopedStoreIds = null) {
+  return (Array.isArray(noteRowsCache) ? noteRowsCache : [])
+    .filter(row => isSnapshotScopedEvidenceRow(row, storeId, scopedStoreIds))
     .slice()
     .sort((a, b) => getTimestampValue(b.created_at) - getTimestampValue(a.created_at));
 }
 
-function getSnapshotStorePhotos(storeId) {
-  return photoRowsCache
-    .filter(row => String(row.store_id) === String(storeId))
-    .map(row => ({
-      ...row,
-      imageUrl: String(row.image_url || "").trim(),
-      timestampValue: getTimestampValue(row.created_at)
-    }))
-    .filter(row => row.imageUrl)
-    .sort((a, b) => b.timestampValue - a.timestampValue);
+function getSnapshotStorePhotoEvidence(storeId, scopedStoreIds = null) {
+  const photos = [];
+  let skippedUnavailablePhotos = 0;
+
+  (Array.isArray(photoRowsCache) ? photoRowsCache : [])
+    .filter(row => isSnapshotScopedEvidenceRow(row, storeId, scopedStoreIds))
+    .forEach(row => {
+      const imageUrl = resolveSnapshotPhotoRowUrl(row);
+      if (!imageUrl) {
+        skippedUnavailablePhotos += 1;
+        return;
+      }
+
+      photos.push({
+        ...row,
+        store_id: String(row.store_id || "").trim(),
+        imageUrl,
+        timestampValue: getTimestampValue(row.created_at)
+      });
+    });
+
+  photos.sort((a, b) => b.timestampValue - a.timestampValue);
+
+  return {
+    photos,
+    skippedUnavailablePhotos
+  };
+}
+
+function getSnapshotStorePhotos(storeId, scopedStoreIds = null) {
+  return getSnapshotStorePhotoEvidence(storeId, scopedStoreIds).photos;
 }
 
 function getSnapshotLatestNotePreview(notes, photos = []) {
@@ -335,11 +441,28 @@ function getSnapshotLatestNotePreview(notes, photos = []) {
 }
 
 function getSnapshotEvidenceRows(filteredStores) {
-  return filteredStores
+  const scopedStores = Array.isArray(filteredStores) ? filteredStores : [];
+  const scopedStoreIds = getSnapshotScopedStoreIds(scopedStores);
+  const evidenceSummary = {
+    storesWithEvidence: 0,
+    validPhotos: 0,
+    notes: 0,
+    skippedUnavailablePhotos: 0
+  };
+
+  const rows = scopedStores
     .map((store, index) => {
-      const storeId = String(store.store_id);
-      const notes = getSnapshotStoreNotes(storeId);
-      const photos = getSnapshotStorePhotos(storeId);
+      const storeId = String(store.store_id || "").trim();
+      if (!storeId || !scopedStoreIds.has(storeId)) return null;
+
+      const notes = getSnapshotStoreNotes(storeId, scopedStoreIds);
+      const photoEvidence = getSnapshotStorePhotoEvidence(storeId, scopedStoreIds);
+      const photos = photoEvidence.photos;
+
+      evidenceSummary.notes += notes.length;
+      evidenceSummary.validPhotos += photos.length;
+      evidenceSummary.skippedUnavailablePhotos += photoEvidence.skippedUnavailablePhotos;
+
       if (!notes.length && !photos.length) return null;
 
       const notePreview = getSnapshotLatestNotePreview(notes, photos);
@@ -356,6 +479,7 @@ function getSnapshotEvidenceRows(filteredStores) {
         statusLabel: getStatusDisplayLabel(statusCode),
         noteCount: notes.length,
         photoCount: photos.length,
+        skippedUnavailablePhotoCount: photoEvidence.skippedUnavailablePhotos,
         notes,
         photos,
         latestNotePreview: notePreview.preview,
@@ -370,6 +494,14 @@ function getSnapshotEvidenceRows(filteredStores) {
       if (a.latestEvidenceTimestampValue !== b.latestEvidenceTimestampValue) return b.latestEvidenceTimestampValue - a.latestEvidenceTimestampValue;
       return a.originalIndex - b.originalIndex;
     });
+
+  evidenceSummary.storesWithEvidence = rows.length;
+  Object.defineProperty(rows, "evidenceSummary", {
+    value: evidenceSummary,
+    enumerable: false
+  });
+
+  return rows;
 }
 
 function buildSnapshotEvidenceNotes(notes) {
@@ -386,12 +518,15 @@ function buildSnapshotEvidenceNotes(notes) {
 }
 
 function buildSnapshotEvidencePhotoRail(photos, variant = "compact") {
-  if (!photos.length) {
+  const resolvedPhotos = (Array.isArray(photos) ? photos : [])
+    .filter(photo => isSnapshotSafeDisplayPhotoUrl(photo?.imageUrl));
+
+  if (!resolvedPhotos.length) {
     return `<div class="evidence-empty-mini">No photo evidence captured.</div>`;
   }
 
   const photoLimit = variant === "expanded" ? 4 : 3;
-  return photos.slice(0, photoLimit).map((photo, index) => `
+  return resolvedPhotos.slice(0, photoLimit).map((photo, index) => `
     <div class="evidence-photo-shell evidence-photo-shell-${escapeSnapshotHtml(variant)}">
       <img
         class="evidence-photo evidence-photo-${escapeSnapshotHtml(variant)}"
@@ -402,11 +537,44 @@ function buildSnapshotEvidencePhotoRail(photos, variant = "compact") {
         tabindex="0"
         role="button"
         loading="lazy"
-        onerror="this.closest('.evidence-photo-shell').classList.add('is-broken'); this.remove();"
+        onerror="var shell=this.closest('.evidence-photo-shell'); if(shell) shell.remove();"
       />
-      <div class="evidence-photo-fallback">Image unavailable</div>
     </div>
   `).join("");
+}
+
+function getSnapshotEvidenceSummary(evidenceRows) {
+  if (Array.isArray(evidenceRows) && evidenceRows.evidenceSummary) {
+    return evidenceRows.evidenceSummary;
+  }
+
+  return (Array.isArray(evidenceRows) ? evidenceRows : []).reduce((summary, row) => {
+    summary.storesWithEvidence += 1;
+    summary.validPhotos += Number(row?.photoCount || 0);
+    summary.notes += Number(row?.noteCount || 0);
+    summary.skippedUnavailablePhotos += Number(row?.skippedUnavailablePhotoCount || 0);
+    return summary;
+  }, {
+    storesWithEvidence: 0,
+    validPhotos: 0,
+    notes: 0,
+    skippedUnavailablePhotos: 0
+  });
+}
+
+function buildSnapshotEvidenceSummaryLine(evidenceRows) {
+  const summary = getSnapshotEvidenceSummary(evidenceRows);
+  const parts = [
+    `${Number(summary.storesWithEvidence || 0).toLocaleString()} stores with evidence`,
+    `${Number(summary.validPhotos || 0).toLocaleString()} valid photos`,
+    `${Number(summary.notes || 0).toLocaleString()} notes`
+  ];
+
+  if (Number(summary.skippedUnavailablePhotos || 0) > 0) {
+    parts.push(`${Number(summary.skippedUnavailablePhotos || 0).toLocaleString()} unavailable photos skipped`);
+  }
+
+  return `<div class="evidence-diagnostics">${parts.map(escapeSnapshotHtml).join(" | ")}</div>`;
 }
 
 function buildSnapshotEvidenceCards(evidenceRows) {
@@ -1102,6 +1270,13 @@ function buildSnapshotHtml(payload) {
     background: rgba(239, 245, 250, 0.92);
   }
   .evidence-photo-shell.is-broken .evidence-photo-fallback { display: flex; }
+  .evidence-diagnostics {
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.45;
+    font-weight: 700;
+  }
   .evidence-expand-hint { font-size: 11px; color: var(--muted); font-weight: 700; }
   .evidence-expanded {
     padding: 0 16px 16px;
@@ -1464,6 +1639,7 @@ function buildSnapshotHtml(payload) {
       <div class="panel">
         <div class="panel-eyebrow">Field Notes & Photo Evidence</div>
         <div class="footnote" style="margin-bottom:10px;">This section surfaces scoped store-level evidence for stakeholder review, prioritizing locations with both notes and photos and allowing deeper browser inspection without removing print readability.</div>
+        ${buildSnapshotEvidenceSummaryLine(evidenceRows || [])}
         ${buildSnapshotEvidenceCards(evidenceRows || [])}
       </div>
     </section>
@@ -2080,6 +2256,7 @@ function buildExecutiveSnapshotHtml(payload) {
   .evidence-photo-expanded { object-fit: contain; }
   .evidence-photo-fallback { display: none; color: var(--muted); font-size: 11px; padding: 10px; text-align: center; }
   .evidence-photo-shell.is-broken .evidence-photo-fallback { display: block; }
+  .evidence-diagnostics { margin: 0 0 10px; color: var(--muted); font-size: 11px; line-height: 1.45; font-weight: 800; }
   .evidence-expanded { padding: 12px; border-top: 1px solid var(--line); }
   .evidence-expanded-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .summary-title { font-size: 12px; font-weight: 900; margin-bottom: 8px; }
@@ -2228,6 +2405,7 @@ function buildExecutiveSnapshotHtml(payload) {
         <div class="sectionHeader">
           <div><div class="sectionEyebrow">Field Evidence</div><h2>Notes & Photos</h2></div>
         </div>
+        ${buildSnapshotEvidenceSummaryLine(evidenceRows || [])}
         ${buildSnapshotEvidenceCards(evidenceRows || [])}
       </div>
     </section>
