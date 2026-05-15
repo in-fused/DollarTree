@@ -19,7 +19,8 @@
       state: "",
       status: ""
     },
-    selectedStoreId: ""
+    selectedStoreId: "",
+    selectedEvidencePhotos: []
   };
 
   function getEl(id) {
@@ -105,6 +106,32 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  function isSafeDisplayUrl(value) {
+    const url = String(value || "").trim();
+    if (!url) return false;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function getPhotoTypeLabel(value) {
+    const normalized = String(value || "").trim().replace(/[_-]+/g, " ");
+    if (!normalized) return "Photo";
+    return normalized.replace(/\b\w/g, letter => letter.toUpperCase());
+  }
+
+  function getStoreEvidence(storeId) {
+    const normalizedStoreId = String(storeId || "").trim();
+    const evidence = state.payload?.evidenceByStoreId?.[normalizedStoreId] || {};
+    return {
+      notes: Array.isArray(evidence.notes) ? evidence.notes : [],
+      photos: Array.isArray(evidence.photos) ? evidence.photos.filter(photo => isSafeDisplayUrl(photo?.image_url)) : []
+    };
   }
 
   function getToken() {
@@ -335,6 +362,96 @@
     `).join("");
   }
 
+  function renderSelectedStoreEvidence(storeId) {
+    const block = getEl("shareSelectedStoreEvidence");
+    const notesRoot = getEl("shareSelectedStoreNotes");
+    const photosRoot = getEl("shareSelectedStorePhotos");
+    const emptyRoot = getEl("shareSelectedStoreEvidenceEmpty");
+    if (!block || !notesRoot || !photosRoot || !emptyRoot) return;
+
+    const normalizedStoreId = String(storeId || "").trim();
+    if (!normalizedStoreId) {
+      state.selectedEvidencePhotos = [];
+      block.classList.add("hidden");
+      notesRoot.innerHTML = "";
+      photosRoot.innerHTML = "";
+      emptyRoot.classList.add("hidden");
+      setText("shareSelectedStoreEvidenceSummary", "0 items");
+      return;
+    }
+
+    const evidence = getStoreEvidence(normalizedStoreId);
+    const notes = evidence.notes.slice(0, 5);
+    const photos = evidence.photos.slice(0, 6);
+    const itemCount = notes.length + photos.length;
+    state.selectedEvidencePhotos = photos;
+
+    block.classList.remove("hidden");
+    setText("shareSelectedStoreEvidenceSummary", `${formatNumber(itemCount)} ${itemCount === 1 ? "item" : "items"}`);
+    emptyRoot.classList.toggle("hidden", itemCount > 0);
+
+    notesRoot.innerHTML = notes.length
+      ? `
+        <div class="evidenceSubhead">Notes</div>
+        ${notes.map(note => `
+          <article class="shareEvidenceNote">
+            <div>${escapeHtml(note.note || "")}</div>
+            <time>${escapeHtml(formatTimestamp(note.created_at) || "Recent")}</time>
+          </article>
+        `).join("")}
+      `
+      : "";
+
+    photosRoot.innerHTML = photos.length
+      ? `
+        <div class="evidenceSubhead">Photos</div>
+        <div class="shareEvidencePhotoGrid">
+          ${photos.map((photo, index) => {
+            const typeLabel = getPhotoTypeLabel(photo.photo_type || photo.type);
+            const timestamp = formatTimestamp(photo.created_at);
+            return `
+              <button class="shareEvidencePhoto" type="button" data-photo-index="${index}" aria-label="Open ${escapeHtml(typeLabel)} evidence preview">
+                <img src="${escapeHtml(photo.image_url)}" alt="Store ${escapeHtml(normalizedStoreId)} ${escapeHtml(typeLabel)} evidence" loading="lazy" />
+                <span><strong>${escapeHtml(typeLabel)}</strong>${timestamp ? `<em>${escapeHtml(timestamp)}</em>` : ""}</span>
+              </button>
+            `;
+          }).join("")}
+        </div>
+      `
+      : "";
+  }
+
+  function openPhotoLightbox(photo) {
+    const imageUrl = String(photo?.image_url || "").trim();
+    if (!isSafeDisplayUrl(imageUrl)) return;
+
+    const lightbox = getEl("sharePhotoLightbox");
+    const image = getEl("sharePhotoLightboxImage");
+    const meta = getEl("sharePhotoLightboxMeta");
+    if (!lightbox || !image || !meta) return;
+
+    const typeLabel = getPhotoTypeLabel(photo.photo_type || photo.type);
+    const timestamp = formatTimestamp(photo.created_at);
+    image.src = imageUrl;
+    image.alt = `${typeLabel} evidence preview`;
+    meta.textContent = [typeLabel, timestamp].filter(Boolean).join(" | ");
+    lightbox.classList.remove("hidden");
+    document.body.classList.add("shareLightboxOpen");
+  }
+
+  function closePhotoLightbox() {
+    const lightbox = getEl("sharePhotoLightbox");
+    const image = getEl("sharePhotoLightboxImage");
+    const meta = getEl("sharePhotoLightboxMeta");
+    if (lightbox) lightbox.classList.add("hidden");
+    if (image) {
+      image.removeAttribute("src");
+      image.alt = "";
+    }
+    if (meta) meta.textContent = "";
+    document.body.classList.remove("shareLightboxOpen");
+  }
+
   function createGeoJson(stores) {
     return {
       type: "FeatureCollection",
@@ -527,6 +644,7 @@
     if (!store) {
       setText("shareSelectedStoreTitle", "No store selected");
       setText("shareSelectedStoreBody", "Select a map point to inspect store status and public project metadata.");
+      renderSelectedStoreEvidence("");
       return;
     }
 
@@ -546,6 +664,7 @@
     if (body) {
       body.innerHTML = locationParts.map(part => `<div>${escapeHtml(part)}</div>`).join("");
     }
+    renderSelectedStoreEvidence(store.store_id);
 
     if (flyToStore && state.map && hasValidCoordinatePair(store.lat, store.lng)) {
       state.map.flyTo({
@@ -593,6 +712,30 @@
         if (storeId) selectStore(storeId, true);
       });
     }
+
+    const photosRoot = getEl("shareSelectedStorePhotos");
+    if (photosRoot) {
+      photosRoot.addEventListener("click", event => {
+        const button = event.target.closest("[data-photo-index]");
+        if (!button) return;
+        const photo = state.selectedEvidencePhotos[Number(button.dataset.photoIndex)];
+        if (photo) openPhotoLightbox(photo);
+      });
+    }
+
+    const lightbox = getEl("sharePhotoLightbox");
+    if (lightbox) {
+      lightbox.addEventListener("click", event => {
+        if (event.target === lightbox) closePhotoLightbox();
+      });
+    }
+
+    const closeLightboxBtn = getEl("sharePhotoLightboxClose");
+    if (closeLightboxBtn) closeLightboxBtn.addEventListener("click", closePhotoLightbox);
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closePhotoLightbox();
+    });
   }
 
   function renderPayload(payload) {
