@@ -249,8 +249,12 @@
     const errors = [];
     const warnings = [];
 
-    const canonicalValues = {};
-    const unknownValues = {};
+    const canonicalValues = opts.canonicalValues && typeof opts.canonicalValues === "object" && !Array.isArray(opts.canonicalValues)
+      ? { ...opts.canonicalValues }
+      : {};
+    const unknownValues = opts.unknownFields && typeof opts.unknownFields === "object" && !Array.isArray(opts.unknownFields)
+      ? { ...opts.unknownFields }
+      : {};
 
     const headers = cloneArray(headerReport && headerReport.headers);
     const canonicalByHeaderIndex = cloneArray(headerReport && headerReport.canonicalByHeaderIndex);
