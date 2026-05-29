@@ -147,6 +147,35 @@ function getStoreMaintenanceHealthCount(health, key) {
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
+function getStoreMaintenanceHealthDetailItems(health, detailKey) {
+  const value = health?.details?.[detailKey];
+  return Array.isArray(value) ? value : [];
+}
+
+function formatStoreMaintenanceHealthDetailItem(item) {
+  if (item && typeof item === "object") {
+    const storeId = String(item.store_id || item.storeId || "").trim();
+    const count = Number(item.count);
+    if (!storeId) return "";
+    return Number.isFinite(count) && count > 1 ? `${storeId} (${count} rows)` : storeId;
+  }
+
+  return String(item || "").trim();
+}
+
+function buildStoreMaintenanceHealthIdSummary(health, detailKey, limit = 8) {
+  const ids = getStoreMaintenanceHealthDetailItems(health, detailKey)
+    .map(formatStoreMaintenanceHealthDetailItem)
+    .filter(Boolean);
+
+  if (ids.length === 0) return "";
+  const visible = ids.slice(0, limit);
+  const remaining = Math.max(0, ids.length - visible.length);
+  return remaining > 0
+    ? `Affected Store IDs: ${visible.join(", ")} +${remaining.toLocaleString()} more`
+    : `Affected Store IDs: ${visible.join(", ")}`;
+}
+
 function renderStoreMaintenanceHealthPanel(health, options = {}) {
   const panel = document.getElementById("adminDataHealthPanel");
   if (!panel) return;
@@ -182,7 +211,7 @@ function renderStoreMaintenanceHealthPanel(health, options = {}) {
       ? (options.error.message || "Unable to refresh diagnostics.")
       : (totalCount === 0
         ? "Project store data is clean."
-        : "Store data drift detected. Review the counts before maintenance or reporting.");
+        : "Store data drift detected. Affected Store IDs are listed below where available. No automatic repair was attempted.");
     summaryEl.classList.toggle("adminPanelMessageError", !!options.error);
   }
 
@@ -205,41 +234,65 @@ function renderStoreMaintenanceHealthPanel(health, options = {}) {
         {
           count: counts.healthMissingStatus,
           label: "Stores missing status",
-          text: "Store rows without a matching baseline status row."
+          text: "Store rows without a matching baseline status row.",
+          detailKey: "missingStatusStores"
         },
         {
           count: counts.healthOrphanStatus,
           label: "Status rows with no matching store",
-          text: "Status rows whose Store ID does not exist in this project."
+          text: "Status rows whose Store ID does not exist in this project.",
+          detailKey: "orphanStatusRows"
         },
         {
           count: counts.healthDuplicateStores,
           label: "Duplicate stores",
-          text: "Store IDs with more than one store row in this project."
+          text: "Store IDs with more than one store row in this project. Lifecycle changes are blocked until each affected Store ID has exactly one store row.",
+          detailKey: "duplicateStores"
         },
         {
           count: counts.healthDuplicateStatuses,
           label: "Duplicate status rows",
-          text: "Store IDs with more than one status row in this project."
+          text: "Store IDs with more than one status row in this project. Status writes are blocked until each affected Store ID has exactly one status row.",
+          detailKey: "duplicateStatusRows"
         },
         {
           count: counts.healthInvalidCoordinates,
           label: "Invalid coordinates",
-          text: "Store rows with missing, non-numeric, out-of-range, or 0,0 coordinates."
+          text: "Store rows with missing, non-numeric, out-of-range, or 0,0 coordinates.",
+          detailKey: "invalidCoordinateStores"
         },
         {
           count: counts.healthRemovedStores,
           label: "Removed stores",
-          text: "Stores currently hidden from the active project scope."
+          text: "Stores currently hidden from the active project scope.",
+          detailKey: "removedStoreIds"
         }
       ].filter(row => row.count > 0);
 
-      listEl.innerHTML = rows.map(row => `
-        <div class="storeHealthIssueText">
-          <strong>${row.count.toLocaleString()} ${row.label}</strong>
-          <span>${row.text}</span>
-        </div>
-      `).join("");
+      listEl.innerHTML = "";
+      rows.forEach(row => {
+        const item = document.createElement("div");
+        item.className = "storeHealthIssueText";
+
+        const title = document.createElement("strong");
+        title.textContent = `${row.count.toLocaleString()} ${row.label}`;
+
+        const text = document.createElement("span");
+        text.textContent = row.text;
+
+        item.appendChild(title);
+        item.appendChild(text);
+
+        const idSummary = buildStoreMaintenanceHealthIdSummary(health, row.detailKey);
+        if (idSummary) {
+          const ids = document.createElement("span");
+          ids.className = "storeHealthIssueIds";
+          ids.textContent = idSummary;
+          item.appendChild(ids);
+        }
+
+        listEl.appendChild(item);
+      });
     }
   }
 

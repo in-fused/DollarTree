@@ -428,6 +428,7 @@ function isSafeActivityEventType(eventType) {
     "store_created",
     "store-added",
     "store-edited",
+    "store-removed",
     "store-reactivated",
     "status-active",
     "status-completed",
@@ -475,6 +476,16 @@ function sanitizeActivityEvent(row) {
       timestamp,
       title: storeId ? `Store ${storeId} metadata updated` : "Store metadata updated",
       detail: "Project store metadata updated"
+    };
+  }
+
+  if (eventType === "store-removed") {
+    return {
+      type: "store-removed",
+      store_id: storeId,
+      timestamp,
+      title: storeId ? `Store ${storeId} removed from active scope` : "Store removed from active scope",
+      detail: "Store hidden from active project scope"
     };
   }
 

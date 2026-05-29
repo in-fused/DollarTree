@@ -111,6 +111,16 @@
                   </div>
                   <div class="adminPanelSectionHint">Safely add, edit, remove, reactivate, and audit stores for the current project.</div>
                   <div id="storeMaintenanceSelection" class="storeMaintenanceSelection" aria-live="polite">No store selected.</div>
+                  <div class="storeMaintenanceLookup">
+                    <label class="storeMaintenanceLookupLabel" for="storeMaintenanceSearchInput">Find Existing Store</label>
+                    <div class="storeMaintenanceSearchRow">
+                      <input id="storeMaintenanceSearchInput" type="search" autocomplete="off" placeholder="Search Store ID, name, address, or city" />
+                      <button id="storeMaintenanceSearchClearBtn" class="btnSecondary" type="button">Clear</button>
+                    </div>
+                    <div id="storeMaintenanceSearchResults" class="storeMaintenanceSearchResults" role="listbox" aria-label="Store Maintenance search results">
+                      <div class="storeMaintenanceSearchEmpty">Type to find a store in this project.</div>
+                    </div>
+                  </div>
                   <div class="storeMaintenanceActionGrid">
                     <button id="storeMaintenanceAddBtn" class="btnComplete" type="button">Add Store</button>
                     <button id="storeMaintenanceEditBtn" class="btnSecondary" type="button">Edit Selected Store</button>

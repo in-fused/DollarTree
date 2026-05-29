@@ -1228,7 +1228,7 @@ const dataLayer = {
         return { data: null, error: new Error("Store was not found in this project.") };
       }
       if (existing.data.duplicateCount > 0) {
-        return { data: null, error: new Error("Duplicate store rows exist for this Store ID. Resolve duplicates before editing metadata.") };
+        return { data: null, error: new Error(`Action blocked: duplicate store rows exist for Store ${normalizedStoreId}. Correct the source data so exactly one store row exists for this project and Store ID before editing metadata.`) };
       }
 
       const postalResult = await this.detectStorePostalColumn();
@@ -1330,7 +1330,28 @@ const dataLayer = {
       if (statusRowsResult?.error) return { data: null, error: statusRowsResult.error };
       const statusRows = Array.isArray(statusRowsResult.data) ? statusRowsResult.data : [];
       if (statusRows.length > 1) {
-        return { data: null, error: new Error("Duplicate status rows exist for this Store ID. Resolve duplicates before seeding baseline status.") };
+        return { data: null, error: new Error(`Action blocked: duplicate status rows exist for Store ${normalizedStoreId}. Correct store_status so exactly one status row exists for this project and Store ID before seeding baseline status.`) };
+      }
+
+      if (statusRows.length === 1) {
+        const existingStatus = typeof getStatusStateFromRow === "function"
+          ? getStatusStateFromRow(statusRows[0])
+          : {
+              status_code: normalizeStatusCode(statusRows[0]?.status_code || deriveLegacyStatusCode(statusRows[0]?.completed === true, statusRows[0]?.closed === true)),
+              completed: statusRows[0]?.completed === true,
+              closed: statusRows[0]?.closed === true
+            };
+
+        return {
+          data: {
+            store_id: normalizedStoreId,
+            status_code: existingStatus.status_code,
+            completed: existingStatus.completed === true,
+            closed: existingStatus.closed === true,
+            alreadyExisted: true
+          },
+          error: null
+        };
       }
 
       const result = await this.withSupabaseTimeout(
@@ -1634,7 +1655,19 @@ const dataLayer = {
       return { data: null, error: new Error("Project ID and Store ID are required.") };
     }
 
-    return await this.withSupabaseTimeout(
+    const existing = await this.findStoreByProjectAndStoreId(normalizedProjectId, normalizedStoreId);
+    if (existing.error) return { data: null, error: existing.error };
+    if (!existing.data?.store) {
+      return { data: null, error: new Error(`Store ${normalizedStoreId} was not found in this project.`) };
+    }
+    if (existing.data.duplicateCount > 0) {
+      return {
+        data: null,
+        error: new Error(`Action blocked: duplicate store rows exist for Store ${normalizedStoreId}. Correct the source data so exactly one store row exists for this project and Store ID before lifecycle changes.`)
+      };
+    }
+
+    const result = await this.withSupabaseTimeout(
       supabaseClient
         .from("stores")
         .update({
@@ -1642,10 +1675,20 @@ const dataLayer = {
           removed_at: isRemoved === true ? new Date().toISOString() : null
         })
         .eq("project_id", normalizedProjectId)
-        .eq("store_id", normalizedStoreId),
+        .eq("store_id", normalizedStoreId)
+        .select("project_id,store_id,is_removed,removed_at")
+        .limit(1),
       12000,
       isRemoved === true ? `Removing store ${normalizedStoreId}` : `Reactivating store ${normalizedStoreId}`
     );
+
+    if (result?.error) return { data: null, error: result.error };
+    const updated = Array.isArray(result.data) ? result.data[0] : result.data;
+    if (!updated) {
+      return { data: null, error: new Error(`Store ${normalizedStoreId} was not updated. Confirm exactly one matching store row exists.`) };
+    }
+
+    return { data: updated, error: null };
   },
 
   async loadStoreStatus(projectId) {
@@ -1827,6 +1870,30 @@ const dataLayer = {
     delete updatePayload.project_id;
     delete updatePayload.store_id;
 
+    const existingRowsResult = await supabaseClient
+      .from("store_status")
+      .select("project_id,store_id")
+      .eq("project_id", scopedProjectId)
+      .eq("store_id", scopedStoreId);
+
+    if (existingRowsResult.error) return existingRowsResult;
+
+    const existingRows = Array.isArray(existingRowsResult.data) ? existingRowsResult.data : [];
+    if (existingRows.length > 1) {
+      return {
+        data: null,
+        error: new Error(`Action blocked: duplicate status rows exist for Store ${scopedStoreId}. Correct store_status so exactly one status row exists for this project and Store ID before updating status.`)
+      };
+    }
+
+    if (existingRows.length === 0) {
+      return await supabaseClient
+        .from("store_status")
+        .insert(payload)
+        .select("project_id,store_id")
+        .limit(1);
+    }
+
     const updateResult = await supabaseClient
       .from("store_status")
       .update(updatePayload)
@@ -1835,14 +1902,7 @@ const dataLayer = {
       .select("project_id,store_id")
       .limit(1);
 
-    if (updateResult.error) return updateResult;
-    if (Array.isArray(updateResult.data) && updateResult.data.length > 0) return updateResult;
-
-    return await supabaseClient
-      .from("store_status")
-      .insert(payload)
-      .select("project_id,store_id")
-      .limit(1);
+    return updateResult;
   },
 
   async updateStoreStatus(projectId, storeId, completed, closed, statusCode = null, statusReason = null) {

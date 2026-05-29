@@ -385,51 +385,30 @@ function openStoreModal(storeId) {
     lifecycleControls.removeBtn.onclick = async () => {
       if (!canManageStoreLifecycle()) return;
 
-      const { error } = await dataLayer.updateStoreLifecycle(currentProjectId, normalizedStoreId, true);
-      if (error) {
-        console.error(error);
-        alert(error.message || "Removing store failed.");
+      const result = await performStoreLifecycleChange(normalizedStoreId, true, {
+        store,
+        focus: showRemovedStores === true
+      });
+      if (result.error) {
+        console.error(result.error);
+        alert(result.error.message || "Removing store failed.");
         return;
       }
 
-      const match = storeData.find(item => String(item.store_id) === normalizedStoreId);
-      if (match) {
-        match.is_removed = true;
-        match.removed_at = new Date().toISOString();
-      }
-
-      touchDataRefresh();
-
-      if (dataLayer?.createManualStoreActivityEvent) {
-        const activityResult = await dataLayer.createManualStoreActivityEvent(currentProjectId, normalizedStoreId, "store-removed", {
-          full_address: store?.full_address || ""
-        });
-        if (activityResult?.error) {
-          console.warn("Store remove activity failed:", activityResult.error);
-        }
-      }
-
-      prependActivity({
-        type: "store-removed",
-        project_id: currentProjectId,
-        store_id: normalizedStoreId,
-        timestamp: new Date().toISOString(),
-        title: `Store ${normalizedStoreId} removed from project scope`,
-        detail: store?.full_address || "Store removed from active project scope."
-      });
-
-      updateStoreLifecycleControls(normalizedStoreId);
-      updateProjectSourceTag();
-      handleFilterChange();
-      updateHeaderDashboard();
-      updateScopeSummary();
-      updateActivityList();
-      updateIntelRail();
-      updateSelectedStorePanel(normalizedStoreId);
-
       if (showRemovedStores !== true) {
         modal.classList.add("hidden");
+        currentModalStoreId = null;
+        clearPhotoUI();
+        return;
       }
+
+      currentModalStoreId = normalizedStoreId;
+      updateStoreLifecycleControls(normalizedStoreId);
+      updateSelectedStorePanel(normalizedStoreId);
+      loadNotes(normalizedStoreId);
+      loadPhotos(normalizedStoreId);
+      updateWriteAccessUI();
+      updateRouteModeUI();
     };
   }
 
@@ -437,47 +416,23 @@ function openStoreModal(storeId) {
     lifecycleControls.restoreBtn.onclick = async () => {
       if (!canManageStoreLifecycle()) return;
 
-      const { error } = await dataLayer.updateStoreLifecycle(currentProjectId, normalizedStoreId, false);
-      if (error) {
-        console.error(error);
-        alert(error.message || "Restoring store failed.");
+      const result = await performStoreLifecycleChange(normalizedStoreId, false, {
+        store,
+        focus: true
+      });
+      if (result.error) {
+        console.error(result.error);
+        alert(result.error.message || "Restoring store failed.");
         return;
       }
 
-      const match = storeData.find(item => String(item.store_id) === normalizedStoreId);
-      if (match) {
-        match.is_removed = false;
-        match.removed_at = null;
-      }
-
-      touchDataRefresh();
-
-      if (dataLayer?.createManualStoreActivityEvent) {
-        const activityResult = await dataLayer.createManualStoreActivityEvent(currentProjectId, normalizedStoreId, "store-reactivated", {
-          full_address: store?.full_address || ""
-        });
-        if (activityResult?.error) {
-          console.warn("Store reactivate activity failed:", activityResult.error);
-        }
-      }
-
-      prependActivity({
-        type: "store-reactivated",
-        project_id: currentProjectId,
-        store_id: normalizedStoreId,
-        timestamp: new Date().toISOString(),
-        title: `Store ${normalizedStoreId} reactivated`,
-        detail: store?.full_address || "Store returned to active project scope."
-      });
-
+      currentModalStoreId = normalizedStoreId;
       updateStoreLifecycleControls(normalizedStoreId);
-      updateProjectSourceTag();
-      handleFilterChange();
-      updateHeaderDashboard();
-      updateScopeSummary();
-      updateActivityList();
-      updateIntelRail();
       updateSelectedStorePanel(normalizedStoreId);
+      loadNotes(normalizedStoreId);
+      loadPhotos(normalizedStoreId);
+      updateWriteAccessUI();
+      updateRouteModeUI();
     };
   }
 

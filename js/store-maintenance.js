@@ -3,6 +3,7 @@
 const STORE_MAINTENANCE_DUPLICATE_MESSAGE = "Store already exists in this project. No duplicate was created.";
 const STORE_MAINTENANCE_GEOCODE_FAILURE_MESSAGE = "Could not geocode this address. Check address/city/state/ZIP and try again.";
 const STORE_MAINTENANCE_ADD_SUCCESS_MESSAGE = "Store added and plotted successfully.";
+const STORE_MAINTENANCE_SELECTOR_LIMIT = 10;
 
 let storeMaintenanceMode = "add";
 let storeMaintenanceBusy = false;
@@ -10,6 +11,11 @@ let storeMaintenanceOriginalAddressKey = "";
 
 function getStoreMaintenanceEl(id) {
   return document.getElementById(id);
+}
+
+function getDuplicateStoreRowsAdminMessage(storeId, actionLabel = "this action") {
+  const normalizedStoreId = String(storeId || "").trim() || "this Store ID";
+  return `Action blocked: duplicate store rows exist for Store ${normalizedStoreId}. Correct the source data so exactly one store row exists for this project and Store ID before ${actionLabel}.`;
 }
 
 function getStoreMaintenanceSelectedStore() {
@@ -21,6 +27,157 @@ function getStoreMaintenanceSelectedStore() {
   }
 
   return (storeData || []).find(store => String(store.store_id) === selectedStoreId) || null;
+}
+
+function getStoreMaintenanceAllStores() {
+  const source = Array.isArray(storeData) ? storeData : [];
+  return source
+    .filter(store => String(store?.store_id || "").trim())
+    .slice()
+    .sort((a, b) => String(a.store_id || "").localeCompare(String(b.store_id || ""), undefined, { numeric: true }));
+}
+
+function getStoreMaintenanceStoreSearchText(store) {
+  return [
+    store?.store_id,
+    store?.store_name,
+    store?.customer_id,
+    store?.full_address,
+    store?.city,
+    store?.state,
+    store?.postal_code,
+    store?.region,
+    store?.territory
+  ]
+    .map(value => String(value || "").trim().toLowerCase())
+    .filter(Boolean)
+    .join(" ");
+}
+
+function getStoreMaintenanceSearchMatches(query) {
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+  const stores = getStoreMaintenanceAllStores();
+  if (!normalizedQuery) return [];
+
+  const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+  return stores
+    .map(store => {
+      const storeId = String(store.store_id || "").trim().toLowerCase();
+      const searchText = getStoreMaintenanceStoreSearchText(store);
+      const allTermsMatch = terms.every(term => searchText.includes(term));
+      if (!allTermsMatch) return null;
+
+      let score = 0;
+      if (storeId === normalizedQuery) score += 100;
+      else if (storeId.startsWith(normalizedQuery)) score += 60;
+      else if (storeId.includes(normalizedQuery)) score += 30;
+      if (String(store.store_name || "").trim().toLowerCase().includes(normalizedQuery)) score += 16;
+      if (String(store.city || "").trim().toLowerCase().includes(normalizedQuery)) score += 10;
+      if (String(store.full_address || "").trim().toLowerCase().includes(normalizedQuery)) score += 8;
+
+      return { store, score };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score || String(a.store.store_id).localeCompare(String(b.store.store_id), undefined, { numeric: true }))
+    .slice(0, STORE_MAINTENANCE_SELECTOR_LIMIT)
+    .map(entry => entry.store);
+}
+
+function createStoreMaintenanceSearchEmpty(message) {
+  const empty = document.createElement("div");
+  empty.className = "storeMaintenanceSearchEmpty";
+  empty.textContent = message;
+  return empty;
+}
+
+function createStoreMaintenanceSearchResultButton(store) {
+  const storeId = String(store?.store_id || "").trim();
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "storeMaintenanceResultBtn";
+  button.dataset.storeId = storeId;
+  button.setAttribute("role", "option");
+  button.setAttribute("aria-selected", String(currentSelectedStoreId || "") === storeId ? "true" : "false");
+  button.classList.toggle("is-selected", String(currentSelectedStoreId || "") === storeId);
+
+  const top = document.createElement("div");
+  top.className = "storeMaintenanceResultTop";
+
+  const title = document.createElement("div");
+  title.className = "storeMaintenanceResultTitle";
+  title.textContent = [storeId ? `Store ${storeId}` : "", store?.store_name].filter(Boolean).join(" - ");
+
+  const badge = document.createElement("span");
+  badge.className = "storeMaintenanceResultBadge";
+  badge.textContent = store?.is_removed === true ? "Removed" : "Active";
+  badge.classList.toggle("removed", store?.is_removed === true);
+
+  const address = document.createElement("div");
+  address.className = "storeMaintenanceResultMeta";
+  address.textContent = store?.full_address || "No address on file";
+
+  const geo = document.createElement("div");
+  geo.className = "storeMaintenanceResultMeta";
+  geo.textContent = [store?.city, store?.state, store?.region ? `Region: ${store.region}` : ""].filter(Boolean).join(" | ") || "No city metadata";
+
+  top.appendChild(title);
+  top.appendChild(badge);
+  button.appendChild(top);
+  button.appendChild(address);
+  button.appendChild(geo);
+
+  button.addEventListener("click", () => selectStoreFromMaintenanceSearch(storeId));
+  return button;
+}
+
+function renderStoreMaintenanceSearchResults() {
+  const input = getStoreMaintenanceEl("storeMaintenanceSearchInput");
+  const resultsEl = getStoreMaintenanceEl("storeMaintenanceSearchResults");
+  if (!resultsEl) return;
+
+  const query = input?.value || "";
+  resultsEl.innerHTML = "";
+
+  if (!String(query || "").trim()) {
+    const selectedStore = getStoreMaintenanceSelectedStore();
+    resultsEl.appendChild(createStoreMaintenanceSearchEmpty(
+      selectedStore
+        ? "Search to switch stores, or use the selected store actions below."
+        : "Type to find a store in this project."
+    ));
+    return;
+  }
+
+  const matches = getStoreMaintenanceSearchMatches(query);
+  if (matches.length === 0) {
+    resultsEl.appendChild(createStoreMaintenanceSearchEmpty("No stores match that search."));
+    return;
+  }
+
+  matches.forEach(store => {
+    resultsEl.appendChild(createStoreMaintenanceSearchResultButton(store));
+  });
+}
+
+function selectStoreFromMaintenanceSearch(storeId) {
+  const normalizedStoreId = String(storeId || "").trim();
+  const store = typeof getStoreById === "function"
+    ? getStoreById(normalizedStoreId, { includeRemoved: true })
+    : (storeData || []).find(item => String(item.store_id) === normalizedStoreId);
+
+  if (!store) {
+    setStoreMaintenanceMessage(`Store ${normalizedStoreId || ""} was not found in the current project.`, "error");
+    return;
+  }
+
+  currentSelectedStoreId = String(store.store_id);
+  const input = getStoreMaintenanceEl("storeMaintenanceSearchInput");
+  if (input) input.value = String(store.store_id);
+
+  flyToMaintenanceStore(store);
+  renderStoreMaintenanceSearchResults();
+  updateStoreMaintenanceSelectionState();
+  setStoreMaintenanceMessage(`Selected Store ${store.store_id}.`, "success");
 }
 
 function getStoreMaintenanceAddressKey(payload = {}) {
@@ -52,11 +209,14 @@ function setStoreMaintenanceBusy(isBusy, label = "") {
   const removeBtn = getStoreMaintenanceEl("storeMaintenanceRemoveBtn");
   const reactivateBtn = getStoreMaintenanceEl("storeMaintenanceReactivateBtn");
   const cancelBtn = getStoreMaintenanceEl("storeMaintenanceCancelBtn");
+  const searchInput = getStoreMaintenanceEl("storeMaintenanceSearchInput");
+  const searchClearBtn = getStoreMaintenanceEl("storeMaintenanceSearchClearBtn");
   const form = getStoreMaintenanceEl("storeMaintenanceForm");
 
-  [addBtn, editBtn, removeBtn, reactivateBtn, cancelBtn].forEach(button => {
+  [addBtn, editBtn, removeBtn, reactivateBtn, cancelBtn, searchClearBtn].forEach(button => {
     if (button) button.disabled = storeMaintenanceBusy;
   });
+  if (searchInput) searchInput.disabled = storeMaintenanceBusy;
 
   if (submitBtn) {
     submitBtn.disabled = storeMaintenanceBusy;
@@ -160,13 +320,16 @@ function updateStoreMaintenanceSelectionState() {
   const editBtn = getStoreMaintenanceEl("storeMaintenanceEditBtn");
   const removeBtn = getStoreMaintenanceEl("storeMaintenanceRemoveBtn");
   const reactivateBtn = getStoreMaintenanceEl("storeMaintenanceReactivateBtn");
+  const searchInput = getStoreMaintenanceEl("storeMaintenanceSearchInput");
+  const searchClearBtn = getStoreMaintenanceEl("storeMaintenanceSearchClearBtn");
   const canManage = isSignedIn() && canManageProjectLifecycle() && !!String(currentProjectId || "").trim();
 
   if (section) section.classList.toggle("hidden", !canManage);
   if (!canManage) {
-    [addBtn, editBtn, removeBtn, reactivateBtn].forEach(button => {
+    [addBtn, editBtn, removeBtn, reactivateBtn, searchClearBtn].forEach(button => {
       if (button) button.disabled = true;
     });
+    if (searchInput) searchInput.disabled = true;
     return;
   }
 
@@ -184,6 +347,9 @@ function updateStoreMaintenanceSelectionState() {
   if (editBtn) editBtn.disabled = storeMaintenanceBusy || !selectedStore;
   if (removeBtn) removeBtn.disabled = storeMaintenanceBusy || !selectedStore || isRemoved;
   if (reactivateBtn) reactivateBtn.disabled = storeMaintenanceBusy || !selectedStore || !isRemoved;
+  if (searchInput) searchInput.disabled = storeMaintenanceBusy;
+  if (searchClearBtn) searchClearBtn.disabled = storeMaintenanceBusy;
+  renderStoreMaintenanceSearchResults();
 }
 
 function flyToMaintenanceStore(store) {
@@ -241,6 +407,10 @@ async function handleStoreMaintenanceAdd(rawPayload) {
     setStoreMaintenanceMessage(duplicateCheck.error.message || "Duplicate check failed.", "error");
     return;
   }
+  if (duplicateCheck.data?.duplicateCount > 0) {
+    setStoreMaintenanceMessage(getDuplicateStoreRowsAdminMessage(payload.store_id, "adding a store with this ID"), "error");
+    return;
+  }
   if (duplicateCheck.data?.store) {
     setStoreMaintenanceMessage(STORE_MAINTENANCE_DUPLICATE_MESSAGE, "error");
     flyToMaintenanceStore(duplicateCheck.data.store);
@@ -260,7 +430,12 @@ async function handleStoreMaintenanceAdd(rawPayload) {
   });
 
   if (addResult.duplicate === true || addResult.data?.duplicate === true) {
-    setStoreMaintenanceMessage(STORE_MAINTENANCE_DUPLICATE_MESSAGE, "error");
+    setStoreMaintenanceMessage(
+      addResult.data?.store
+        ? STORE_MAINTENANCE_DUPLICATE_MESSAGE
+        : getDuplicateStoreRowsAdminMessage(payload.store_id, "adding a store with this ID"),
+      "error"
+    );
     if (addResult.data?.store) flyToMaintenanceStore(addResult.data.store);
     return;
   }
@@ -379,11 +554,54 @@ async function guardSelectedStoreMaintenanceWrite(actionLabel) {
     return null;
   }
   if (existing.data?.duplicateCount > 0) {
-    setStoreMaintenanceMessage("Duplicate store rows exist for this Store ID. Resolve duplicates before lifecycle changes.", "error");
+    setStoreMaintenanceMessage(getDuplicateStoreRowsAdminMessage(selectedStoreId, actionLabel), "error");
     return null;
   }
 
   return selectedStore;
+}
+
+async function performStoreLifecycleChange(storeId, isRemoved, options = {}) {
+  const normalizedStoreId = String(storeId || "").trim();
+  if (!normalizedStoreId) {
+    return { data: null, error: new Error("Store ID is required for lifecycle changes.") };
+  }
+
+  const store = options.store || (
+    typeof getStoreById === "function"
+      ? getStoreById(normalizedStoreId, { includeRemoved: true })
+      : (storeData || []).find(item => String(item.store_id) === normalizedStoreId)
+  );
+
+  const lifecycleResult = await dataLayer.updateStoreLifecycle(currentProjectId, normalizedStoreId, isRemoved);
+  if (lifecycleResult.error) {
+    return { data: null, error: lifecycleResult.error };
+  }
+
+  const activityResult = await dataLayer.createManualStoreActivityEvent(
+    currentProjectId,
+    normalizedStoreId,
+    isRemoved ? "store-removed" : "store-reactivated",
+    {
+      full_address: store?.full_address || ""
+    }
+  );
+  if (activityResult.error) {
+    console.warn("Store lifecycle activity failed:", activityResult.error);
+  }
+
+  const shouldFocus = Object.prototype.hasOwnProperty.call(options, "focus")
+    ? options.focus !== false
+    : (!isRemoved || showRemovedStores === true);
+  const refreshedStore = await refreshProjectAfterStoreMaintenance(normalizedStoreId, { focus: shouldFocus });
+
+  return {
+    data: {
+      store: refreshedStore || store || null,
+      activityRecorded: !activityResult.error
+    },
+    error: null
+  };
 }
 
 async function handleStoreMaintenanceLifecycle(isRemoved) {
@@ -407,27 +625,17 @@ async function handleStoreMaintenanceLifecycle(isRemoved) {
   setStoreMaintenanceBusy(true, isRemoved ? "Removing..." : "Reactivating...");
 
   try {
-    const lifecycleResult = await dataLayer.updateStoreLifecycle(currentProjectId, selectedStoreId, isRemoved);
+    const shouldFocus = !isRemoved || showRemovedStores === true;
+    const lifecycleResult = await performStoreLifecycleChange(selectedStoreId, isRemoved, {
+      store: selectedStore,
+      focus: shouldFocus
+    });
     if (lifecycleResult.error) {
       setStoreMaintenanceMessage(lifecycleResult.error.message || (isRemoved ? "Unable to remove store." : "Unable to reactivate store."), "error");
       return;
     }
 
-    const activityResult = await dataLayer.createManualStoreActivityEvent(
-      currentProjectId,
-      selectedStoreId,
-      isRemoved ? "store-removed" : "store-reactivated",
-      {
-        full_address: selectedStore.full_address || ""
-      }
-    );
-    if (activityResult.error) {
-      console.warn("Store lifecycle activity failed:", activityResult.error);
-    }
-
     closeStoreMaintenanceForm();
-    const shouldFocus = !isRemoved || showRemovedStores === true;
-    await refreshProjectAfterStoreMaintenance(selectedStoreId, { focus: shouldFocus });
     setStoreMaintenanceMessage(isRemoved ? "Store removed from active scope." : "Store reactivated successfully.", "success");
   } finally {
     setStoreMaintenanceBusy(false);
@@ -441,6 +649,8 @@ function bindStoreMaintenanceUI() {
   const removeBtn = getStoreMaintenanceEl("storeMaintenanceRemoveBtn");
   const reactivateBtn = getStoreMaintenanceEl("storeMaintenanceReactivateBtn");
   const cancelBtn = getStoreMaintenanceEl("storeMaintenanceCancelBtn");
+  const searchInput = getStoreMaintenanceEl("storeMaintenanceSearchInput");
+  const searchClearBtn = getStoreMaintenanceEl("storeMaintenanceSearchClearBtn");
 
   if (form && !form.dataset.bound) {
     form.addEventListener("submit", handleStoreMaintenanceSubmit);
@@ -477,6 +687,27 @@ function bindStoreMaintenanceUI() {
   if (cancelBtn && !cancelBtn.dataset.bound) {
     cancelBtn.addEventListener("click", closeStoreMaintenanceForm);
     cancelBtn.dataset.bound = "true";
+  }
+
+  if (searchInput && !searchInput.dataset.bound) {
+    searchInput.addEventListener("input", renderStoreMaintenanceSearchResults);
+    searchInput.addEventListener("keydown", event => {
+      if (event.key !== "Enter") return;
+      const firstResult = getStoreMaintenanceEl("storeMaintenanceSearchResults")?.querySelector(".storeMaintenanceResultBtn");
+      if (!firstResult) return;
+      event.preventDefault();
+      selectStoreFromMaintenanceSearch(firstResult.dataset.storeId || "");
+    });
+    searchInput.dataset.bound = "true";
+  }
+
+  if (searchClearBtn && !searchClearBtn.dataset.bound) {
+    searchClearBtn.addEventListener("click", () => {
+      if (searchInput) searchInput.value = "";
+      renderStoreMaintenanceSearchResults();
+      searchInput?.focus();
+    });
+    searchClearBtn.dataset.bound = "true";
   }
 
   updateStoreMaintenanceSelectionState();
