@@ -553,7 +553,7 @@ function updateSelectedStorePanel(storeId) {
   currentSelectedStoreId = String(storeId);
 
   const store = typeof getStoreById === "function"
-    ? getStoreById(storeId, { includeRemoved: showRemovedStores === true })
+    ? getStoreById(storeId, { includeRemoved: true })
     : storeData.find(item => String(item.store_id) === String(storeId));
 
   if (!store) {
