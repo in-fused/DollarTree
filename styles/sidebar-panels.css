@@ -243,6 +243,113 @@
   color: rgba(225, 238, 255, 0.82);
 }
 
+.storeMaintenanceSelection {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.045);
+  color: rgba(255,255,255,0.88);
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.storeMaintenanceActionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.storeMaintenanceActionGrid button,
+.storeMaintenanceSubmitRow button,
+.storeMaintenanceFormHeader button,
+.healthRefreshBtn {
+  margin-top: 0;
+}
+
+.storeMaintenanceFormPanel {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(var(--project-accent-rgb), 0.28);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(var(--project-accent-rgb), 0.1), rgba(255,255,255,0.035)),
+    rgba(255,255,255,0.035);
+}
+
+.storeMaintenanceFormHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.storeMaintenanceFormTitle {
+  min-width: 0;
+  font-weight: 800;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.storeMaintenanceFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.storeMaintenanceFormGrid label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: rgba(255,255,255,0.72);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.storeMaintenanceFormGrid input {
+  margin-top: 0;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.storeMaintenanceWide {
+  grid-column: 1 / -1;
+}
+
+.storeMaintenanceCheckbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: rgba(255,255,255,0.86);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.storeMaintenanceCheckbox input {
+  width: auto;
+  margin: 0;
+}
+
+.storeMaintenanceSubmitRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.storeMaintenanceMessageSuccess {
+  color: #8bd3a8;
+}
+
+.storeMaintenanceMessageError,
+.adminPanelMessageError {
+  color: #ffd1d1;
+}
+
 .projectShareLinkActionRow {
   display: flex;
   gap: 8px;
@@ -769,6 +876,26 @@
     width: 100%;
   }
 
+  .storeMaintenanceActionGrid,
+  .storeMaintenanceFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .storeMaintenanceSubmitRow {
+    display: grid;
+  }
+
+  .storeMaintenanceFormHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .storeMaintenanceFormHeader button,
+  .storeMaintenanceActionGrid button,
+  .storeMaintenanceSubmitRow button {
+    width: 100%;
+  }
+
   .projectShareLinkActionRow {
     display: grid;
   }
@@ -1056,6 +1183,65 @@ button:disabled {
 
 .panelAdminHealth .scopeSummaryCard:nth-last-child(-n + 2) {
   grid-column: span 1;
+}
+
+.healthRefreshBtn {
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.09);
+  color: rgba(255,255,255,0.92);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.storeHealthSummaryMessage {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.88);
+}
+
+.is-store-health-clean .storeHealthSummaryMessage {
+  border-color: rgba(139,211,168,0.32);
+  background: rgba(31, 64, 48, 0.34);
+}
+
+.has-store-health-issues .storeHealthSummaryMessage {
+  border-color: rgba(255, 184, 77, 0.34);
+  background: rgba(91, 58, 18, 0.34);
+}
+
+.storeHealthIssueList {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.storeHealthIssueText {
+  display: grid;
+  gap: 3px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.78);
+}
+
+.storeHealthIssueText strong {
+  color: rgba(255,255,255,0.94);
+}
+
+.storeHealthDiagnosticsMeta {
+  margin-top: 10px;
 }
 
 .statusBadge,

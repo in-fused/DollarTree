@@ -80,12 +80,12 @@
                       <div id="adminPanelProjectName" class="adminPanelProjectName">Loading project…</div>
                     </div>
                   </div>
-                  <div id="adminPanelHelperText" class="adminPanelHelperText">Manage invites and roles for the current project.</div>
+                  <div id="adminPanelHelperText" class="adminPanelHelperText">Manage stores, invites, and roles for the current project.</div>
                 </div>
 
                 <div id="projectAdminInactiveState" class="adminInactiveState hidden" aria-live="polite">
                   <div class="adminInactiveStateTitle">Admin actions unavailable</div>
-                  <div id="projectAdminInactiveText" class="adminInactiveStateText">Select a manageable project to manage members and invites.</div>
+                  <div id="projectAdminInactiveText" class="adminInactiveStateText">Select a manageable project to manage stores, members, and invites.</div>
                 </div>
 
                 <div id="projectAdminActions" class="adminPanelActions">
@@ -103,6 +103,77 @@
                   <button id="projectInviteSendBtn" class="btnComplete" type="button">Send Invite</button>
                 </div>
                 <div id="projectAdminMessage" class="projectSourceTag adminPanelMessage"></div>
+
+                <section id="storeMaintenanceSection" class="adminPanelSection hidden">
+                  <div class="panelHeaderRow adminPanelSectionHeader">
+                    <h3 style="font-size:14px;">Store Maintenance</h3>
+                    <div class="panelHeaderTag">Admin</div>
+                  </div>
+                  <div class="adminPanelSectionHint">Safely add, edit, remove, reactivate, and audit stores for the current project.</div>
+                  <div id="storeMaintenanceSelection" class="storeMaintenanceSelection" aria-live="polite">No store selected.</div>
+                  <div class="storeMaintenanceActionGrid">
+                    <button id="storeMaintenanceAddBtn" class="btnComplete" type="button">Add Store</button>
+                    <button id="storeMaintenanceEditBtn" class="btnSecondary" type="button">Edit Selected Store</button>
+                    <button id="storeMaintenanceRemoveBtn" class="btnClosed" type="button">Remove Selected Store</button>
+                    <button id="storeMaintenanceReactivateBtn" class="btnComplete" type="button">Reactivate Selected Store</button>
+                  </div>
+
+                  <div id="storeMaintenanceFormPanel" class="storeMaintenanceFormPanel hidden">
+                    <form id="storeMaintenanceForm">
+                      <div class="storeMaintenanceFormHeader">
+                        <div id="storeMaintenanceFormTitle" class="storeMaintenanceFormTitle">Add Store</div>
+                        <button id="storeMaintenanceCancelBtn" class="btnSecondary" type="button">Cancel</button>
+                      </div>
+
+                      <div class="storeMaintenanceFormGrid">
+                        <label>Store ID
+                          <input id="storeMaintenanceStoreId" name="store_id" type="text" autocomplete="off" required />
+                        </label>
+                        <label>Store Name
+                          <input id="storeMaintenanceStoreName" name="store_name" type="text" autocomplete="off" />
+                        </label>
+                        <label class="storeMaintenanceWide">Address / Full Address
+                          <input id="storeMaintenanceFullAddress" name="full_address" type="text" autocomplete="street-address" required />
+                        </label>
+                        <label>City
+                          <input id="storeMaintenanceCity" name="city" type="text" autocomplete="address-level2" required />
+                        </label>
+                        <label>State
+                          <input id="storeMaintenanceState" name="state" type="text" autocomplete="address-level1" required />
+                        </label>
+                        <label>ZIP / Postal Code
+                          <input id="storeMaintenancePostalCode" name="postal_code" type="text" autocomplete="postal-code" />
+                        </label>
+                        <label>Region
+                          <input id="storeMaintenanceRegion" name="region" type="text" autocomplete="off" />
+                        </label>
+                        <label>Territory
+                          <input id="storeMaintenanceTerritory" name="territory" type="text" autocomplete="off" />
+                        </label>
+                        <label>District
+                          <input id="storeMaintenanceDistrict" name="district" type="text" autocomplete="off" />
+                        </label>
+                        <label>Division
+                          <input id="storeMaintenanceDivision" name="division" type="text" autocomplete="off" />
+                        </label>
+                        <label>Market
+                          <input id="storeMaintenanceMarket" name="market" type="text" autocomplete="off" />
+                        </label>
+                      </div>
+
+                      <label id="storeMaintenanceReGeocodeWrap" class="storeMaintenanceCheckbox">
+                        <input id="storeMaintenanceReGeocode" type="checkbox" checked />
+                        <span>Re-Geocode address changes</span>
+                      </label>
+
+                      <div class="storeMaintenanceSubmitRow">
+                        <button id="storeMaintenanceSubmitBtn" class="btnComplete" type="submit">Save Store</button>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div id="storeMaintenanceMessage" class="projectSourceTag adminPanelMessage" aria-live="polite"></div>
+                </section>
 
                 <section id="projectShareLinkSection" class="adminPanelSection">
                   <div class="panelHeaderRow adminPanelSectionHeader">
@@ -477,42 +548,48 @@
 
       <div id="adminDataHealthPanel" class="sidebar-section hidden" data-section="admin-data-health">
         <div class="section-header">
-          <span>Admin Data Health</span>
-          <span class="chevron">▼</span>
+          <span>Store Data Health</span>
+          <div class="section-header-actions">
+            <button id="storeHealthRefreshBtn" class="healthRefreshBtn" type="button">Refresh Diagnostics</button>
+            <span class="chevron">▼</span>
+          </div>
         </div>
         <div class="section-content">
           <div class="panel panelAdminHealth">
+            <div id="storeHealthSummaryMessage" class="storeHealthSummaryMessage">Project store data is clean.</div>
             <div class="scopeSummaryGrid adminHealthGrid">
               <div class="scopeSummaryCard">
-                <div class="scopeSummaryLabel">Missing Region</div>
-                <div id="healthMissingRegion" class="scopeSummaryValue">0</div>
-              </div>
-
-              <div class="scopeSummaryCard">
-                <div class="scopeSummaryLabel">Missing Territory</div>
-                <div id="healthMissingTerritory" class="scopeSummaryValue">0</div>
-              </div>
-
-              <div class="scopeSummaryCard">
-                <div class="scopeSummaryLabel">Missing State</div>
-                <div id="healthMissingState" class="scopeSummaryValue">0</div>
-              </div>
-
-              <div class="scopeSummaryCard">
-                <div class="scopeSummaryLabel">Missing Coordinates</div>
-                <div id="healthMissingCoords" class="scopeSummaryValue">0</div>
-              </div>
-
-              <div class="scopeSummaryCard">
-                <div class="scopeSummaryLabel">Missing Status</div>
+                <div class="scopeSummaryLabel">Stores Missing Status</div>
                 <div id="healthMissingStatus" class="scopeSummaryValue">0</div>
               </div>
 
               <div class="scopeSummaryCard">
-                <div class="scopeSummaryLabel">Plotted Issue Stores</div>
-                <div id="healthPlottedIssues" class="scopeSummaryValue">0</div>
+                <div class="scopeSummaryLabel">Orphan Status Rows</div>
+                <div id="healthOrphanStatus" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Duplicate Stores</div>
+                <div id="healthDuplicateStores" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Duplicate Status Rows</div>
+                <div id="healthDuplicateStatuses" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Invalid Coordinates</div>
+                <div id="healthInvalidCoordinates" class="scopeSummaryValue">0</div>
+              </div>
+
+              <div class="scopeSummaryCard">
+                <div class="scopeSummaryLabel">Removed Stores</div>
+                <div id="healthRemovedStores" class="scopeSummaryValue">0</div>
               </div>
             </div>
+            <div id="storeHealthIssueList" class="storeHealthIssueList"></div>
+            <div id="storeHealthDiagnosticsMeta" class="projectSourceTag storeHealthDiagnosticsMeta">Diagnostics use the current project scope.</div>
           </div>
         </div>
       </div>
@@ -1010,6 +1087,7 @@
 <script src="js/dashboard.js"></script>
 <script src="js/filters.js"></script>
 <script src="js/projects.js"></script>
+<script src="js/store-maintenance.js"></script>
 <script src="js/map-ui.js"></script>
 <script src="js/photo-library.js"></script>
 <script src="js/modal-store.js"></script>

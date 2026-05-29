@@ -1041,11 +1041,11 @@ function updateAdminPanelHeaderContext({ canManage = false, isRefreshing = false
     } else if (canManage && brandingUnavailable) {
       helperTextEl.textContent = "Branding fields are unavailable in this backend schema. Invite and member actions remain active.";
     } else if (canManage) {
-      helperTextEl.textContent = "Manage invites and roles for this current project.";
+      helperTextEl.textContent = "Manage stores, invites, roles, and project settings for this current project.";
     } else if (!hasProject) {
       helperTextEl.textContent = "No manageable project selected. Choose a project to continue.";
     } else {
-      helperTextEl.textContent = "You can view this project, but admin role is required for access management.";
+      helperTextEl.textContent = "You can view this project, but admin role is required for store maintenance and access management.";
     }
   }
 
@@ -1303,6 +1303,12 @@ async function refreshProjectAdminPanel() {
   actions?.classList.toggle("hidden", !canManage);
   inactiveState?.classList.toggle("hidden", canManage);
   shareLinkSection?.classList.toggle("hidden", !canManage);
+  if (typeof refreshStoreMaintenanceAdminUI === "function") {
+    refreshStoreMaintenanceAdminUI();
+  }
+  if (typeof updateDataHealthPanel === "function") {
+    updateDataHealthPanel();
+  }
   updateAdminPanelHeaderContext({ canManage, isRefreshing: false, brandingUnavailable });
   resetProjectShareLinkResultIfStale();
   const hasShareLinkUrl = !!String(shareLinkUrlInput?.value || "").trim();
@@ -1332,7 +1338,7 @@ async function refreshProjectAdminPanel() {
   if (!canManage) {
     if (inactiveText) {
       if (!isSignedIn()) {
-        inactiveText.textContent = "Sign in and select a manageable project to manage members and invites.";
+        inactiveText.textContent = "Sign in and select a manageable project to manage stores, members, and invites.";
       } else if (!hasProject) {
         inactiveText.textContent = "No manageable project selected. Pick a project you can manage to access admin actions.";
       } else {
@@ -1583,6 +1589,10 @@ function bindProjectAdminUI() {
   const shareLinkCreateBtn = document.getElementById("projectShareLinkCreateBtn");
   const shareLinkCopyBtn = document.getElementById("projectShareLinkCopyBtn");
   const shareLinkUrlInput = document.getElementById("projectShareLinkUrl");
+
+  if (typeof bindStoreMaintenanceUI === "function") {
+    bindStoreMaintenanceUI();
+  }
 
   if (logoLibrarySelect && typeof window.refreshProjectLogoLibrarySelectFromManifest === "function") {
     window.refreshProjectLogoLibrarySelectFromManifest(logoLibrarySelect, brandLogoUrlInput);

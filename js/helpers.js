@@ -297,6 +297,7 @@ function normalizeStoreRecord(store) {
     lat: coordinates.lat,
     lng: coordinates.lng,
     full_address: String(store.full_address || "").trim(),
+    postal_code: String(store.postal_code || store.zip || "").trim(),
     region: String(store.region || "").trim(),
     territory: String(store.territory || "").trim(),
     state: String(store.state || "").trim(),
@@ -352,6 +353,50 @@ function mapActivityEventRow(row) {
       timestamp,
       title: `➕ Store ${storeId} added to project`,
       detail: payload.store_name || payload.customer_id || "Imported into project"
+    };
+  }
+
+  if (eventType === "store-added") {
+    return {
+      type: "store-added",
+      store_id: storeId,
+      project_id: String(row.project_id || ""),
+      timestamp,
+      title: `Store ${storeId} added to project`,
+      detail: appendActorToDetail(payload.full_address || payload.store_name || "Manual admin add", actorLabel)
+    };
+  }
+
+  if (eventType === "store-edited") {
+    return {
+      type: "store-edited",
+      store_id: storeId,
+      project_id: String(row.project_id || ""),
+      timestamp,
+      title: `Store ${storeId} metadata updated`,
+      detail: appendActorToDetail(payload.re_geocoded ? "Metadata updated and geocoded" : "Metadata updated", actorLabel)
+    };
+  }
+
+  if (eventType === "store-removed") {
+    return {
+      type: "store-removed",
+      store_id: storeId,
+      project_id: String(row.project_id || ""),
+      timestamp,
+      title: `Store ${storeId} removed from active scope`,
+      detail: appendActorToDetail(payload.full_address || "Store hidden from active project scope", actorLabel)
+    };
+  }
+
+  if (eventType === "store-reactivated") {
+    return {
+      type: "store-reactivated",
+      store_id: storeId,
+      project_id: String(row.project_id || ""),
+      timestamp,
+      title: `Store ${storeId} reactivated`,
+      detail: appendActorToDetail(payload.full_address || "Store returned to active project scope", actorLabel)
     };
   }
 

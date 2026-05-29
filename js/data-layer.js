@@ -3,6 +3,20 @@
 const dataLayer = {
   _projectBrandingColumnsAvailable: null,
   _devJsonFallbackFlagKey: "dt:enableDevJsonFallback",
+  _storePostalColumnName: undefined,
+  _storeMaintenanceTextFields: [
+    "store_name",
+    "customer_id",
+    "full_address",
+    "city",
+    "state",
+    "region",
+    "territory",
+    "district",
+    "division",
+    "market"
+  ],
+  _storePostalColumnCandidates: ["postal_code", "zip"],
 
   async getSession() {
     return await supabaseClient.auth.getSession();
@@ -796,6 +810,729 @@ const dataLayer = {
     });
   },
 
+  normalizeMaintenanceTextValue(value) {
+    return String(value ?? "").trim().replace(/\s+/g, " ");
+  },
+
+  normalizeStoreMaintenanceStoreId(value) {
+    return String(value ?? "").trim();
+  },
+
+  appendUniqueAddressParts(fullAddress, parts = []) {
+    const address = this.normalizeMaintenanceTextValue(fullAddress);
+    return (Array.isArray(parts) ? parts : [])
+      .map(value => this.normalizeMaintenanceTextValue(value))
+      .filter(Boolean)
+      .reduce((current, value) => {
+        if (!current) return value;
+        if (current.toLowerCase().includes(value.toLowerCase())) return current;
+        return `${current}, ${value}`;
+      }, address);
+  },
+
+  buildStoreMaintenanceAddress(input = {}) {
+    const fullAddress = this.normalizeMaintenanceTextValue(input.full_address || input.address || input.address_line_1);
+    const addressLine2 = this.normalizeMaintenanceTextValue(input.address_line_2 || input.address2);
+    const city = this.normalizeMaintenanceTextValue(input.city);
+    const state = this.normalizeMaintenanceTextValue(input.state).toUpperCase();
+    const postalCode = this.normalizeMaintenanceTextValue(input.postal_code || input.zip || input.postalCode);
+
+    const addressBase = [fullAddress, addressLine2].filter(Boolean).join(", ");
+    return this.appendUniqueAddressParts(addressBase, [city, state, postalCode]);
+  },
+
+  normalizeStoreMaintenancePayload(input = {}) {
+    try {
+      const storeId = this.normalizeStoreMaintenanceStoreId(input.store_id || input.storeId);
+      const city = this.normalizeMaintenanceTextValue(input.city);
+      const state = this.normalizeMaintenanceTextValue(input.state).toUpperCase();
+      const fullAddress = this.buildStoreMaintenanceAddress({
+        ...input,
+        city,
+        state
+      });
+
+      if (!storeId) {
+        return { data: null, error: new Error("Store ID is required.") };
+      }
+      if (!fullAddress) {
+        return { data: null, error: new Error("Address or full address is required.") };
+      }
+      if (!city) {
+        return { data: null, error: new Error("City is required.") };
+      }
+      if (!state) {
+        return { data: null, error: new Error("State is required.") };
+      }
+
+      const normalized = {
+        store_id: storeId,
+        store_name: this.normalizeMaintenanceTextValue(input.store_name || input.storeName),
+        customer_id: this.normalizeMaintenanceTextValue(input.customer_id || input.customerId),
+        full_address: fullAddress,
+        city,
+        state,
+        postal_code: this.normalizeMaintenanceTextValue(input.postal_code || input.zip || input.postalCode),
+        region: this.normalizeMaintenanceTextValue(input.region),
+        territory: this.normalizeMaintenanceTextValue(input.territory),
+        district: this.normalizeMaintenanceTextValue(input.district),
+        division: this.normalizeMaintenanceTextValue(input.division),
+        market: this.normalizeMaintenanceTextValue(input.market)
+      };
+
+      const coordinates = normalizeStoreCoordinatePair(input.lat, input.lng);
+      if (coordinates.lat !== null && coordinates.lng !== null) {
+        normalized.lat = coordinates.lat;
+        normalized.lng = coordinates.lng;
+      }
+
+      return { data: normalized, error: null };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error("Unable to normalize store maintenance payload.")
+      };
+    }
+  },
+
+  getMapboxAccessToken() {
+    if (typeof mapboxgl !== "undefined" && mapboxgl?.accessToken) {
+      return String(mapboxgl.accessToken || "").trim();
+    }
+    if (typeof window !== "undefined" && window?.MAPBOX_TOKEN) {
+      return String(window.MAPBOX_TOKEN || "").trim();
+    }
+    return "";
+  },
+
+  async geocodeStoreAddress(addressParts = {}, timeoutMs = 15000) {
+    const query = this.buildStoreMaintenanceAddress(addressParts);
+    if (!query) {
+      return { data: null, error: new Error("Address is required for geocoding.") };
+    }
+
+    const token = this.getMapboxAccessToken();
+    if (!token) {
+      return { data: null, error: new Error("Mapbox token is unavailable for geocoding.") };
+    }
+
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    let timeoutId = null;
+
+    try {
+      if (controller) {
+        timeoutId = setTimeout(() => controller.abort(), Math.max(1, Number(timeoutMs) || 15000));
+      }
+
+      const url = "https://api.mapbox.com/search/geocode/v6/forward?" + new URLSearchParams({
+        q: query,
+        access_token: token,
+        limit: "1",
+        autocomplete: "false",
+        country: "US",
+        permanent: "true"
+      }).toString();
+
+      const response = await fetch(url, {
+        method: "GET",
+        signal: controller?.signal
+      });
+
+      if (!response.ok) {
+        return { data: null, error: new Error(`Geocode failed with status ${response.status}.`) };
+      }
+
+      const json = await response.json();
+      const coords = json?.features?.[0]?.geometry?.coordinates;
+      const lng = Number(Array.isArray(coords) ? coords[0] : NaN);
+      const lat = Number(Array.isArray(coords) ? coords[1] : NaN);
+      const normalized = normalizeStoreCoordinatePair(lat, lng);
+
+      if (normalized.lat === null || normalized.lng === null) {
+        return { data: null, error: new Error("Geocode returned invalid coordinates.") };
+      }
+
+      return {
+        data: {
+          lat: normalized.lat,
+          lng: normalized.lng,
+          query
+        },
+        error: null
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error("Geocode request failed.")
+      };
+    } finally {
+      if (timeoutId !== null) clearTimeout(timeoutId);
+    }
+  },
+
+  async detectStorePostalColumn() {
+    if (this._storePostalColumnName !== undefined) {
+      return { data: this._storePostalColumnName, error: null };
+    }
+
+    for (const column of this._storePostalColumnCandidates) {
+      const result = await this.withSupabaseTimeout(
+        supabaseClient
+          .from("stores")
+          .select(column)
+          .limit(1),
+        8000,
+        `Checking stores.${column}`
+      );
+
+      if (!result?.error) {
+        this._storePostalColumnName = column;
+        return { data: column, error: null };
+      }
+
+      if (!this.isMissingColumnError(result.error, column)) {
+        console.warn(`Postal column probe for ${column} failed:`, result.error);
+      }
+    }
+
+    this._storePostalColumnName = null;
+    return { data: null, error: null };
+  },
+
+  buildStoreMaintenanceStorePayload(projectId, payload = {}, options = {}) {
+    const normalizedProjectId = String(projectId || "").trim();
+    const normalizedStoreId = this.normalizeStoreMaintenanceStoreId(payload.store_id);
+    const includeStoreId = options.includeStoreId !== false;
+    const includeCoordinates = options.includeCoordinates !== false;
+    const includeEmptyText = options.includeEmptyText === true;
+    const postalColumn = String(options.postalColumn || "").trim();
+
+    const storePayload = {};
+    if (normalizedProjectId) storePayload.project_id = normalizedProjectId;
+    if (includeStoreId && normalizedStoreId) storePayload.store_id = normalizedStoreId;
+
+    this._storeMaintenanceTextFields.forEach(field => {
+      if (!Object.prototype.hasOwnProperty.call(payload, field)) return;
+      const value = this.normalizeMaintenanceTextValue(payload[field]);
+      if (value || includeEmptyText) {
+        storePayload[field] = value;
+      }
+    });
+
+    if (postalColumn && Object.prototype.hasOwnProperty.call(payload, "postal_code")) {
+      const postalCode = this.normalizeMaintenanceTextValue(payload.postal_code);
+      if (postalCode || includeEmptyText) {
+        storePayload[postalColumn] = postalCode;
+      }
+    }
+
+    if (includeCoordinates && Object.prototype.hasOwnProperty.call(payload, "lat") && Object.prototype.hasOwnProperty.call(payload, "lng")) {
+      const coordinates = normalizeStoreCoordinatePair(payload.lat, payload.lng);
+      if (coordinates.lat === null || coordinates.lng === null) {
+        return { data: null, error: new Error("Invalid store coordinates.") };
+      }
+      storePayload.lat = coordinates.lat;
+      storePayload.lng = coordinates.lng;
+    }
+
+    return { data: storePayload, error: null };
+  },
+
+  isUniqueViolation(error) {
+    const code = String(error?.code || "").trim();
+    if (code === "23505") return true;
+
+    const haystack = [
+      error?.message,
+      error?.details,
+      error?.hint
+    ].filter(Boolean).join(" ").toLowerCase();
+
+    return haystack.includes("duplicate key") || haystack.includes("unique constraint");
+  },
+
+  async findStoreByProjectAndStoreId(projectId, storeId) {
+    try {
+      const normalizedProjectId = String(projectId || "").trim();
+      const normalizedStoreId = this.normalizeStoreMaintenanceStoreId(storeId);
+      if (!normalizedProjectId || !normalizedStoreId) {
+        return { data: null, error: new Error("Project ID and Store ID are required.") };
+      }
+
+      const postalResult = await this.detectStorePostalColumn();
+      const postalColumn = postalResult?.data || "";
+      const selectColumns = [
+        "project_id",
+        "store_id",
+        "store_name",
+        "customer_id",
+        "lat",
+        "lng",
+        "full_address",
+        "region",
+        "territory",
+        "state",
+        "city",
+        "district",
+        "division",
+        "market",
+        "is_removed",
+        "removed_at",
+        postalColumn
+      ].filter(Boolean).join(", ");
+
+      const result = await this.withSupabaseTimeout(
+        supabaseClient
+          .from("stores")
+          .select(selectColumns)
+          .eq("project_id", normalizedProjectId)
+          .eq("store_id", normalizedStoreId),
+        12000,
+        `Finding store ${normalizedStoreId}`
+      );
+
+      if (result?.error) return { data: null, error: result.error };
+
+      const matches = (Array.isArray(result.data) ? result.data : []).map(row => ({
+        ...normalizeStoreRecord(row),
+        project_id: String(row.project_id || normalizedProjectId).trim(),
+        is_removed: row.is_removed === true,
+        removed_at: row.removed_at || null
+      }));
+
+      return {
+        data: {
+          store: matches[0] || null,
+          matches,
+          duplicateCount: Math.max(0, matches.length - 1)
+        },
+        error: null
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error("Unable to find store.")
+      };
+    }
+  },
+
+  async addStoreToProject(projectId, payload = {}) {
+    try {
+      const normalizedProjectId = String(projectId || "").trim();
+      const normalized = this.normalizeStoreMaintenancePayload(payload);
+      if (normalized.error) return normalized;
+      const storePayloadInput = normalized.data;
+
+      const coordinates = normalizeStoreCoordinatePair(storePayloadInput.lat, storePayloadInput.lng);
+      if (coordinates.lat === null || coordinates.lng === null) {
+        return { data: null, error: new Error("Invalid store coordinates.") };
+      }
+
+      const existing = await this.findStoreByProjectAndStoreId(normalizedProjectId, storePayloadInput.store_id);
+      if (existing.error) return { data: null, error: existing.error };
+      if (existing.data?.store) {
+        return {
+          data: {
+            duplicate: true,
+            store: existing.data.store
+          },
+          error: null,
+          duplicate: true
+        };
+      }
+
+      const postalResult = await this.detectStorePostalColumn();
+      const postalColumn = postalResult?.data || "";
+      const builtPayload = this.buildStoreMaintenanceStorePayload(normalizedProjectId, storePayloadInput, {
+        includeStoreId: true,
+        includeCoordinates: true,
+        includeEmptyText: false,
+        postalColumn
+      });
+
+      if (builtPayload.error) return builtPayload;
+
+      let result = await this.withSupabaseTimeout(
+        supabaseClient
+          .from("stores")
+          .insert(builtPayload.data)
+          .select("*")
+          .limit(1),
+        15000,
+        `Adding store ${storePayloadInput.store_id}`
+      );
+
+      if (result?.error && postalColumn && this.isMissingColumnError(result.error, postalColumn)) {
+        this._storePostalColumnName = null;
+        const retryPayload = { ...builtPayload.data };
+        delete retryPayload[postalColumn];
+        result = await this.withSupabaseTimeout(
+          supabaseClient
+            .from("stores")
+            .insert(retryPayload)
+            .select("*")
+            .limit(1),
+          15000,
+          `Adding store ${storePayloadInput.store_id}`
+        );
+      }
+
+      if (result?.error) {
+        if (this.isUniqueViolation(result.error)) {
+          const duplicateResult = await this.findStoreByProjectAndStoreId(normalizedProjectId, storePayloadInput.store_id);
+          return {
+            data: {
+              duplicate: true,
+              store: duplicateResult?.data?.store || null
+            },
+            error: null,
+            duplicate: true
+          };
+        }
+        return { data: null, error: result.error };
+      }
+
+      const inserted = Array.isArray(result.data) ? result.data[0] : result.data;
+      return {
+        data: {
+          duplicate: false,
+          store: inserted ? normalizeStoreRecord(inserted) : normalizeStoreRecord(storePayloadInput)
+        },
+        error: null
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error("Unable to add store.")
+      };
+    }
+  },
+
+  async updateStoreMetadata(projectId, storeId, payload = {}) {
+    try {
+      const normalizedProjectId = String(projectId || "").trim();
+      const normalizedStoreId = this.normalizeStoreMaintenanceStoreId(storeId);
+      if (!normalizedProjectId || !normalizedStoreId) {
+        return { data: null, error: new Error("Project ID and Store ID are required.") };
+      }
+
+      const normalized = this.normalizeStoreMaintenancePayload({
+        ...payload,
+        store_id: normalizedStoreId
+      });
+      if (normalized.error) return normalized;
+
+      const existing = await this.findStoreByProjectAndStoreId(normalizedProjectId, normalizedStoreId);
+      if (existing.error) return { data: null, error: existing.error };
+      if (!existing.data?.store) {
+        return { data: null, error: new Error("Store was not found in this project.") };
+      }
+      if (existing.data.duplicateCount > 0) {
+        return { data: null, error: new Error("Duplicate store rows exist for this Store ID. Resolve duplicates before editing metadata.") };
+      }
+
+      const postalResult = await this.detectStorePostalColumn();
+      const postalColumn = postalResult?.data || "";
+      const includeCoordinates = Object.prototype.hasOwnProperty.call(normalized.data, "lat")
+        && Object.prototype.hasOwnProperty.call(normalized.data, "lng");
+      const builtPayload = this.buildStoreMaintenanceStorePayload(normalizedProjectId, normalized.data, {
+        includeStoreId: false,
+        includeCoordinates,
+        includeEmptyText: true,
+        postalColumn
+      });
+
+      if (builtPayload.error) return builtPayload;
+      delete builtPayload.data.project_id;
+      delete builtPayload.data.store_id;
+
+      if (Object.keys(builtPayload.data).length === 0) {
+        return { data: null, error: new Error("No editable store fields were provided.") };
+      }
+
+      let result = await this.withSupabaseTimeout(
+        supabaseClient
+          .from("stores")
+          .update(builtPayload.data)
+          .eq("project_id", normalizedProjectId)
+          .eq("store_id", normalizedStoreId)
+          .select("*")
+          .limit(1),
+        15000,
+        `Updating store ${normalizedStoreId}`
+      );
+
+      if (result?.error && postalColumn && this.isMissingColumnError(result.error, postalColumn)) {
+        this._storePostalColumnName = null;
+        const retryPayload = { ...builtPayload.data };
+        delete retryPayload[postalColumn];
+        result = await this.withSupabaseTimeout(
+          supabaseClient
+            .from("stores")
+            .update(retryPayload)
+            .eq("project_id", normalizedProjectId)
+            .eq("store_id", normalizedStoreId)
+            .select("*")
+            .limit(1),
+          15000,
+          `Updating store ${normalizedStoreId}`
+        );
+      }
+
+      if (result?.error) return { data: null, error: result.error };
+      const updated = Array.isArray(result.data) ? result.data[0] : result.data;
+      if (!updated) return { data: null, error: new Error("Store was not found in this project.") };
+
+      return {
+        data: {
+          store: normalizeStoreRecord(updated)
+        },
+        error: null
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error("Unable to update store metadata.")
+      };
+    }
+  },
+
+  async ensureBaselineStoreStatus(projectId, storeId) {
+    try {
+      const normalizedProjectId = String(projectId || "").trim();
+      const normalizedStoreId = this.normalizeStoreMaintenanceStoreId(storeId);
+      if (!normalizedProjectId || !normalizedStoreId) {
+        return { data: null, error: new Error("Project ID and Store ID are required for baseline status.") };
+      }
+
+      let statusRowsResult = await this.withSupabaseTimeout(
+        supabaseClient
+          .from("store_status")
+          .select("project_id,store_id,status_code,completed,closed")
+          .eq("project_id", normalizedProjectId)
+          .eq("store_id", normalizedStoreId),
+        12000,
+        `Checking baseline status for ${normalizedStoreId}`
+      );
+
+      if (statusRowsResult?.error && this.isMissingColumnError(statusRowsResult.error, "status_code")) {
+        statusRowsResult = await this.withSupabaseTimeout(
+          supabaseClient
+            .from("store_status")
+            .select("project_id,store_id,completed,closed")
+            .eq("project_id", normalizedProjectId)
+            .eq("store_id", normalizedStoreId),
+          12000,
+          `Checking baseline status for ${normalizedStoreId}`
+        );
+      }
+
+      if (statusRowsResult?.error) return { data: null, error: statusRowsResult.error };
+      const statusRows = Array.isArray(statusRowsResult.data) ? statusRowsResult.data : [];
+      if (statusRows.length > 1) {
+        return { data: null, error: new Error("Duplicate status rows exist for this Store ID. Resolve duplicates before seeding baseline status.") };
+      }
+
+      const result = await this.withSupabaseTimeout(
+        this.updateStoreStatus(normalizedProjectId, normalizedStoreId, false, false, "active", ""),
+        12000,
+        `Saving baseline status for ${normalizedStoreId}`
+      );
+
+      if (result?.error) return { data: null, error: result.error };
+
+      return {
+        data: {
+          store_id: normalizedStoreId,
+          status_code: "active",
+          completed: false,
+          closed: false,
+          alreadyExisted: statusRows.length === 1
+        },
+        error: null
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error("Unable to ensure baseline status.")
+      };
+    }
+  },
+
+  async createManualStoreActivityEvent(projectId, storeId, eventType, metadata = {}) {
+    try {
+      const normalizedProjectId = String(projectId || "").trim();
+      const normalizedStoreId = this.normalizeStoreMaintenanceStoreId(storeId);
+      const normalizedEventType = String(eventType || "").trim();
+      const allowedTypes = new Set(["store-added", "store-edited", "store-removed", "store-reactivated"]);
+
+      if (!normalizedProjectId || !normalizedStoreId || !allowedTypes.has(normalizedEventType)) {
+        return { data: null, error: new Error("A valid manual store activity event is required.") };
+      }
+
+      const safeMetadata = metadata && typeof metadata === "object" && !Array.isArray(metadata)
+        ? { ...metadata }
+        : {};
+      safeMetadata.source = "manual_admin";
+      if (!safeMetadata.actor_user_id && typeof currentUser !== "undefined" && currentUser?.id) {
+        safeMetadata.actor_user_id = currentUser.id;
+      }
+
+      return await this.withSupabaseTimeout(
+        this.createActivityEvent({
+          type: normalizedEventType,
+          project_id: normalizedProjectId,
+          store_id: normalizedStoreId,
+          metadata: safeMetadata,
+          created_at: new Date().toISOString()
+        }),
+        10000,
+        `Recording ${normalizedEventType}`
+      );
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error("Unable to record store activity.")
+      };
+    }
+  },
+
+  buildStoreMaintenanceHealthSnapshot(projectId, stores = [], statusRows = []) {
+    const normalizedProjectId = String(projectId || "").trim();
+    const sourceStores = Array.isArray(stores) ? stores : [];
+    const sourceStatuses = Array.isArray(statusRows) ? statusRows : [];
+
+    const storeCounts = new Map();
+    const statusCounts = new Map();
+
+    sourceStores.forEach(row => {
+      const storeId = this.normalizeStoreMaintenanceStoreId(row?.store_id);
+      if (!storeId) return;
+      storeCounts.set(storeId, (storeCounts.get(storeId) || 0) + 1);
+    });
+
+    sourceStatuses.forEach(row => {
+      const storeId = this.normalizeStoreMaintenanceStoreId(row?.store_id);
+      if (!storeId) return;
+      statusCounts.set(storeId, (statusCounts.get(storeId) || 0) + 1);
+    });
+
+    const duplicateStoreIds = Array.from(storeCounts.entries())
+      .filter(([, count]) => count > 1)
+      .map(([store_id, count]) => ({ store_id, count }));
+    const duplicateStatusIds = Array.from(statusCounts.entries())
+      .filter(([, count]) => count > 1)
+      .map(([store_id, count]) => ({ store_id, count }));
+
+    const missingStatusStores = sourceStores
+      .filter(row => {
+        const storeId = this.normalizeStoreMaintenanceStoreId(row?.store_id);
+        return storeId && !statusCounts.has(storeId);
+      })
+      .map(row => this.normalizeStoreMaintenanceStoreId(row?.store_id));
+
+    const orphanStatusRows = sourceStatuses
+      .filter(row => {
+        const storeId = this.normalizeStoreMaintenanceStoreId(row?.store_id);
+        return storeId && !storeCounts.has(storeId);
+      })
+      .map(row => this.normalizeStoreMaintenanceStoreId(row?.store_id));
+
+    const invalidCoordinateStores = sourceStores
+      .filter(row => {
+        const coordinates = normalizeStoreCoordinatePair(row?.lat, row?.lng);
+        return coordinates.lat === null || coordinates.lng === null;
+      })
+      .map(row => this.normalizeStoreMaintenanceStoreId(row?.store_id));
+
+    const removedStoreIds = sourceStores
+      .filter(row => row?.is_removed === true)
+      .map(row => this.normalizeStoreMaintenanceStoreId(row?.store_id));
+
+    const counts = {
+      missingStatus: missingStatusStores.length,
+      orphanStatusRows: orphanStatusRows.length,
+      duplicateStores: duplicateStoreIds.length,
+      duplicateStatusRows: duplicateStatusIds.length,
+      invalidCoordinates: invalidCoordinateStores.length,
+      removedStores: removedStoreIds.length
+    };
+
+    return {
+      projectId: normalizedProjectId,
+      generatedAt: new Date().toISOString(),
+      counts,
+      totalIssueCount: Object.values(counts).reduce((sum, count) => sum + (Number(count) || 0), 0),
+      details: {
+        missingStatusStores,
+        orphanStatusRows,
+        duplicateStores: duplicateStoreIds,
+        duplicateStatusRows: duplicateStatusIds,
+        invalidCoordinateStores,
+        removedStoreIds
+      }
+    };
+  },
+
+  async getStoreMaintenanceHealth(projectId) {
+    try {
+      const normalizedProjectId = String(projectId || "").trim();
+      if (!normalizedProjectId) {
+        return { data: null, error: new Error("Project ID is required for store maintenance diagnostics.") };
+      }
+
+      let storesResult = await this.withSupabaseTimeout(
+        supabaseClient
+          .from("stores")
+          .select("project_id,store_id,lat,lng,is_removed,removed_at")
+          .eq("project_id", normalizedProjectId),
+        12000,
+        "Refreshing store diagnostics"
+      );
+
+      if (storesResult?.error && (
+        this.isMissingColumnError(storesResult.error, "is_removed")
+        || this.isMissingColumnError(storesResult.error, "removed_at")
+      )) {
+        storesResult = await this.withSupabaseTimeout(
+          supabaseClient
+            .from("stores")
+            .select("project_id,store_id,lat,lng")
+            .eq("project_id", normalizedProjectId),
+          12000,
+          "Refreshing store diagnostics"
+        );
+      }
+
+      if (storesResult?.error) return { data: null, error: storesResult.error };
+
+      const statusResult = await this.withSupabaseTimeout(
+        supabaseClient
+          .from("store_status")
+          .select("project_id,store_id")
+          .eq("project_id", normalizedProjectId),
+        12000,
+        "Refreshing status diagnostics"
+      );
+
+      if (statusResult?.error) return { data: null, error: statusResult.error };
+
+      return {
+        data: this.buildStoreMaintenanceHealthSnapshot(
+          normalizedProjectId,
+          storesResult.data || [],
+          statusResult.data || []
+        ),
+        error: null
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error("Unable to refresh store maintenance diagnostics.")
+      };
+    }
+  },
+
   async loadStoresForProject(projectId, projectMeta) {
     if (!isSignedIn()) {
       if (projectMeta && typeof projectMeta === "object") {
@@ -804,10 +1541,44 @@ const dataLayer = {
       return [];
     }
 
-    const { data, error } = await supabaseClient
+    const postalResult = await this.detectStorePostalColumn();
+    const postalColumn = postalResult?.data || "";
+    const storeSelectColumns = [
+      "store_id",
+      "store_name",
+      "customer_id",
+      "lat",
+      "lng",
+      "full_address",
+      "region",
+      "territory",
+      "state",
+      "city",
+      "district",
+      "division",
+      "market",
+      "is_removed",
+      "removed_at",
+      postalColumn
+    ].filter(Boolean).join(", ");
+
+    let { data, error } = await supabaseClient
       .from("stores")
-      .select("store_id, store_name, customer_id, lat, lng, full_address, region, territory, state, city, district, division, market, is_removed, removed_at")
+      .select(storeSelectColumns)
       .eq("project_id", projectId);
+
+    if (error && postalColumn && this.isMissingColumnError(error, postalColumn)) {
+      this._storePostalColumnName = null;
+      const retrySelectColumns = storeSelectColumns
+        .split(",")
+        .map(column => column.trim())
+        .filter(column => column && column !== postalColumn)
+        .join(", ");
+      ({ data, error } = await supabaseClient
+        .from("stores")
+        .select(retrySelectColumns)
+        .eq("project_id", projectId));
+    }
 
     if (!error) {
       projectMeta.sourceLabel = "Supabase";
@@ -857,14 +1628,24 @@ const dataLayer = {
   },
 
   async updateStoreLifecycle(projectId, storeId, isRemoved) {
-    return await supabaseClient
-      .from("stores")
-      .update({
-        is_removed: isRemoved === true,
-        removed_at: isRemoved === true ? new Date().toISOString() : null
-      })
-      .eq("project_id", projectId)
-      .eq("store_id", storeId);
+    const normalizedProjectId = String(projectId || "").trim();
+    const normalizedStoreId = String(storeId || "").trim();
+    if (!normalizedProjectId || !normalizedStoreId) {
+      return { data: null, error: new Error("Project ID and Store ID are required.") };
+    }
+
+    return await this.withSupabaseTimeout(
+      supabaseClient
+        .from("stores")
+        .update({
+          is_removed: isRemoved === true,
+          removed_at: isRemoved === true ? new Date().toISOString() : null
+        })
+        .eq("project_id", normalizedProjectId)
+        .eq("store_id", normalizedStoreId),
+      12000,
+      isRemoved === true ? `Removing store ${normalizedStoreId}` : `Reactivating store ${normalizedStoreId}`
+    );
   },
 
   async loadStoreStatus(projectId) {
