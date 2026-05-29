@@ -543,6 +543,10 @@ function resetSelectedStorePanel() {
     issuesEl.textContent = "Data Issues: None";
     issuesEl.classList.add("hidden");
   }
+
+  if (typeof updateStoreMaintenanceSelectionState === "function") {
+    updateStoreMaintenanceSelectionState();
+  }
 }
 
 function updateSelectedStorePanel(storeId) {
@@ -593,6 +597,10 @@ function updateSelectedStorePanel(storeId) {
       ? `Data Issues: ${integrityIssues.join(", ")}`
       : "Data Issues: None";
     issuesEl.classList.toggle("hidden", integrityIssues.length === 0);
+  }
+
+  if (typeof updateStoreMaintenanceSelectionState === "function") {
+    updateStoreMaintenanceSelectionState();
   }
 }
 

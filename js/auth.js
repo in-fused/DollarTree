@@ -353,6 +353,12 @@ function updateWriteAccessUI() {
   if (typeof updateProjectLifecycleControls === "function") {
     updateProjectLifecycleControls();
   }
+  if (typeof refreshStoreMaintenanceAdminUI === "function") {
+    refreshStoreMaintenanceAdminUI();
+  }
+  if (typeof updateDataHealthPanel === "function") {
+    updateDataHealthPanel();
+  }
 }
 
 function renderPendingProjectInvites() {

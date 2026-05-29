@@ -426,6 +426,9 @@ function isSafeActivityEventType(eventType) {
   const normalized = String(eventType || "").trim().toLowerCase();
   return [
     "store_created",
+    "store-added",
+    "store-edited",
+    "store-reactivated",
     "status-active",
     "status-completed",
     "status-closed",
@@ -452,6 +455,36 @@ function sanitizeActivityEvent(row) {
       timestamp,
       title: storeId ? `Store ${storeId} added to project` : "Store added to project",
       detail: "Project scope updated"
+    };
+  }
+
+  if (eventType === "store-added") {
+    return {
+      type: "store-added",
+      store_id: storeId,
+      timestamp,
+      title: storeId ? `Store ${storeId} added to project` : "Store added to project",
+      detail: "Manual admin store add recorded"
+    };
+  }
+
+  if (eventType === "store-edited") {
+    return {
+      type: "store-edited",
+      store_id: storeId,
+      timestamp,
+      title: storeId ? `Store ${storeId} metadata updated` : "Store metadata updated",
+      detail: "Project store metadata updated"
+    };
+  }
+
+  if (eventType === "store-reactivated") {
+    return {
+      type: "store-reactivated",
+      store_id: storeId,
+      timestamp,
+      title: storeId ? `Store ${storeId} reactivated` : "Store reactivated",
+      detail: "Store returned to active project scope"
     };
   }
 

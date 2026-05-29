@@ -400,6 +400,15 @@ function openStoreModal(storeId) {
 
       touchDataRefresh();
 
+      if (dataLayer?.createManualStoreActivityEvent) {
+        const activityResult = await dataLayer.createManualStoreActivityEvent(currentProjectId, normalizedStoreId, "store-removed", {
+          full_address: store?.full_address || ""
+        });
+        if (activityResult?.error) {
+          console.warn("Store remove activity failed:", activityResult.error);
+        }
+      }
+
       prependActivity({
         type: "store-removed",
         project_id: currentProjectId,
@@ -443,13 +452,22 @@ function openStoreModal(storeId) {
 
       touchDataRefresh();
 
+      if (dataLayer?.createManualStoreActivityEvent) {
+        const activityResult = await dataLayer.createManualStoreActivityEvent(currentProjectId, normalizedStoreId, "store-reactivated", {
+          full_address: store?.full_address || ""
+        });
+        if (activityResult?.error) {
+          console.warn("Store reactivate activity failed:", activityResult.error);
+        }
+      }
+
       prependActivity({
-        type: "store-restored",
+        type: "store-reactivated",
         project_id: currentProjectId,
         store_id: normalizedStoreId,
         timestamp: new Date().toISOString(),
-        title: `Store ${normalizedStoreId} restored to project scope`,
-        detail: store?.full_address || "Store restored to active project scope."
+        title: `Store ${normalizedStoreId} reactivated`,
+        detail: store?.full_address || "Store returned to active project scope."
       });
 
       updateStoreLifecycleControls(normalizedStoreId);

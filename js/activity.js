@@ -8,7 +8,10 @@ function getActivityAccentColor(type) {
   if (type === "photo") return "#64b5f6";
   if (type === "note") return "#d4a5ff";
   if (type === "store-created") return "#9fd1ff";
+  if (type === "store-added") return "#9fd1ff";
+  if (type === "store-edited") return "#ffd57a";
   if (type === "store-removed") return "#ff6b6b";
+  if (type === "store-reactivated") return "#8ee0a1";
   if (type === "store-restored") return "#8ee0a1";
   if (type === "project-archived") return "#f5c26b";
   if (type === "project-restored") return "#9fd1ff";
@@ -71,10 +74,31 @@ function buildActivityDisplay(item) {
     };
   }
 
+  if (type === "store-added") {
+    return {
+      title: item.title || `${storeLabel} added to project`,
+      detail: detailText || "Manual admin store add recorded."
+    };
+  }
+
+  if (type === "store-edited") {
+    return {
+      title: item.title || `${storeLabel} metadata updated`,
+      detail: detailText || "Manual admin store edit recorded."
+    };
+  }
+
   if (type === "store-removed") {
     return {
       title: item.title || `${storeLabel} removed from project scope`,
       detail: detailText || "Store hidden from active project scope."
+    };
+  }
+
+  if (type === "store-reactivated") {
+    return {
+      title: item.title || `${storeLabel} reactivated`,
+      detail: detailText || "Store returned to active project scope."
     };
   }
 
@@ -144,7 +168,10 @@ function updateActivityList() {
   const projectScopedActivityTypes = new Set([
     "project-archived",
     "project-restored",
+    "store-added",
+    "store-edited",
     "store-removed",
+    "store-reactivated",
     "store-restored",
     "member-role-updated",
     "member-removed",
