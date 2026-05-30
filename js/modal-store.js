@@ -332,6 +332,12 @@ function openStoreModal(storeId) {
     ? getStoreById(normalizedStoreId, { includeRemoved: true })
     : storeData.find(item => String(item.store_id) === normalizedStoreId);
 
+  const storeName = String(store?.store_name || "").trim();
+  const storeNameEl = document.getElementById("confirmStoreName");
+  if (storeNameEl) {
+    storeNameEl.textContent = storeName ? `Store Name: ${storeName}` : "";
+    storeNameEl.classList.toggle("hidden", !storeName);
+  }
   setText("confirmAddress", store?.full_address || "");
 
   const markActive = document.getElementById("markActive");

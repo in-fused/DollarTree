@@ -172,9 +172,12 @@
                       </div>
 
                       <label id="storeMaintenanceReGeocodeWrap" class="storeMaintenanceCheckbox">
-                        <input id="storeMaintenanceReGeocode" type="checkbox" checked />
+                        <input id="storeMaintenanceReGeocode" type="checkbox" />
                         <span>Re-Geocode address changes</span>
                       </label>
+                      <div id="storeMaintenanceReGeocodeHelp" class="storeMaintenanceCheckboxHelp">
+                        Only check this when the street address/city/state changed and you want to update map coordinates.
+                      </div>
 
                       <div class="storeMaintenanceSubmitRow">
                         <button id="storeMaintenanceSubmitBtn" class="btnComplete" type="submit">Save Store</button>
@@ -1023,6 +1026,7 @@
 
           <div class="intelSelectedStore">
             <div id="intelSelectedStoreId" class="intelSelectedPrimary">No store selected</div>
+            <div id="intelSelectedStoreName" class="intelSelectedName hidden"></div>
             <div id="intelSelectedStoreAddress" class="intelSelectedSecondary">Tap a store marker to inspect status, notes, and photos.</div>
             <div id="intelSelectedStoreIssues" class="intelSelectedTertiary hidden">Data Issues: None</div>
           </div>
@@ -1036,6 +1040,7 @@
   <div class="modalContent">
     <h3>Update Store Status</h3>
     <div id="confirmStoreId"></div>
+    <div id="confirmStoreName" class="confirmStoreName hidden"></div>
     <div id="confirmAddress"></div>
 
     <div id="writeAccessMessage" class="writeAccessMessage"></div>
