@@ -538,6 +538,12 @@ function resetSelectedStorePanel() {
   setText("intelSelectedStoreId", "No store selected");
   setText("intelSelectedStoreAddress", "Tap a store marker to inspect status, notes, and photos.");
 
+  const nameEl = document.getElementById("intelSelectedStoreName");
+  if (nameEl) {
+    nameEl.textContent = "";
+    nameEl.classList.add("hidden");
+  }
+
   const issuesEl = document.getElementById("intelSelectedStoreIssues");
   if (issuesEl) {
     issuesEl.textContent = "Data Issues: None";
@@ -587,10 +593,16 @@ function updateSelectedStorePanel(storeId) {
   const integrityIssues = typeof getStoreIntegrityIssues === "function"
     ? getStoreIntegrityIssues(store, statusMap)
     : [];
+  const storeName = String(store.store_name || "").trim();
+  const nameEl = document.getElementById("intelSelectedStoreName");
   const issuesEl = document.getElementById("intelSelectedStoreIssues");
 
   setText("intelSelectedStoreId", `Store ${store.store_id}`);
   setText("intelSelectedStoreAddress", parts.join(" • "));
+  if (nameEl) {
+    nameEl.textContent = storeName ? `Store Name: ${storeName}` : "";
+    nameEl.classList.toggle("hidden", !storeName);
+  }
 
   if (issuesEl) {
     issuesEl.textContent = integrityIssues.length

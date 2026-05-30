@@ -27,6 +27,26 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.confirmStoreName {
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: rgba(255,255,255,0.94);
+  overflow-wrap: anywhere;
+}
+
+#confirmStoreId {
+  font-weight: 800;
+}
+
+#confirmAddress {
+  margin-top: 4px;
+  color: rgba(255,255,255,0.78);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .statusButtons {
   display: flex;
   gap: 8px;

@@ -3,6 +3,7 @@
 const STORE_MAINTENANCE_DUPLICATE_MESSAGE = "Store already exists in this project. No duplicate was created.";
 const STORE_MAINTENANCE_GEOCODE_FAILURE_MESSAGE = "Could not geocode this address. Check address/city/state/ZIP and try again.";
 const STORE_MAINTENANCE_ADD_SUCCESS_MESSAGE = "Store added and plotted successfully.";
+const STORE_MAINTENANCE_EDIT_PRESERVED_COORDS_MESSAGE = "Store updated without re-geocoding. Existing map coordinates were preserved.";
 const STORE_MAINTENANCE_SELECTOR_LIMIT = 10;
 
 let storeMaintenanceMode = "add";
@@ -180,15 +181,63 @@ function selectStoreFromMaintenanceSearch(storeId) {
   setStoreMaintenanceMessage(`Selected Store ${store.store_id}.`, "success");
 }
 
-function getStoreMaintenanceAddressKey(payload = {}) {
+function buildStoreMaintenanceResolvedGeocodeQuery(payload = {}, options = {}) {
+  const queryInput = {
+    ...payload
+  };
+
+  if (options.ignoreStandalonePostalCode === true) {
+    queryInput.postal_code = "";
+    queryInput.zip = "";
+    queryInput.postalCode = "";
+  }
+
+  if (typeof dataLayer !== "undefined" && typeof dataLayer.buildStoreMaintenanceAddress === "function") {
+    return dataLayer.buildStoreMaintenanceAddress(queryInput);
+  }
+
   return [
-    payload.full_address,
-    payload.city,
-    payload.state,
-    payload.postal_code
+    queryInput.full_address || queryInput.address || queryInput.address_line_1,
+    queryInput.city,
+    queryInput.state,
+    options.ignoreStandalonePostalCode === true ? "" : (queryInput.postal_code || queryInput.zip || queryInput.postalCode)
   ]
-    .map(value => String(value || "").trim().toLowerCase())
-    .join("|");
+    .map(value => String(value || "").trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+function normalizeStoreMaintenanceGeocodeQuery(query) {
+  return String(query || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[.,]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function getStoreMaintenanceAddressKey(payload = {}) {
+  return normalizeStoreMaintenanceGeocodeQuery(
+    buildStoreMaintenanceResolvedGeocodeQuery(payload, { ignoreStandalonePostalCode: true })
+  );
+}
+
+function getStoreMaintenanceGeocodeComparison(selectedStore, payload) {
+  const oldQuery = buildStoreMaintenanceResolvedGeocodeQuery(selectedStore || {}, {
+    ignoreStandalonePostalCode: true
+  });
+  const newQuery = buildStoreMaintenanceResolvedGeocodeQuery(payload || {}, {
+    ignoreStandalonePostalCode: true
+  });
+  const oldNormalized = normalizeStoreMaintenanceGeocodeQuery(oldQuery);
+  const newNormalized = normalizeStoreMaintenanceGeocodeQuery(newQuery);
+
+  return {
+    oldQuery,
+    newQuery,
+    oldNormalized,
+    newNormalized,
+    changed: oldNormalized !== newNormalized
+  };
 }
 
 function setStoreMaintenanceMessage(message, type = "info") {
@@ -284,6 +333,7 @@ function openStoreMaintenanceForm(mode, store = null) {
   const submitBtn = getStoreMaintenanceEl("storeMaintenanceSubmitBtn");
   const storeIdInput = getStoreMaintenanceEl("storeMaintenanceStoreId");
   const reGeocodeWrap = getStoreMaintenanceEl("storeMaintenanceReGeocodeWrap");
+  const reGeocodeHelp = getStoreMaintenanceEl("storeMaintenanceReGeocodeHelp");
   const reGeocode = getStoreMaintenanceEl("storeMaintenanceReGeocode");
 
   populateStoreMaintenanceForm(storeMaintenanceMode === "edit" ? store : null);
@@ -292,7 +342,8 @@ function openStoreMaintenanceForm(mode, store = null) {
   if (submitBtn) submitBtn.textContent = storeMaintenanceMode === "add" ? "Add Store" : "Save Store";
   if (storeIdInput) storeIdInput.disabled = storeMaintenanceMode === "edit";
   if (reGeocodeWrap) reGeocodeWrap.classList.toggle("hidden", storeMaintenanceMode !== "edit");
-  if (reGeocode) reGeocode.checked = true;
+  if (reGeocodeHelp) reGeocodeHelp.classList.toggle("hidden", storeMaintenanceMode !== "edit");
+  if (reGeocode) reGeocode.checked = false;
   if (panel) panel.classList.remove("hidden");
 
   setStoreMaintenanceMessage("");
@@ -484,9 +535,12 @@ async function handleStoreMaintenanceEdit(rawPayload) {
   }
 
   const payload = normalized.data;
-  const nextAddressKey = getStoreMaintenanceAddressKey(payload);
-  const addressChanged = nextAddressKey !== storeMaintenanceOriginalAddressKey;
-  const shouldReGeocode = addressChanged && getStoreMaintenanceEl("storeMaintenanceReGeocode")?.checked !== false;
+  const geocodeComparison = getStoreMaintenanceGeocodeComparison(selectedStore, {
+    ...rawPayload,
+    store_id: selectedStoreId
+  });
+  const reGeocodeChecked = getStoreMaintenanceEl("storeMaintenanceReGeocode")?.checked === true;
+  const shouldReGeocode = reGeocodeChecked && geocodeComparison.changed;
 
   if (shouldReGeocode) {
     const geocodeResult = await dataLayer.geocodeStoreAddress(payload);
@@ -496,6 +550,9 @@ async function handleStoreMaintenanceEdit(rawPayload) {
     }
     payload.lat = geocodeResult.data.lat;
     payload.lng = geocodeResult.data.lng;
+  } else {
+    delete payload.lat;
+    delete payload.lng;
   }
 
   const updateResult = await dataLayer.updateStoreMetadata(currentProjectId, selectedStoreId, payload);
@@ -514,7 +571,13 @@ async function handleStoreMaintenanceEdit(rawPayload) {
 
   closeStoreMaintenanceForm();
   await refreshProjectAfterStoreMaintenance(selectedStoreId);
-  setStoreMaintenanceMessage("Store updated successfully.", "success");
+
+  const successMessage = shouldReGeocode
+    ? "Store updated and re-geocoded successfully."
+    : geocodeComparison.changed
+      ? STORE_MAINTENANCE_EDIT_PRESERVED_COORDS_MESSAGE
+      : "Store updated successfully.";
+  setStoreMaintenanceMessage(successMessage, "success");
 }
 
 async function handleStoreMaintenanceSubmit(event) {
