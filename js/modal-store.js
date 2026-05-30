@@ -9,6 +9,8 @@ const RESCHEDULE_REASON_PRESETS = [
   "Other"
 ];
 
+let storeModalDismissHandlersBound = false;
+
 function ensureRescheduleControls() {
   const modal = document.getElementById("confirmModal");
   const statusButtons = modal?.querySelector(".statusButtons");
@@ -317,6 +319,46 @@ async function handleStoreModalClose(storeId) {
   }
 }
 
+function isStoreModalOpen() {
+  const modal = document.getElementById("confirmModal");
+  return Boolean(modal && !modal.classList.contains("hidden"));
+}
+
+function isPhotoLightboxOpen() {
+  const lightbox = document.getElementById("photoLightbox");
+  return Boolean(lightbox && !lightbox.classList.contains("hidden"));
+}
+
+async function closeCurrentStoreModal() {
+  if (!currentModalStoreId) return;
+  await handleStoreModalClose(currentModalStoreId);
+}
+
+function bindStoreModalDismissHandlers() {
+  if (storeModalDismissHandlersBound) return;
+
+  const modal = document.getElementById("confirmModal");
+  if (!modal) return;
+
+  modal.addEventListener("click", (event) => {
+    if (!isStoreModalOpen()) return;
+
+    const modalContent = modal.querySelector(".modalContent");
+    if (modalContent && modalContent.contains(event.target)) return;
+
+    closeCurrentStoreModal();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !isStoreModalOpen()) return;
+    if (isPhotoLightboxOpen()) return;
+
+    closeCurrentStoreModal();
+  }, true);
+
+  storeModalDismissHandlersBound = true;
+}
+
 function openStoreModal(storeId) {
   const normalizedStoreId = String(storeId);
   currentModalStoreId = normalizedStoreId;
@@ -325,6 +367,7 @@ function openStoreModal(storeId) {
   const modal = document.getElementById("confirmModal");
   if (!modal) return;
 
+  bindStoreModalDismissHandlers();
   modal.classList.remove("hidden");
   setText("confirmStoreId", `Store ID: ${normalizedStoreId}`);
 
@@ -447,7 +490,7 @@ function openStoreModal(storeId) {
   if (uploadPhotoBtn) uploadPhotoBtn.onclick = () => uploadPhoto(normalizedStoreId);
   if (confirmCancel) {
     confirmCancel.onclick = async () => {
-      await handleStoreModalClose(normalizedStoreId);
+      await closeCurrentStoreModal();
     };
   }
 
