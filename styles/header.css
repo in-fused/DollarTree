@@ -2,7 +2,9 @@
 
 .topHeader {
   --header-brand-logo-height: 64px;
-  --header-brand-logo-max-width: 240px;
+  --header-brand-logo-max-width: 260px;
+  --header-brand-logo-scale: 1.16;
+  --header-project-logo-scale: 1.28;
   height: var(--header-h);
   padding: max(6px, env(safe-area-inset-top)) 11px 6px;
   background:
@@ -152,27 +154,27 @@
 
 .brandLogoWide {
   width: auto !important;
-  max-width: 320px !important;
-  height: 80px !important;
+  max-width: min(320px, var(--header-brand-logo-max-width)) !important;
+  height: var(--header-brand-logo-height) !important;
   object-fit: contain;
   display: block;
   margin: 0 auto;
   cursor: pointer;
   pointer-events: auto;
-  transform: scale(1.15);
+  transform: scale(var(--header-brand-logo-scale));
   transform-origin: center;
   filter: drop-shadow(0 8px 18px rgba(0,0,0,0.45));
 }
 
 #projectBrandLogoHeader {
   width: auto !important;
-  height: 80px !important;
-  max-width: 320px !important;
+  height: var(--header-brand-logo-height) !important;
+  max-width: min(320px, var(--header-brand-logo-max-width)) !important;
   min-width: 0;
   object-fit: contain;
   display: block;
   flex-shrink: 0;
-  transform: scale(1.15);
+  transform: scale(var(--header-brand-logo-scale));
   transform-origin: center;
 }
 
@@ -183,28 +185,24 @@
 }
 
 .headerBrandSlotLogo {
-  width: auto;
-  max-width: var(--header-brand-logo-max-width);
-  height: var(--header-brand-logo-height);
+  width: auto !important;
+  max-width: min(320px, var(--header-brand-logo-max-width)) !important;
+  height: var(--header-brand-logo-height) !important;
   object-fit: contain;
-  border-radius: 14px;
-  border: 1px solid rgba(var(--project-accent-rgb), 0.34);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
-    rgba(6, 13, 22, 0.64);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
-  padding: 5px 10px;
-  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  transition: filter 140ms ease, opacity 140ms ease, transform 140ms ease;
 }
 
 .headerBrandSlotLogo.is-project-logo {
-  border-color: rgba(var(--project-accent-rgb), 0.58);
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--project-accent-rgb), 0.22),
-    0 6px 16px rgba(0, 0, 0, 0.18);
-  background:
-    linear-gradient(180deg, rgba(var(--project-accent-rgb), 0.14), rgba(var(--project-accent-rgb), 0.04)),
-    rgba(6, 13, 22, 0.7);
+  --header-brand-logo-scale: var(--header-project-logo-scale);
+  max-width: min(360px, calc(var(--header-brand-logo-max-width) + 56px)) !important;
+  filter:
+    drop-shadow(0 8px 18px rgba(0,0,0,0.45))
+    drop-shadow(0 0 10px rgba(var(--project-accent-rgb), 0.18));
 }
 
 .headerModeToggles {

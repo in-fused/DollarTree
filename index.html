@@ -80,7 +80,7 @@
                       <div id="adminPanelProjectName" class="adminPanelProjectName">Loading project…</div>
                     </div>
                   </div>
-                  <div id="adminPanelHelperText" class="adminPanelHelperText">Manage stores, invites, and roles for the current project.</div>
+                  <div id="adminPanelHelperText" class="adminPanelHelperText">Manage stores, invites, roles, and settings for the current project.</div>
                 </div>
 
                 <div id="projectAdminInactiveState" class="adminInactiveState hidden" aria-live="polite">
@@ -101,6 +101,9 @@
                     <option value="admin">admin</option>
                   </select>
                   <button id="projectInviteSendBtn" class="btnComplete" type="button">Send Invite</button>
+                </div>
+                <div id="projectInviteRoleHelp" class="adminPanelSectionHint projectInviteRoleHelp">
+                  Viewer = read only. Editor = can update store work. Admin = can manage project stores/invites/settings and send project invites.
                 </div>
                 <div id="projectAdminMessage" class="projectSourceTag adminPanelMessage"></div>
 
@@ -212,7 +215,7 @@
                   <div class="panelHeaderRow adminPanelSectionHeader">
                     <h3 style="font-size:14px;">Project Branding</h3>
                   </div>
-                  <div class="adminPanelSectionHint">Logo accepts a full URL (https://example.com/logo.png) or a repo/local path (/logos/meat-market.png).</div>
+                  <div class="adminPanelSectionHint">Choose a library logo or paste a URL/path. Saving updates the header immediately; leave logo blank to use the Red Bull Rebels default.</div>
                   <div class="adminInviteRow projectBrandingLibraryRow">
                     <select id="projectBrandLogoLibrarySelect" aria-label="Project logo library">
                       <option value="">Logo Library (optional)</option>

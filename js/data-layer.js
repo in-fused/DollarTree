@@ -64,12 +64,26 @@ const dataLayer = {
       .eq("user_id", userId);
   },
 
+  isPendingProjectInviteRow(row) {
+    const acceptedAt = String(row?.accepted_at || "").trim();
+    const revokedAt = String(row?.revoked_at || "").trim();
+    const status = String(row?.status || "").trim().toLowerCase();
+    if (acceptedAt || revokedAt) return false;
+    if (["accepted", "revoked", "canceled", "cancelled"].includes(status)) return false;
+    return true;
+  },
+
+  filterPendingProjectInviteRows(rows) {
+    return (Array.isArray(rows) ? rows : []).filter(row => this.isPendingProjectInviteRow(row));
+  },
+
   async loadPendingProjectInvitesForCurrentUser() {
     const rpcResult = await supabaseClient.rpc("list_my_pending_project_invites");
     const dedupeInvites = (rows) => {
       const uniqueRows = [];
       const seen = new Set();
       (Array.isArray(rows) ? rows : []).forEach(row => {
+        if (!this.isPendingProjectInviteRow(row)) return;
         const inviteId = String(row?.id || "").trim();
         const email = String(row?.email || row?.target_email || "").trim().toLowerCase();
         const phone = normalizePhoneForStorage(String(row?.phone || row?.target_phone || "").trim());
@@ -386,13 +400,25 @@ const dataLayer = {
       .is("revoked_at", null)
       .order("created_at", { ascending: false });
 
-    if (!result.error) return result;
+    if (!result.error) {
+      return {
+        ...result,
+        data: this.filterPendingProjectInviteRows(result.data)
+      };
+    }
 
     result = await supabaseClient
       .from("project_invites")
       .select("*")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false });
+
+    if (!result.error) {
+      return {
+        ...result,
+        data: this.filterPendingProjectInviteRows(result.data)
+      };
+    }
 
     return result;
   },
@@ -800,7 +826,14 @@ const dataLayer = {
   },
 
   async loadOrgOversightInvites() {
-    return await supabaseClient.rpc("org_list_project_invites");
+    const result = await supabaseClient.rpc("org_list_project_invites");
+    if (!result.error) {
+      return {
+        ...result,
+        data: this.filterPendingProjectInviteRows(result.data)
+      };
+    }
+    return result;
   },
 
   async updateGlobalRole(userId, role) {

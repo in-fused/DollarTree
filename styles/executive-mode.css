@@ -1,6 +1,9 @@
 /* ================= EXECUTIVE MODE ================= */
 
 body.executive-mode .topHeader {
+  --header-brand-logo-height: 54px;
+  --header-brand-logo-max-width: 220px;
+  --header-project-logo-scale: 1.16;
   height: var(--header-h-exec);
   padding: max(6px, env(safe-area-inset-top)) 10px 6px;
 }

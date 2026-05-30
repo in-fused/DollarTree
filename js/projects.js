@@ -778,9 +778,9 @@ const PROJECT_BRANDING_SAVE_TIMEOUT_MS = 14000;
 const PROJECT_BRANDING_UNAVAILABLE_MESSAGE = "Branding storage is not available yet for this environment. Other admin actions still work.";
 const projectBrandingUnavailableByProjectId = {};
 const PROJECT_ROLE_DISPLAY_META = {
-  viewer: { label: "Viewer", hint: "read-only" },
-  editor: { label: "Editor", hint: "can update" },
-  admin: { label: "Admin", hint: "manages access" }
+  viewer: { label: "Viewer", hint: "read only" },
+  editor: { label: "Editor", hint: "can update store work" },
+  admin: { label: "Admin", hint: "can manage project stores/invites/settings and send project invites" }
 };
 
 function isProjectSelectableByCurrentUser(projectId) {
@@ -791,8 +791,7 @@ function getProjectAdminRoleOptions(selectedRole) {
   return PROJECT_ROLE_OPTIONS
     .map(role => {
       const meta = PROJECT_ROLE_DISPLAY_META[role] || { label: role, hint: "" };
-      const optionLabel = meta.hint ? `${meta.label} (${meta.hint})` : meta.label;
-      return `<option value="${role}"${role === selectedRole ? " selected" : ""}>${optionLabel}</option>`;
+      return `<option value="${role}"${role === selectedRole ? " selected" : ""}>${meta.label}</option>`;
     })
     .join("");
 }
@@ -868,34 +867,35 @@ function getInviteDeliveryMessage(invite = {}, targetType = "", targetValue = ""
 
   if (status === "sent" && channel === "sms") {
     return {
-      message: `SMS invite sent to ${targetLabel} as ${roleLabel}.`,
+      message: `SMS invite sent to ${targetLabel} as ${roleLabel}. Pending invites refreshed.`,
       type: "success"
     };
   }
 
   if (status === "sent") {
     return {
-      message: `Email invite sent to ${targetLabel} as ${roleLabel}.`,
+      message: `Email invite sent to ${targetLabel} as ${roleLabel}. Pending invites refreshed.`,
       type: "success"
     };
   }
 
   if (status === "failed") {
+    const channelLabel = channel === "sms" ? "SMS" : "Email";
     return {
-      message: `Invite recorded but delivery failed${deliveryError ? `: ${deliveryError}` : "."}`,
+      message: `${channelLabel} invite was saved as pending, but ${channelLabel.toLowerCase()} delivery failed${deliveryError ? `: ${deliveryError}` : "."}`,
       type: "error"
     };
   }
 
   if (status === "recorded_only") {
     return {
-      message: `Invite recorded only for ${targetLabel}. ${channel === "sms" ? "SMS" : "Email"} was not sent.`,
+      message: `Invite saved as pending for ${targetLabel}. ${channel === "sms" ? "SMS" : "Email"} was not sent.`,
       type: "success"
     };
   }
 
   return {
-    message: `Invite recorded for ${targetLabel} as ${roleLabel}.`,
+    message: `Invite saved as pending for ${targetLabel} as ${roleLabel}. Pending invites refreshed.`,
     type: "success"
   };
 }
@@ -1041,7 +1041,7 @@ function updateAdminPanelHeaderContext({ canManage = false, isRefreshing = false
     } else if (canManage && brandingUnavailable) {
       helperTextEl.textContent = "Branding fields are unavailable in this backend schema. Invite and member actions remain active.";
     } else if (canManage) {
-      helperTextEl.textContent = "Manage stores, invites, roles, and project settings for this current project.";
+      helperTextEl.textContent = "Manage stores, invites, roles, and project settings for this current project. Admins can send project invites.";
     } else if (!hasProject) {
       helperTextEl.textContent = "No manageable project selected. Choose a project to continue.";
     } else {
@@ -1559,7 +1559,7 @@ async function refreshProjectAdminPanel() {
       revokeBtn.type = "button";
       revokeBtn.className = "btnSecondary";
       revokeBtn.classList.add("adminRowActionBtn");
-      revokeBtn.textContent = "Revoke";
+      revokeBtn.textContent = "Cancel Invite";
       revokeBtn.dataset.inviteId = inviteId;
       revokeBtn.dataset.action = "revoke-invite";
       revokeBtn.disabled = !inviteId;
@@ -2033,22 +2033,22 @@ try {
         if (!inviteId) return;
         if (target.dataset.loading === "true") return;
         setProjectAdminMessage("");
-        if (!window.confirm("Revoke this pending invite?")) return;
+        if (!window.confirm("Cancel this pending invite? The invite will no longer be available to accept.")) return;
 
         const originalLabel = target.textContent;
         target.dataset.loading = "true";
         target.disabled = true;
-        target.textContent = "Revoking…";
+        target.textContent = "Canceling…";
         let error = null;
         try {
           ({ error } = await dataLayer.revokeProjectInvite(inviteId));
         } catch (caughtError) {
-          error = normalizeActionError(caughtError, "Unable to revoke invite.");
+          error = normalizeActionError(caughtError, "Unable to cancel invite.");
         } finally {
           await new Promise(resolve => setTimeout(resolve, ADMIN_ACTION_COOLDOWN_MS));
           target.dataset.loading = "false";
           target.disabled = !shouldRestoreAdminActionControls(scopedProjectId);
-          target.textContent = originalLabel || "Revoke";
+          target.textContent = originalLabel || "Cancel Invite";
         }
 
         if (!shouldRestoreAdminActionControls(scopedProjectId)) {
@@ -2056,7 +2056,7 @@ try {
         }
 
         setProjectAdminMessage(
-          error ? (error.message || "Unable to revoke invite.") : "Pending invite revoked.",
+          error ? (error.message || "Unable to cancel invite.") : "Pending invite canceled.",
           error ? "error" : "success"
         );
         flashAdminActionRowFeedback(target, error ? "error" : "success");
@@ -2068,7 +2068,7 @@ try {
             metadata: {}
           });
           target.disabled = true;
-          target.textContent = "✓ Revoked";
+          target.textContent = "✓ Canceled";
           await new Promise(resolve => setTimeout(resolve, 900));
           await refreshAccessAfterMembershipMutation();
         }

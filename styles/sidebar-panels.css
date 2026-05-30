@@ -222,6 +222,10 @@
   min-width: 108px;
 }
 
+.projectInviteRoleHelp {
+  margin: -2px 0 0;
+}
+
 .adminPanelMessage {
   margin-top: 0;
   min-height: 18px;
@@ -746,6 +750,11 @@
   min-height: 32px;
   margin-top: 0 !important;
   justify-self: stretch;
+}
+
+.adminInviteRowItem .adminRowActionBtn {
+  min-width: 106px;
+  white-space: nowrap;
 }
 
 .accountSettingsPanel {

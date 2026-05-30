@@ -3,6 +3,11 @@
 @media (max-width: 1320px) {
   :root { --rail-w: 256px; }
 
+  .topHeader {
+    --header-brand-logo-height: 60px;
+    --header-brand-logo-max-width: 244px;
+  }
+
   .workspace {
     grid-template-columns: minmax(0, 1fr) 256px;
   }
@@ -21,6 +26,12 @@
     --header-h: 194px;
     --header-h-exec: 98px;
     --sidebar-w: 296px;
+  }
+
+  .topHeader {
+    --header-brand-logo-height: 58px;
+    --header-brand-logo-max-width: 236px;
+    --header-project-logo-scale: 1.2;
   }
 
   .commandBar {
@@ -519,6 +530,13 @@
   :root {
     --header-h: 206px;
     --header-h-exec: 94px;
+  }
+
+  .topHeader {
+    --header-brand-logo-height: 48px;
+    --header-brand-logo-max-width: 180px;
+    --header-brand-logo-scale: 1;
+    --header-project-logo-scale: 1;
   }
 
   .brandLogoWide {
