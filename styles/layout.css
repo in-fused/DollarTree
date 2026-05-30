@@ -90,6 +90,10 @@ body.executive-mode .sidebar {
   grid-column: span 12;
 }
 
+.intelligenceDashboardGrid > .intelligencePanel:nth-child(2) {
+  grid-column: span 12;
+}
+
 .intelligenceSummaryGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
