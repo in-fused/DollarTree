@@ -423,6 +423,7 @@ async function bindAccountSettingsUI() {
   const saveBtn = document.getElementById("accountSettingsSaveBtn");
   const onboardingSaveBtn = document.getElementById("usernameOnboardingSaveBtn");
   const onboardingPhoneInput = document.getElementById("usernameOnboardingPhoneInput");
+  const orgOversightDelegationRoot = document.getElementById("adminPanel") || document.body;
 
   if (toggle && !toggle.dataset.bound) {
     toggle.addEventListener("click", () => {
@@ -470,8 +471,8 @@ async function bindAccountSettingsUI() {
     onboardingPhoneInput.dataset.bound = "true";
   }
 
-  if (document.body && !document.body.dataset.orgOversightBound) {
-    document.body.addEventListener("click", async (event) => {
+  if (orgOversightDelegationRoot && !orgOversightDelegationRoot.dataset.orgOversightBound) {
+    orgOversightDelegationRoot.addEventListener("click", async (event) => {
       const target = event.target?.closest?.("[data-action='save-org-role'], [data-action='cancel-org-invite']");
       if (!target) return;
 
@@ -562,7 +563,7 @@ async function bindAccountSettingsUI() {
       }
     });
 
-    document.body.dataset.orgOversightBound = "true";
+    orgOversightDelegationRoot.dataset.orgOversightBound = "true";
   }
 
   refreshAccountSettingsUI();

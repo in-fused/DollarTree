@@ -1592,6 +1592,7 @@ function bindProjectAdminUI() {
   const shareLinkCreateBtn = document.getElementById("projectShareLinkCreateBtn");
   const shareLinkCopyBtn = document.getElementById("projectShareLinkCopyBtn");
   const shareLinkUrlInput = document.getElementById("projectShareLinkUrl");
+  const adminActionDelegationRoot = document.getElementById("adminPanel") || document.body;
 
   if (typeof bindStoreMaintenanceUI === "function") {
     bindStoreMaintenanceUI();
@@ -1917,8 +1918,8 @@ try {
     brandLogoUrlInput.dataset.logoLibraryBound = "true";
   }
 
-  if (document.body && !document.body.dataset.projectAdminBound) {
-    document.body.addEventListener("click", async event => {
+  if (adminActionDelegationRoot && !adminActionDelegationRoot.dataset.projectAdminBound) {
+    adminActionDelegationRoot.addEventListener("click", async event => {
       const target = event.target?.closest?.("[data-action]");
       if (!target || !isSignedIn() || !canManageProjectLifecycle() || !currentProjectId) return;
 
@@ -2107,6 +2108,6 @@ try {
       }
     });
 
-    document.body.dataset.projectAdminBound = "true";
+    adminActionDelegationRoot.dataset.projectAdminBound = "true";
   }
 }
