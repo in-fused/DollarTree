@@ -757,6 +757,16 @@
   white-space: nowrap;
 }
 
+.adminInviteCancelBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 122px;
+  min-height: 34px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .accountSettingsPanel {
   margin-top: 10px;
   border: 1px solid rgba(var(--project-accent-rgb), 0.34);
@@ -804,11 +814,22 @@
   background: rgba(255,255,255,0.03);
 }
 
+.orgOversightInviteRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .orgOversightRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
+}
+
+.orgOversightInviteMeta {
+  min-width: 0;
 }
 
 .orgOversightPrimary {
@@ -832,8 +853,15 @@
   align-items: center;
 }
 
+.orgOversightInviteActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .orgOversightRoleWrap select,
-.orgOversightRoleWrap button {
+.orgOversightRoleWrap button,
+.orgOversightInviteActions button {
   margin-top: 0;
 }
 
@@ -1080,12 +1108,23 @@
     grid-template-columns: 1fr;
   }
 
-  .orgOversightRow {
+  .orgOversightRow,
+  .orgOversightInviteRow {
     grid-template-columns: 1fr;
   }
 
-  .orgOversightRoleWrap {
+  .orgOversightRoleWrap,
+  .orgOversightInviteActions {
     grid-auto-flow: row;
+  }
+
+  .orgOversightInviteActions {
+    display: grid;
+    justify-content: stretch;
+  }
+
+  .orgOversightInviteActions button {
+    width: 100%;
   }
 }
 

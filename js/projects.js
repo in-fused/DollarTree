@@ -1557,9 +1557,12 @@ async function refreshProjectAdminPanel() {
 
       const revokeBtn = document.createElement("button");
       revokeBtn.type = "button";
-      revokeBtn.className = "btnSecondary";
-      revokeBtn.classList.add("adminRowActionBtn");
+      revokeBtn.className = "btnClosed";
+      revokeBtn.classList.add("adminRowActionBtn", "adminInviteCancelBtn");
       revokeBtn.textContent = "Cancel Invite";
+      revokeBtn.setAttribute("aria-label", `Cancel invite for ${targetLabel}`);
+      revokeBtn.title = "Cancel this pending invite";
+      revokeBtn.dataset.projectId = currentProjectId;
       revokeBtn.dataset.inviteId = inviteId;
       revokeBtn.dataset.action = "revoke-invite";
       revokeBtn.disabled = !inviteId;
@@ -2028,9 +2031,9 @@ try {
       }
 
       if (action === "revoke-invite") {
-        const scopedProjectId = String(currentProjectId || "").trim();
+        const scopedProjectId = String(target.dataset.projectId || currentProjectId || "").trim();
         const inviteId = String(target.dataset.inviteId || "").trim();
-        if (!inviteId) return;
+        if (!inviteId || !scopedProjectId) return;
         if (target.dataset.loading === "true") return;
         setProjectAdminMessage("");
         if (!window.confirm("Cancel this pending invite? The invite will no longer be available to accept.")) return;
@@ -2062,7 +2065,7 @@ try {
         flashAdminActionRowFeedback(target, error ? "error" : "success");
         if (!error) {
           logAuditEvent("invite_revoked", {
-            project_id: currentProjectId,
+            project_id: scopedProjectId,
             actor_user_id: currentUser?.id || null,
             invite_id: inviteId,
             metadata: {}

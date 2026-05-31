@@ -2,9 +2,11 @@
 
 .topHeader {
   --header-brand-logo-height: 64px;
-  --header-brand-logo-max-width: 260px;
-  --header-brand-logo-scale: 1.16;
-  --header-project-logo-scale: 1.28;
+  --header-brand-logo-layout-width: clamp(150px, 18vw, 260px);
+  --header-project-logo-layout-width: clamp(170px, 21vw, 316px);
+  --header-brand-logo-max-width: var(--header-brand-logo-layout-width);
+  --header-brand-logo-scale: 1.14;
+  --header-project-logo-scale: 1.42;
   height: var(--header-h);
   padding: max(6px, env(safe-area-inset-top)) 11px 6px;
   background:
@@ -22,7 +24,7 @@
 .commandBar {
   min-height: 52px;
   display: grid;
-  grid-template-columns: minmax(250px, 1.1fr) minmax(108px, auto) minmax(214px, 0.9fr);
+  grid-template-columns: minmax(250px, 1.1fr) minmax(126px, var(--header-brand-logo-layout-width)) minmax(214px, 0.9fr);
   align-items: center;
   gap: 9px;
 }
@@ -37,20 +39,32 @@
   display: flex;
   align-items: flex-start;
   gap: 9px;
+  position: relative;
+  z-index: 2;
 }
 
 .commandBarCenter {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  justify-self: center;
+  width: min(100%, var(--header-brand-logo-layout-width));
+  max-width: var(--header-brand-logo-layout-width);
+  overflow: visible;
   min-height: calc(var(--header-brand-logo-height) + 10px);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  position: relative;
+  z-index: 1;
 }
 
 .commandBarRight {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  position: relative;
+  z-index: 2;
 }
 
 .mobileSidebarToggle {
@@ -153,8 +167,11 @@
 }
 
 .brandLogoWide {
+  inline-size: auto !important;
   width: auto !important;
-  max-width: min(320px, var(--header-brand-logo-max-width)) !important;
+  max-inline-size: var(--header-brand-logo-max-width) !important;
+  max-width: var(--header-brand-logo-max-width) !important;
+  block-size: var(--header-brand-logo-height) !important;
   height: var(--header-brand-logo-height) !important;
   object-fit: contain;
   display: block;
@@ -167,9 +184,12 @@
 }
 
 #projectBrandLogoHeader {
+  inline-size: auto !important;
   width: auto !important;
+  block-size: var(--header-brand-logo-height) !important;
   height: var(--header-brand-logo-height) !important;
-  max-width: min(320px, var(--header-brand-logo-max-width)) !important;
+  max-inline-size: var(--header-brand-logo-max-width) !important;
+  max-width: var(--header-brand-logo-max-width) !important;
   min-width: 0;
   object-fit: contain;
   display: block;
@@ -179,14 +199,20 @@
 }
 
 #projectBrandLogoHeader.projectBrandLogo {
+  inline-size: auto !important;
   width: auto !important;
+  block-size: var(--header-brand-logo-height) !important;
   height: var(--header-brand-logo-height) !important;
+  max-inline-size: var(--header-brand-logo-max-width) !important;
   max-width: var(--header-brand-logo-max-width) !important;
 }
 
 .headerBrandSlotLogo {
+  inline-size: auto !important;
   width: auto !important;
-  max-width: min(320px, var(--header-brand-logo-max-width)) !important;
+  max-inline-size: var(--header-brand-logo-max-width) !important;
+  max-width: var(--header-brand-logo-max-width) !important;
+  block-size: var(--header-brand-logo-height) !important;
   height: var(--header-brand-logo-height) !important;
   object-fit: contain;
   border-radius: 0;
@@ -199,7 +225,8 @@
 
 .headerBrandSlotLogo.is-project-logo {
   --header-brand-logo-scale: var(--header-project-logo-scale);
-  max-width: min(360px, calc(var(--header-brand-logo-max-width) + 56px)) !important;
+  max-inline-size: var(--header-project-logo-layout-width) !important;
+  max-width: var(--header-project-logo-layout-width) !important;
   filter:
     drop-shadow(0 8px 18px rgba(0,0,0,0.45))
     drop-shadow(0 0 10px rgba(var(--project-accent-rgb), 0.18));

@@ -251,6 +251,10 @@ function canAdjustGlobalRole() {
   return isSignedIn() && isOrgOwner();
 }
 
+function canCancelOrgOversightInvite() {
+  return canViewOrgOversight() && typeof dataLayer?.revokeProjectInvite === "function";
+}
+
 async function refreshOrgOversightPanel() {
   const panel = document.getElementById("orgOversightPanel");
   const accountsList = document.getElementById("orgOversightAccountsList");
@@ -356,6 +360,7 @@ async function refreshOrgOversightPanel() {
     } else {
       invitesEmpty.classList.add("hidden");
       rows.forEach((invite) => {
+        const inviteId = String(invite.id || invite.invite_id || "").trim();
         const targetType = String(invite.invite_target_type || (invite.phone ? "phone" : "email")).toLowerCase() === "phone"
           ? "phone"
           : "email";
@@ -363,18 +368,47 @@ async function refreshOrgOversightPanel() {
           ? String(invite.phone || invite.target_phone || "").trim()
           : String(invite.email || invite.target_email || "").trim();
         const role = normalizeProjectRole(invite.role);
+        const projectId = String(invite.project_id || "").trim();
         const projectName = String(invite.project_name || invite.project_id || "").trim() || "Unknown project";
+        const canCancelInvite = canCancelOrgOversightInvite() && !!inviteId;
 
         const item = document.createElement("div");
         item.className = "orgOversightInviteRow";
+
+        const meta = document.createElement("div");
+        meta.className = "orgOversightInviteMeta";
+
         const primary = document.createElement("div");
         primary.className = "orgOversightPrimary";
         primary.textContent = projectName;
+
         const secondary = document.createElement("div");
         secondary.className = "orgOversightSecondary";
         secondary.textContent = `${targetType}: ${targetValue || "unknown"} • ${role}`;
-        item.appendChild(primary);
-        item.appendChild(secondary);
+
+        meta.appendChild(primary);
+        meta.appendChild(secondary);
+        item.appendChild(meta);
+
+        if (canCancelInvite) {
+          const actionWrap = document.createElement("div");
+          actionWrap.className = "orgOversightInviteActions";
+
+          const cancelBtn = document.createElement("button");
+          cancelBtn.type = "button";
+          cancelBtn.className = "btnClosed";
+          cancelBtn.classList.add("adminRowActionBtn", "adminInviteCancelBtn");
+          cancelBtn.textContent = "Cancel Invite";
+          cancelBtn.setAttribute("aria-label", `Cancel invite for ${targetValue || projectName}`);
+          cancelBtn.title = "Cancel this pending invite";
+          cancelBtn.dataset.action = "cancel-org-invite";
+          cancelBtn.dataset.inviteId = inviteId;
+          cancelBtn.dataset.projectId = projectId;
+
+          actionWrap.appendChild(cancelBtn);
+          item.appendChild(actionWrap);
+        }
+
         invitesList.appendChild(item);
       });
     }
@@ -438,8 +472,65 @@ async function bindAccountSettingsUI() {
 
   if (document.body && !document.body.dataset.orgOversightBound) {
     document.body.addEventListener("click", async (event) => {
-      const target = event.target?.closest?.("[data-action='save-org-role']");
+      const target = event.target?.closest?.("[data-action='save-org-role'], [data-action='cancel-org-invite']");
       if (!target) return;
+
+      if (target.dataset.action === "cancel-org-invite") {
+        if (!canCancelOrgOversightInvite()) {
+          setOrgOversightMessage("Org admin access is required to cancel pending invites.", "error");
+          return;
+        }
+
+        const inviteId = String(target.dataset.inviteId || "").trim();
+        const inviteProjectId = String(target.dataset.projectId || "").trim();
+        if (!inviteId) return;
+        if (target.dataset.loading === "true") return;
+        if (!window.confirm("Cancel this pending invite? The invite will no longer be available to accept.")) return;
+
+        const originalLabel = target.textContent;
+        target.dataset.loading = "true";
+        target.disabled = true;
+        target.textContent = "Canceling…";
+
+        let error = null;
+        try {
+          ({ error } = await dataLayer.revokeProjectInvite(inviteId));
+        } catch (caughtError) {
+          error = caughtError instanceof Error
+            ? caughtError
+            : new Error(String(caughtError?.message || "Unable to cancel invite."));
+        } finally {
+          target.dataset.loading = "false";
+          target.disabled = false;
+          target.textContent = originalLabel || "Cancel Invite";
+        }
+
+        if (error) {
+          setOrgOversightMessage(error.message || "Unable to cancel invite.", "error");
+          return;
+        }
+
+        setOrgOversightMessage("Pending invite canceled.", "success");
+        if (typeof logAuditEvent === "function") {
+          logAuditEvent("invite_revoked", {
+            project_id: inviteProjectId || currentProjectId,
+            actor_user_id: currentUser?.id || null,
+            invite_id: inviteId,
+            metadata: {
+              source: "org_oversight"
+            }
+          });
+        }
+
+        const currentProjectKey = String(currentProjectId || "").trim();
+        if (inviteProjectId && currentProjectKey && inviteProjectId === currentProjectKey && typeof refreshProjectAdminPanel === "function") {
+          await refreshProjectAdminPanel();
+        } else {
+          await refreshOrgOversightPanel();
+        }
+        return;
+      }
+
       if (!canAdjustGlobalRole()) {
         setOrgOversightMessage("Only org owners can adjust global roles.", "error");
         return;

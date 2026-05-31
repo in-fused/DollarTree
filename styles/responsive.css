@@ -5,7 +5,8 @@
 
   .topHeader {
     --header-brand-logo-height: 60px;
-    --header-brand-logo-max-width: 244px;
+    --header-brand-logo-layout-width: clamp(140px, 17vw, 244px);
+    --header-project-logo-layout-width: clamp(160px, 20vw, 292px);
   }
 
   .workspace {
@@ -17,7 +18,7 @@
   }
 
   .brandLogoWide {
-    height: 76px;
+    height: var(--header-brand-logo-height) !important;
   }
 }
 
@@ -30,8 +31,9 @@
 
   .topHeader {
     --header-brand-logo-height: 58px;
-    --header-brand-logo-max-width: 236px;
-    --header-project-logo-scale: 1.2;
+    --header-brand-logo-layout-width: clamp(136px, 32vw, 236px);
+    --header-project-logo-layout-width: clamp(156px, 38vw, 276px);
+    --header-project-logo-scale: 1.24;
   }
 
   .commandBar {
@@ -47,7 +49,7 @@
   .commandBarRight { grid-area: right; }
 
   .brandLogoWide {
-    height: 68px;
+    height: var(--header-brand-logo-height) !important;
   }
 
   .workspace {
@@ -534,15 +536,16 @@
 
   .topHeader {
     --header-brand-logo-height: 48px;
-    --header-brand-logo-max-width: 180px;
+    --header-brand-logo-layout-width: 180px;
+    --header-project-logo-layout-width: 180px;
     --header-brand-logo-scale: 1;
     --header-project-logo-scale: 1;
   }
 
   .brandLogoWide {
-    width: 124px;
-    height: auto;
-    max-width: 100%;
+    width: auto !important;
+    height: var(--header-brand-logo-height) !important;
+    max-width: var(--header-brand-logo-layout-width) !important;
     transform: none;
   }
 
