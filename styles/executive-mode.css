@@ -27,6 +27,10 @@ body.executive-mode .brandLogoWide {
   height: var(--header-brand-logo-height) !important;
 }
 
+body.executive-mode #projectBrandLogoHeader {
+  --header-logo-manual-scale: 1.22 !important;
+}
+
 body.executive-mode .headerViewBar {
   min-height: 0;
 }
