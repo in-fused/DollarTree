@@ -1,9 +1,15 @@
 (function importApplyModule(globalScope) {
   "use strict";
 
-  const APPLY_MODE = "merge_current_project";
+  const IMPORT_TARGET_MODES = Object.freeze({
+    CREATE_NEW_PROJECT: "create_new_project",
+    MERGE_CURRENT_PROJECT: "merge_current_project"
+  });
+  const APPLY_MODE = IMPORT_TARGET_MODES.MERGE_CURRENT_PROJECT;
   const LOCAL_GEOCODE_CACHE_KEY = "project_import_geocode_cache";
   const GEOCODE_COUNTRY = "US";
+  const PROJECT_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  const DEFAULT_LARGE_MERGE_ROW_THRESHOLD = 100;
   const STORE_POSTAL_COLUMNS = ["postal_code", "zip"];
   const TEXT_STORE_FIELDS = [
     "store_name",
@@ -207,6 +213,52 @@
 
   function toText(value) {
     return normalizeNullLike(value);
+  }
+
+  function normalizeProjectId(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function isValidProjectId(value) {
+    return PROJECT_ID_PATTERN.test(String(value || "").trim());
+  }
+
+  function getApplyMode(value) {
+    return value === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+      ? IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+      : IMPORT_TARGET_MODES.MERGE_CURRENT_PROJECT;
+  }
+
+  function getKnownProjectIdSet(values) {
+    return new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => normalizeProjectId(value))
+        .filter(Boolean)
+    );
+  }
+
+  function findDuplicateStoreIds(records) {
+    const seen = new Set();
+    const duplicates = new Set();
+
+    (Array.isArray(records) ? records : []).forEach((record) => {
+      const storeId = toText(record && record.store_id);
+      if (!storeId) return;
+      const key = storeId.toLowerCase();
+      if (seen.has(key)) {
+        duplicates.add(storeId);
+      } else {
+        seen.add(key);
+      }
+    });
+
+    return Array.from(duplicates);
+  }
+
+  function getDataLayer() {
+    if (typeof dataLayer !== "undefined" && dataLayer) return dataLayer;
+    if (globalScope && globalScope.dataLayer) return globalScope.dataLayer;
+    return null;
   }
 
   function toNumberOrNull(value) {
@@ -621,6 +673,107 @@
     return cachedPostalColumn;
   }
 
+  async function checkProjectExists(projectId) {
+    const normalizedProjectId = normalizeProjectId(projectId);
+    if (!normalizedProjectId) {
+      return { exists: false, project: null };
+    }
+
+    const layer = getDataLayer();
+    if (layer && typeof layer.projectExists === "function") {
+      const result = await layer.projectExists(normalizedProjectId);
+      if (result && result.error) throw result.error;
+      return {
+        exists: Boolean(result && result.data && result.data.exists),
+        project: result && result.data ? result.data.project || null : null
+      };
+    }
+
+    const client = getSupabaseClient();
+    const result = await withSupabaseTimeout(
+      () => client
+        .from("projects")
+        .select("project_id,name")
+        .eq("project_id", normalizedProjectId)
+        .limit(1),
+      `Check project ${normalizedProjectId}`
+    );
+
+    if (result.error) throw result.error;
+    const rows = Array.isArray(result.data) ? result.data : [];
+    return {
+      exists: rows.length > 0,
+      project: rows[0] || null
+    };
+  }
+
+  async function createProjectMetadata(projectId, projectName) {
+    const normalizedProjectId = normalizeProjectId(projectId);
+    const normalizedProjectName = toText(projectName) || normalizedProjectId;
+
+    const layer = getDataLayer();
+    if (layer && typeof layer.createProjectMetadata === "function") {
+      const result = await layer.createProjectMetadata({
+        projectId: normalizedProjectId,
+        name: normalizedProjectName,
+        createdBy: typeof currentUser !== "undefined" && currentUser ? currentUser.id : ""
+      });
+
+      if (result && result.error) throw result.error;
+      return result && result.data ? result.data : {
+        project_id: normalizedProjectId,
+        name: normalizedProjectName
+      };
+    }
+
+    const client = getSupabaseClient();
+    let result = await withSupabaseTimeout(
+      () => client
+        .from("projects")
+        .insert({
+          project_id: normalizedProjectId,
+          name: normalizedProjectName,
+          is_archived: false,
+          archived_at: null
+        })
+        .select("project_id,name,created_at,is_archived,archived_at")
+        .limit(1),
+      `Create project ${normalizedProjectId}`
+    );
+
+    if (result.error && (
+      isMissingColumnError(result.error, "is_archived") ||
+      isMissingColumnError(result.error, "archived_at")
+    )) {
+      const postInsertCheck = await checkProjectExists(normalizedProjectId);
+      if (postInsertCheck.exists) {
+        return postInsertCheck.project || {
+          project_id: normalizedProjectId,
+          name: normalizedProjectName
+        };
+      }
+
+      result = await withSupabaseTimeout(
+        () => client
+          .from("projects")
+          .insert({
+            project_id: normalizedProjectId,
+            name: normalizedProjectName
+          })
+          .select("project_id,name,created_at")
+          .limit(1),
+        `Create project ${normalizedProjectId}`
+      );
+    }
+
+    if (result.error) throw result.error;
+    const rows = Array.isArray(result.data) ? result.data : [];
+    return rows[0] || {
+      project_id: normalizedProjectId,
+      name: normalizedProjectName
+    };
+  }
+
   function buildStorePayload(projectId, record, postalColumn) {
     if (!hasCoordinatePair(record)) {
       throw new Error(`Store ${record && record.store_id ? record.store_id : "(missing)"} has invalid coordinates and cannot be written.`);
@@ -828,11 +981,12 @@
     throw result.error;
   }
 
-  function buildInitialResult(projectId, projectName) {
+  function buildInitialResult(projectId, projectName, mode) {
     return {
-      mode: APPLY_MODE,
+      mode: getApplyMode(mode),
       projectId,
       projectName: projectName || projectId,
+      projectCreated: false,
       insertedCount: 0,
       updatedCount: 0,
       skippedCount: 0,
@@ -871,12 +1025,48 @@
     const acceptedRecords = Array.isArray(payload.acceptedRecords)
       ? payload.acceptedRecords
       : (Array.isArray(stageResult.acceptedRecords) ? stageResult.acceptedRecords : []);
-    const projectId = toText(payload.currentProjectId || payload.projectId);
-    const projectName = toText(payload.currentProjectName || payload.projectName || projectId);
-    const result = buildInitialResult(projectId, projectName);
+    const mode = getApplyMode(payload.targetMode || payload.mode);
+    const projectId = mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+      ? normalizeProjectId(payload.newProjectId || payload.projectId)
+      : toText(payload.currentProjectId || payload.projectId);
+    const projectName = mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+      ? toText(payload.newProjectName || payload.projectName)
+      : toText(payload.currentProjectName || payload.projectName || projectId);
+    const result = buildInitialResult(projectId, projectName, mode);
 
-    if (!projectId) throw new Error("Apply blocked: no current project is selected.");
-    if (payload.canManage !== true) throw new Error("Apply blocked: project admin access is required.");
+    if (!projectId) {
+      throw new Error(mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+        ? "Apply blocked: new project_id is required."
+        : "Apply blocked: no current project is selected.");
+    }
+
+    if (mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT) {
+      if (payload.canCreateProject !== true) {
+        throw new Error("Apply blocked: global admin or owner access is required to create projects.");
+      }
+      if (!projectName) {
+        throw new Error("Apply blocked: new project name is required.");
+      }
+      if (!isValidProjectId(projectId)) {
+        throw new Error("Apply blocked: project_id must use lowercase letters, numbers, and single hyphens only.");
+      }
+      const knownProjectIds = getKnownProjectIdSet(payload.knownProjectIds);
+      if (knownProjectIds.has(projectId)) {
+        throw new Error(`Apply blocked: project_id "${projectId}" already exists.`);
+      }
+    } else {
+      if (payload.canManage !== true) {
+        throw new Error("Apply blocked: project admin access is required.");
+      }
+
+      const largeMergeThreshold = Number(payload.largeMergeRowThreshold) > 0
+        ? Number(payload.largeMergeRowThreshold)
+        : DEFAULT_LARGE_MERGE_ROW_THRESHOLD;
+      if (acceptedRecords.length >= largeMergeThreshold && toText(payload.mergeConfirmation) !== projectId) {
+        throw new Error(`Apply blocked: type current project_id "${projectId}" to confirm this merge.`);
+      }
+    }
+
     if (stageResult.canProceed !== true || stageResult.isValid !== true) {
       throw new Error("Apply blocked: dry-run validation did not pass.");
     }
@@ -901,13 +1091,38 @@
       return result;
     }
 
+    if (mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT) {
+      const duplicateStoreIds = findDuplicateStoreIds(normalizedRecords);
+      if (duplicateStoreIds.length) {
+        throw new Error(`Apply blocked: duplicate store_id value(s) in incoming CSV: ${duplicateStoreIds.slice(0, 8).join(", ")}.`);
+      }
+
+      const projectCheck = await checkProjectExists(projectId);
+      if (projectCheck.exists) {
+        throw new Error(`Apply blocked: project_id "${projectId}" already exists.`);
+      }
+
+      const existingTargetStoreIds = await loadExistingIdSet("stores", projectId, storeIds);
+      if (existingTargetStoreIds.size > 0) {
+        throw new Error(`Apply blocked: project_id "${projectId}" already has store rows. Choose a different project_id.`);
+      }
+
+      const createdProject = await createProjectMetadata(projectId, projectName);
+      result.projectCreated = true;
+      if (createdProject && createdProject.membershipWarning) {
+        appendWarning(result, createdProject.membershipWarning);
+      }
+    }
+
     const postalColumn = await detectPostalCodeColumn();
     const hasPostalCodes = normalizedRecords.some((record) => !!record.postal_code);
     if (hasPostalCodes && !postalColumn) {
       appendWarning(result, "The stores table does not expose zip/postal_code; postal codes were retained in full_address only.");
     }
 
-    const existingStoreIds = await loadExistingIdSet("stores", projectId, storeIds);
+    const existingStoreIds = mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+      ? new Set()
+      : await loadExistingIdSet("stores", projectId, storeIds);
     let existingStatusIds = new Set();
     let canSeedStatuses = true;
 
@@ -996,6 +1211,7 @@
 
   const importApply = Object.freeze({
     APPLY_MODE,
+    IMPORT_TARGET_MODES,
     applyImport,
     buildFullAddress,
     normalizeAcceptedRecord

@@ -6,6 +6,12 @@
     { id: "address-heavy", label: "Address-Heavy" }
   ];
   const PROJECT_REFRESH_TIMEOUT_MS = 20000;
+  const LARGE_MERGE_ROW_THRESHOLD = 100;
+  const IMPORT_TARGET_MODES = Object.freeze({
+    CREATE_NEW_PROJECT: "create_new_project",
+    MERGE_CURRENT_PROJECT: "merge_current_project"
+  });
+  const PROJECT_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
   const subscribers = new Set();
 
@@ -23,10 +29,15 @@
     selectedPreset: DEFAULT_PRESET,
     availablePresets: FALLBACK_PRESETS.slice(),
     overrideMappings: {},
+    targetMode: IMPORT_TARGET_MODES.MERGE_CURRENT_PROJECT,
+    newProjectName: "",
+    newProjectId: "",
+    newProjectIdTouched: false,
     statusLevel: "idle",
     statusMessage: "Awaiting file selection for staged validation preview.",
     applyConfirmOpen: false,
     applyInProgress: false,
+    applyConfirmationText: "",
     applyResult: null
   };
 
@@ -40,6 +51,23 @@
       : null;
   }
 
+  function slugifyProjectId(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .replace(/-{2,}/g, "-");
+  }
+
+  function normalizeProjectIdInput(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function isValidProjectId(value) {
+    return PROJECT_ID_PATTERN.test(String(value || "").trim());
+  }
+
   function canCurrentUserApplyImport() {
     return Boolean(
       typeof isSignedIn === "function" &&
@@ -49,12 +77,173 @@
     );
   }
 
+  function canCurrentUserCreateProject() {
+    return Boolean(
+      typeof isSignedIn === "function" &&
+      isSignedIn() &&
+      typeof isGlobalAdmin === "function" &&
+      isGlobalAdmin()
+    );
+  }
+
+  function getKnownProjectIds() {
+    const ids = new Set();
+
+    [
+      typeof allProjectList !== "undefined" ? allProjectList : [],
+      typeof projectList !== "undefined" ? projectList : []
+    ].forEach((projects) => {
+      (Array.isArray(projects) ? projects : []).forEach((project) => {
+        const projectId = String(project && project.project_id || "").trim();
+        if (projectId) ids.add(projectId);
+      });
+    });
+
+    const currentId = getCurrentProjectId();
+    if (currentId) ids.add(currentId);
+    return ids;
+  }
+
+  function isKnownProjectId(projectId) {
+    const normalizedProjectId = String(projectId || "").trim();
+    return Boolean(normalizedProjectId && getKnownProjectIds().has(normalizedProjectId));
+  }
+
+  function getAcceptedRecords() {
+    const stageResult = state.stageResult;
+    return stageResult && Array.isArray(stageResult.acceptedRecords)
+      ? stageResult.acceptedRecords
+      : [];
+  }
+
+  function getAcceptedRowCount() {
+    return getAcceptedRecords().length;
+  }
+
+  function getImportTargetMode() {
+    return state.targetMode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+      ? IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+      : IMPORT_TARGET_MODES.MERGE_CURRENT_PROJECT;
+  }
+
+  function getCurrentProjectName() {
+    const projectMeta = getCurrentProjectMeta();
+    return String((projectMeta && projectMeta.name) || getCurrentProjectId() || "").trim();
+  }
+
+  function getImportTargetValidation() {
+    const mode = getImportTargetMode();
+
+    if (mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT) {
+      const projectName = String(state.newProjectName || "").trim();
+      const projectId = normalizeProjectIdInput(state.newProjectId);
+
+      if (!canCurrentUserCreateProject()) {
+        return {
+          valid: false,
+          reason: "Global admin or owner access is required to create projects."
+        };
+      }
+
+      if (!projectName) {
+        return { valid: false, reason: "Project Name is required for a new project." };
+      }
+
+      if (!projectId) {
+        return { valid: false, reason: "Project ID / slug is required for a new project." };
+      }
+
+      if (!isValidProjectId(projectId)) {
+        return {
+          valid: false,
+          reason: "Project ID must use lowercase letters, numbers, and single hyphens only."
+        };
+      }
+
+      if (isKnownProjectId(projectId)) {
+        return {
+          valid: false,
+          reason: `Project ID "${projectId}" already exists. Choose a different project ID.`
+        };
+      }
+
+      return { valid: true, reason: "" };
+    }
+
+    if (!getCurrentProjectId()) {
+      return { valid: false, reason: "Select a current project before merging." };
+    }
+
+    if (!canCurrentUserApplyImport()) {
+      return { valid: false, reason: "Project admin or global admin access is required to merge imports." };
+    }
+
+    return { valid: true, reason: "" };
+  }
+
+  function isMergeConfirmationRequired() {
+    return getImportTargetMode() === IMPORT_TARGET_MODES.MERGE_CURRENT_PROJECT &&
+      getAcceptedRowCount() >= LARGE_MERGE_ROW_THRESHOLD;
+  }
+
+  function getApplyConfirmationEligibility() {
+    if (!isMergeConfirmationRequired()) return { eligible: true, reason: "" };
+
+    const currentProjectIdValue = getCurrentProjectId();
+    if (String(state.applyConfirmationText || "").trim() !== currentProjectIdValue) {
+      return {
+        eligible: false,
+        reason: `Type current project_id "${currentProjectIdValue}" to confirm this merge.`
+      };
+    }
+
+    return { eligible: true, reason: "" };
+  }
+
+  function buildApplyTarget() {
+    const mode = getImportTargetMode();
+    const validation = getImportTargetValidation();
+
+    if (mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT) {
+      const projectName = String(state.newProjectName || "").trim();
+      const projectId = normalizeProjectIdInput(state.newProjectId);
+      return {
+        mode,
+        modeLabel: "Create new project",
+        projectId,
+        projectName: projectName || projectId,
+        newProjectName: projectName,
+        newProjectId: projectId,
+        currentProjectId: getCurrentProjectId(),
+        currentProjectName: getCurrentProjectName(),
+        canCreateProject: canCurrentUserCreateProject(),
+        canMergeCurrentProject: canCurrentUserApplyImport(),
+        projectIdExists: Boolean(projectId && isKnownProjectId(projectId)),
+        validation
+      };
+    }
+
+    return {
+      mode,
+      modeLabel: "Merge into current project",
+      projectId: getCurrentProjectId(),
+      projectName: getCurrentProjectName(),
+      currentProjectId: getCurrentProjectId(),
+      currentProjectName: getCurrentProjectName(),
+      newProjectName: String(state.newProjectName || "").trim(),
+      newProjectId: normalizeProjectIdInput(state.newProjectId),
+      canCreateProject: canCurrentUserCreateProject(),
+      canMergeCurrentProject: canCurrentUserApplyImport(),
+      projectIdExists: false,
+      validation
+    };
+  }
+
   function getApplyEligibility() {
     const stageResult = state.stageResult;
     const summary = stageResult && stageResult.summary ? stageResult.summary : null;
-    const acceptedRecords = stageResult && Array.isArray(stageResult.acceptedRecords)
-      ? stageResult.acceptedRecords
-      : [];
+    const acceptedRecords = getAcceptedRecords();
+    const targetValidation = getImportTargetValidation();
 
     if (!state.file || !state.parsedRows.length) {
       return { eligible: false, reason: "Select and parse a CSV before applying." };
@@ -76,12 +265,8 @@
       return { eligible: false, reason: "No accepted rows are available to apply." };
     }
 
-    if (!getCurrentProjectId()) {
-      return { eligible: false, reason: "Select a current project before applying." };
-    }
-
-    if (!canCurrentUserApplyImport()) {
-      return { eligible: false, reason: "Project admin or global admin access is required to apply imports." };
+    if (!targetValidation.valid) {
+      return { eligible: false, reason: targetValidation.reason || "Choose a valid import target before applying." };
     }
 
     return { eligible: true, reason: "" };
@@ -109,16 +294,20 @@
       selectedPreset: state.selectedPreset,
       availablePresets: state.availablePresets.slice(),
       overrideMappings: { ...state.overrideMappings },
+      targetMode: getImportTargetMode(),
+      newProjectName: state.newProjectName,
+      newProjectId: state.newProjectId,
       statusLevel: state.statusLevel,
       statusMessage: state.statusMessage,
       applyConfirmOpen: state.applyConfirmOpen,
       applyInProgress: state.applyInProgress,
+      applyConfirmationText: state.applyConfirmationText,
       applyResult: state.applyResult,
       applyEligibility: getApplyEligibility(),
-      applyTarget: {
-        projectId: getCurrentProjectId(),
-        projectName: (getCurrentProjectMeta() && getCurrentProjectMeta().name) || getCurrentProjectId()
-      }
+      applyConfirmationEligibility: getApplyConfirmationEligibility(),
+      mergeConfirmationRequired: isMergeConfirmationRequired(),
+      largeMergeRowThreshold: LARGE_MERGE_ROW_THRESHOLD,
+      applyTarget: buildApplyTarget()
     };
   }
 
@@ -251,6 +440,7 @@
   function clearApplyArtifacts() {
     state.applyConfirmOpen = false;
     state.applyInProgress = false;
+    state.applyConfirmationText = "";
     state.applyResult = null;
   }
 
@@ -557,6 +747,47 @@
     }
   }
 
+  function setImportTargetMode(mode) {
+    const normalizedMode = mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+      ? IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+      : IMPORT_TARGET_MODES.MERGE_CURRENT_PROJECT;
+
+    if (state.targetMode === normalizedMode) {
+      notify();
+      return;
+    }
+
+    state.targetMode = normalizedMode;
+    clearApplyArtifacts();
+    notify();
+  }
+
+  function setNewProjectName(value) {
+    const nextName = String(value || "").replace(/\s+/g, " ").trimStart();
+    state.targetMode = IMPORT_TARGET_MODES.CREATE_NEW_PROJECT;
+    state.newProjectName = nextName;
+
+    if (!state.newProjectIdTouched) {
+      state.newProjectId = slugifyProjectId(nextName);
+    }
+
+    clearApplyArtifacts();
+    notify();
+  }
+
+  function setNewProjectId(value) {
+    state.targetMode = IMPORT_TARGET_MODES.CREATE_NEW_PROJECT;
+    state.newProjectIdTouched = true;
+    state.newProjectId = normalizeProjectIdInput(value);
+    clearApplyArtifacts();
+    notify();
+  }
+
+  function setApplyConfirmationText(value) {
+    state.applyConfirmationText = String(value || "").trim();
+    notify();
+  }
+
   function requestApplyConfirmation() {
     const eligibility = getApplyEligibility();
 
@@ -569,13 +800,62 @@
 
     state.applyResult = null;
     state.applyConfirmOpen = true;
+    state.applyConfirmationText = "";
     notify();
     return true;
   }
 
   function cancelApplyConfirmation() {
     state.applyConfirmOpen = false;
+    state.applyConfirmationText = "";
     notify();
+  }
+
+  async function refreshProjectAfterApply(result, target) {
+    const appliedMode = result && result.mode ? result.mode : target.mode;
+    const appliedProjectId = String((result && result.projectId) || target.projectId || "").trim();
+
+    if (appliedMode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT) {
+      if (appliedProjectId && typeof currentProjectId !== "undefined") {
+        currentProjectId = appliedProjectId;
+        try {
+          localStorage.setItem(ACTIVE_PROJECT_KEY, appliedProjectId);
+        } catch (error) {
+          console.warn("Active project persistence failed after import:", error);
+        }
+      }
+
+      if (typeof loadProjects === "function") {
+        await withRuntimeTimeout(
+          () => loadProjects(),
+          PROJECT_REFRESH_TIMEOUT_MS,
+          "Project list refresh timed out after creating the project. Reload the app to verify the latest data."
+        );
+      }
+
+      if (appliedProjectId && typeof currentProjectId !== "undefined" && String(currentProjectId || "").trim() !== appliedProjectId) {
+        currentProjectId = appliedProjectId;
+        try {
+          localStorage.setItem(ACTIVE_PROJECT_KEY, appliedProjectId);
+        } catch (error) {
+          console.warn("Active project persistence failed after import:", error);
+        }
+      }
+
+      if (typeof refreshCurrentProjectRole === "function") {
+        refreshCurrentProjectRole();
+      }
+    }
+
+    if (typeof loadActiveProject === "function") {
+      await withRuntimeTimeout(
+        () => loadActiveProject(),
+        PROJECT_REFRESH_TIMEOUT_MS,
+        appliedMode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+          ? "New project hydration timed out after apply. Reload the app to verify the latest data."
+          : "Project refresh timed out after apply. Reload the app to verify the latest data."
+      );
+    }
   }
 
   async function applyImport() {
@@ -584,10 +864,18 @@
     }
 
     const eligibility = getApplyEligibility();
+    const confirmationEligibility = getApplyConfirmationEligibility();
+    const target = buildApplyTarget();
 
     if (!eligibility.eligible) {
       state.applyConfirmOpen = false;
       setStatus("error", eligibility.reason || "Apply is not available for this dry-run.");
+      notify();
+      return null;
+    }
+
+    if (!confirmationEligibility.eligible) {
+      setStatus("error", confirmationEligibility.reason || "Confirm the import target before applying.");
       notify();
       return null;
     }
@@ -601,7 +889,12 @@
 
     state.applyInProgress = true;
     state.applyResult = null;
-    setStatus("warn", "Applying import to the current project...");
+    setStatus(
+      "warn",
+      target.mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+        ? "Applying import to a new project..."
+        : "Applying import to the current project..."
+    );
     notify();
 
     let result = null;
@@ -611,39 +904,65 @@
       const projectMeta = getCurrentProjectMeta();
 
       result = await window.ImportApply.applyImport({
+        targetMode: target.mode,
         stageResult: state.stageResult,
         acceptedRecords: state.stageResult ? state.stageResult.acceptedRecords : [],
+        projectId: target.projectId,
+        projectName: target.projectName,
         currentProjectId: projectId,
         currentProjectName: (projectMeta && projectMeta.name) || projectId,
-        canManage: canCurrentUserApplyImport()
+        newProjectId: target.newProjectId,
+        newProjectName: target.newProjectName,
+        canManage: target.mode === IMPORT_TARGET_MODES.MERGE_CURRENT_PROJECT && canCurrentUserApplyImport(),
+        canCreateProject: target.mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT && canCurrentUserCreateProject(),
+        knownProjectIds: Array.from(getKnownProjectIds()),
+        mergeConfirmation: state.applyConfirmationText,
+        largeMergeRowThreshold: LARGE_MERGE_ROW_THRESHOLD
       });
 
       state.applyResult = result;
       state.applyConfirmOpen = false;
+      state.applyConfirmationText = "";
 
       if (result && result.geocodeFailureCount > 0) {
         setStatus("warn", "Apply completed with geocode failures. Review skipped rows in the summary.");
       } else if (result && result.errorCount > 0) {
         setStatus("warn", "Apply completed with row-level errors. Review the apply summary.");
       } else {
-        setStatus("ok", "Apply completed. Refreshing current project data...");
+        setStatus(
+          "ok",
+          target.mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+            ? "Apply completed. Refreshing project list and opening the new project..."
+            : "Apply completed. Refreshing current project data..."
+        );
       }
 
       notify();
 
-      if (typeof loadActiveProject === "function") {
+      if (typeof loadActiveProject === "function" || typeof loadProjects === "function") {
         try {
-          await withRuntimeTimeout(
-            () => loadActiveProject(),
-            PROJECT_REFRESH_TIMEOUT_MS,
-            "Project refresh timed out after apply. Reload the app to verify the latest data."
-          );
+          await refreshProjectAfterApply(result, target);
           if (result && result.geocodeFailureCount > 0) {
-            setStatus("warn", "Apply completed with geocode failures and current project data was refreshed.");
+            setStatus(
+              "warn",
+              target.mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+                ? "Apply completed with geocode failures and the new project was opened."
+                : "Apply completed with geocode failures and current project data was refreshed."
+            );
           } else if (result && result.errorCount > 0) {
-            setStatus("warn", "Apply completed with row-level errors and current project data was refreshed.");
+            setStatus(
+              "warn",
+              target.mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+                ? "Apply completed with row-level errors and the new project was opened."
+                : "Apply completed with row-level errors and current project data was refreshed."
+            );
           } else {
-            setStatus("ok", "Apply completed and current project data was refreshed.");
+            setStatus(
+              "ok",
+              target.mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
+                ? "Apply completed. Project list refreshed and the new project is active."
+                : "Apply completed and current project data was refreshed."
+            );
           }
         } catch (refreshError) {
           console.error(refreshError);
@@ -651,16 +970,17 @@
             state.applyResult.warnings.push("Project refresh failed after apply. Reload the app to verify the latest data.");
             state.applyResult.warningCount = state.applyResult.warnings.length;
           }
-          setStatus("warn", "Apply completed, but the active project refresh failed. Reload the app to verify data.");
+          setStatus("warn", "Apply completed, but the project refresh failed. Reload the app to verify data.");
         }
       }
     } catch (error) {
       console.error(error);
       state.applyConfirmOpen = false;
+      state.applyConfirmationText = "";
       state.applyResult = {
-        mode: "merge_current_project",
-        projectId: getCurrentProjectId(),
-        projectName: (getCurrentProjectMeta() && getCurrentProjectMeta().name) || getCurrentProjectId(),
+        mode: target.mode,
+        projectId: target.projectId,
+        projectName: target.projectName,
         insertedCount: 0,
         updatedCount: 0,
         skippedCount: 0,
@@ -689,6 +1009,10 @@
     state.dragActive = false;
     state.selectedPreset = DEFAULT_PRESET;
     state.overrideMappings = {};
+    state.targetMode = IMPORT_TARGET_MODES.MERGE_CURRENT_PROJECT;
+    state.newProjectName = "";
+    state.newProjectId = "";
+    state.newProjectIdTouched = false;
     refreshAvailablePresets();
     clearDryRunArtifacts();
     setStatus("idle", "Awaiting file selection for staged validation preview.");
@@ -699,6 +1023,9 @@
 
   window.ImportRuntime = {
     DEFAULT_PRESET,
+    IMPORT_TARGET_MODES,
+    LARGE_MERGE_ROW_THRESHOLD,
+    slugifyProjectId,
     subscribe,
     getState: cloneState,
     openShell: function openShell() {
@@ -715,6 +1042,10 @@
     setSelectedPreset,
     setOverrideMapping,
     clearOverrideMappings,
+    setImportTargetMode,
+    setNewProjectName,
+    setNewProjectId,
+    setApplyConfirmationText,
     requestApplyConfirmation,
     cancelApplyConfirmation,
     applyImport,

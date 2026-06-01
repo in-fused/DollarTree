@@ -256,6 +256,240 @@ const dataLayer = {
     return [];
   },
 
+  normalizeProjectIdForWrite(projectId) {
+    return String(projectId || "").trim().toLowerCase();
+  },
+
+  isValidProjectIdForWrite(projectId) {
+    return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(projectId || "").trim());
+  },
+
+  async projectExists(projectId) {
+    const normalizedProjectId = this.normalizeProjectIdForWrite(projectId);
+    if (!normalizedProjectId) {
+      return { data: { exists: false, project: null }, error: null };
+    }
+
+    const result = await this.withSupabaseTimeout(
+      supabaseClient
+        .from("projects")
+        .select("project_id, name, created_at, is_archived, archived_at, brand_color, brand_logo_url")
+        .eq("project_id", normalizedProjectId)
+        .limit(1),
+      12000,
+      `Checking project ${normalizedProjectId}`
+    );
+
+    if (result?.error) {
+      const brandingColumnsMissing = this.isMissingColumnError(result.error, "brand_color")
+        || this.isMissingColumnError(result.error, "brand_logo_url");
+      if (!brandingColumnsMissing) {
+        return { data: null, error: result.error };
+      }
+
+      const fallbackResult = await this.withSupabaseTimeout(
+        supabaseClient
+          .from("projects")
+          .select("project_id, name, created_at, is_archived, archived_at")
+          .eq("project_id", normalizedProjectId)
+          .limit(1),
+        12000,
+        `Checking project ${normalizedProjectId}`
+      );
+
+      if (fallbackResult?.error) return { data: null, error: fallbackResult.error };
+      const fallbackRows = Array.isArray(fallbackResult.data) ? fallbackResult.data : [];
+      return {
+        data: {
+          exists: fallbackRows.length > 0,
+          project: fallbackRows[0] || null
+        },
+        error: null
+      };
+    }
+
+    const rows = Array.isArray(result?.data) ? result.data : [];
+    return {
+      data: {
+        exists: rows.length > 0,
+        project: rows[0] || null
+      },
+      error: null
+    };
+  },
+
+  async ensureProjectCreatorMembership(projectId, userId) {
+    const normalizedProjectId = this.normalizeProjectIdForWrite(projectId);
+    const normalizedUserId = String(userId || "").trim();
+    if (!normalizedProjectId || !normalizedUserId) {
+      return { data: null, error: new Error("Project ID and user ID are required for project membership.") };
+    }
+
+    const existingResult = await this.withSupabaseTimeout(
+      supabaseClient
+        .from("project_memberships")
+        .select("project_id,user_id,role")
+        .eq("project_id", normalizedProjectId)
+        .eq("user_id", normalizedUserId)
+        .limit(1),
+      12000,
+      `Checking creator membership for ${normalizedProjectId}`
+    );
+
+    if (existingResult?.error) return { data: null, error: existingResult.error };
+
+    const existingRows = Array.isArray(existingResult.data) ? existingResult.data : [];
+    if (existingRows.length > 0) {
+      const existing = existingRows[0];
+      if (normalizeProjectRole(existing.role) === "admin") {
+        return { data: existing, error: null };
+      }
+
+      return await this.withSupabaseTimeout(
+        supabaseClient
+          .from("project_memberships")
+          .update({ role: "admin" })
+          .eq("project_id", normalizedProjectId)
+          .eq("user_id", normalizedUserId)
+          .select("project_id,user_id,role")
+          .limit(1),
+        12000,
+        `Updating creator membership for ${normalizedProjectId}`
+      );
+    }
+
+    const insertResult = await this.withSupabaseTimeout(
+      supabaseClient
+        .from("project_memberships")
+        .insert({
+          project_id: normalizedProjectId,
+          user_id: normalizedUserId,
+          role: "admin"
+        })
+        .select("project_id,user_id,role")
+        .limit(1),
+      12000,
+      `Creating creator membership for ${normalizedProjectId}`
+    );
+
+    if (insertResult?.error && this.isUniqueViolation(insertResult.error)) {
+      return { data: { project_id: normalizedProjectId, user_id: normalizedUserId, role: "admin" }, error: null };
+    }
+
+    return insertResult;
+  },
+
+  async createProjectMetadata(input = {}) {
+    const payload = input && typeof input === "object" ? input : {};
+    const normalizedProjectId = this.normalizeProjectIdForWrite(payload.projectId || payload.project_id);
+    const normalizedName = this.normalizeMaintenanceTextValue(payload.name || payload.projectName);
+    const createdBy = String(payload.createdBy || payload.created_by || "").trim();
+
+    if (!normalizedProjectId || !normalizedName) {
+      return { data: null, error: new Error("Project Name and Project ID are required.") };
+    }
+
+    if (!this.isValidProjectIdForWrite(normalizedProjectId)) {
+      return { data: null, error: new Error("Project ID must use lowercase letters, numbers, and single hyphens only.") };
+    }
+
+    const existsResult = await this.projectExists(normalizedProjectId);
+    if (existsResult?.error) return existsResult;
+    if (existsResult?.data?.exists) {
+      return { data: null, error: new Error(`Project ID "${normalizedProjectId}" already exists.`) };
+    }
+
+    let insertResult = await this.withSupabaseTimeout(
+      supabaseClient
+        .from("projects")
+        .insert({
+          project_id: normalizedProjectId,
+          name: normalizedName,
+          is_archived: false,
+          archived_at: null
+        })
+        .select("project_id, name, created_at, is_archived, archived_at, brand_color, brand_logo_url")
+        .limit(1),
+      15000,
+      `Creating project ${normalizedProjectId}`
+    );
+
+    if (insertResult?.error && this.isUniqueViolation(insertResult.error)) {
+      return { data: null, error: new Error(`Project ID "${normalizedProjectId}" already exists.`) };
+    }
+
+    if (insertResult?.error && (
+      this.isMissingColumnError(insertResult.error, "brand_color") ||
+      this.isMissingColumnError(insertResult.error, "brand_logo_url") ||
+      this.isMissingColumnError(insertResult.error, "is_archived") ||
+      this.isMissingColumnError(insertResult.error, "archived_at")
+    )) {
+      const postInsertCheck = await this.projectExists(normalizedProjectId);
+      if (!postInsertCheck?.error && postInsertCheck?.data?.exists) {
+        insertResult = {
+          data: [postInsertCheck.data.project || {
+            project_id: normalizedProjectId,
+            name: normalizedName
+          }],
+          error: null
+        };
+      } else {
+        insertResult = await this.withSupabaseTimeout(
+          supabaseClient
+            .from("projects")
+            .insert({
+              project_id: normalizedProjectId,
+              name: normalizedName
+            })
+            .select("project_id, name, created_at")
+            .limit(1),
+          15000,
+          `Creating project ${normalizedProjectId}`
+        );
+
+        if (insertResult?.error && this.isUniqueViolation(insertResult.error)) {
+          return { data: null, error: new Error(`Project ID "${normalizedProjectId}" already exists.`) };
+        }
+      }
+    }
+
+    if (insertResult?.error) return { data: null, error: insertResult.error };
+
+    const insertedRows = Array.isArray(insertResult.data) ? insertResult.data : [];
+    const insertedProject = insertedRows[0] || {
+      project_id: normalizedProjectId,
+      name: normalizedName,
+      is_archived: false,
+      archived_at: null,
+      brand_color: "",
+      brand_logo_url: ""
+    };
+
+    let membershipWarning = "";
+    if (createdBy) {
+      const membershipResult = await this.ensureProjectCreatorMembership(normalizedProjectId, createdBy);
+      if (membershipResult?.error) {
+        membershipWarning = "Project was created, but creator membership could not be written. Global admins can still access the project.";
+        console.warn("Creator membership write failed:", membershipResult.error);
+      }
+    }
+
+    return {
+      data: {
+        ...insertedProject,
+        project_id: normalizedProjectId,
+        name: normalizedName,
+        is_archived: insertedProject.is_archived === true,
+        archived_at: insertedProject.archived_at || null,
+        brand_color: insertedProject.brand_color || "",
+        brand_logo_url: insertedProject.brand_logo_url || "",
+        store_file: `data/${normalizedProjectId}/stores_with_coords.json`,
+        membershipWarning
+      },
+      error: null
+    };
+  },
+
   async updateProjectLifecycle(projectId, isArchived) {
     return await supabaseClient
       .from("projects")

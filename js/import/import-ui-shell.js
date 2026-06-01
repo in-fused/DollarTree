@@ -17,6 +17,14 @@
   const APPLY_RESULT_ID = "importShellApplyResult";
   const APPLY_CONFIRM_BTN_ID = "importShellConfirmApplyBtn";
   const APPLY_BACK_BTN_ID = "importShellApplyBackBtn";
+  const TARGET_CREATE_ID = "importShellTargetCreate";
+  const TARGET_MERGE_ID = "importShellTargetMerge";
+  const TARGET_FIELDS_ID = "importShellCreateProjectFields";
+  const TARGET_SUMMARY_ID = "importShellTargetSummary";
+  const TARGET_CURRENT_DETAIL_ID = "importShellCurrentProjectDetail";
+  const NEW_PROJECT_NAME_ID = "importShellNewProjectName";
+  const NEW_PROJECT_ID_ID = "importShellNewProjectId";
+  const APPLY_CONFIRM_TEXT_ID = "importShellApplyConfirmText";
   const OPEN_INTENT_KEY = "dt:openImportShell";
 
   function getRuntime() {
@@ -104,17 +112,23 @@
       }
 
       .importShellFileInput,
-      .importShellPresetSelect {
+      .importShellPresetSelect,
+      .importShellTextInput {
         width: 100%;
       }
 
-      .importShellPresetSelect {
+      .importShellPresetSelect,
+      .importShellTextInput {
         background: rgba(255,255,255,0.06);
         color: #f5f7fb;
         border: 1px solid rgba(255,255,255,0.10);
         border-radius: 12px;
         padding: 10px 12px;
         font: inherit;
+      }
+
+      .importShellTextInput::placeholder {
+        color: rgba(220,228,240,0.48);
       }
 
       .importShellPresetStatus {
@@ -158,6 +172,85 @@
         padding: 12px;
         font-size: 12px;
         line-height: 1.5;
+      }
+
+      .importShellTargetGrid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .importShellTargetOption {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        min-width: 0;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        background: rgba(255,255,255,0.03);
+        padding: 10px;
+        cursor: pointer;
+      }
+
+      .importShellTargetOption input {
+        margin-top: 3px;
+      }
+
+      .importShellTargetTitle {
+        display: block;
+        font-size: 12px;
+        font-weight: 800;
+        color: #f5f7fb;
+      }
+
+      .importShellTargetDetail {
+        display: block;
+        margin-top: 3px;
+        font-size: 11px;
+        line-height: 1.35;
+        color: rgba(220,228,240,0.76);
+      }
+
+      .importShellFieldGrid {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .importShellFieldGrid.is-hidden {
+        display: none;
+      }
+
+      .importShellFieldLabel {
+        display: grid;
+        gap: 5px;
+        min-width: 0;
+        font-size: 11px;
+        font-weight: 700;
+        color: rgba(220,228,240,0.82);
+      }
+
+      .importShellTargetSummary {
+        margin-top: 8px;
+        font-size: 12px;
+        line-height: 1.45;
+        color: rgba(220,228,240,0.82);
+      }
+
+      .importShellTargetSummary.is-error {
+        color: #ffd7d7;
+      }
+
+      .importShellConfirmInputWrap {
+        margin-top: 12px;
+      }
+
+      .importShellConfirmInputHelp {
+        margin: 0 0 6px;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #fff0c4;
       }
 
       .importShellStatus {
@@ -287,6 +380,11 @@
           flex-direction: column;
         }
 
+        .importShellTargetGrid,
+        .importShellFieldGrid {
+          grid-template-columns: 1fr;
+        }
+
         .importShellActions button,
         .importShellApplyConfirmActions button,
         .importShellHeader button {
@@ -339,6 +437,29 @@
     return acceptedRecords.length;
   }
 
+  function isCreateNewProjectTarget(snapshot) {
+    return String(snapshot && snapshot.applyTarget && snapshot.applyTarget.mode || "") === "create_new_project";
+  }
+
+  function getTargetModeLabel(snapshot) {
+    return isCreateNewProjectTarget(snapshot) ? "Create new project" : "Merge into current project";
+  }
+
+  function getTargetValidation(snapshot) {
+    const target = snapshot && snapshot.applyTarget;
+    const validation = target && target.validation;
+    return validation && typeof validation === "object"
+      ? validation
+      : { valid: true, reason: "" };
+  }
+
+  function setInputValue(input, value) {
+    if (!input) return;
+    const nextValue = String(value || "");
+    if (document.activeElement === input) return;
+    if (input.value !== nextValue) input.value = nextValue;
+  }
+
   function appendApplyList(container, rows) {
     const list = document.createElement("ul");
     list.className = "importShellApplyList";
@@ -357,10 +478,62 @@
     container.appendChild(list);
   }
 
+  function renderTargetUi(snapshot, elements) {
+    const target = snapshot && snapshot.applyTarget ? snapshot.applyTarget : {};
+    const validation = getTargetValidation(snapshot);
+    const isCreate = isCreateNewProjectTarget(snapshot);
+    const isApplying = Boolean(snapshot && snapshot.applyInProgress);
+
+    if (elements.targetCreateRadio) {
+      elements.targetCreateRadio.checked = isCreate;
+      elements.targetCreateRadio.disabled = isApplying || target.canCreateProject !== true;
+    }
+
+    if (elements.targetMergeRadio) {
+      elements.targetMergeRadio.checked = !isCreate;
+      elements.targetMergeRadio.disabled = isApplying || target.canMergeCurrentProject !== true;
+    }
+
+    if (elements.targetFields) {
+      elements.targetFields.classList.toggle("is-hidden", !isCreate);
+    }
+
+    if (elements.newProjectNameInput) {
+      elements.newProjectNameInput.disabled = isApplying || !isCreate;
+      setInputValue(elements.newProjectNameInput, target.newProjectName || "");
+    }
+
+    if (elements.newProjectIdInput) {
+      elements.newProjectIdInput.disabled = isApplying || !isCreate;
+      setInputValue(elements.newProjectIdInput, target.newProjectId || "");
+    }
+
+    if (elements.targetCurrentDetail) {
+      const currentName = String(target.currentProjectName || target.projectName || "").trim() || "No current project";
+      const currentId = String(target.currentProjectId || target.projectId || "").trim() || "none";
+      elements.targetCurrentDetail.textContent = `${currentName} (${currentId})`;
+    }
+
+    if (elements.targetSummary) {
+      elements.targetSummary.classList.toggle("is-error", validation.valid === false);
+
+      if (validation.valid === false) {
+        elements.targetSummary.textContent = validation.reason || "Choose a valid import target before applying.";
+      } else if (isCreate) {
+        elements.targetSummary.textContent =
+          `New project target: ${target.newProjectName || target.projectName || ""} (${target.newProjectId || target.projectId || ""}). Existing projects are checked before any write.`;
+      } else {
+        elements.targetSummary.textContent =
+          `Current project target: ${target.currentProjectName || target.projectName || ""} (${target.currentProjectId || target.projectId || ""}). Matching store_id rows update; new store rows insert.`;
+      }
+    }
+  }
+
   function renderApplyConfirmation(snapshot, elements) {
     const confirm = elements.applyConfirm;
     if (!confirm) return;
 
+    const hadConfirmInputFocus = document.activeElement && document.activeElement.id === APPLY_CONFIRM_TEXT_ID;
     clearChildren(confirm);
 
     if (!snapshot.applyConfirmOpen) {
@@ -375,28 +548,82 @@
     warning.textContent = "This will write to Supabase.";
     confirm.appendChild(warning);
 
-    appendApplyList(confirm, [
-      { key: "Current project name", value: String((snapshot.applyTarget && snapshot.applyTarget.projectName) || "") },
-      { key: "Current project_id", value: String((snapshot.applyTarget && snapshot.applyTarget.projectId) || "") },
-      { key: "Accepted rows", value: String(getAcceptedRowCount(snapshot)) },
-      { key: "Mode", value: "Merge into current project" }
-    ]);
+    const target = snapshot.applyTarget || {};
+    const isCreate = isCreateNewProjectTarget(snapshot);
+    const acceptedRowCount = getAcceptedRowCount(snapshot);
+
+    appendApplyList(confirm, isCreate
+      ? [
+          { key: "Mode", value: "Create new project" },
+          { key: "New project name", value: String(target.newProjectName || target.projectName || "") },
+          { key: "New project_id", value: String(target.newProjectId || target.projectId || "") },
+          { key: "Accepted rows", value: String(acceptedRowCount) }
+        ]
+      : [
+          { key: "Mode", value: "Merge into current project" },
+          { key: "Current project name", value: String(target.currentProjectName || target.projectName || "") },
+          { key: "Current project_id", value: String(target.currentProjectId || target.projectId || "") },
+          { key: "Accepted rows", value: String(acceptedRowCount) }
+        ]);
 
     const explanation = document.createElement("ul");
     explanation.className = "importShellApplyList";
-    [
-      "Existing stores matched by store_id will be updated.",
-      "New stores will be inserted.",
-      "Rows without valid coordinates will geocode before writing.",
-      "Rows that cannot geocode will be skipped.",
-      "Notes/photos will not be touched.",
-      "Existing statuses will not be reset."
-    ].forEach(function appendText(text) {
+    (isCreate
+      ? [
+          "Existing stores will not be touched.",
+          "Rows with valid coordinates write directly.",
+          "Rows without valid coordinates geocode before writing.",
+          "Rows that cannot geocode will be skipped.",
+          "Notes/photos are not applicable for a new project.",
+          "Baseline active status rows will be created."
+        ]
+      : [
+          "Existing stores matched by store_id will be updated.",
+          "New stores will be inserted.",
+          "Rows with valid coordinates write directly.",
+          "Rows without valid coordinates will geocode before writing.",
+          "Rows that cannot geocode will be skipped.",
+          "Notes/photos will not be touched.",
+          "Existing statuses will not be reset."
+        ]).forEach(function appendText(text) {
       const item = document.createElement("li");
       item.textContent = text;
       explanation.appendChild(item);
     });
     confirm.appendChild(explanation);
+
+    const confirmationEligibility = snapshot.applyConfirmationEligibility || { eligible: true };
+    if (!isCreate && snapshot.mergeConfirmationRequired) {
+      const confirmWrap = document.createElement("div");
+      confirmWrap.className = "importShellConfirmInputWrap";
+
+      const confirmHelp = document.createElement("p");
+      confirmHelp.className = "importShellConfirmInputHelp";
+      confirmHelp.textContent = `Large merge safety: type current project_id "${String(target.currentProjectId || target.projectId || "")}" to confirm.`;
+
+      const confirmInput = document.createElement("input");
+      confirmInput.id = APPLY_CONFIRM_TEXT_ID;
+      confirmInput.className = "importShellTextInput";
+      confirmInput.type = "text";
+      confirmInput.autocomplete = "off";
+      confirmInput.placeholder = String(target.currentProjectId || target.projectId || "");
+      confirmInput.value = String(snapshot.applyConfirmationText || "");
+      confirmInput.disabled = Boolean(snapshot.applyInProgress);
+
+      confirmWrap.appendChild(confirmHelp);
+      confirmWrap.appendChild(confirmInput);
+      confirm.appendChild(confirmWrap);
+
+      if (hadConfirmInputFocus) {
+        window.requestAnimationFrame(function restoreConfirmInputFocus() {
+          confirmInput.focus();
+          const cursorIndex = confirmInput.value.length;
+          if (typeof confirmInput.setSelectionRange === "function") {
+            confirmInput.setSelectionRange(cursorIndex, cursorIndex);
+          }
+        });
+      }
+    }
 
     const actions = document.createElement("div");
     actions.className = "importShellApplyConfirmActions";
@@ -404,8 +631,11 @@
     const confirmBtn = document.createElement("button");
     confirmBtn.id = APPLY_CONFIRM_BTN_ID;
     confirmBtn.type = "button";
-    confirmBtn.textContent = snapshot.applyInProgress ? "Applying..." : "Confirm Apply";
-    confirmBtn.disabled = Boolean(snapshot.applyInProgress);
+    confirmBtn.textContent = snapshot.applyInProgress
+      ? "Applying..."
+      : (isCreate ? "Confirm Create" : "Confirm Merge");
+    confirmBtn.disabled = Boolean(snapshot.applyInProgress || !confirmationEligibility.eligible);
+    confirmBtn.title = confirmationEligibility.eligible ? "" : (confirmationEligibility.reason || "");
 
     const backBtn = document.createElement("button");
     backBtn.id = APPLY_BACK_BTN_ID;
@@ -483,7 +713,9 @@
 
     applyBtn.classList.toggle("is-hidden", !shouldShowApply);
     applyBtn.disabled = Boolean(!eligibility.eligible || snapshot.applyInProgress);
-    applyBtn.textContent = snapshot.applyInProgress ? "Applying..." : "Apply Import";
+    applyBtn.textContent = snapshot.applyInProgress
+      ? "Applying..."
+      : `Apply Import - ${getTargetModeLabel(snapshot)}`;
     applyBtn.title = eligibility.eligible ? "" : (eligibility.reason || "");
 
     renderApplyConfirmation(snapshot, elements);
@@ -572,7 +804,103 @@
 
     const note = document.createElement("div");
     note.className = "importShellNote";
-    note.textContent = "Apply mode for this phase is merge into the current project. It does not create projects, replace projects, reset statuses, notes, or photos.";
+    note.textContent = "Choose the import target before applying. Dry-run never writes; apply requires permissions and an explicit final confirmation.";
+
+    const targetSection = document.createElement("section");
+    targetSection.className = "importShellSection";
+
+    const targetLabel = document.createElement("div");
+    targetLabel.className = "importShellSectionLabel";
+    targetLabel.textContent = "Import Target";
+
+    const targetGrid = document.createElement("div");
+    targetGrid.className = "importShellTargetGrid";
+
+    const createOption = document.createElement("label");
+    createOption.className = "importShellTargetOption";
+
+    const createRadio = document.createElement("input");
+    createRadio.id = TARGET_CREATE_ID;
+    createRadio.type = "radio";
+    createRadio.name = "importShellTargetMode";
+    createRadio.value = "create_new_project";
+
+    const createCopy = document.createElement("span");
+    const createTitle = document.createElement("span");
+    createTitle.className = "importShellTargetTitle";
+    createTitle.textContent = "Create new project";
+    const createDetail = document.createElement("span");
+    createDetail.className = "importShellTargetDetail";
+    createDetail.textContent = "Write imported stores to a new project_id and seed baseline active statuses.";
+    createCopy.appendChild(createTitle);
+    createCopy.appendChild(createDetail);
+    createOption.appendChild(createRadio);
+    createOption.appendChild(createCopy);
+
+    const mergeOption = document.createElement("label");
+    mergeOption.className = "importShellTargetOption";
+
+    const mergeRadio = document.createElement("input");
+    mergeRadio.id = TARGET_MERGE_ID;
+    mergeRadio.type = "radio";
+    mergeRadio.name = "importShellTargetMode";
+    mergeRadio.value = "merge_current_project";
+    mergeRadio.checked = true;
+
+    const mergeCopy = document.createElement("span");
+    const mergeTitle = document.createElement("span");
+    mergeTitle.className = "importShellTargetTitle";
+    mergeTitle.textContent = "Merge into current project";
+    const mergeDetail = document.createElement("span");
+    mergeDetail.id = TARGET_CURRENT_DETAIL_ID;
+    mergeDetail.className = "importShellTargetDetail";
+    mergeDetail.textContent = "Current project details will load here.";
+    mergeCopy.appendChild(mergeTitle);
+    mergeCopy.appendChild(mergeDetail);
+    mergeOption.appendChild(mergeRadio);
+    mergeOption.appendChild(mergeCopy);
+
+    targetGrid.appendChild(createOption);
+    targetGrid.appendChild(mergeOption);
+
+    const createFields = document.createElement("div");
+    createFields.id = TARGET_FIELDS_ID;
+    createFields.className = "importShellFieldGrid is-hidden";
+
+    const projectNameLabel = document.createElement("label");
+    projectNameLabel.className = "importShellFieldLabel";
+    projectNameLabel.textContent = "Project Name";
+    const projectNameInput = document.createElement("input");
+    projectNameInput.id = NEW_PROJECT_NAME_ID;
+    projectNameInput.className = "importShellTextInput";
+    projectNameInput.type = "text";
+    projectNameInput.autocomplete = "off";
+    projectNameInput.placeholder = "Gotta Catch Em All";
+    projectNameLabel.appendChild(projectNameInput);
+
+    const projectIdLabel = document.createElement("label");
+    projectIdLabel.className = "importShellFieldLabel";
+    projectIdLabel.textContent = "Project ID / slug";
+    const projectIdInput = document.createElement("input");
+    projectIdInput.id = NEW_PROJECT_ID_ID;
+    projectIdInput.className = "importShellTextInput";
+    projectIdInput.type = "text";
+    projectIdInput.autocomplete = "off";
+    projectIdInput.placeholder = "gotta-catch-em-all";
+    projectIdLabel.appendChild(projectIdInput);
+
+    createFields.appendChild(projectNameLabel);
+    createFields.appendChild(projectIdLabel);
+
+    const targetSummary = document.createElement("div");
+    targetSummary.id = TARGET_SUMMARY_ID;
+    targetSummary.className = "importShellTargetSummary";
+    targetSummary.textContent = "Current project target will be shown before apply.";
+
+    targetSection.appendChild(targetLabel);
+    targetSection.appendChild(targetGrid);
+    targetSection.appendChild(createFields);
+    targetSection.appendChild(targetSummary);
 
     const presetSection = document.createElement("section");
     presetSection.className = "importShellSection";
@@ -699,6 +1027,7 @@
 
     content.appendChild(header);
     content.appendChild(note);
+    content.appendChild(targetSection);
     content.appendChild(presetSection);
     content.appendChild(fileSection);
     content.appendChild(metaSection);
@@ -730,7 +1059,15 @@
       applyConfirm: document.getElementById(APPLY_CONFIRM_ID),
       applyResult: document.getElementById(APPLY_RESULT_ID),
       applyConfirmBtn: document.getElementById(APPLY_CONFIRM_BTN_ID),
-      applyBackBtn: document.getElementById(APPLY_BACK_BTN_ID)
+      applyBackBtn: document.getElementById(APPLY_BACK_BTN_ID),
+      targetCreateRadio: document.getElementById(TARGET_CREATE_ID),
+      targetMergeRadio: document.getElementById(TARGET_MERGE_ID),
+      targetFields: document.getElementById(TARGET_FIELDS_ID),
+      targetSummary: document.getElementById(TARGET_SUMMARY_ID),
+      targetCurrentDetail: document.getElementById(TARGET_CURRENT_DETAIL_ID),
+      newProjectNameInput: document.getElementById(NEW_PROJECT_NAME_ID),
+      newProjectIdInput: document.getElementById(NEW_PROJECT_ID_ID),
+      applyConfirmTextInput: document.getElementById(APPLY_CONFIRM_TEXT_ID)
     };
   }
 
@@ -821,6 +1158,7 @@
 
     populatePresetOptions(snapshot);
     updatePresetStatus(snapshot);
+    renderTargetUi(snapshot, elements);
 
     if (elements.fileInput) elements.fileInput.disabled = Boolean(snapshot.applyInProgress);
     if (elements.presetSelect) elements.presetSelect.disabled = Boolean(snapshot.applyInProgress);
@@ -917,11 +1255,55 @@
           runtime.cancelApplyConfirmation();
         }
       });
+
+      elements.applySection.addEventListener("input", function onApplySectionInput(event) {
+        const target = event.target;
+        if (!target || target.id !== APPLY_CONFIRM_TEXT_ID) return;
+        if (typeof runtime.setApplyConfirmationText === "function") {
+          runtime.setApplyConfirmationText(target.value);
+        }
+      });
     }
 
     elements.presetSelect.addEventListener("change", function onPresetChange() {
       runtime.setSelectedPreset(elements.presetSelect.value);
     });
+
+    if (elements.targetCreateRadio) {
+      elements.targetCreateRadio.addEventListener("change", function onTargetCreateChange() {
+        if (elements.targetCreateRadio.checked && typeof runtime.setImportTargetMode === "function") {
+          runtime.setImportTargetMode("create_new_project");
+        }
+      });
+    }
+
+    if (elements.targetMergeRadio) {
+      elements.targetMergeRadio.addEventListener("change", function onTargetMergeChange() {
+        if (elements.targetMergeRadio.checked && typeof runtime.setImportTargetMode === "function") {
+          runtime.setImportTargetMode("merge_current_project");
+        }
+      });
+    }
+
+    if (elements.newProjectNameInput) {
+      elements.newProjectNameInput.addEventListener("input", function onNewProjectNameInput() {
+        if (typeof runtime.setNewProjectName === "function") {
+          runtime.setNewProjectName(elements.newProjectNameInput.value);
+        }
+      });
+    }
+
+    if (elements.newProjectIdInput) {
+      elements.newProjectIdInput.addEventListener("input", function onNewProjectIdInput() {
+        const normalizedProjectId = String(elements.newProjectIdInput.value || "").trim().toLowerCase();
+        if (elements.newProjectIdInput.value !== normalizedProjectId) {
+          elements.newProjectIdInput.value = normalizedProjectId;
+        }
+        if (typeof runtime.setNewProjectId === "function") {
+          runtime.setNewProjectId(normalizedProjectId);
+        }
+      });
+    }
 
     elements.modal.addEventListener("click", function onBackdrop(event) {
       if (event.target === elements.modal) {
