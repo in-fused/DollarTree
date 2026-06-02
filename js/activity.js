@@ -19,6 +19,7 @@ function getActivityAccentColor(type) {
   if (type === "member-removed") return "#ff9f9f";
   if (type === "invite-sent") return "#9fd1ff";
   if (type === "invite-revoked") return "#ffb86b";
+  if (type === "invite-accepted") return "#8ee0a1";
   return "rgba(255,255,255,0.12)";
 }
 
@@ -139,15 +140,22 @@ function buildActivityDisplay(item) {
 
   if (type === "invite-sent") {
     return {
-      title: item.title || "Invite sent",
-      detail: detailText || "A project invite was sent."
+      title: "Invite sent",
+      detail: "Invite sent."
     };
   }
 
   if (type === "invite-revoked") {
     return {
-      title: item.title || "Invite revoked",
-      detail: detailText || "A pending project invite was revoked."
+      title: "Invite canceled",
+      detail: "Invite canceled."
+    };
+  }
+
+  if (type === "invite-accepted") {
+    return {
+      title: "Invite accepted",
+      detail: "Invite accepted."
     };
   }
 
@@ -176,7 +184,8 @@ function updateActivityList() {
     "member-role-updated",
     "member-removed",
     "invite-sent",
-    "invite-revoked"
+    "invite-revoked",
+    "invite-accepted"
   ]);
   const items = activityFeed
     .filter(item => {

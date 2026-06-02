@@ -1521,7 +1521,6 @@ async function refreshProjectAdminPanel() {
       label.style.gap = "3px";
       const targetLabel = targetValue || (targetType === "phone" ? "Unknown phone" : "Unknown email");
       label.style.fontWeight = "600";
-      label.title = inviteId ? `Invite ID: ${inviteId}` : "";
       label.dataset.targetType = targetType;
 
       const primaryLabel = document.createElement("div");
@@ -1776,8 +1775,7 @@ function bindProjectAdminUI() {
             invite_target: inviteTargetValue,
             role,
             delivery_channel: getInviteDeliveryChannel(inviteResult, inviteTargetType),
-            delivery_status: deliveryStatus,
-            provider_message_id: inviteResult?.provider_message_id || null
+            delivery_status: deliveryStatus
           }
         });
 
@@ -1988,7 +1986,13 @@ try {
         if (!userId) return;
         if (target.dataset.loading === "true") return;
         setProjectAdminMessage("");
-        if (!window.confirm("Remove this member from the project?")) return;
+        const confirmed = typeof confirmDestructiveAction === "function" && await confirmDestructiveAction({
+          title: "Remove Member?",
+          description: "This member will lose access to the project.",
+          cancelLabel: "Keep Member",
+          confirmLabel: "Remove Member"
+        });
+        if (!confirmed) return;
 
         const originalLabel = target.textContent;
         target.dataset.loading = "true";
@@ -2037,7 +2041,13 @@ try {
         if (!inviteId || !scopedProjectId) return;
         if (target.dataset.loading === "true") return;
         setProjectAdminMessage("");
-        if (!window.confirm("Cancel this pending invite? The invite will no longer be available to accept.")) return;
+        const confirmed = typeof confirmDestructiveAction === "function" && await confirmDestructiveAction({
+          title: "Cancel Invite?",
+          description: "This invite will no longer be available to accept.",
+          cancelLabel: "Keep Invite",
+          confirmLabel: "Cancel Invite"
+        });
+        if (!confirmed) return;
 
         const originalLabel = target.textContent;
         target.dataset.loading = "true";

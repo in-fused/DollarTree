@@ -676,6 +676,75 @@ const dataLayer = {
     ].some(columnName => this.isMissingColumnError(error, columnName));
   },
 
+  isRawProjectInviteError(errorOrMessage) {
+    const payload = errorOrMessage && typeof errorOrMessage === "object" ? errorOrMessage : {};
+    const haystack = [
+      typeof errorOrMessage === "string" ? errorOrMessage : "",
+      payload?.message,
+      payload?.details,
+      payload?.hint,
+      payload?.code,
+      payload?.error,
+      payload?.error?.message,
+      payload?.error?.details,
+      payload?.error?.hint,
+      payload?.error?.code,
+      payload?.payload?.message,
+      payload?.payload?.error?.message,
+      payload?.payload?.error?.code
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const mentionsInviteTargetConstraint = (
+      haystack.includes("project_invites") &&
+      haystack.includes("project_id") &&
+      haystack.includes("key") &&
+      (haystack.includes("email") || haystack.includes("phone") || haystack.includes("target"))
+    );
+
+    return (
+      haystack.includes("23505") ||
+      haystack.includes("duplicate key") ||
+      haystack.includes("unique constraint") ||
+      mentionsInviteTargetConstraint
+    );
+  },
+
+  getFriendlyProjectInviteErrorMessage(errorOrPayload, fallbackMessage = "Unable to send invite.") {
+    const payload = errorOrPayload && typeof errorOrPayload === "object" ? errorOrPayload : {};
+    const errorPayload = payload.error && typeof payload.error === "object" ? payload.error : {};
+    const code = String(
+      payload.code ||
+      payload.error_code ||
+      errorPayload.code ||
+      payload.payload?.code ||
+      payload.payload?.error?.code ||
+      ""
+    ).trim();
+
+    if (code === "invite_already_accepted") {
+      return "This invite has already been accepted. The user may already be a member of this project.";
+    }
+
+    if (code === "invite_duplicate" || this.isRawProjectInviteError(errorOrPayload)) {
+      return "An invite for this email or phone already exists. Refresh pending invites and try again.";
+    }
+
+    const message = String(
+      typeof errorOrPayload === "string"
+        ? errorOrPayload
+        : (
+            payload.message ||
+            errorPayload.message ||
+            payload.error ||
+            fallbackMessage
+          )
+    ).trim();
+
+    return message || fallbackMessage;
+  },
+
   normalizeProjectInviteApiResult(response, basePayload) {
     const invite = response?.invite && typeof response.invite === "object" ? response.invite : {};
     const deliveryChannel = String(
@@ -715,11 +784,7 @@ const dataLayer = {
 
   getProjectInviteApiErrorMessage(payload, fallbackMessage = "Unable to send invite.") {
     if (!payload) return fallbackMessage;
-    if (typeof payload === "string") return payload || fallbackMessage;
-    if (payload.error && typeof payload.error === "object") {
-      return String(payload.error.message || fallbackMessage).trim() || fallbackMessage;
-    }
-    return String(payload.message || payload.error || fallbackMessage).trim() || fallbackMessage;
+    return this.getFriendlyProjectInviteErrorMessage(payload, fallbackMessage);
   },
 
   shouldFallbackToRecordedOnlyInvite(error) {
@@ -1035,19 +1100,36 @@ const dataLayer = {
         };
       }
 
-      return await this.createRecordedOnlyProjectInvite(
+      const recordedOnlyResult = await this.createRecordedOnlyProjectInvite(
         basePayload,
         `Invite API route unavailable in local dev; ${deliveryChannel === "sms" ? "SMS" : "email"} was not sent.`
       );
+      if (recordedOnlyResult?.error && this.isRawProjectInviteError(recordedOnlyResult.error)) {
+        return {
+          data: null,
+          error: new Error(this.getFriendlyProjectInviteErrorMessage(recordedOnlyResult.error))
+        };
+      }
+
+      return recordedOnlyResult;
     }
   },
   async revokeProjectInvite(inviteId) {
-    const updateResult = await supabaseClient
+    const revokedAt = new Date().toISOString();
+    let updateResult = await supabaseClient
       .from("project_invites")
-      .update({ revoked_at: new Date().toISOString() })
+      .update({ revoked_at: revokedAt, status: "revoked" })
       .eq("id", inviteId);
 
     if (!updateResult.error) return updateResult;
+
+    if (this.isMissingColumnError(updateResult.error, "status")) {
+      updateResult = await supabaseClient
+        .from("project_invites")
+        .update({ revoked_at: revokedAt })
+        .eq("id", inviteId);
+      if (!updateResult.error) return updateResult;
+    }
 
     return await supabaseClient
       .from("project_invites")

@@ -368,6 +368,10 @@ async function refreshOrgOversightPanel() {
           ? String(invite.phone || invite.target_phone || "").trim()
           : String(invite.email || invite.target_email || "").trim();
         const role = normalizeProjectRole(invite.role);
+        const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+        const deliveryMeta = typeof getInviteDeliveryMeta === "function"
+          ? getInviteDeliveryMeta(invite, targetType)
+          : "";
         const projectId = String(invite.project_id || "").trim();
         const projectName = String(invite.project_name || invite.project_id || "").trim() || "Unknown project";
         const canCancelInvite = canCancelOrgOversightInvite() && !!inviteId;
@@ -384,7 +388,11 @@ async function refreshOrgOversightPanel() {
 
         const secondary = document.createElement("div");
         secondary.className = "orgOversightSecondary";
-        secondary.textContent = `${targetType}: ${targetValue || "unknown"} • ${role}`;
+        secondary.textContent = [
+          `${targetType}: ${targetValue || "unknown"}`,
+          `Role: ${roleLabel}`,
+          deliveryMeta
+        ].filter(Boolean).join(" • ");
 
         meta.appendChild(primary);
         meta.appendChild(secondary);
@@ -486,7 +494,13 @@ async function bindAccountSettingsUI() {
         const inviteProjectId = String(target.dataset.projectId || "").trim();
         if (!inviteId) return;
         if (target.dataset.loading === "true") return;
-        if (!window.confirm("Cancel this pending invite? The invite will no longer be available to accept.")) return;
+        const confirmed = typeof confirmDestructiveAction === "function" && await confirmDestructiveAction({
+          title: "Cancel Invite?",
+          description: "This invite will no longer be available to accept.",
+          cancelLabel: "Keep Invite",
+          confirmLabel: "Cancel Invite"
+        });
+        if (!confirmed) return;
 
         const originalLabel = target.textContent;
         target.dataset.loading = "true";

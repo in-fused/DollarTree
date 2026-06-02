@@ -27,6 +27,41 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.appConfirmDialog {
+  z-index: 2200;
+}
+
+.appConfirmDialogContent {
+  width: min(420px, 100%);
+  border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.52);
+}
+
+.appConfirmDialogContent h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.appConfirmDialogDescription {
+  margin: 10px 0 0;
+  color: rgba(232, 240, 255, 0.82);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.appConfirmDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.appConfirmDialogActions button {
+  min-width: 112px;
+  margin-top: 0;
+}
+
 .confirmStoreName {
   margin-top: 4px;
   font-size: 15px;
@@ -57,6 +92,21 @@
 .statusButtons button {
   flex: 1;
   min-width: 120px;
+}
+
+@media (max-width: 520px) {
+  .appConfirmDialogContent {
+    align-self: center;
+  }
+
+  .appConfirmDialogActions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .appConfirmDialogActions button {
+    width: 100%;
+  }
 }
 
 .notesList {

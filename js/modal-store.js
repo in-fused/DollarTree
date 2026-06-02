@@ -10,6 +10,169 @@ const RESCHEDULE_REASON_PRESETS = [
 ];
 
 let storeModalDismissHandlersBound = false;
+let appConfirmationDialogState = {
+  resolver: null,
+  previousFocus: null,
+  initialized: false
+};
+
+function ensureAppConfirmationDialog() {
+  let modal = document.getElementById("appConfirmDialog");
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "appConfirmDialog";
+  modal.className = "modal appConfirmDialog hidden";
+  modal.setAttribute("aria-hidden", "true");
+
+  const content = document.createElement("div");
+  content.className = "modalContent appConfirmDialogContent";
+  content.setAttribute("role", "dialog");
+  content.setAttribute("aria-modal", "true");
+  content.setAttribute("aria-labelledby", "appConfirmDialogTitle");
+  content.setAttribute("aria-describedby", "appConfirmDialogDescription");
+
+  const title = document.createElement("h3");
+  title.id = "appConfirmDialogTitle";
+
+  const description = document.createElement("p");
+  description.id = "appConfirmDialogDescription";
+  description.className = "appConfirmDialogDescription";
+
+  const actions = document.createElement("div");
+  actions.className = "appConfirmDialogActions";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.id = "appConfirmDialogCancel";
+  cancelBtn.type = "button";
+  cancelBtn.className = "btnSecondary";
+
+  const confirmBtn = document.createElement("button");
+  confirmBtn.id = "appConfirmDialogConfirm";
+  confirmBtn.type = "button";
+  confirmBtn.className = "btnClosed";
+
+  actions.appendChild(cancelBtn);
+  actions.appendChild(confirmBtn);
+  content.appendChild(title);
+  content.appendChild(description);
+  content.appendChild(actions);
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  return modal;
+}
+
+function resolveAppConfirmationDialog(confirmed) {
+  const modal = document.getElementById("appConfirmDialog");
+  const resolver = appConfirmationDialogState.resolver;
+  appConfirmationDialogState.resolver = null;
+
+  if (modal) {
+    modal.classList.add("hidden");
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  const previousFocus = appConfirmationDialogState.previousFocus;
+  appConfirmationDialogState.previousFocus = null;
+  if (previousFocus && typeof previousFocus.focus === "function") {
+    try {
+      previousFocus.focus({ preventScroll: true });
+    } catch (_) {
+      previousFocus.focus();
+    }
+  }
+
+  if (typeof resolver === "function") {
+    resolver(confirmed === true);
+  }
+}
+
+function bindAppConfirmationDialog() {
+  if (appConfirmationDialogState.initialized) return;
+  const modal = ensureAppConfirmationDialog();
+  const cancelBtn = document.getElementById("appConfirmDialogCancel");
+  const confirmBtn = document.getElementById("appConfirmDialogConfirm");
+
+  cancelBtn?.addEventListener("click", () => resolveAppConfirmationDialog(false));
+  confirmBtn?.addEventListener("click", () => resolveAppConfirmationDialog(true));
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) {
+      resolveAppConfirmationDialog(false);
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (modal.classList.contains("hidden")) return;
+    resolveAppConfirmationDialog(false);
+  }, true);
+
+  appConfirmationDialogState.initialized = true;
+}
+
+function showAppConfirmationDialog(options = {}) {
+  if (typeof document === "undefined" || !document.body) {
+    return Promise.resolve(false);
+  }
+
+  bindAppConfirmationDialog();
+  const modal = ensureAppConfirmationDialog();
+  const title = document.getElementById("appConfirmDialogTitle");
+  const description = document.getElementById("appConfirmDialogDescription");
+  const cancelBtn = document.getElementById("appConfirmDialogCancel");
+  const confirmBtn = document.getElementById("appConfirmDialogConfirm");
+
+  if (appConfirmationDialogState.resolver) {
+    resolveAppConfirmationDialog(false);
+  }
+
+  const confirmClass = String(options.confirmClass || "btnClosed").trim() || "btnClosed";
+  if (title) title.textContent = String(options.title || "Confirm Action").trim();
+  if (description) {
+    description.textContent = String(options.description || options.message || "This action cannot be undone.").trim();
+  }
+  if (cancelBtn) cancelBtn.textContent = String(options.cancelLabel || "Cancel").trim();
+  if (confirmBtn) {
+    confirmBtn.textContent = String(options.confirmLabel || "Confirm").trim();
+    confirmBtn.className = confirmClass;
+  }
+
+  appConfirmationDialogState.previousFocus = document.activeElement;
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+
+  return new Promise(resolve => {
+    appConfirmationDialogState.resolver = resolve;
+    requestAnimationFrame(() => {
+      const focusTarget = options.focusConfirm === true ? confirmBtn : cancelBtn;
+      if (!focusTarget || typeof focusTarget.focus !== "function") return;
+      try {
+        focusTarget.focus({ preventScroll: true });
+      } catch (_) {
+        focusTarget.focus();
+      }
+    });
+  });
+}
+
+async function confirmDestructiveAction(options = {}) {
+  if (typeof showAppConfirmationDialog === "function") {
+    return await showAppConfirmationDialog({
+      title: options.title || "Confirm Action",
+      description: options.description || options.message || "This action cannot be undone.",
+      cancelLabel: options.cancelLabel || "Cancel",
+      confirmLabel: options.confirmLabel || "Confirm",
+      confirmClass: options.confirmClass || "btnClosed"
+    });
+  }
+
+  return false;
+}
+
+if (typeof window !== "undefined") {
+  window.showAppConfirmationDialog = showAppConfirmationDialog;
+  window["confirmDestructiveAction"] = confirmDestructiveAction;
+}
 
 function ensureRescheduleControls() {
   const modal = document.getElementById("confirmModal");

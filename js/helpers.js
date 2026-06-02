@@ -337,6 +337,22 @@ function appendActorToDetail(detailText, actorLabel) {
   return `${normalizedDetail} by ${normalizedActor}`;
 }
 
+function getSafeInviteActivityActorLabel(actorLabel) {
+  const normalizedActor = String(actorLabel || "").trim();
+  if (!normalizedActor) return "";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedActor)) {
+    return "";
+  }
+  if (/^[a-z0-9_-]{24,}$/i.test(normalizedActor) && !normalizedActor.includes("@")) {
+    return "";
+  }
+  return normalizedActor;
+}
+
+function appendInviteActorToDetail(detailText, actorLabel) {
+  return appendActorToDetail(detailText, getSafeInviteActivityActorLabel(actorLabel));
+}
+
 function mapActivityEventRow(row) {
   const storeId = String(row.store_id || "");
   const payload = row.payload || row.metadata || {};
@@ -429,17 +445,13 @@ function mapActivityEventRow(row) {
   }
 
   if (eventType === "invite_sent") {
-    const inviteTarget = payload.invite_target || payload.phone || payload.email;
     return {
       type: "invite-sent",
       store_id: "",
       project_id: String(row.project_id || ""),
       timestamp,
       title: "Invite sent",
-      detail: appendActorToDetail(
-        inviteTarget ? `${inviteTarget}${payload.role ? ` (${payload.role})` : ""}` : "Project invite created",
-        actorLabel
-      )
+      detail: appendInviteActorToDetail("Invite sent", actorLabel)
     };
   }
 
@@ -449,11 +461,19 @@ function mapActivityEventRow(row) {
       store_id: "",
       project_id: String(row.project_id || ""),
       timestamp,
-      title: "Invite revoked",
-      detail: appendActorToDetail(
-        payload.email || payload.invite_id || "Pending project invite revoked",
-        actorLabel
-      )
+      title: "Invite canceled",
+      detail: appendInviteActorToDetail("Invite canceled", actorLabel)
+    };
+  }
+
+  if (eventType === "invite_accepted") {
+    return {
+      type: "invite-accepted",
+      store_id: "",
+      project_id: String(row.project_id || ""),
+      timestamp,
+      title: "Invite accepted",
+      detail: appendInviteActorToDetail("Invite accepted", actorLabel)
     };
   }
 

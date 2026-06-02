@@ -389,64 +389,127 @@ function stripDeliveryFields(payload) {
   return copy;
 }
 
-async function findExistingInvite(config, invite) {
-  const targetQuery = invite.targetType === "phone"
-    ? { target_phone: `eq.${invite.targetPhone}` }
-    : { or: `(target_email.eq.${invite.targetEmail},email.eq.${invite.targetEmail})` };
-
-  const rows = await supabaseRequest(config, "project_invites", {
-    query: {
-      select: "*",
-      project_id: `eq.${invite.projectId}`,
-      invite_target_type: `eq.${invite.targetType}`,
-      accepted_at: "is.null",
-      revoked_at: "is.null",
-      ...targetQuery,
-      order: "created_at.desc",
-      limit: 1
-    }
-  });
-
-  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+function getErrorHaystack(error) {
+  return [
+    error?.message,
+    error?.details?.message,
+    error?.details?.details,
+    error?.details?.hint,
+    error?.details?.code,
+    typeof error?.details === "string" ? error.details : "",
+    error?.code
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 }
 
-async function writeInvite(config, invite, user) {
-  const payload = {
-    project_id: invite.projectId,
-    role: invite.role,
-    invited_by: user.id,
-    invite_target_type: invite.targetType,
-    target_email: invite.targetEmail,
-    target_phone: invite.targetPhone,
-    email: invite.targetEmail,
-    status: "pending",
-    accepted_at: null,
-    revoked_at: null,
-    accepted_by_user_id: null,
-    delivery_channel: invite.deliveryChannel,
-    delivery_status: "not_sent",
-    delivery_error: null,
-    delivery_provider: invite.deliveryProvider,
-    provider_message_id: null,
-    sent_at: null
-  };
+function isDuplicateInviteConstraintError(error) {
+  const haystack = getErrorHaystack(error);
+  const mentionsInviteTargetConstraint = (
+    haystack.includes("project_invites") &&
+    haystack.includes("project_id") &&
+    haystack.includes("key") &&
+    (haystack.includes("email") || haystack.includes("phone") || haystack.includes("target"))
+  );
 
-  const existingInvite = await findExistingInvite(config, invite);
-  const writeOptions = existingInvite?.id
-    ? {
-        method: "PATCH",
+  return (
+    haystack.includes("23505") ||
+    haystack.includes("duplicate key") ||
+    haystack.includes("unique constraint") ||
+    mentionsInviteTargetConstraint
+  );
+}
+
+function getInviteStatus(row = {}) {
+  const status = String(row.status || "").trim().toLowerCase();
+  if (row.accepted_at || row.accepted_by_user_id || status === "accepted") return "accepted";
+  if (
+    row.revoked_at ||
+    status === "revoked" ||
+    status === "canceled" ||
+    status === "cancelled"
+  ) {
+    return "revoked";
+  }
+  return "pending";
+}
+
+function sortInviteRows(rows = []) {
+  return [...rows].sort((a, b) => {
+    const aStatus = getInviteStatus(a);
+    const bStatus = getInviteStatus(b);
+    const priority = { pending: 0, revoked: 1, accepted: 2 };
+    const priorityDelta = (priority[aStatus] ?? 9) - (priority[bStatus] ?? 9);
+    if (priorityDelta !== 0) return priorityDelta;
+    const aTime = Date.parse(a?.created_at || "") || 0;
+    const bTime = Date.parse(b?.created_at || "") || 0;
+    return bTime - aTime;
+  });
+}
+
+async function findMatchingInviteRows(config, invite) {
+  const candidates = invite.targetType === "phone"
+    ? [
+        ["target_phone", invite.targetPhone],
+        ["phone", invite.targetPhone]
+      ]
+    : [
+        ["target_email", invite.targetEmail],
+        ["email", invite.targetEmail]
+      ];
+
+  const rows = [];
+  const seen = new Set();
+
+  for (const [columnName, targetValue] of candidates) {
+    if (!targetValue) continue;
+
+    let result;
+    try {
+      result = await supabaseRequest(config, "project_invites", {
         query: {
-          id: `eq.${existingInvite.id}`
-        },
-        prefer: "return=representation",
-        body: payload
-      }
-    : {
-        method: "POST",
-        prefer: "return=representation",
-        body: payload
-      };
+          select: "*",
+          project_id: `eq.${invite.projectId}`,
+          [columnName]: `eq.${targetValue}`,
+          order: "created_at.desc",
+          limit: 20
+        }
+      });
+    } catch (error) {
+      if (isMissingColumnError(error, columnName)) continue;
+      throw error;
+    }
 
+    (Array.isArray(result) ? result : []).forEach(row => {
+      const dedupeKey = String(row?.id || "").trim()
+        || `${row?.project_id || ""}|${row?.email || row?.target_email || ""}|${row?.phone || row?.target_phone || ""}|${row?.created_at || ""}`;
+      if (!dedupeKey || seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
+      rows.push(row);
+    });
+  }
+
+  return sortInviteRows(rows);
+}
+
+function selectReusableInviteRow(rows = []) {
+  const sortedRows = sortInviteRows(rows);
+  const acceptedInvite = sortedRows.find(row => getInviteStatus(row) === "accepted");
+  if (acceptedInvite) {
+    throw new HttpError(
+      409,
+      "invite_already_accepted",
+      "This invite has already been accepted. The user may already be a member of this project."
+    );
+  }
+
+  return sortedRows.find(row => getInviteStatus(row) === "pending")
+    || sortedRows.find(row => getInviteStatus(row) === "revoked")
+    || null;
+}
+
+async function persistInvitePayload(config, writeOptions, payload, invite, existingInvite = null) {
   try {
     const rows = await supabaseRequest(config, "project_invites", writeOptions);
     return {
@@ -475,6 +538,75 @@ async function writeInvite(config, invite, user) {
       },
       deliveryColumnsAvailable: false
     };
+  }
+}
+
+function buildInviteWriteOptions(payload, existingInvite = null) {
+  if (existingInvite?.id) {
+    return {
+      method: "PATCH",
+      query: {
+        id: `eq.${existingInvite.id}`
+      },
+      prefer: "return=representation",
+      body: payload
+    };
+  }
+
+  return {
+    method: "POST",
+    prefer: "return=representation",
+    body: payload
+  };
+}
+
+async function writeInvite(config, invite, user) {
+  const payload = {
+    project_id: invite.projectId,
+    role: invite.role,
+    invited_by: user.id,
+    invite_target_type: invite.targetType,
+    target_email: invite.targetEmail,
+    target_phone: invite.targetPhone,
+    email: invite.targetEmail,
+    status: "pending",
+    accepted_at: null,
+    revoked_at: null,
+    accepted_by_user_id: null,
+    delivery_channel: invite.deliveryChannel,
+    delivery_status: "not_sent",
+    delivery_error: null,
+    delivery_provider: invite.deliveryProvider,
+    provider_message_id: null,
+    sent_at: null
+  };
+
+  const existingInvite = selectReusableInviteRow(await findMatchingInviteRows(config, invite));
+  const writeOptions = buildInviteWriteOptions(payload, existingInvite);
+
+  try {
+    return await persistInvitePayload(config, writeOptions, payload, invite, existingInvite);
+  } catch (error) {
+    if (!isDuplicateInviteConstraintError(error)) {
+      throw error;
+    }
+
+    const recoveredInvite = selectReusableInviteRow(await findMatchingInviteRows(config, invite));
+    if (!recoveredInvite?.id) {
+      throw new HttpError(
+        409,
+        "invite_duplicate",
+        "An invite for this email or phone already exists. Refresh pending invites and try again."
+      );
+    }
+
+    return await persistInvitePayload(
+      config,
+      buildInviteWriteOptions(payload, recoveredInvite),
+      payload,
+      invite,
+      recoveredInvite
+    );
   }
 }
 
@@ -618,9 +750,30 @@ async function sendInviteNotification(config, invite, project) {
 }
 
 function publicErrorPayload(error) {
+  if (error?.code === "invite_already_accepted") {
+    return {
+      code: "invite_already_accepted",
+      message: "This invite has already been accepted. The user may already be a member of this project."
+    };
+  }
+
+  if (error?.code === "invite_duplicate" || isDuplicateInviteConstraintError(error)) {
+    return {
+      code: "invite_duplicate",
+      message: "An invite for this email or phone already exists. Refresh pending invites and try again."
+    };
+  }
+
+  if (error instanceof HttpError && error.code && error.code !== "supabase_request_failed") {
+    return {
+      code: error.code,
+      message: error.message || "Request failed."
+    };
+  }
+
   return {
     code: error?.code || "request_failed",
-    message: error?.message || "Request failed."
+    message: "Unable to send invite right now. Please try again."
   };
 }
 
@@ -681,7 +834,7 @@ module.exports = async function handler(req, res) {
         written.deliveryColumnsAvailable
       );
     } catch (error) {
-      deliveryUpdateError = error?.message || "Delivery status update failed.";
+      deliveryUpdateError = "Invite delivery status was not saved.";
     }
 
     const responseInvite = {
