@@ -62,9 +62,10 @@ function buildActivityDisplay(item) {
   }
 
   if (type === "note") {
+    const isTcgMode = typeof isTcgProjectConfig === "function" && isTcgProjectConfig();
     return {
-      title: item.title || `${storeLabel} note added`,
-      detail: detailText || "Operational note added."
+      title: item.title || (isTcgMode ? `${storeLabel} sighting added` : `${storeLabel} note added`),
+      detail: detailText || (isTcgMode ? "Store chatter added." : "Operational note added.")
     };
   }
 

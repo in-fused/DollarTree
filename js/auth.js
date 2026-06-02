@@ -278,6 +278,9 @@ function updateWriteAccessUI() {
   const canRoutes = isSignedIn() && canManageRoutes();
   const canStoreLifecycle = isSignedIn() && canManageStoreLifecycle();
   const canProjectLifecycle = isSignedIn() && canManageProjectLifecycle();
+  const notePermissionLabel = typeof isTcgProjectConfig === "function" && isTcgProjectConfig()
+    ? "add sightings"
+    : "add notes";
 
   [
     "markActive",
@@ -347,7 +350,7 @@ function updateWriteAccessUI() {
     "writeAccessMessage",
     canEdit
       ? ""
-      : "Editor or admin sign-in required to update store status, add notes, and upload photos."
+      : `Editor or admin sign-in required to update store status, ${notePermissionLabel}, and upload photos.`
   );
 
   if (typeof updateProjectLifecycleControls === "function") {

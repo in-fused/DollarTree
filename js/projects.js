@@ -331,6 +331,12 @@ async function loadProjects() {
   }
 
   refreshCurrentProjectRole();
+  if (typeof updateCurrentProjectConfig === "function") {
+    updateCurrentProjectConfig(
+      projectList.find(project => project.project_id === currentProjectId) || currentProjectMeta,
+      currentProjectId
+    );
+  }
 
   const select = document.getElementById("projectSelect");
   if (!select) return;
@@ -378,7 +384,11 @@ function bindProjectSelector() {
     setProjectHydrationVisualState(true, selectedName);
     currentProjectId = e.target.value;
     localStorage.setItem(ACTIVE_PROJECT_KEY, currentProjectId);
-    applyProjectBranding(projectList.find(project => project.project_id === currentProjectId) || null);
+    const selectedProjectMeta = projectList.find(project => project.project_id === currentProjectId) || null;
+    if (typeof updateCurrentProjectConfig === "function") {
+      updateCurrentProjectConfig(selectedProjectMeta, currentProjectId);
+    }
+    applyProjectBranding(selectedProjectMeta);
     refreshCurrentProjectRole();
     await loadActiveProject();
   });
@@ -451,6 +461,9 @@ async function hydrate(projectIdOverride = currentProjectId, hydrationToken = nu
       ? "supabase"
       : "fallback"
   };
+  if (typeof updateCurrentProjectConfig === "function") {
+    updateCurrentProjectConfig(currentProjectMeta, scopedProjectId);
+  }
 
   return { stale: false };
 }
@@ -579,12 +592,13 @@ async function hydrateActivityFeed() {
   });
 
   noteRowsCache.forEach(row => {
+    const isTcgMode = typeof isTcgProjectConfig === "function" && isTcgProjectConfig();
     events.push({
       type: "note",
       store_id: String(row.store_id),
       timestamp: row.created_at || null,
-      title: `📝 Note added to Store ${row.store_id}`,
-      detail: row.note || "Note saved"
+      title: isTcgMode ? `Sighting added at Store ${row.store_id}` : `📝 Note added to Store ${row.store_id}`,
+      detail: row.note || (isTcgMode ? "Store chatter saved" : "Note saved")
     });
   });
 
@@ -623,6 +637,9 @@ async function loadActiveProject() {
       brand_color: "",
       brand_logo_url: ""
     };
+    if (typeof updateCurrentProjectConfig === "function") {
+      updateCurrentProjectConfig(currentProjectMeta, scopedProjectId);
+    }
     applyProjectBranding(currentProjectMeta);
     allStoreData = [];
     storeData = [];
@@ -675,6 +692,9 @@ async function loadActiveProject() {
     brand_logo_url: "",
     store_file: `data/${scopedProjectId}/stores_with_coords.json`
   };
+  if (typeof updateCurrentProjectConfig === "function") {
+    updateCurrentProjectConfig(currentProjectMeta, scopedProjectId);
+  }
   applyProjectBranding(currentProjectMeta);
 
   currentSelectedStoreId = null;

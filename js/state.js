@@ -113,6 +113,7 @@ let currentModalStoreId = null;
 let currentSelectedStoreId = null;
 let currentProjectId = DEFAULT_PROJECT_ID;
 let currentProjectMeta = null;
+let currentProjectConfig = null;
 let currentWorkspaceView = localStorage.getItem(ACTIVE_VIEW_KEY) || "map";
 
 let currentSession = null;

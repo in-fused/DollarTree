@@ -532,6 +532,9 @@ function openStoreModal(storeId) {
 
   bindStoreModalDismissHandlers();
   modal.classList.remove("hidden");
+  if (typeof applyProjectTerminologyUi === "function") {
+    applyProjectTerminologyUi();
+  }
   setText("confirmStoreId", `Store ID: ${normalizedStoreId}`);
 
   const store = typeof getStoreById === "function"
@@ -765,7 +768,9 @@ async function addNote(storeId) {
     type: "note",
     store_id: String(storeId),
     timestamp: new Date().toISOString(),
-    title: `Store ${storeId} note added`,
+    title: typeof isTcgProjectConfig === "function" && isTcgProjectConfig()
+      ? `Store ${storeId} sighting added`
+      : `Store ${storeId} note added`,
     detail: note
   });
 
@@ -777,6 +782,9 @@ async function addNote(storeId) {
 
 async function loadNotes(storeId) {
   const { data, error } = await dataLayer.loadNotesForStore(currentProjectId, storeId);
+  const terminology = typeof getActiveProjectConfig === "function"
+    ? (getActiveProjectConfig()?.terminology || {})
+    : {};
 
   const container = document.getElementById("notesList");
   if (!container) return;
@@ -785,12 +793,12 @@ async function loadNotes(storeId) {
 
   if (error) {
     console.error(error);
-    container.innerHTML = "Unable to load notes.";
+    container.innerHTML = terminology.notesLoadError || "Unable to load notes.";
     return;
   }
 
   if (!data || data.length === 0) {
-    container.innerHTML = "No notes yet.";
+    container.innerHTML = terminology.notesEmpty || "No notes yet.";
     return;
   }
 

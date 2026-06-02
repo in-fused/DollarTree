@@ -825,7 +825,7 @@
 
       <section id="intelligenceView" class="workspaceView hidden">
         <div class="intelligenceShell">
-          <div class="intelligenceDashboardGrid">
+          <div id="operationsIntelligenceMode" class="intelligenceDashboardGrid">
             <div class="panel intelligencePanel intelligenceSummaryPanel">
               <div class="panelHeaderRow">
                 <h3>Summary</h3>
@@ -886,6 +886,92 @@
                 <div class="intelAttentionEmpty">No attention-ranked stores in current scope.</div>
               </div>
               <div id="intelligenceGeneratedAt" class="intelligenceMetaLine">Updated: —</div>
+            </div>
+          </div>
+
+          <div id="tcgIntelligenceMode" class="tcgIntelligenceMode hidden">
+            <div class="panel intelligencePanel tcgIntelHeroPanel">
+              <div class="panelHeaderRow">
+                <div class="tcgIntelHeadingGroup">
+                  <h3>TCG Hunting Intel</h3>
+                  <div id="tcgIntelPurpose" class="intelligenceMetaLine">Track stores, restocks, new drops, and sightings.</div>
+                </div>
+                <div class="panelHeaderTag">Live Feed</div>
+              </div>
+
+              <div class="tcgIntelMetricGrid">
+                <div class="intelMetricCard">
+                  <div class="intelMetricLabel">Stores Tracked</div>
+                  <div id="tcgIntelStoresTracked" class="intelMetricValue">0</div>
+                </div>
+                <div class="intelMetricCard">
+                  <div class="intelMetricLabel">Sightings</div>
+                  <div id="tcgIntelSightings" class="intelMetricValue">0</div>
+                </div>
+                <div class="intelMetricCard">
+                  <div class="intelMetricLabel">Latest Photos</div>
+                  <div id="tcgIntelPhotos" class="intelMetricValue">0</div>
+                </div>
+                <div class="intelMetricCard">
+                  <div class="intelMetricLabel">Need Check</div>
+                  <div id="tcgIntelNeedCheck" class="intelMetricValue">0</div>
+                </div>
+              </div>
+
+              <div id="tcgIntelScopeLabel" class="intelligenceMetaLine">Scope unavailable.</div>
+            </div>
+
+            <div class="tcgIntelGrid">
+              <div class="panel intelligencePanel tcgIntelPanel tcgIntelPanelLarge">
+                <div class="panelHeaderRow">
+                  <h3>Recent Sightings</h3>
+                  <div class="panelHeaderTag">Store Chatter</div>
+                </div>
+                <div id="tcgRecentSightingsList" class="tcgIntelList">
+                  <div class="intelAttentionEmpty">No sightings logged yet.</div>
+                </div>
+              </div>
+
+              <div class="panel intelligencePanel tcgIntelPanel tcgIntelPanelSmall">
+                <div class="panelHeaderRow">
+                  <h3>Stores Needing A Check</h3>
+                  <div class="panelHeaderTag">Freshness</div>
+                </div>
+                <div id="tcgNeedsCheckList" class="tcgIntelList">
+                  <div class="intelAttentionEmpty">No stale stores in current scope.</div>
+                </div>
+              </div>
+
+              <div class="panel intelligencePanel tcgIntelPanel tcgIntelPanelSmall">
+                <div class="panelHeaderRow">
+                  <h3>Recently Updated Stores</h3>
+                  <div class="panelHeaderTag">Fresh Intel</div>
+                </div>
+                <div id="tcgRecentlyUpdatedStoresList" class="tcgIntelList">
+                  <div class="intelAttentionEmpty">No store updates in current scope.</div>
+                </div>
+              </div>
+
+              <div class="panel intelligencePanel tcgIntelPanel tcgIntelPanelLarge">
+                <div class="panelHeaderRow">
+                  <h3>Latest Photos</h3>
+                  <div class="panelHeaderTag">Evidence</div>
+                </div>
+                <div id="tcgLatestPhotosList" class="tcgPhotoGrid">
+                  <div class="intelAttentionEmpty">No photos uploaded yet.</div>
+                </div>
+              </div>
+
+              <div class="panel intelligencePanel tcgIntelPanel tcgIntelPanelFull">
+                <div class="panelHeaderRow">
+                  <h3>Active Chatter</h3>
+                  <div class="panelHeaderTag">Activity</div>
+                </div>
+                <div id="tcgActiveChatterList" class="tcgIntelList tcgIntelListCompact">
+                  <div class="intelAttentionEmpty">No chatter in current scope.</div>
+                </div>
+                <div id="tcgIntelGeneratedAt" class="intelligenceMetaLine">Updated: —</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1097,6 +1183,7 @@
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <script src="js/state.js"></script>
+<script src="js/project-config.js"></script>
 <script src="js/helpers.js"></script>
 <script src="js/data-layer.js"></script>
 <script src="js/data-integrity.js"></script>

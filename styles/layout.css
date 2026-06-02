@@ -140,6 +140,208 @@ body.executive-mode .sidebar {
   line-height: 1.4;
 }
 
+.tcgIntelligenceMode {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tcgIntelHeadingGroup {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.tcgIntelMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tcgIntelGrid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.tcgIntelPanel {
+  grid-column: span 12;
+  min-width: 0;
+}
+
+.tcgIntelPanelFull {
+  grid-column: span 12;
+}
+
+.tcgIntelList {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.tcgIntelListCompact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tcgIntelItem,
+.tcgPhotoItem,
+.tcgIntelEmpty {
+  min-width: 0;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.045);
+}
+
+.tcgIntelItem,
+.tcgPhotoItem {
+  margin: 0;
+  padding: 9px;
+  color: inherit;
+  text-align: left;
+}
+
+.tcgIntelAction,
+.tcgPhotoItem {
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.tcgIntelAction:hover,
+.tcgIntelAction:focus-visible,
+.tcgPhotoItem:hover,
+.tcgPhotoItem:focus-visible {
+  background: rgba(var(--project-accent-rgb), 0.12);
+  border-color: rgba(var(--project-accent-rgb), 0.35);
+  transform: translateY(-1px);
+}
+
+.tcgIntelItemTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tcgIntelStore {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.tcgIntelTime {
+  flex: 0 0 auto;
+  max-width: 48%;
+  font-size: 10px;
+  line-height: 1.25;
+  color: rgba(255,255,255,0.62);
+  text-align: right;
+}
+
+.tcgIntelDetail {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.42;
+  color: rgba(255,255,255,0.9);
+  overflow-wrap: anywhere;
+}
+
+.tcgIntelMeta {
+  margin-top: 5px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.62);
+  overflow-wrap: anywhere;
+}
+
+.tcgIntelEmpty {
+  padding: 12px;
+}
+
+.tcgIntelEmptyTitle {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.tcgIntelEmptyDetail {
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.66);
+}
+
+.tcgPhotoGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.tcgPhotoItem {
+  display: grid;
+  grid-template-rows: minmax(96px, 120px) auto;
+  gap: 8px;
+  padding: 7px;
+  overflow: hidden;
+}
+
+.tcgPhotoItem img,
+.tcgPhotoPlaceholder {
+  width: 100%;
+  height: 100%;
+  min-height: 96px;
+  border-radius: 7px;
+  background: rgba(255,255,255,0.06);
+}
+
+.tcgPhotoItem img {
+  display: block;
+  object-fit: cover;
+}
+
+.tcgPhotoPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.62);
+  font-size: 11px;
+  text-align: center;
+  padding: 8px;
+}
+
+.tcgPhotoMeta {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tcgPhotoMeta strong,
+.tcgPhotoMeta em,
+.tcgPhotoMeta small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tcgPhotoMeta strong {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.tcgPhotoMeta em,
+.tcgPhotoMeta small {
+  font-size: 10px;
+  line-height: 1.25;
+  color: rgba(255,255,255,0.62);
+  font-style: normal;
+}
+
 body.executive-mode .workspace {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -164,12 +366,45 @@ body.workspace-intelligence-active .intelRail {
   .intelligenceTopPanel {
     grid-column: span 8;
   }
+
+  .tcgIntelPanelLarge {
+    grid-column: span 7;
+  }
+
+  .tcgIntelPanelSmall {
+    grid-column: span 5;
+  }
 }
 
 @media (max-width: 900px) {
   .intelligenceSummaryGrid,
   .intelligenceBreakdownGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tcgIntelMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tcgIntelListCompact,
+  .tcgPhotoGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .tcgIntelMetricGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .tcgIntelItemTop {
+    display: grid;
+    gap: 4px;
+  }
+
+  .tcgIntelTime {
+    max-width: 100%;
+    text-align: left;
   }
 }
 
