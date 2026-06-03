@@ -106,6 +106,46 @@ function getPayloadMessage(payload, fallback) {
   ).trim() || fallback;
 }
 
+function getSafeDeliveryErrorMessage(error, channel = "email") {
+  const normalizedChannel = String(channel || "").trim().toLowerCase() === "sms" ? "SMS" : "Email";
+  const code = String(error?.code || "").trim().toLowerCase();
+  const message = String(error?.message || "").trim();
+  const haystack = [
+    code,
+    message,
+    error?.details?.message,
+    error?.details?.error,
+    typeof error?.details === "string" ? error.details : ""
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    code === "missing_provider_env" ||
+    haystack.includes("missing required") ||
+    haystack.includes("environment variable")
+  ) {
+    return `${normalizedChannel} delivery is not configured.`;
+  }
+
+  if (haystack.includes("timeout") || haystack.includes("timed out") || haystack.includes("abort")) {
+    return `${normalizedChannel} provider timed out.`;
+  }
+
+  if (
+    code === "resend_send_failed" ||
+    code === "twilio_send_failed" ||
+    haystack.includes("provider rejected") ||
+    haystack.includes("resend") ||
+    haystack.includes("twilio")
+  ) {
+    return `${normalizedChannel} provider rejected delivery.`;
+  }
+
+  return `${normalizedChannel} delivery failed.`;
+}
+
 async function readBody(req) {
   if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) {
     return req.body;
@@ -750,6 +790,20 @@ async function sendInviteNotification(config, invite, project) {
 }
 
 function publicErrorPayload(error) {
+  if (error?.code === "missing_auth_token" || error?.code === "invalid_auth_token") {
+    return {
+      code: "auth_required",
+      message: "Sign in again before sending an invite."
+    };
+  }
+
+  if (error?.code === "missing_server_env") {
+    return {
+      code: "invite_service_unavailable",
+      message: "Invite delivery is not configured for this environment."
+    };
+  }
+
   if (error?.code === "invite_already_accepted") {
     return {
       code: "invite_already_accepted",
@@ -775,6 +829,62 @@ function publicErrorPayload(error) {
     code: error?.code || "request_failed",
     message: "Unable to send invite right now. Please try again."
   };
+}
+
+const SAFE_INVITE_RESPONSE_FIELDS = [
+  "project_id",
+  "role",
+  "invite_target_type",
+  "target_email",
+  "email",
+  "target_phone",
+  "phone",
+  "status",
+  "delivery_channel",
+  "delivery_status",
+  "delivery_error",
+  "delivery_provider",
+  "sent_at",
+  "created_at"
+];
+
+function sanitizeInviteResponsePayload(payload = {}) {
+  const sanitized = {};
+  for (const field of SAFE_INVITE_RESPONSE_FIELDS) {
+    if (payload[field] !== undefined) {
+      sanitized[field] = payload[field];
+    }
+  }
+  return sanitized;
+}
+
+function publicInvitePayload(row = {}, invite = {}, deliveryFields = {}) {
+  const targetType = String(row.invite_target_type || invite.targetType || "").trim().toLowerCase() === "phone"
+    ? "phone"
+    : "email";
+  const targetEmail = targetType === "email"
+    ? normalizeEmail(row.target_email || row.email || invite.targetEmail || "")
+    : null;
+  const targetPhone = targetType === "phone"
+    ? normalizePhoneForStorage(row.target_phone || row.phone || invite.targetPhone || "")
+    : null;
+
+  return sanitizeInviteResponsePayload({
+    project_id: String(row.project_id || invite.projectId || "").trim(),
+    role: normalizeProjectRole(row.role || invite.role),
+    invite_target_type: targetType,
+    target_email: targetEmail,
+    email: targetEmail,
+    target_phone: targetPhone,
+    phone: targetPhone,
+    status: getInviteStatus(row),
+    delivery_channel: deliveryFields.delivery_channel || invite.deliveryChannel || (targetType === "phone" ? "sms" : "email"),
+    delivery_status: deliveryFields.delivery_status || row.delivery_status || "not_sent",
+    delivery_error: deliveryFields.delivery_error || row.delivery_error || null,
+    delivery_provider: deliveryFields.delivery_provider || row.delivery_provider || invite.deliveryProvider || null,
+    sent_at: deliveryFields.sent_at || row.sent_at || null,
+    created_at: row.created_at || null
+  });
 }
 
 module.exports = async function handler(req, res) {
@@ -813,7 +923,7 @@ module.exports = async function handler(req, res) {
       providerMessageId = await sendInviteNotification(config, invite, project);
     } catch (error) {
       deliveryStatus = "failed";
-      deliveryError = error?.message || "Invite delivery failed.";
+      deliveryError = getSafeDeliveryErrorMessage(error, invite.deliveryChannel);
     }
 
     const deliveryFields = {
@@ -837,11 +947,12 @@ module.exports = async function handler(req, res) {
       deliveryUpdateError = "Invite delivery status was not saved.";
     }
 
-    const responseInvite = {
+    const persistedInvite = {
       ...written.invite,
       ...deliveryFields,
       ...(deliveryInvite || {})
     };
+    const responseInvite = sanitizeInviteResponsePayload(publicInvitePayload(persistedInvite, invite, deliveryFields));
 
     return json(res, 200, {
       ok: true,
@@ -849,7 +960,6 @@ module.exports = async function handler(req, res) {
       delivery_status: deliveryStatus,
       delivery_channel: invite.deliveryChannel,
       delivery_provider: invite.deliveryProvider,
-      provider_message_id: providerMessageId,
       error: deliveryError,
       warning: deliveryUpdateError
     });
@@ -860,7 +970,6 @@ module.exports = async function handler(req, res) {
       invite: null,
       delivery_status: "failed",
       delivery_channel: null,
-      provider_message_id: null,
       error: publicErrorPayload(error)
     });
   }

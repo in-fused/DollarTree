@@ -359,8 +359,13 @@ async function refreshOrgOversightPanel() {
       invitesEmpty.textContent = "No pending invites.";
     } else {
       invitesEmpty.classList.add("hidden");
+      if (typeof createInviteDiagnosticsSummary === "function") {
+        invitesList.appendChild(createInviteDiagnosticsSummary(rows));
+      }
       rows.forEach((invite) => {
-        const inviteId = String(invite.id || invite.invite_id || "").trim();
+        const inviteRef = typeof getInviteActionRef === "function"
+          ? getInviteActionRef(invite)
+          : "";
         const targetType = String(invite.invite_target_type || (invite.phone ? "phone" : "email")).toLowerCase() === "phone"
           ? "phone"
           : "email";
@@ -369,12 +374,11 @@ async function refreshOrgOversightPanel() {
           : String(invite.email || invite.target_email || "").trim();
         const role = normalizeProjectRole(invite.role);
         const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
-        const deliveryMeta = typeof getInviteDeliveryMeta === "function"
-          ? getInviteDeliveryMeta(invite, targetType)
+        const createdMeta = typeof getInviteCreatedMeta === "function"
+          ? getInviteCreatedMeta(invite)
           : "";
         const projectId = String(invite.project_id || "").trim();
         const projectName = String(invite.project_name || invite.project_id || "").trim() || "Unknown project";
-        const canCancelInvite = canCancelOrgOversightInvite() && !!inviteId;
 
         const item = document.createElement("div");
         item.className = "orgOversightInviteRow";
@@ -385,19 +389,31 @@ async function refreshOrgOversightPanel() {
         const primary = document.createElement("div");
         primary.className = "orgOversightPrimary";
         primary.textContent = projectName;
+        primary.style.display = "flex";
+        primary.style.alignItems = "center";
+        primary.style.flexWrap = "wrap";
+        primary.style.gap = "6px";
+        if (typeof createInviteDeliveryBadge === "function") {
+          primary.appendChild(createInviteDeliveryBadge(invite, targetType));
+        }
 
         const secondary = document.createElement("div");
         secondary.className = "orgOversightSecondary";
         secondary.textContent = [
           `${targetType}: ${targetValue || "unknown"}`,
           `Role: ${roleLabel}`,
-          deliveryMeta
+          createdMeta
         ].filter(Boolean).join(" • ");
+        const deliveryError = String(invite.delivery_error || "").trim();
+        if (deliveryError) {
+          secondary.title = deliveryError;
+        }
 
         meta.appendChild(primary);
         meta.appendChild(secondary);
         item.appendChild(meta);
 
+        const canCancelInvite = canCancelOrgOversightInvite() && !!inviteRef;
         if (canCancelInvite) {
           const actionWrap = document.createElement("div");
           actionWrap.className = "orgOversightInviteActions";
@@ -410,7 +426,7 @@ async function refreshOrgOversightPanel() {
           cancelBtn.setAttribute("aria-label", `Cancel invite for ${targetValue || projectName}`);
           cancelBtn.title = "Cancel this pending invite";
           cancelBtn.dataset.action = "cancel-org-invite";
-          cancelBtn.dataset.inviteId = inviteId;
+          cancelBtn.dataset.inviteRef = inviteRef;
           cancelBtn.dataset.projectId = projectId;
 
           actionWrap.appendChild(cancelBtn);
@@ -490,7 +506,9 @@ async function bindAccountSettingsUI() {
           return;
         }
 
-        const inviteId = String(target.dataset.inviteId || "").trim();
+        const inviteId = typeof resolveInviteActionRef === "function"
+          ? resolveInviteActionRef(target.dataset.inviteRef)
+          : "";
         const inviteProjectId = String(target.dataset.projectId || "").trim();
         if (!inviteId) return;
         if (target.dataset.loading === "true") return;
@@ -530,7 +548,6 @@ async function bindAccountSettingsUI() {
           logAuditEvent("invite_revoked", {
             project_id: inviteProjectId || currentProjectId,
             actor_user_id: currentUser?.id || null,
-            invite_id: inviteId,
             metadata: {
               source: "org_oversight"
             }

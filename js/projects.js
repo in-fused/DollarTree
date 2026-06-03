@@ -829,8 +829,12 @@ function createRoleBadge(role) {
 
 function normalizeInviteDeliveryStatus(invite = {}) {
   const status = String(invite?.delivery_status || "").trim().toLowerCase();
-  if (["sent", "failed", "recorded_only", "not_sent"].includes(status)) return status;
-  return status || "not_sent";
+  if (status === "sent") return "sent";
+  if (status === "failed") return "failed";
+  if (status === "recorded_only" || status === "recorded-only") return "recorded_only";
+  if (status === "pending" || status === "pending_delivery") return "not_sent";
+  if (status === "not_sent" || !status) return "not_sent";
+  return "not_sent";
 }
 
 function getInviteDeliveryChannel(invite = {}, targetType = "") {
@@ -859,11 +863,38 @@ function getInviteDeliveryLabel(invite = {}, targetType = "") {
   const channel = getInviteDeliveryChannel(invite, targetType);
   const channelLabel = channel === "sms" ? "SMS" : "Email";
 
-  if (status === "sent") return `${channelLabel} sent`;
-  if (status === "failed") return `${channelLabel} delivery failed`;
-  if (status === "recorded_only") return "Recorded only";
-  if (status === "not_sent") return "Not sent";
-  return `Delivery: ${status}`;
+  if (status === "sent") return `${channelLabel} Sent`;
+  if (status === "failed") return `${channelLabel} Failed`;
+  if (status === "recorded_only") return "Recorded Only";
+  return "Pending Delivery";
+}
+
+function getInviteDeliveryBadgeClass(invite = {}, targetType = "") {
+  const status = normalizeInviteDeliveryStatus(invite);
+  if (status === "sent") return "is-sent";
+  if (status === "failed") return "is-failed";
+  if (status === "recorded_only") return "is-recorded";
+  return "is-pending";
+}
+
+function createInviteDeliveryBadge(invite = {}, targetType = "") {
+  const badge = document.createElement("span");
+  badge.className = `inviteDeliveryBadge ${getInviteDeliveryBadgeClass(invite, targetType)}`;
+  badge.textContent = getInviteDeliveryLabel(invite, targetType);
+
+  const deliveryError = String(invite?.delivery_error || "").trim();
+  const sentAt = formatInviteTimestamp(invite?.sent_at);
+  const createdAt = formatInviteTimestamp(invite?.created_at);
+  const titleParts = [
+    sentAt ? `Sent ${sentAt}` : "",
+    !sentAt && createdAt ? `Created ${createdAt}` : "",
+    deliveryError
+  ].filter(Boolean);
+  if (titleParts.length > 0) {
+    badge.title = titleParts.join(" | ");
+  }
+
+  return badge;
 }
 
 function getInviteDeliveryMeta(invite = {}, targetType = "") {
@@ -878,12 +909,70 @@ function getInviteDeliveryMeta(invite = {}, targetType = "") {
   return parts.filter(Boolean).join(" • ");
 }
 
+function getInviteCreatedMeta(invite = {}) {
+  const sentAt = formatInviteTimestamp(invite?.sent_at);
+  const createdAt = formatInviteTimestamp(invite?.created_at);
+  if (sentAt && createdAt) return `Sent ${sentAt} • Created ${createdAt}`;
+  if (sentAt) return `Sent ${sentAt}`;
+  return createdAt ? `Created ${createdAt}` : "Created recently";
+}
+
+function getInviteDeliveryDiagnostics(invites = []) {
+  const rows = Array.isArray(invites) ? invites : [];
+  return rows.reduce((summary, invite) => {
+    const targetType = String(invite?.invite_target_type || (invite?.phone ? "phone" : "email")).trim().toLowerCase() === "phone"
+      ? "phone"
+      : "email";
+    const channel = getInviteDeliveryChannel(invite, targetType);
+    const status = normalizeInviteDeliveryStatus(invite);
+    summary.pending += 1;
+    if (channel === "email" && status === "sent") summary.emailSent += 1;
+    if (channel === "email" && status === "failed") summary.emailFailed += 1;
+    if (status === "recorded_only") summary.recordedOnly += 1;
+    return summary;
+  }, {
+    pending: 0,
+    emailSent: 0,
+    emailFailed: 0,
+    recordedOnly: 0
+  });
+}
+
+function createInviteDiagnosticsSummary(invites = []) {
+  const summary = getInviteDeliveryDiagnostics(invites);
+  const wrap = document.createElement("div");
+  wrap.className = "inviteDiagnosticsSummary";
+
+  [
+    ["Pending Invites", summary.pending, "is-pending"],
+    ["Email Sent", summary.emailSent, "is-sent"],
+    ["Email Failed", summary.emailFailed, "is-failed"],
+    ["Recorded Only", summary.recordedOnly, "is-recorded"]
+  ].forEach(([label, value, className]) => {
+    const badge = document.createElement("span");
+    badge.className = `inviteDiagnosticBadge ${className}`;
+    badge.textContent = `${label}: ${value}`;
+    wrap.appendChild(badge);
+  });
+
+  return wrap;
+}
+
 function getInviteDeliveryMessage(invite = {}, targetType = "", targetValue = "", role = "") {
   const status = normalizeInviteDeliveryStatus(invite);
   const channel = getInviteDeliveryChannel(invite, targetType);
   const targetLabel = String(targetValue || "").trim() || "invite target";
   const roleLabel = normalizeProjectRole(role || invite?.role);
   const deliveryError = String(invite?.delivery_error || invite?.error || "").trim();
+  const deliveryWarning = String(invite?.delivery_warning || invite?.warning || "").trim();
+  const channelLabel = channel === "sms" ? "SMS" : "Email";
+
+  if (deliveryWarning) {
+    return {
+      message: `${channelLabel} invite status needs review for ${targetLabel}: ${deliveryWarning}`,
+      type: "error"
+    };
+  }
 
   if (status === "sent" && channel === "sms") {
     return {
@@ -900,7 +989,6 @@ function getInviteDeliveryMessage(invite = {}, targetType = "", targetValue = ""
   }
 
   if (status === "failed") {
-    const channelLabel = channel === "sms" ? "SMS" : "Email";
     return {
       message: `${channelLabel} invite was saved as pending, but ${channelLabel.toLowerCase()} delivery failed${deliveryError ? `: ${deliveryError}` : "."}`,
       type: "error"
@@ -910,13 +998,13 @@ function getInviteDeliveryMessage(invite = {}, targetType = "", targetValue = ""
   if (status === "recorded_only") {
     return {
       message: `Invite saved as pending for ${targetLabel}. ${channel === "sms" ? "SMS" : "Email"} was not sent.`,
-      type: "success"
+      type: "info"
     };
   }
 
   return {
     message: `Invite saved as pending for ${targetLabel} as ${roleLabel}. Pending invites refreshed.`,
-    type: "success"
+    type: "info"
   };
 }
 
@@ -1101,7 +1189,6 @@ function logAuditEvent(type, payload = {}) {
       project_id: projectId,
       actor_user_id: String(payload.actor_user_id || currentUser?.id || "").trim() || null,
       target_user_id: payload.target_user_id ? String(payload.target_user_id).trim() : undefined,
-      invite_id: payload.invite_id ? String(payload.invite_id).trim() : undefined,
       metadata,
       timestamp: createdAt
     };
@@ -1112,8 +1199,7 @@ function logAuditEvent(type, payload = {}) {
       metadata: {
         ...metadata,
         actor_user_id: event.actor_user_id,
-        target_user_id: event.target_user_id || null,
-        invite_id: event.invite_id || null
+        target_user_id: event.target_user_id || null
       },
       created_at: createdAt
     };
@@ -1439,6 +1525,9 @@ async function refreshProjectAdminPanel() {
 
   membersHeader.textContent = `Project Members (${members.length})`;
   invitesHeader.textContent = `Pending Invites (${invites.length})`;
+  if (!invitesResult.error) {
+    invitesList.appendChild(createInviteDiagnosticsSummary(invites));
+  }
 
   if (membersResult.error) {
     membersEmpty.classList.remove("hidden");
@@ -1470,7 +1559,6 @@ async function refreshProjectAdminPanel() {
       label.style.gap = "6px";
       label.textContent = email;
       label.style.fontWeight = "600";
-      label.title = `User ID: ${userId || "unknown"}`;
       label.appendChild(createRoleBadge(role));
 
       const roleSelect = document.createElement("select");
@@ -1516,7 +1604,9 @@ async function refreshProjectAdminPanel() {
   } else {
     invitesEmpty.classList.add("hidden");
     invites.forEach(invite => {
-      const inviteId = String(invite.id || "").trim();
+      const inviteRef = typeof getInviteActionRef === "function"
+        ? getInviteActionRef(invite)
+        : "";
       const targetType = String(invite.invite_target_type || (invite.phone ? "phone" : "email")).trim().toLowerCase() === "phone"
         ? "phone"
         : "email";
@@ -1546,17 +1636,19 @@ async function refreshProjectAdminPanel() {
       const primaryLabel = document.createElement("div");
       primaryLabel.style.display = "inline-flex";
       primaryLabel.style.alignItems = "center";
+      primaryLabel.style.flexWrap = "wrap";
       primaryLabel.style.gap = "6px";
       primaryLabel.textContent = targetLabel;
       primaryLabel.appendChild(createRoleBadge(role));
+      primaryLabel.appendChild(createInviteDeliveryBadge(invite, targetType));
 
       const deliveryMeta = document.createElement("div");
-      deliveryMeta.className = "projectSourceTag";
+      deliveryMeta.className = "projectSourceTag inviteDeliveryMeta";
       deliveryMeta.style.marginTop = "0";
       deliveryMeta.style.opacity = "0.82";
       deliveryMeta.style.fontSize = "11px";
       deliveryMeta.style.fontWeight = "500";
-      deliveryMeta.textContent = getInviteDeliveryMeta(invite, targetType);
+      deliveryMeta.textContent = getInviteCreatedMeta(invite);
       const deliveryError = String(invite.delivery_error || "").trim();
       if (deliveryError) {
         deliveryMeta.title = deliveryError;
@@ -1582,9 +1674,9 @@ async function refreshProjectAdminPanel() {
       revokeBtn.setAttribute("aria-label", `Cancel invite for ${targetLabel}`);
       revokeBtn.title = "Cancel this pending invite";
       revokeBtn.dataset.projectId = currentProjectId;
-      revokeBtn.dataset.inviteId = inviteId;
+      revokeBtn.dataset.inviteRef = inviteRef;
       revokeBtn.dataset.action = "revoke-invite";
-      revokeBtn.disabled = !inviteId;
+      revokeBtn.disabled = !inviteRef;
 
       row.appendChild(label);
       row.appendChild(copyBtn);
@@ -1789,7 +1881,6 @@ function bindProjectAdminUI() {
         logAuditEvent("invite_sent", {
           project_id: currentProjectId,
           actor_user_id: currentUser?.id || null,
-          invite_id: inviteResult?.id || null,
           metadata: {
             target_type: inviteTargetType,
             invite_target: inviteTargetValue,
@@ -2057,7 +2148,9 @@ try {
 
       if (action === "revoke-invite") {
         const scopedProjectId = String(target.dataset.projectId || currentProjectId || "").trim();
-        const inviteId = String(target.dataset.inviteId || "").trim();
+        const inviteId = typeof resolveInviteActionRef === "function"
+          ? resolveInviteActionRef(target.dataset.inviteRef)
+          : "";
         if (!inviteId || !scopedProjectId) return;
         if (target.dataset.loading === "true") return;
         setProjectAdminMessage("");
@@ -2098,7 +2191,6 @@ try {
           logAuditEvent("invite_revoked", {
             project_id: scopedProjectId,
             actor_user_id: currentUser?.id || null,
-            invite_id: inviteId,
             metadata: {}
           });
           target.disabled = true;

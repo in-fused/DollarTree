@@ -741,6 +741,63 @@
   color: #fff1d1;
 }
 
+.inviteDeliveryBadge,
+.inviteDiagnosticBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(166, 195, 226, 0.34);
+  background: rgba(92, 119, 143, 0.18);
+  color: rgba(231, 240, 255, 0.94);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.inviteDeliveryBadge.is-sent,
+.inviteDiagnosticBadge.is-sent {
+  border-color: rgba(132, 223, 183, 0.48);
+  background: rgba(33, 109, 75, 0.28);
+  color: #d7fbe6;
+}
+
+.inviteDeliveryBadge.is-failed,
+.inviteDiagnosticBadge.is-failed {
+  border-color: rgba(255, 140, 140, 0.56);
+  background: rgba(127, 36, 36, 0.32);
+  color: #ffe0e0;
+}
+
+.inviteDeliveryBadge.is-recorded,
+.inviteDiagnosticBadge.is-recorded {
+  border-color: rgba(255, 214, 142, 0.52);
+  background: rgba(133, 91, 27, 0.28);
+  color: #fff1d1;
+}
+
+.inviteDeliveryBadge.is-pending,
+.inviteDiagnosticBadge.is-pending {
+  border-color: rgba(159, 209, 255, 0.38);
+  background: rgba(64, 108, 155, 0.22);
+  color: #d5e9ff;
+}
+
+.inviteDiagnosticsSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 4px;
+}
+
+.inviteDeliveryMeta {
+  overflow-wrap: anywhere;
+}
+
 .adminPanelShell.is-refreshing .adminPanelProjectContext {
   box-shadow: inset 0 0 0 1px rgba(170, 217, 255, 0.3);
 }

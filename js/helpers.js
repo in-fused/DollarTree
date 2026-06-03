@@ -265,6 +265,26 @@ function cryptoRandomKey() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+const inviteActionRefs = {};
+
+function registerInviteActionRef(inviteId) {
+  const normalizedInviteId = String(inviteId || "").trim();
+  if (!normalizedInviteId) return "";
+  const ref = cryptoRandomKey();
+  inviteActionRefs[ref] = normalizedInviteId;
+  return ref;
+}
+
+function resolveInviteActionRef(ref) {
+  return inviteActionRefs[String(ref || "").trim()] || "";
+}
+
+function getInviteActionRef(invite = {}) {
+  const existingRef = String(invite?.invite_ref || invite?._invite_ref || "").trim();
+  if (existingRef) return existingRef;
+  return registerInviteActionRef(invite?.id || invite?.invite_id || "");
+}
+
 function sanitizeFileName(name) {
   return String(name || "photo")
     .replace(/\s+/g, "-")

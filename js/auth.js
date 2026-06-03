@@ -397,7 +397,9 @@ function renderPendingProjectInvites() {
 
   rows.forEach(invite => {
     const projectId = String(invite.project_id || "").trim();
-    const inviteId = String(invite.id || "").trim();
+    const inviteRef = typeof getInviteActionRef === "function"
+      ? getInviteActionRef(invite)
+      : "";
     const role = normalizeProjectRole(invite.role);
     const targetType = String(invite.invite_target_type || (invite.phone ? "phone" : "email")).trim().toLowerCase() === "phone"
       ? "phone"
@@ -423,9 +425,9 @@ function renderPendingProjectInvites() {
     const label = document.createElement("div");
     label.style.display = "inline-flex";
     label.style.alignItems = "center";
+    label.style.flexWrap = "wrap";
     label.style.gap = "6px";
     label.textContent = `${projectName}`;
-    label.title = `Project ID: ${projectId}`;
 
     const roleBadge = document.createElement("span");
     roleBadge.textContent = role;
@@ -437,19 +439,32 @@ function renderPendingProjectInvites() {
     roleBadge.style.letterSpacing = ".04em";
     roleBadge.style.opacity = "0.95";
     label.appendChild(roleBadge);
+    if (typeof createInviteDeliveryBadge === "function") {
+      label.appendChild(createInviteDeliveryBadge(invite, targetType));
+    }
 
     const targetMeta = document.createElement("div");
     targetMeta.className = "projectSourceTag";
     targetMeta.style.marginTop = "0";
     targetMeta.style.opacity = "0.82";
     targetMeta.style.fontSize = "11px";
-    targetMeta.textContent = `${targetType === "phone" ? "Phone" : "Email"} invite for ${targetValue || "unknown target"}`;
+    const createdMeta = typeof getInviteCreatedMeta === "function"
+      ? getInviteCreatedMeta(invite)
+      : "";
+    targetMeta.textContent = [
+      `${targetType === "phone" ? "Phone" : "Email"} invite for ${targetValue || "unknown target"}`,
+      createdMeta
+    ].filter(Boolean).join(" • ");
+    const deliveryError = String(invite.delivery_error || "").trim();
+    if (deliveryError) {
+      targetMeta.title = deliveryError;
+    }
 
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btnSecondary";
     btn.textContent = "Accept Invite";
-    btn.dataset.inviteId = inviteId;
+    btn.dataset.inviteRef = inviteRef;
     btn.dataset.projectId = projectId;
     btn.dataset.action = "accept-project-invite";
 
@@ -472,9 +487,24 @@ async function reloadCurrentUserAccessAndProjectScope() {
   }
 }
 
-async function handleAcceptProjectInvite({ inviteId = "", projectId = "" } = {}) {
+async function handleAcceptProjectInvite({ inviteId = "", inviteRef = "", projectId = "" } = {}) {
   if (!isSignedIn()) return;
   if (!inviteId && !projectId) return;
+
+  const matchingInvite = (Array.isArray(pendingProjectInvites) ? pendingProjectInvites : []).find(invite => {
+    const rowInviteRef = typeof getInviteActionRef === "function"
+      ? getInviteActionRef(invite)
+      : String(invite?.invite_ref || invite?._invite_ref || "").trim();
+    const rowProjectId = String(invite?.project_id || "").trim();
+    if (inviteRef && rowInviteRef === inviteRef) return true;
+    return !inviteId && projectId && rowProjectId === projectId;
+  }) || null;
+  const projectLabel = String(
+    matchingInvite?.project_name ||
+    matchingInvite?.projects?.name ||
+    allProjectList?.find?.(project => project?.project_id === projectId)?.name ||
+    ""
+  ).trim() || "project";
 
   const { error } = await dataLayer.acceptProjectInvite({ inviteId, projectId });
   if (error) {
@@ -482,7 +512,14 @@ async function handleAcceptProjectInvite({ inviteId = "", projectId = "" } = {})
     return;
   }
 
-  setAuthMessage(`Accepted invite for ${projectId || "project"}.`, "success");
+  setAuthMessage(`Accepted invite for ${projectLabel}.`, "success");
+  if (typeof logAuditEvent === "function") {
+    logAuditEvent("invite_accepted", {
+      project_id: projectId,
+      actor_user_id: currentUser?.id || null,
+      metadata: {}
+    });
+  }
   await reloadCurrentUserAccessAndProjectScope();
 }
 
@@ -497,9 +534,12 @@ document.addEventListener("click", async event => {
   trigger.textContent = "Accepting...";
 
   const projectId = String(trigger.dataset.projectId || "").trim();
-  const inviteId = String(trigger.dataset.inviteId || "").trim();
+  const inviteRef = String(trigger.dataset.inviteRef || "").trim();
+  const inviteId = typeof resolveInviteActionRef === "function"
+    ? resolveInviteActionRef(inviteRef)
+    : "";
   try {
-    await handleAcceptProjectInvite({ inviteId, projectId });
+    await handleAcceptProjectInvite({ inviteId, inviteRef, projectId });
   } finally {
     trigger.dataset.loading = "false";
     trigger.disabled = false;

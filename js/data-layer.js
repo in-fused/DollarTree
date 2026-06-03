@@ -64,53 +64,214 @@ const dataLayer = {
       .eq("user_id", userId);
   },
 
-  isPendingProjectInviteRow(row) {
-    const acceptedAt = String(row?.accepted_at || "").trim();
-    const revokedAt = String(row?.revoked_at || "").trim();
+  normalizeProjectInviteStatus(row) {
     const status = String(row?.status || "").trim().toLowerCase();
-    if (acceptedAt || revokedAt) return false;
-    if (["accepted", "revoked", "canceled", "cancelled"].includes(status)) return false;
-    return true;
+    if (row?.accepted_at || row?.accepted_by_user_id || status === "accepted") return "accepted";
+    if (
+      row?.revoked_at ||
+      status === "revoked" ||
+      status === "canceled" ||
+      status === "cancelled"
+    ) {
+      return "revoked";
+    }
+    return "pending";
+  },
+
+  isPendingProjectInviteRow(row) {
+    return this.normalizeProjectInviteStatus(row) === "pending";
+  },
+
+  getProjectInviteTargetTypeFromRow(row = {}) {
+    const explicitType = String(row?.invite_target_type || "").trim().toLowerCase();
+    if (explicitType === "phone") return "phone";
+    if (explicitType === "email") return "email";
+    const phone = normalizePhoneForStorage(String(row?.target_phone || row?.phone || "").trim());
+    return phone ? "phone" : "email";
+  },
+
+  getProjectInviteTargetValue(row = {}, targetType = "") {
+    const normalizedTargetType = String(targetType || this.getProjectInviteTargetTypeFromRow(row)).trim().toLowerCase() === "phone"
+      ? "phone"
+      : "email";
+
+    if (normalizedTargetType === "phone") {
+      return normalizePhoneForStorage(String(row?.target_phone || row?.phone || "").trim());
+    }
+
+    return String(row?.target_email || row?.email || "").trim().toLowerCase();
+  },
+
+  normalizeProjectInviteDeliveryStatus(row = {}) {
+    const rawStatus = String(row?.delivery_status || "").trim().toLowerCase();
+    if (rawStatus === "sent") return "sent";
+    if (rawStatus === "failed") return "failed";
+    if (rawStatus === "recorded_only" || rawStatus === "recorded-only") return "recorded_only";
+    if (rawStatus === "pending" || rawStatus === "pending_delivery") return "not_sent";
+    if (rawStatus === "not_sent" || !rawStatus) return "not_sent";
+    return "not_sent";
+  },
+
+  normalizeProjectInviteDeliveryChannel(row = {}, targetType = "") {
+    const channel = String(row?.delivery_channel || "").trim().toLowerCase();
+    if (channel === "sms" || channel === "email") return channel;
+    return String(targetType || this.getProjectInviteTargetTypeFromRow(row)).trim().toLowerCase() === "phone"
+      ? "sms"
+      : "email";
+  },
+
+  getFriendlyProjectInviteDeliveryError(value, channel = "email") {
+    const message = String(value || "").trim();
+    if (!message) return null;
+
+    const normalizedChannel = String(channel || "").trim().toLowerCase() === "sms" ? "SMS" : "Email";
+    const lower = message.toLowerCase();
+
+    if (
+      lower.includes("missing_provider_env") ||
+      lower.includes("missing required") ||
+      lower.includes("environment variable")
+    ) {
+      return `${normalizedChannel} delivery is not configured.`;
+    }
+
+    if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("abort")) {
+      return `${normalizedChannel} provider timed out.`;
+    }
+
+    if (lower.includes("resend") || lower.includes("twilio") || lower.includes("provider rejected")) {
+      return `${normalizedChannel} provider rejected delivery.`;
+    }
+
+    if (
+      lower.includes("duplicate key") ||
+      lower.includes("unique constraint") ||
+      lower.includes("project_invites") ||
+      lower.includes("constraint") ||
+      lower.includes("token")
+    ) {
+      return `${normalizedChannel} delivery could not be confirmed.`;
+    }
+
+    const redacted = message
+      .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi, "[redacted]")
+      .replace(/\b[A-Za-z0-9_-]{32,}\b/g, "[redacted]");
+
+    return redacted.length > 160 ? `${redacted.slice(0, 157).trim()}...` : redacted;
+  },
+
+  normalizeProjectInviteRow(row = {}, options = {}) {
+    const targetType = this.getProjectInviteTargetTypeFromRow(row);
+    const targetValue = this.getProjectInviteTargetValue(row, targetType);
+    const projectId = String(row?.project_id || "").trim();
+    const role = normalizeProjectRole(row?.role);
+    const lifecycleStatus = this.normalizeProjectInviteStatus(row);
+    const deliveryStatus = this.normalizeProjectInviteDeliveryStatus(row);
+    const deliveryChannel = this.normalizeProjectInviteDeliveryChannel(row, targetType);
+    const deliveryProvider = String(
+      row?.delivery_provider ||
+      this.getProjectInviteDeliveryProvider(targetType)
+    ).trim().toLowerCase();
+    const deliveryError = this.getFriendlyProjectInviteDeliveryError(row?.delivery_error || row?.error || "", deliveryChannel);
+    const privateInviteId = String(row?.id || row?.invite_id || "").trim();
+    const inviteRef = String(row?.invite_ref || row?._invite_ref || "").trim()
+      || (
+        privateInviteId && typeof registerInviteActionRef === "function"
+          ? registerInviteActionRef(privateInviteId)
+          : ""
+      );
+
+    const normalizedRow = {
+      ...row,
+      project_id: projectId,
+      project_name: String(row?.project_name || row?.projects?.name || "").trim(),
+      role,
+      status: lifecycleStatus,
+      invite_target_type: targetType,
+      target_email: targetType === "email" ? targetValue : null,
+      email: targetType === "email" ? targetValue : null,
+      target_phone: targetType === "phone" ? targetValue : null,
+      phone: targetType === "phone" ? targetValue : null,
+      delivery_channel: deliveryChannel,
+      delivery_status: deliveryStatus,
+      delivery_error: deliveryError,
+      delivery_provider: deliveryProvider || null,
+      provider_message_id: undefined,
+      sent_at: row?.sent_at || null,
+      created_at: row?.created_at || null,
+      accepted_at: row?.accepted_at || null,
+      revoked_at: row?.revoked_at || null
+    };
+
+    if (inviteRef) {
+      normalizedRow.invite_ref = inviteRef;
+      normalizedRow._invite_ref = inviteRef;
+    }
+
+    if (options.includePrivateIds === true) {
+      normalizedRow.id = privateInviteId;
+      normalizedRow.invite_id = privateInviteId;
+      return normalizedRow;
+    }
+
+    delete normalizedRow.id;
+    delete normalizedRow.invite_id;
+    delete normalizedRow.provider_message_id;
+    return normalizedRow;
+  },
+
+  getProjectInviteDedupeKey(row = {}) {
+    const normalizedRow = row?.invite_target_type && row?.status
+      ? row
+      : this.normalizeProjectInviteRow(row);
+    const targetType = String(normalizedRow?.invite_target_type || "email").trim().toLowerCase();
+    const targetValue = this.getProjectInviteTargetValue(normalizedRow, targetType);
+    const projectId = String(normalizedRow?.project_id || "").trim();
+    if (projectId && targetType && targetValue) return `${projectId}|${targetType}|${targetValue}`;
+    return String(normalizedRow?.invite_ref || normalizedRow?._invite_ref || normalizedRow?.id || normalizedRow?.invite_id || "").trim();
+  },
+
+  sortProjectInviteRows(rows = []) {
+    return [...rows].sort((a, b) => {
+      const aStatus = this.normalizeProjectInviteStatus(a);
+      const bStatus = this.normalizeProjectInviteStatus(b);
+      const priority = { pending: 0, revoked: 1, accepted: 2 };
+      const priorityDelta = (priority[aStatus] ?? 9) - (priority[bStatus] ?? 9);
+      if (priorityDelta !== 0) return priorityDelta;
+      return getTimestampValue(b?.created_at || b?.sent_at) - getTimestampValue(a?.created_at || a?.sent_at);
+    });
+  },
+
+  normalizeProjectInviteRows(rows, options = {}) {
+    const pendingOnly = options.pendingOnly !== false;
+    const sortedRows = this.sortProjectInviteRows(Array.isArray(rows) ? rows : []);
+    const uniqueRows = [];
+    const seen = new Set();
+
+    sortedRows.forEach(row => {
+      const normalizedRow = this.normalizeProjectInviteRow(row, {
+        includePrivateIds: options.includePrivateIds === true
+      });
+      if (pendingOnly && !this.isPendingProjectInviteRow(normalizedRow)) return;
+      const dedupeKey = this.getProjectInviteDedupeKey(normalizedRow);
+      if (!dedupeKey || seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
+      uniqueRows.push(normalizedRow);
+    });
+
+    return uniqueRows;
   },
 
   filterPendingProjectInviteRows(rows) {
-    return (Array.isArray(rows) ? rows : []).filter(row => this.isPendingProjectInviteRow(row));
+    return this.normalizeProjectInviteRows(rows, { pendingOnly: true });
   },
 
   async loadPendingProjectInvitesForCurrentUser() {
     const rpcResult = await supabaseClient.rpc("list_my_pending_project_invites");
-    const dedupeInvites = (rows) => {
-      const uniqueRows = [];
-      const seen = new Set();
-      (Array.isArray(rows) ? rows : []).forEach(row => {
-        if (!this.isPendingProjectInviteRow(row)) return;
-        const inviteId = String(row?.id || "").trim();
-        const email = String(row?.email || row?.target_email || "").trim().toLowerCase();
-        const phone = normalizePhoneForStorage(String(row?.phone || row?.target_phone || "").trim());
-        const projectId = String(row?.project_id || "").trim();
-        const role = normalizeProjectRole(row?.role);
-        const status = String(
-          row?.status
-          || (row?.revoked_at ? "revoked" : (row?.accepted_at ? "accepted" : "pending"))
-        ).trim().toLowerCase();
-        const dedupeKey = inviteId || `${projectId}|${role}|${email}|${phone}|${status}`;
-        if (!dedupeKey || seen.has(dedupeKey)) return;
-        seen.add(dedupeKey);
-        uniqueRows.push({
-          ...row,
-          invite_target_type: String(row?.invite_target_type || (phone ? "phone" : "email")).trim().toLowerCase() === "phone"
-            ? "phone"
-            : "email"
-        });
-      });
-
-      uniqueRows.sort((a, b) => getTimestampValue(b?.created_at) - getTimestampValue(a?.created_at));
-      return uniqueRows;
-    };
 
     if (!rpcResult.error) {
       return {
-        data: dedupeInvites(rpcResult.data),
+        data: this.normalizeProjectInviteRows(rpcResult.data, { pendingOnly: true }),
         error: null
       };
     }
@@ -133,6 +294,7 @@ const dataLayer = {
         .order("created_at", { ascending: false });
 
       if (result.error) {
+        if (this.isMissingColumnError(result.error, column)) return;
         fallbackError = fallbackError || result.error;
         result = await supabaseClient
           .from("project_invites")
@@ -140,6 +302,7 @@ const dataLayer = {
           .eq(column, scopedValue)
           .order("created_at", { ascending: false });
         if (result.error) {
+          if (this.isMissingColumnError(result.error, column)) return;
           fallbackError = fallbackError || result.error;
           return;
         }
@@ -150,12 +313,15 @@ const dataLayer = {
       }
     };
 
+    await loadRowsByTarget("target_email", fallbackEmail);
     await loadRowsByTarget("email", fallbackEmail);
+    await loadRowsByTarget("target_phone", fallbackPhone);
     await loadRowsByTarget("phone", fallbackPhone);
 
+    const normalizedFallbackRows = this.normalizeProjectInviteRows(fallbackRows, { pendingOnly: true });
     return {
-      data: dedupeInvites(fallbackRows),
-      error: fallbackRows.length > 0 ? null : (fallbackError || rpcResult.error)
+      data: normalizedFallbackRows,
+      error: normalizedFallbackRows.length > 0 ? null : (fallbackError || rpcResult.error)
     };
   },
 
@@ -169,20 +335,33 @@ const dataLayer = {
       });
       if (!v2Result.error) return v2Result;
       if (normalizedProjectId) {
-        return await supabaseClient.rpc("accept_project_invite", {
+        const fallbackResult = await supabaseClient.rpc("accept_project_invite", {
           project_id: normalizedProjectId
         });
+        if (!fallbackResult.error) return fallbackResult;
+        return {
+          data: null,
+          error: new Error(this.getFriendlyProjectInviteErrorMessage(fallbackResult.error, "Unable to accept invite."))
+        };
       }
-      return v2Result;
+      return {
+        data: null,
+        error: new Error(this.getFriendlyProjectInviteErrorMessage(v2Result.error, "Unable to accept invite."))
+      };
     }
 
     if (!normalizedProjectId) {
       return { data: null, error: new Error("Missing invite id or project id.") };
     }
 
-    return await supabaseClient.rpc("accept_project_invite", {
+    const result = await supabaseClient.rpc("accept_project_invite", {
       project_id: normalizedProjectId
     });
+    if (!result.error) return result;
+    return {
+      data: null,
+      error: new Error(this.getFriendlyProjectInviteErrorMessage(result.error, "Unable to accept invite."))
+    };
   },
 
   async loadProjects() {
@@ -766,18 +945,22 @@ const dataLayer = {
       ? String(response.error.message || "").trim()
       : String(response?.error || invite.delivery_error || "").trim();
 
-    return {
-      data: {
+    const normalizedInvite = this.normalizeProjectInviteRow({
         ...basePayload,
         ...invite,
         delivery_channel: deliveryChannel,
         delivery_status: deliveryStatus,
         delivery_error: deliveryError || null,
         delivery_provider: deliveryProvider || null,
-        provider_message_id: response?.provider_message_id || invite.provider_message_id || null,
         sent_at: invite.sent_at || null,
         delivery_warning: response?.warning || null
       },
+      { includePrivateIds: false }
+    );
+    normalizedInvite.delivery_warning = response?.warning || null;
+
+    return {
+      data: normalizedInvite,
       error: null
     };
   },
@@ -799,6 +982,71 @@ const dataLayer = {
       code === "INVALID_JSON" ||
       error?.name === "TypeError"
     );
+  },
+
+  async loadProjectInviteRowsForTarget(basePayload = {}) {
+    const projectId = String(basePayload?.project_id || "").trim();
+    const targetType = String(basePayload?.invite_target_type || "").trim().toLowerCase() === "phone"
+      ? "phone"
+      : "email";
+    const targetValue = targetType === "phone"
+      ? normalizePhoneForStorage(basePayload?.target_phone || basePayload?.phone || "")
+      : String(basePayload?.target_email || basePayload?.email || "").trim().toLowerCase();
+
+    if (!projectId || !targetValue) return { data: [], error: null };
+
+    const targetColumns = targetType === "phone"
+      ? ["target_phone", "phone"]
+      : ["target_email", "email"];
+    const rows = [];
+    let firstError = null;
+
+    for (const column of targetColumns) {
+      const result = await supabaseClient
+        .from("project_invites")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq(column, targetValue)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (result.error) {
+        if (this.isMissingColumnError(result.error, column)) continue;
+        firstError = firstError || result.error;
+        continue;
+      }
+
+      if (Array.isArray(result.data)) {
+        rows.push(...result.data);
+      }
+    }
+
+    if (rows.length === 0 && firstError) {
+      return { data: [], error: firstError };
+    }
+
+    return {
+      data: this.sortProjectInviteRows(rows.map(row => this.normalizeProjectInviteRow(row, { includePrivateIds: true }))),
+      error: null
+    };
+  },
+
+  selectReusableProjectInviteRow(rows = []) {
+    const sortedRows = this.sortProjectInviteRows(Array.isArray(rows) ? rows : []);
+    const acceptedInvite = sortedRows.find(row => this.normalizeProjectInviteStatus(row) === "accepted");
+    if (acceptedInvite) {
+      return {
+        data: null,
+        error: new Error("This invite has already been accepted. The user may already be a member of this project.")
+      };
+    }
+
+    return {
+      data: sortedRows.find(row => this.normalizeProjectInviteStatus(row) === "pending")
+        || sortedRows.find(row => this.normalizeProjectInviteStatus(row) === "revoked")
+        || null,
+      error: null
+    };
   },
 
   async fetchProjectInviteSend(payload, accessToken, timeoutMs = 22000) {
@@ -991,46 +1239,62 @@ const dataLayer = {
       sent_at: null
     };
 
-    let insertResult = await this.withSupabaseTimeout(
-      supabaseClient
+    const existingRowsResult = await this.loadProjectInviteRowsForTarget(basePayload);
+    if (existingRowsResult?.error) return existingRowsResult;
+
+    const reusableResult = this.selectReusableProjectInviteRow(existingRowsResult?.data || []);
+    if (reusableResult.error) return reusableResult;
+    const reusableInvite = reusableResult.data;
+
+    const buildWrite = (payload) => {
+      if (reusableInvite?.id) {
+        return supabaseClient
+          .from("project_invites")
+          .update(payload)
+          .eq("id", reusableInvite.id)
+          .select("*")
+          .limit(1);
+      }
+
+      return supabaseClient
         .from("project_invites")
-        .insert(deliveryPayload)
+        .insert(payload)
         .select("*")
-        .limit(1),
+        .limit(1);
+    };
+
+    let writeResult = await this.withSupabaseTimeout(
+      buildWrite(deliveryPayload),
       15000,
       "Recording invite"
     );
 
-    if (insertResult?.error && this.isMissingInviteDeliveryColumn(insertResult.error)) {
-      insertResult = await this.withSupabaseTimeout(
-        supabaseClient
-          .from("project_invites")
-          .insert(basePayload)
-          .select("*")
-          .limit(1),
+    if (writeResult?.error && this.isMissingInviteDeliveryColumn(writeResult.error)) {
+      writeResult = await this.withSupabaseTimeout(
+        buildWrite(basePayload),
         15000,
         "Recording invite"
       );
     }
 
-    if (insertResult?.error) {
-      return insertResult;
+    if (writeResult?.error) {
+      return writeResult;
     }
 
-    const insertedInvite = Array.isArray(insertResult?.data) && insertResult.data.length > 0
-      ? insertResult.data[0]
+    const writtenInvite = Array.isArray(writeResult?.data) && writeResult.data.length > 0
+      ? writeResult.data[0]
       : {};
 
     return {
-      data: {
+      data: this.normalizeProjectInviteRow({
         ...deliveryPayload,
-        ...insertedInvite,
+        ...writtenInvite,
         delivery_channel: deliveryChannel,
         delivery_status: "recorded_only",
         delivery_error: deliveryMessage,
         delivery_provider: deliveryProvider,
         provider_message_id: null
-      },
+      }),
       error: null
     };
   },
@@ -1116,25 +1380,55 @@ const dataLayer = {
   },
   async revokeProjectInvite(inviteId) {
     const revokedAt = new Date().toISOString();
+    const normalizeRevokeResult = (result) => {
+      if (result?.error) return result;
+      if (Array.isArray(result?.data) && result.data.length === 0) {
+        return {
+          data: null,
+          error: new Error("Invite is no longer pending.")
+        };
+      }
+      return result;
+    };
+
     let updateResult = await supabaseClient
       .from("project_invites")
       .update({ revoked_at: revokedAt, status: "revoked" })
-      .eq("id", inviteId);
+      .eq("id", inviteId)
+      .is("accepted_at", null)
+      .is("revoked_at", null)
+      .select("project_id, role, status, revoked_at")
+      .limit(1);
 
-    if (!updateResult.error) return updateResult;
+    if (!updateResult.error) return normalizeRevokeResult(updateResult);
 
     if (this.isMissingColumnError(updateResult.error, "status")) {
       updateResult = await supabaseClient
         .from("project_invites")
         .update({ revoked_at: revokedAt })
-        .eq("id", inviteId);
-      if (!updateResult.error) return updateResult;
+        .eq("id", inviteId)
+        .is("accepted_at", null)
+        .is("revoked_at", null)
+        .select("project_id, role, revoked_at")
+        .limit(1);
+      if (!updateResult.error) return normalizeRevokeResult(updateResult);
     }
 
-    return await supabaseClient
+    const deleteResult = await supabaseClient
       .from("project_invites")
       .delete()
-      .eq("id", inviteId);
+      .eq("id", inviteId)
+      .is("accepted_at", null)
+      .is("revoked_at", null)
+      .select("project_id")
+      .limit(1);
+    if (deleteResult.error) {
+      return {
+        data: null,
+        error: new Error(this.getFriendlyProjectInviteErrorMessage(deleteResult.error, "Unable to cancel invite."))
+      };
+    }
+    return normalizeRevokeResult(deleteResult);
   },
 
   async loadOrgOversightAccounts() {
@@ -1149,7 +1443,25 @@ const dataLayer = {
         data: this.filterPendingProjectInviteRows(result.data)
       };
     }
-    return result;
+
+    const fallbackResult = await supabaseClient
+      .from("project_invites")
+      .select("*, projects(name)")
+      .is("accepted_at", null)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false });
+
+    if (fallbackResult.error) {
+      return {
+        data: null,
+        error: new Error("Unable to load invites.")
+      };
+    }
+
+    return {
+      data: this.filterPendingProjectInviteRows(fallbackResult.data),
+      error: null
+    };
   },
 
   async updateGlobalRole(userId, role) {
