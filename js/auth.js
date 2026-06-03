@@ -1,4 +1,301 @@
 /* ================= AUTH ================= */
+let inviteDeepLinkContext = null;
+let inviteDeepLinkProjectNameLookupStarted = false;
+let inviteDeepLinkAcceptedProjectId = "";
+let inviteDeepLinkSelectedAccessProjectId = "";
+const inviteDeepLinkProjectNameCache = {};
+
+function normalizeInviteDeepLinkProjectId(value) {
+  return String(value || "").trim();
+}
+
+function normalizeInviteDeepLinkTarget(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return { type: "email", value: "", displayValue: "" };
+
+  if (isLikelyEmail(raw)) {
+    const email = raw.toLowerCase();
+    return { type: "email", value: email, displayValue: email };
+  }
+
+  const phone = normalizePhoneForStorage(raw);
+  return {
+    type: "phone",
+    value: phone,
+    displayValue: phone || raw
+  };
+}
+
+function getInviteDeepLinkContext() {
+  if (inviteDeepLinkContext !== null) return inviteDeepLinkContext;
+
+  let params;
+  try {
+    params = new URLSearchParams(window.location.search || "");
+  } catch (_) {
+    inviteDeepLinkContext = null;
+    return null;
+  }
+
+  const projectId = normalizeInviteDeepLinkProjectId(params.get("inviteProject"));
+  const target = normalizeInviteDeepLinkTarget(params.get("inviteTarget"));
+  if (!projectId || !target.value) {
+    inviteDeepLinkContext = null;
+    return null;
+  }
+
+  inviteDeepLinkContext = {
+    projectId,
+    targetType: target.type,
+    targetValue: target.value,
+    targetDisplayValue: target.displayValue
+  };
+  return inviteDeepLinkContext;
+}
+
+function hasInviteDeepLinkContext() {
+  return !!getInviteDeepLinkContext();
+}
+
+function getLoadedProjectName(projectId) {
+  const scopedProjectId = String(projectId || "").trim();
+  if (!scopedProjectId) return "";
+
+  if (currentProjectMeta?.project_id === scopedProjectId && currentProjectMeta?.name) {
+    return String(currentProjectMeta.name || "").trim();
+  }
+
+  const project = [
+    ...(Array.isArray(projectList) ? projectList : []),
+    ...(Array.isArray(allProjectList) ? allProjectList : [])
+  ].find(row => String(row?.project_id || "").trim() === scopedProjectId);
+
+  return String(project?.name || "").trim();
+}
+
+async function lookupInviteProjectName(projectId) {
+  const scopedProjectId = String(projectId || "").trim();
+  if (!scopedProjectId || inviteDeepLinkProjectNameLookupStarted) return;
+  inviteDeepLinkProjectNameLookupStarted = true;
+
+  try {
+    const response = await fetch(PROJECTS_FILE, { cache: "no-store" });
+    if (!response.ok) return;
+    const projects = await response.json();
+    if (!Array.isArray(projects)) return;
+
+    const project = projects.find(row => String(row?.project_id || "").trim() === scopedProjectId);
+    const projectName = String(project?.name || "").trim();
+    if (projectName) {
+      inviteDeepLinkProjectNameCache[scopedProjectId] = projectName;
+      renderInviteDeepLinkState();
+    }
+  } catch (error) {
+    console.warn("Invite project name lookup skipped:", error);
+  }
+}
+
+function getInviteProjectDisplayName(context = getInviteDeepLinkContext()) {
+  const projectId = String(context?.projectId || "").trim();
+  if (!projectId) return "this project";
+
+  const loadedName = getLoadedProjectName(projectId);
+  if (loadedName) {
+    inviteDeepLinkProjectNameCache[projectId] = loadedName;
+    return loadedName;
+  }
+
+  if (inviteDeepLinkProjectNameCache[projectId]) {
+    return inviteDeepLinkProjectNameCache[projectId];
+  }
+
+  lookupInviteProjectName(projectId);
+  return projectId;
+}
+
+function getInviteRowTargetType(invite = {}) {
+  return String(invite?.invite_target_type || (invite?.phone || invite?.target_phone ? "phone" : "email")).trim().toLowerCase() === "phone"
+    ? "phone"
+    : "email";
+}
+
+function getInviteRowTargetValue(invite = {}, targetType = "") {
+  const normalizedTargetType = String(targetType || getInviteRowTargetType(invite)).trim().toLowerCase() === "phone"
+    ? "phone"
+    : "email";
+
+  if (normalizedTargetType === "phone") {
+    return normalizePhoneForStorage(invite?.phone || invite?.target_phone || "");
+  }
+
+  return String(invite?.email || invite?.target_email || "").trim().toLowerCase();
+}
+
+function getCurrentInviteIdentityTargets() {
+  const emails = new Set();
+  const phones = new Set();
+  const addEmail = value => {
+    const email = String(value || "").trim().toLowerCase();
+    if (email) emails.add(email);
+  };
+  const addPhone = value => {
+    const phone = normalizePhoneForStorage(value || "");
+    if (phone) phones.add(phone);
+  };
+
+  addEmail(currentUser?.email);
+  addEmail(currentProfile?.email);
+  addPhone(currentProfile?.phone);
+  addPhone(currentUser?.phone);
+
+  return { emails, phones };
+}
+
+function getDeepLinkedInviteForCurrentUser(context = getInviteDeepLinkContext()) {
+  if (!context || !isSignedIn()) return null;
+
+  const identities = getCurrentInviteIdentityTargets();
+  return (Array.isArray(pendingProjectInvites) ? pendingProjectInvites : []).find(invite => {
+    const projectId = String(invite?.project_id || "").trim();
+    if (projectId !== context.projectId) return false;
+
+    const targetType = getInviteRowTargetType(invite);
+    const targetValue = getInviteRowTargetValue(invite, targetType);
+    if (!targetValue) {
+      return context.targetType === "phone"
+        ? identities.phones.has(context.targetValue)
+        : identities.emails.has(context.targetValue);
+    }
+
+    if (targetType !== context.targetType || targetValue !== context.targetValue) return false;
+    if (targetType === "phone") return identities.phones.has(targetValue);
+    return identities.emails.has(targetValue);
+  }) || null;
+}
+
+function setInviteLandingStatus(message = "", type = "") {
+  const el = document.getElementById("inviteLandingStatus");
+  if (!el) return;
+
+  el.className = "authMessage";
+  if (type === "success") el.classList.add("authSuccess");
+  if (type === "error") el.classList.add("authError");
+  el.textContent = message;
+}
+
+function applyInviteDeepLinkToAuthInputs() {
+  const context = getInviteDeepLinkContext();
+  if (!context || context.targetType !== "email") return;
+
+  const emailInput = document.getElementById("authEmail");
+  if (emailInput && !String(emailInput.value || "").trim()) {
+    emailInput.value = context.targetValue;
+  }
+}
+
+function focusInviteAuthPanel() {
+  const accessSection = document.querySelector(".sidebar-section[data-section='access']");
+  accessSection?.classList.remove("collapsed");
+
+  if (isMobileViewport()) {
+    document.body?.classList.add("sidebar-open");
+  }
+}
+
+function renderInviteDeepLinkState() {
+  const context = getInviteDeepLinkContext();
+  const panel = document.getElementById("inviteLandingPanel");
+  const title = document.getElementById("inviteLandingTitle");
+  const body = document.getElementById("inviteLandingBody");
+  const meta = document.getElementById("inviteLandingMeta");
+  const acceptBtn = document.getElementById("inviteLandingAcceptBtn");
+  if (!panel || !title || !body || !meta || !acceptBtn) return;
+
+  const hasContext = !!context;
+  panel.classList.toggle("hidden", !hasContext);
+  document.body?.classList.toggle("invite-landing-active", hasContext && !isSignedIn());
+
+  if (!hasContext) {
+    acceptBtn.classList.add("hidden");
+    acceptBtn.removeAttribute("data-invite-ref");
+    acceptBtn.removeAttribute("data-project-id");
+    setInviteLandingStatus("");
+    return;
+  }
+
+  focusInviteAuthPanel();
+  applyInviteDeepLinkToAuthInputs();
+
+  const projectName = getInviteProjectDisplayName(context);
+  title.textContent = `You’ve been invited to ${projectName}`;
+  meta.textContent = context.targetType === "phone"
+    ? `Invited phone: ${context.targetDisplayValue}`
+    : `Invited email: ${context.targetDisplayValue}`;
+
+  acceptBtn.classList.add("hidden");
+  acceptBtn.removeAttribute("data-invite-ref");
+  acceptBtn.removeAttribute("data-project-id");
+  acceptBtn.textContent = "Accept Invite";
+
+  if (!isSignedIn()) {
+    body.textContent = context.targetType === "phone"
+      ? "Sign in or create an account, then add the invited phone number in Personal Settings to accept."
+      : "Sign in or create an account with the invited email to accept.";
+    setInviteLandingStatus("");
+    return;
+  }
+
+  const matchingInvite = getDeepLinkedInviteForCurrentUser(context);
+  if (matchingInvite) {
+    const inviteRef = typeof getInviteActionRef === "function"
+      ? getInviteActionRef(matchingInvite)
+      : String(matchingInvite?.invite_ref || matchingInvite?._invite_ref || "").trim();
+    body.textContent = "Invite found for your account. Accept it to join this project.";
+    acceptBtn.dataset.projectId = context.projectId;
+    if (inviteRef) acceptBtn.dataset.inviteRef = inviteRef;
+    acceptBtn.classList.remove("hidden");
+    setInviteLandingStatus("");
+    return;
+  }
+
+  if (canAccessProject(context.projectId)) {
+    body.textContent = "This account already has access to the invited project.";
+    const selectedProjectId = String(currentProjectId || "").trim();
+    const statusMessage = selectedProjectId === context.projectId
+      ? `${projectName} is selected.`
+      : (
+          inviteDeepLinkAcceptedProjectId === context.projectId
+            ? `${projectName} is now selected.`
+            : `Opening ${projectName}...`
+        );
+    setInviteLandingStatus(statusMessage, "success");
+
+    if (
+      inviteDeepLinkSelectedAccessProjectId !== context.projectId &&
+      String(currentProjectId || "").trim() !== context.projectId &&
+      typeof refreshProjectAccessAfterAuthChange === "function"
+    ) {
+      inviteDeepLinkSelectedAccessProjectId = context.projectId;
+      currentProjectId = context.projectId;
+      localStorage.setItem(ACTIVE_PROJECT_KEY, context.projectId);
+      refreshProjectAccessAfterAuthChange().then(() => {
+        updateAuthUI();
+      }).catch(error => {
+        console.warn("Invite project selection skipped:", error);
+      });
+    }
+    return;
+  }
+
+  const currentEmail = String(currentUser?.email || "").trim();
+  body.textContent = "No pending invite was found for the signed-in account.";
+  setInviteLandingStatus(
+    currentEmail
+      ? `Signed in as ${currentEmail}. Sign out and use the invited account to accept this invite.`
+      : "Sign out and use the invited account to accept this invite.",
+    "error"
+  );
+}
 
 async function initializeAuth() {
   const { data, error } = await dataLayer.getSession();
@@ -150,6 +447,29 @@ function bindAuthUI() {
     signOutBtn.addEventListener("click", signOut);
     signOutBtn.dataset.bound = "true";
   }
+
+  applyInviteDeepLinkToAuthInputs();
+  renderInviteDeepLinkState();
+}
+
+async function refreshInviteAccessAfterCredentialAuth(session = null) {
+  if (!hasInviteDeepLinkContext()) return;
+
+  const activeSession = session || currentSession;
+  if (!activeSession?.user) return;
+
+  currentSession = activeSession;
+  currentUser = activeSession.user;
+  const currentUserId = String(currentUser.id || "").trim();
+  const currentUserEmail = String(currentUser.email || "").trim();
+  if (currentUserId && currentUserEmail) {
+    profileEmailByUserId[currentUserId] = currentUserEmail;
+  }
+
+  await loadCurrentUserRole();
+  await loadCurrentUserProjectAccess();
+  updateAuthUI();
+  updateWriteAccessUI();
 }
 
 async function signIn() {
@@ -163,14 +483,15 @@ async function signIn() {
     return;
   }
 
-  const { error } = await dataLayer.signIn(email, password);
+  const { data, error } = await dataLayer.signIn(email, password);
 
   if (error) {
     setAuthMessage(error.message || "Sign-in failed.", "error");
     return;
   }
 
-  setAuthMessage("Signed in successfully.", "success");
+  setAuthMessage(hasInviteDeepLinkContext() ? "Signed in. Checking invite access..." : "Signed in successfully.", "success");
+  await refreshInviteAccessAfterCredentialAuth(data?.session || null);
 }
 
 async function createAccount() {
@@ -197,7 +518,8 @@ async function createAccount() {
   }
 
   if (data?.session) {
-    setAuthMessage("Account created. You are signed in.", "success");
+    setAuthMessage(hasInviteDeepLinkContext() ? "Account created. Checking invite access..." : "Account created. You are signed in.", "success");
+    await refreshInviteAccessAfterCredentialAuth(data.session);
     return;
   }
 
@@ -252,6 +574,7 @@ function updateAuthUI() {
     }
   }
 
+  renderInviteDeepLinkState();
   renderPendingProjectInvites();
   if (typeof refreshAccountSettingsUI === "function") {
     refreshAccountSettingsUI();
@@ -475,10 +798,18 @@ function renderPendingProjectInvites() {
   });
 }
 
-async function reloadCurrentUserAccessAndProjectScope() {
+async function reloadCurrentUserAccessAndProjectScope(preferredProjectId = "") {
   if (!isSignedIn()) return;
 
   await loadCurrentUserProjectAccess();
+
+  const normalizedPreferredProjectId = String(preferredProjectId || "").trim();
+  if (normalizedPreferredProjectId && canAccessProject(normalizedPreferredProjectId)) {
+    currentProjectId = normalizedPreferredProjectId;
+    localStorage.setItem(ACTIVE_PROJECT_KEY, normalizedPreferredProjectId);
+    refreshCurrentProjectRole();
+  }
+
   updateAuthUI();
   updateWriteAccessUI();
 
@@ -499,28 +830,46 @@ async function handleAcceptProjectInvite({ inviteId = "", inviteRef = "", projec
     if (inviteRef && rowInviteRef === inviteRef) return true;
     return !inviteId && projectId && rowProjectId === projectId;
   }) || null;
+  const acceptedProjectId = String(projectId || matchingInvite?.project_id || "").trim();
   const projectLabel = String(
     matchingInvite?.project_name ||
     matchingInvite?.projects?.name ||
-    allProjectList?.find?.(project => project?.project_id === projectId)?.name ||
+    allProjectList?.find?.(project => project?.project_id === acceptedProjectId)?.name ||
+    getInviteProjectDisplayName({ projectId: acceptedProjectId }) ||
     ""
   ).trim() || "project";
 
-  const { error } = await dataLayer.acceptProjectInvite({ inviteId, projectId });
+  setInviteLandingStatus("Accepting invite...", "");
+  const { error } = await dataLayer.acceptProjectInvite({ inviteId, projectId: acceptedProjectId });
   if (error) {
     setAuthMessage(error.message || "Unable to accept invite.", "error");
+    setInviteLandingStatus(error.message || "Unable to accept invite.", "error");
     return;
   }
 
   setAuthMessage(`Accepted invite for ${projectLabel}.`, "success");
+  setInviteLandingStatus(`Accepted invite for ${projectLabel}.`, "success");
+  inviteDeepLinkAcceptedProjectId = acceptedProjectId;
   if (typeof logAuditEvent === "function") {
     logAuditEvent("invite_accepted", {
-      project_id: projectId,
+      project_id: acceptedProjectId,
       actor_user_id: currentUser?.id || null,
       metadata: {}
     });
   }
-  await reloadCurrentUserAccessAndProjectScope();
+  pendingProjectInvites = (Array.isArray(pendingProjectInvites) ? pendingProjectInvites : []).filter(invite => {
+    const rowProjectId = String(invite?.project_id || "").trim();
+    const rowInviteRef = typeof getInviteActionRef === "function"
+      ? getInviteActionRef(invite)
+      : String(invite?.invite_ref || invite?._invite_ref || "").trim();
+    if (inviteRef && rowInviteRef === inviteRef) return false;
+    return rowProjectId !== acceptedProjectId;
+  });
+  renderPendingProjectInvites();
+  renderInviteDeepLinkState();
+  await reloadCurrentUserAccessAndProjectScope(acceptedProjectId);
+  setAuthMessage(`Accepted invite for ${projectLabel}. ${projectLabel} is selected.`, "success");
+  setInviteLandingStatus(`${projectLabel} is selected.`, "success");
 }
 
 document.addEventListener("click", async event => {

@@ -354,10 +354,20 @@
         </div>
         <div class="section-content">
           <div class="panel panelAccess">
+            <div id="inviteLandingPanel" class="inviteLandingPanel hidden" aria-live="polite">
+              <div class="inviteLandingEyebrow">Project Invite</div>
+              <div id="inviteLandingTitle" class="inviteLandingTitle">You’ve been invited to a project</div>
+              <div id="inviteLandingBody" class="inviteLandingBody">Sign in or create an account with the invited email to accept.</div>
+              <div id="inviteLandingMeta" class="inviteLandingMeta"></div>
+              <button id="inviteLandingAcceptBtn" class="btnComplete hidden" type="button" data-action="accept-project-invite">Accept Invite</button>
+              <div id="inviteLandingStatus" class="authMessage"></div>
+            </div>
+
             <div id="authLoggedOut">
               <input id="authEmail" type="email" placeholder="Email" />
               <input id="authPassword" type="password" placeholder="Password" />
               <button id="signInBtn" class="btnComplete" type="button">Sign In</button>
+              <button id="createAccountBtn" class="btnSecondary" type="button">Create Account</button>
             </div>
 
             <div id="authLoggedIn" class="hidden">

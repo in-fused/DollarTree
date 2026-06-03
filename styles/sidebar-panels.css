@@ -1316,6 +1316,59 @@ button:disabled {
 .authSuccess { color: var(--green); }
 .authError { color: #ff6b6b; }
 
+.inviteLandingPanel {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 184, 77, 0.42);
+  background:
+    linear-gradient(180deg, rgba(255, 184, 77, 0.15), rgba(255, 184, 77, 0.06)),
+    rgba(10, 18, 29, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.inviteLandingEyebrow {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: rgba(255, 218, 154, 0.95);
+  letter-spacing: 0.08em;
+}
+
+.inviteLandingTitle {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.inviteLandingBody {
+  font-size: 13px;
+  line-height: 1.42;
+  color: rgba(236, 244, 255, 0.9);
+}
+
+.inviteLandingMeta {
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(224, 236, 255, 0.76);
+  overflow-wrap: anywhere;
+}
+
+#inviteLandingAcceptBtn,
+#authLoggedOut #signInBtn,
+#authLoggedOut #createAccountBtn {
+  width: 100%;
+}
+
+body.invite-landing-active .workspace {
+  opacity: 0.45;
+  filter: saturate(0.55);
+  pointer-events: none;
+}
+
 .importLink {
   display: inline-block;
   margin-top: 7px;

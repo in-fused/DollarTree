@@ -238,7 +238,7 @@ const dataLayer = {
       const priority = { pending: 0, revoked: 1, accepted: 2 };
       const priorityDelta = (priority[aStatus] ?? 9) - (priority[bStatus] ?? 9);
       if (priorityDelta !== 0) return priorityDelta;
-      return getTimestampValue(b?.created_at || b?.sent_at) - getTimestampValue(a?.created_at || a?.sent_at);
+      return getTimestampValue(b?.sent_at || b?.created_at) - getTimestampValue(a?.sent_at || a?.created_at);
     });
   },
 
@@ -1049,12 +1049,12 @@ const dataLayer = {
     };
   },
 
-  async fetchProjectInviteSend(payload, accessToken, timeoutMs = 22000) {
+  async fetchProjectInviteSend(payload, accessToken, timeoutMs = 12000) {
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     let timeoutId = null;
 
     if (controller) {
-      timeoutId = setTimeout(() => controller.abort(), Math.max(1, Number(timeoutMs) || 22000));
+      timeoutId = setTimeout(() => controller.abort(), Math.max(1, Number(timeoutMs) || 12000));
     }
 
     try {
@@ -1302,6 +1302,7 @@ const dataLayer = {
   async createProjectInvite(input = {}) {
     const invite = input && typeof input === "object" ? input : {};
     const inviteTarget = invite.target && typeof invite.target === "object" ? invite.target : {};
+    const timeoutMs = Math.max(1, Number(invite.timeoutMs) || 12000);
 
     const normalizedProjectId = String(invite.projectId || "").trim();
     const rawTargetType = invite.targetType || inviteTarget.type || "";
@@ -1337,7 +1338,11 @@ const dataLayer = {
       revoked_at: null
     };
 
-    const sessionResult = await supabaseClient.auth.getSession();
+    const sessionResult = await this.withSupabaseTimeout(
+      supabaseClient.auth.getSession(),
+      timeoutMs,
+      "Reading session"
+    );
     if (sessionResult?.error) {
       return { data: null, error: sessionResult.error };
     }
@@ -1353,7 +1358,7 @@ const dataLayer = {
         targetType: normalizedTargetType,
         targetValue: normalizedTargetValue,
         role: normalizedRole
-      }, accessToken);
+      }, accessToken, timeoutMs);
 
       return this.normalizeProjectInviteApiResult(response, basePayload);
     } catch (error) {

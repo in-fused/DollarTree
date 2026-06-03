@@ -482,8 +482,8 @@ function sortInviteRows(rows = []) {
     const priority = { pending: 0, revoked: 1, accepted: 2 };
     const priorityDelta = (priority[aStatus] ?? 9) - (priority[bStatus] ?? 9);
     if (priorityDelta !== 0) return priorityDelta;
-    const aTime = Date.parse(a?.created_at || "") || 0;
-    const bTime = Date.parse(b?.created_at || "") || 0;
+    const aTime = Date.parse(a?.sent_at || a?.created_at || "") || 0;
+    const bTime = Date.parse(b?.sent_at || b?.created_at || "") || 0;
     return bTime - aTime;
   });
 }
@@ -704,22 +704,42 @@ function truncateText(value, maxLength) {
   return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
 }
 
+function buildInviteAppUrl(config, invite) {
+  const baseUrl = String(config.publicAppUrl || "").trim();
+  const params = new URLSearchParams({
+    inviteProject: invite.projectId,
+    inviteTarget: invite.targetValue
+  });
+
+  try {
+    const url = new URL(baseUrl);
+    params.forEach((value, key) => {
+      url.searchParams.set(key, value);
+    });
+    return url.href;
+  } catch (_) {
+    const separator = baseUrl.includes("?") ? "&" : "?";
+    return `${baseUrl}${separator}${params.toString()}`;
+  }
+}
+
 async function sendEmailInvite(config, invite, project) {
   requireDeliveryEnv(config, "email");
 
   const projectName = String(project?.name || invite.projectId).trim() || invite.projectId;
+  const inviteUrl = buildInviteAppUrl(config, invite);
   const subject = `You've been invited to ${projectName}`;
   const text = [
     `You've been invited to ${projectName} as ${invite.role}.`,
     "",
-    `Open the app: ${config.publicAppUrl}`,
+    `Open your invite: ${inviteUrl}`,
     "",
     "Sign in with this email to accept the invite.",
     "Access is controlled by account email."
   ].join("\n");
   const html = [
     `<p>You've been invited to <strong>${escapeHtml(projectName)}</strong> as <strong>${escapeHtml(invite.role)}</strong>.</p>`,
-    `<p><a href="${escapeHtml(config.publicAppUrl)}">Open the app</a></p>`,
+    `<p><a href="${escapeHtml(inviteUrl)}">Accept Invite</a></p>`,
     "<p>Sign in with this email to accept the invite.</p>",
     "<p>Access is controlled by account email.</p>"
   ].join("");
@@ -752,7 +772,8 @@ async function sendSmsInvite(config, invite, project) {
   requireDeliveryEnv(config, "sms");
 
   const projectName = truncateText(String(project?.name || invite.projectId).trim() || invite.projectId, 60);
-  const body = `${projectName}: project invite. ${config.publicAppUrl} Sign in and add this phone number to accept your project invite.`;
+  const inviteUrl = buildInviteAppUrl(config, invite);
+  const body = `${projectName}: project invite. ${inviteUrl} Sign in and add this phone number to accept your project invite.`;
   const form = new URLSearchParams({
     To: invite.targetPhone,
     From: config.twilioFromNumber,

@@ -912,7 +912,6 @@ function getInviteDeliveryMeta(invite = {}, targetType = "") {
 function getInviteCreatedMeta(invite = {}) {
   const sentAt = formatInviteTimestamp(invite?.sent_at);
   const createdAt = formatInviteTimestamp(invite?.created_at);
-  if (sentAt && createdAt) return `Sent ${sentAt} • Created ${createdAt}`;
   if (sentAt) return `Sent ${sentAt}`;
   return createdAt ? `Created ${createdAt}` : "Created recently";
 }
@@ -1858,15 +1857,20 @@ function bindProjectAdminUI() {
       try {
         let result;
         try {
-          result = await dataLayer.createProjectInvite({
-            projectId: scopedProjectId,
-            target: {
-              type: inviteTargetType,
-              value: inviteTargetValue
-            },
-            role,
-            invitedBy: currentUser?.id || null
-          });
+          result = await withTimeout(
+            dataLayer.createProjectInvite({
+              projectId: scopedProjectId,
+              target: {
+                type: inviteTargetType,
+                value: inviteTargetValue
+              },
+              role,
+              invitedBy: currentUser?.id || null,
+              timeoutMs: PROJECT_INVITE_SEND_TIMEOUT_MS
+            }),
+            PROJECT_INVITE_SEND_TIMEOUT_MS,
+            () => createActionTimeoutError("Sending invite", PROJECT_INVITE_SEND_TIMEOUT_MS)
+          );
         } catch (error) {
           result = { data: null, error: normalizeActionError(error, "Unable to send invite.") };
         }
