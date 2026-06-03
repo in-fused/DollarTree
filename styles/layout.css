@@ -184,6 +184,8 @@ body.executive-mode .sidebar {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.tcgRetailerBoard,
+.tcgStoreCard,
 .tcgIntelItem,
 .tcgPhotoItem,
 .tcgIntelEmpty {
@@ -194,6 +196,7 @@ body.executive-mode .sidebar {
   background: rgba(255,255,255,0.045);
 }
 
+.tcgStoreCard,
 .tcgIntelItem,
 .tcgPhotoItem {
   margin: 0;
@@ -202,12 +205,15 @@ body.executive-mode .sidebar {
   text-align: left;
 }
 
+.tcgStoreCard,
 .tcgIntelAction,
 .tcgPhotoItem {
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
+.tcgStoreCard:hover,
+.tcgStoreCard:focus-visible,
 .tcgIntelAction:hover,
 .tcgIntelAction:focus-visible,
 .tcgPhotoItem:hover,
@@ -256,6 +262,241 @@ body.executive-mode .sidebar {
   line-height: 1.35;
   color: rgba(255,255,255,0.62);
   overflow-wrap: anywhere;
+}
+
+.tcgRetailerBoards {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tcgRetailerBoard {
+  overflow: hidden;
+}
+
+.tcgRetailerBoardHeader {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 0;
+  background: rgba(255,255,255,0.035);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tcgRetailerBoardHeader:hover,
+.tcgRetailerBoardHeader:focus-visible {
+  background: rgba(var(--project-accent-rgb), 0.12);
+  outline: none;
+}
+
+.tcgRetailerBoardTitle {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tcgRetailerBoardName {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.tcgRetailerBoardMeta {
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.64);
+  overflow-wrap: anywhere;
+}
+
+.tcgRetailerBoardStats,
+.tcgStoreBadges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.tcgRetailerStat,
+.tcgFreshnessPill,
+.tcgSightingPill,
+.tcgStorePhotoFlag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 800;
+  white-space: nowrap;
+  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.82);
+}
+
+.tcgRetailerToggleIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.86);
+  background: rgba(255,255,255,0.055);
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.tcgRetailerBoardBody {
+  padding: 9px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.tcgRetailerBoardBody.hidden {
+  display: none;
+}
+
+.tcgRetailerStoreList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.tcgStoreCard {
+  display: grid;
+  gap: 6px;
+}
+
+.tcgStoreCardTop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tcgStoreName {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.tcgStoreLocation,
+.tcgStoreSnippet,
+.tcgStoreMeta {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tcgStoreLocation {
+  font-size: 10px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.62);
+}
+
+.tcgStoreSnippet {
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255,255,255,0.9);
+}
+
+.tcgStoreMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.62);
+}
+
+.tcgStoreMeta span:not(:last-child)::after {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.32);
+  vertical-align: middle;
+}
+
+.freshness-hot {
+  background: rgba(46, 204, 113, 0.16);
+  border-color: rgba(46, 204, 113, 0.34);
+  color: #a6f4c5;
+}
+
+.freshness-warm {
+  background: rgba(245, 194, 107, 0.16);
+  border-color: rgba(245, 194, 107, 0.34);
+  color: #ffe0a6;
+}
+
+.freshness-cold {
+  background: rgba(100, 181, 246, 0.13);
+  border-color: rgba(100, 181, 246, 0.28);
+  color: #a9d8ff;
+}
+
+.freshness-no-intel {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.11);
+  color: rgba(255,255,255,0.66);
+}
+
+.signal-in-stock,
+.signal-restock {
+  background: rgba(46, 204, 113, 0.15);
+  border-color: rgba(46, 204, 113, 0.3);
+  color: #b8f5cf;
+}
+
+.signal-low-stock {
+  background: rgba(245, 194, 107, 0.16);
+  border-color: rgba(245, 194, 107, 0.34);
+  color: #ffe0a6;
+}
+
+.signal-sold-out {
+  background: rgba(255, 107, 107, 0.14);
+  border-color: rgba(255, 107, 107, 0.3);
+  color: #ffb3b3;
+}
+
+.signal-product-mentioned {
+  background: rgba(100, 181, 246, 0.14);
+  border-color: rgba(100, 181, 246, 0.3);
+  color: #b8dcff;
+}
+
+.signal-sighting {
+  background: rgba(212, 165, 255, 0.12);
+  border-color: rgba(212, 165, 255, 0.26);
+  color: #dfc5ff;
+}
+
+.tcgStorePhotoFlag {
+  background: rgba(100, 181, 246, 0.12);
+  border-color: rgba(100, 181, 246, 0.28);
+  color: #c5e4ff;
 }
 
 .tcgIntelEmpty {
@@ -387,8 +628,18 @@ body.workspace-intelligence-active .intelRail {
   }
 
   .tcgIntelListCompact,
-  .tcgPhotoGrid {
+  .tcgPhotoGrid,
+  .tcgRetailerStoreList {
     grid-template-columns: 1fr;
+  }
+
+  .tcgRetailerBoardHeader {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .tcgRetailerBoardStats {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 }
 
@@ -405,6 +656,14 @@ body.workspace-intelligence-active .intelRail {
   .tcgIntelTime {
     max-width: 100%;
     text-align: left;
+  }
+
+  .tcgStoreCardTop {
+    grid-template-columns: 1fr;
+  }
+
+  .tcgStoreBadges {
+    justify-content: flex-start;
   }
 }
 

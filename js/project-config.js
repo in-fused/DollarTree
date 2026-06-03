@@ -51,9 +51,9 @@ const PROJECT_CONFIG_OVERRIDES = Object.freeze({
       progressLabel: "Hunt Progress"
     }),
     copy: Object.freeze({
-      projectPurpose: "Track stores, restocks, new drops, and sightings",
+      projectPurpose: "Track retailer sightings, shelf photos, restocks, and store chatter",
       headerSublinePrefix: "TCG hunting intel",
-      tcgPurpose: "Track stores, restocks, new drops, and sightings"
+      tcgPurpose: "Track retailer sightings, shelf photos, restocks, and store chatter"
     })
   })
 });
@@ -163,16 +163,14 @@ function sanitizeProjectConfigForProject(config, projectId) {
   const sanitized = mergeProjectConfig(DEFAULT_PROJECT_CONFIG, config);
   sanitized.project_id = String(projectId || "").trim();
 
-  if (!isTcgProjectId(projectId)) {
+  const explicitTcgFeedMode = String(sanitized.intelligence_mode || "") === "tcg_feed";
+
+  if (!isTcgProjectId(projectId) && !explicitTcgFeedMode) {
     const requestedTcgMode = String(sanitized.project_type || "") === "tcg_tracking"
-      || String(sanitized.intelligence_mode || "") === "tcg_feed"
       || String(sanitized.landing_mode || "") === "tcg_hunting";
 
     if (String(sanitized.project_type || "") === "tcg_tracking") {
       sanitized.project_type = DEFAULT_PROJECT_CONFIG.project_type;
-    }
-    if (String(sanitized.intelligence_mode || "") === "tcg_feed") {
-      sanitized.intelligence_mode = DEFAULT_PROJECT_CONFIG.intelligence_mode;
     }
     if (String(sanitized.landing_mode || "") === "tcg_hunting") {
       sanitized.landing_mode = DEFAULT_PROJECT_CONFIG.landing_mode;
@@ -214,9 +212,7 @@ function isTcgProjectConfig(config = getActiveProjectConfig()) {
   ).trim();
 
   return isTcgProjectId(configuredProjectId)
-    && (String(config?.project_type || "") === "tcg_tracking"
-    || String(config?.intelligence_mode || "") === "tcg_feed"
-    || String(config?.landing_mode || "") === "tcg_hunting");
+    || String(config?.intelligence_mode || "") === "tcg_feed";
 }
 
 function setProjectTextContent(id, value) {

@@ -528,6 +528,28 @@ function setIntelligenceModeVisibility(mode) {
   if (tcgMode) tcgMode.classList.toggle("hidden", normalizedMode !== "tcg");
 }
 
+const TCG_FRESHNESS_HOT_DAYS = 2;
+const TCG_FRESHNESS_WARM_DAYS = RECENT_ACTIVITY_WINDOW_DAYS;
+const tcgRetailerBoardCollapsedState = new Set();
+
+const TCG_RETAILER_MATCHERS = Object.freeze([
+  { pattern: /\bwalmart\b/i, label: "Walmart" },
+  { pattern: /\btarget\b/i, label: "Target" },
+  { pattern: /\bgamestop\b|\bgame\s*stop\b/i, label: "GameStop" },
+  { pattern: /\bbest\s*buy\b/i, label: "Best Buy" },
+  { pattern: /\bcostco\b/i, label: "Costco" },
+  { pattern: /\bsam'?s\s*club\b/i, label: "Sam's Club" },
+  { pattern: /\bbarnes\s*&?\s*noble\b/i, label: "Barnes & Noble" },
+  { pattern: /\bbooks-a-million\b|\bbooks\s*a\s*million\b/i, label: "Books-A-Million" },
+  { pattern: /\bwalgreens\b/i, label: "Walgreens" },
+  { pattern: /\bcvs\b/i, label: "CVS" },
+  { pattern: /\bmeijer\b/i, label: "Meijer" },
+  { pattern: /\bpublix\b/i, label: "Publix" },
+  { pattern: /\bcool\s*stuff\b/i, label: "CoolStuffInc" },
+  { pattern: /\bcard\s*kingdom\b/i, label: "Card Kingdom" },
+  { pattern: /\blocal\s*game\s*store\b|\blgs\b/i, label: "Local Game Store" }
+]);
+
 function getTcgRowsInScope(rows, filteredIds) {
   return (Array.isArray(rows) ? rows : [])
     .filter(row => filteredIds.has(String(row?.store_id || "")));
@@ -545,14 +567,93 @@ function getTcgStoreById(storeId, metrics) {
     || null;
 }
 
+function compactTcgText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function getTcgSlug(value) {
+  return compactTcgText(value)
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "unknown";
+}
+
+function toTcgTitleCase(value) {
+  return compactTcgText(value)
+    .toLowerCase()
+    .replace(/\b([a-z])/g, match => match.toUpperCase())
+    .replace(/\bTcg\b/g, "TCG")
+    .replace(/\bCvs\b/g, "CVS");
+}
+
+function normalizeTcgRetailerLabel(value) {
+  const text = compactTcgText(value);
+  if (!text) return "";
+
+  const known = TCG_RETAILER_MATCHERS.find(match => match.pattern.test(text));
+  if (known) return known.label;
+
+  const cleaned = text
+    .replace(/\b(?:store|location)\s*#?\s*\d+\b/ig, "")
+    .replace(/#\s*\d+\b/g, "")
+    .replace(/\s+-\s+.*$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  return cleaned ? toTcgTitleCase(cleaned) : "";
+}
+
+function getTcgRetailerIdentity(store) {
+  const candidates = [
+    store?.retailer,
+    store?.chain,
+    store?.store_chain,
+    store?.banner,
+    store?.store_name,
+    store?.market
+  ];
+
+  for (const candidate of candidates) {
+    const label = normalizeTcgRetailerLabel(candidate);
+    if (label) {
+      return {
+        key: getTcgSlug(label),
+        label
+      };
+    }
+  }
+
+  return {
+    key: "unassigned-retailer",
+    label: "Unassigned Retailer"
+  };
+}
+
+function getTcgStoreDisplayName(store, storeId) {
+  const normalizedStoreId = String(storeId || store?.store_id || "").trim();
+  const storeName = compactTcgText(store?.store_name);
+  const retailer = getTcgRetailerIdentity(store);
+
+  if (storeName && storeName !== retailer.label) return storeName;
+  if (retailer.label && retailer.key !== "unassigned-retailer") {
+    return normalizedStoreId ? `${retailer.label} Store ${normalizedStoreId}` : retailer.label;
+  }
+  return normalizedStoreId ? `Store ${normalizedStoreId}` : "Store";
+}
+
 function getTcgStoreLocationLine(store) {
   if (!store) return "Store location unavailable";
 
   const parts = [];
   if (store.full_address) parts.push(store.full_address);
   if (store.city || store.state) {
-    parts.push([store.city, store.state].filter(Boolean).join(", "));
+    const cityState = [store.city, store.state].filter(Boolean).join(", ");
+    if (cityState && !compactTcgText(store.full_address).toLowerCase().includes(cityState.toLowerCase())) {
+      parts.push(cityState);
+    }
   }
+  if (!parts.length && store.market) parts.push(`Market ${store.market}`);
   if (!parts.length && store.territory) parts.push(`Territory ${store.territory}`);
   if (!parts.length && store.region) parts.push(`Region ${store.region}`);
 
@@ -576,6 +677,72 @@ function formatTcgFreshness(timestampValue) {
   return `${days.toLocaleString()} days ago`;
 }
 
+function getTcgFreshnessMeta(timestampValue) {
+  if (!timestampValue) {
+    return {
+      key: "no-intel",
+      label: "No Intel",
+      sortRank: 0
+    };
+  }
+
+  const ageDays = Math.max(0, (Date.now() - timestampValue) / 86400000);
+  if (ageDays <= TCG_FRESHNESS_HOT_DAYS) {
+    return {
+      key: "hot",
+      label: "Hot",
+      sortRank: 3
+    };
+  }
+  if (ageDays <= TCG_FRESHNESS_WARM_DAYS) {
+    return {
+      key: "warm",
+      label: "Warm",
+      sortRank: 2
+    };
+  }
+  return {
+    key: "cold",
+    label: "Cold",
+    sortRank: 1
+  };
+}
+
+function inferTcgSightingLabel(noteText) {
+  const text = compactTcgText(noteText).toLowerCase();
+  if (!text) return "Sighting";
+
+  const soldOutPattern = /\b(sold\s*out|out\s*of\s*stock|oos|empty\s*shelf|empty\s*shelves|cleaned\s*out|none\s+left|no\s+stock|nothing\s+left)\b/i;
+  const lowStockPattern = /\b(low\s*stock|few\s+left|last\s+few|limited\s+stock|almost\s+gone|running\s+low|only\s+\d+\s+left)\b/i;
+  const restockPattern = /\b(restock|restocked|restocking|new\s+drop|fresh\s+stock|new\s+shipment|shipment\s+came|put\s+out|just\s+stocked)\b/i;
+  const inStockPattern = /\b(in\s*stock|on\s+the\s+shelf|on\s+shelves|available|plenty|stocked\s+today|fully\s+stocked|found\s+(?:some|packs|boxes|etbs?|tins?))\b/i;
+  const negatedPositivePattern = /\b(no|not|none)\s+(?:longer\s+)?(?:stocked|available|found|on\s+shelves?)\b/i;
+  const productPattern = /\b(pokemon|pok[eé]mon|one\s+piece|lorcana|magic|mtg|yugioh|yu-gi-oh|booster|etb|elite\s+trainer|tin|collection|blister|pack|box|deck|151|prismatic|surging\s+sparks|twilight\s+masquerade|paldean|obsidian|evolving\s+skies)\b/i;
+
+  const hasSoldOut = soldOutPattern.test(text);
+  const hasLowStock = lowStockPattern.test(text);
+  const hasRestock = restockPattern.test(text);
+  const hasInStock = inStockPattern.test(text) && !negatedPositivePattern.test(text);
+  const hasProduct = productPattern.test(text);
+
+  if (hasSoldOut && !hasInStock && !hasRestock && !hasLowStock) return "Sold Out";
+  if (hasLowStock) return "Low Stock";
+  if (hasRestock) return "Restock";
+  if (hasInStock) return "In Stock";
+  if (hasProduct) return "Product Mentioned";
+  return "Sighting";
+}
+
+function getTcgSightingSignalRank(label) {
+  if (label === "In Stock") return 5;
+  if (label === "Restock") return 4;
+  if (label === "Low Stock") return 3;
+  if (label === "Product Mentioned") return 2;
+  if (label === "Sighting") return 1;
+  if (label === "Sold Out") return 0;
+  return 0;
+}
+
 function getTcgLatestSignalByStore(filteredIds) {
   const latestByStore = new Map();
 
@@ -597,11 +764,12 @@ function getTcgLatestSignalByStore(filteredIds) {
   };
 
   noteRowsCache.forEach(row => {
-    touch(row.store_id, getTcgTimestamp(row), "Sighting", row.note || "");
+    const label = inferTcgSightingLabel(row.note || "");
+    touch(row.store_id, getTcgTimestamp(row), label, row.note || "");
   });
 
   photoRowsCache.forEach(row => {
-    touch(row.store_id, getTcgTimestamp(row), "Photo", "Photo uploaded");
+    touch(row.store_id, getTcgTimestamp(row), "Photo", "Shelf photo uploaded");
   });
 
   statusRowsCache.forEach(row => {
@@ -633,18 +801,136 @@ function getTcgStatusMeta(storeId) {
 function getTcgStoreSignalCounts(filteredIds) {
   const notesByStore = new Map();
   const photosByStore = new Map();
+  const latestNoteByStore = new Map();
+  const latestPhotoByStore = new Map();
+  const activeSightingsByStore = new Map();
+  const recentThreshold = getRecentActivityThreshold();
+
+  const updateLatest = (targetMap, storeId, row) => {
+    const timestampValue = getTimestampValue(getTcgTimestamp(row));
+    const existing = targetMap.get(storeId);
+    if (!existing || timestampValue > existing.timestampValue) {
+      targetMap.set(storeId, {
+        row,
+        timestampValue
+      });
+    }
+  };
 
   getTcgRowsInScope(noteRowsCache, filteredIds).forEach(row => {
     const storeId = String(row.store_id || "");
+    const timestampValue = getTimestampValue(getTcgTimestamp(row));
+    const label = inferTcgSightingLabel(row.note || "");
+
     notesByStore.set(storeId, (notesByStore.get(storeId) || 0) + 1);
+    updateLatest(latestNoteByStore, storeId, row);
+
+    if (timestampValue >= recentThreshold && label !== "Sold Out") {
+      activeSightingsByStore.set(storeId, (activeSightingsByStore.get(storeId) || 0) + 1);
+    }
   });
 
   getTcgRowsInScope(photoRowsCache, filteredIds).forEach(row => {
     const storeId = String(row.store_id || "");
     photosByStore.set(storeId, (photosByStore.get(storeId) || 0) + 1);
+    updateLatest(latestPhotoByStore, storeId, row);
   });
 
-  return { notesByStore, photosByStore };
+  return { notesByStore, photosByStore, latestNoteByStore, latestPhotoByStore, activeSightingsByStore };
+}
+
+function buildTcgStoreIntelRows(metrics, latestByStore, counts) {
+  return metrics.filteredStores.map(store => {
+    const storeId = String(store.store_id);
+    const latest = latestByStore.get(storeId) || null;
+    const latestNoteEntry = counts.latestNoteByStore.get(storeId);
+    const latestPhotoEntry = counts.latestPhotoByStore.get(storeId);
+    const latestNote = latestNoteEntry?.row || null;
+    const latestPhoto = latestPhotoEntry?.row || null;
+    const latestTimestampValue = Math.max(
+      latest?.timestampValue || 0,
+      latestNoteEntry?.timestampValue || 0,
+      latestPhotoEntry?.timestampValue || 0
+    );
+    const latestTimestamp = latestTimestampValue === latestNoteEntry?.timestampValue
+      ? getTcgTimestamp(latestNote)
+      : latestTimestampValue === latestPhotoEntry?.timestampValue
+        ? getTcgTimestamp(latestPhoto)
+        : latest?.timestamp || null;
+    const noteText = compactTcgText(latestNote?.note || "");
+    const sightingLabel = inferTcgSightingLabel(noteText);
+    const freshness = getTcgFreshnessMeta(latestTimestampValue);
+    const activeSightingCount = counts.activeSightingsByStore.get(storeId) || 0;
+    const retailer = getTcgRetailerIdentity(store);
+    const snippet = noteText
+      ? truncateDashboardText(noteText, 210)
+      : latestPhoto
+        ? "Shelf photo uploaded."
+        : latest?.detail
+          ? truncateDashboardText(latest.detail, 210)
+          : "No sightings logged yet.";
+
+    return {
+      store,
+      storeId,
+      retailer,
+      displayName: getTcgStoreDisplayName(store, storeId),
+      locationLine: getTcgStoreLocationLine(store),
+      latest,
+      latestNote,
+      latestPhoto,
+      timestamp: latestTimestamp,
+      timestampValue: latestTimestampValue,
+      freshness,
+      sightingLabel,
+      signalRank: getTcgSightingSignalRank(sightingLabel),
+      activeSightingCount,
+      noteCount: counts.notesByStore.get(storeId) || 0,
+      photoCount: counts.photosByStore.get(storeId) || 0,
+      snippet,
+      ...getTcgStatusMeta(storeId)
+    };
+  }).sort(compareTcgStoreIntelRows);
+}
+
+function compareTcgStoreIntelRows(a, b) {
+  const aActive = a.activeSightingCount > 0 ? 1 : 0;
+  const bActive = b.activeSightingCount > 0 ? 1 : 0;
+  if (aActive !== bActive) return bActive - aActive;
+  if (a.freshness.sortRank !== b.freshness.sortRank) return b.freshness.sortRank - a.freshness.sortRank;
+  if (a.signalRank !== b.signalRank) return b.signalRank - a.signalRank;
+  if (a.timestampValue !== b.timestampValue) return b.timestampValue - a.timestampValue;
+  return a.displayName.localeCompare(b.displayName, undefined, { sensitivity: "base" });
+}
+
+function getTcgRetailerBoards(storeRows) {
+  const boardsByKey = new Map();
+
+  storeRows.forEach(row => {
+    const key = row.retailer.key;
+    if (!boardsByKey.has(key)) {
+      boardsByKey.set(key, {
+        key,
+        label: row.retailer.label,
+        storeCount: 0,
+        activeSightings: 0,
+        latestTimestampValue: 0,
+        stores: []
+      });
+    }
+
+    const board = boardsByKey.get(key);
+    board.storeCount += 1;
+    board.activeSightings += row.activeSightingCount;
+    board.latestTimestampValue = Math.max(board.latestTimestampValue, row.timestampValue || 0);
+    board.stores.push(row);
+  });
+
+  return Array.from(boardsByKey.values()).sort((a, b) => {
+    if (a.activeSightings !== b.activeSightings) return b.activeSightings - a.activeSightings;
+    if (a.latestTimestampValue !== b.latestTimestampValue) return b.latestTimestampValue - a.latestTimestampValue;
+    return a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+  });
 }
 
 function renderTcgEmptyState(title, detail) {
@@ -656,99 +942,85 @@ function renderTcgEmptyState(title, detail) {
   `;
 }
 
-function renderTcgRecentSightings(notes, metrics) {
-  const listEl = document.getElementById("tcgRecentSightingsList");
+function renderTcgStoreIntelCard(row) {
+  const signalClass = `signal-${getTcgSlug(row.sightingLabel)}`;
+  const updatedLabel = row.timestampValue ? formatTcgTimestamp(row.timestamp) : "No update";
+  const freshnessDetail = row.timestampValue ? formatTcgFreshness(row.timestampValue) : "No activity yet";
+  const photoMarkup = row.photoCount > 0
+    ? `<span class="tcgStorePhotoFlag">Photo</span>`
+    : "";
+
+  return `
+    <button class="tcgStoreCard" type="button" data-store-id="${escapeDashboardHtml(row.storeId)}">
+      <span class="tcgStoreCardTop">
+        <span class="tcgStoreName">${escapeDashboardHtml(row.displayName)}</span>
+        <span class="tcgStoreBadges">
+          <span class="tcgFreshnessPill freshness-${escapeDashboardHtml(row.freshness.key)}">${escapeDashboardHtml(row.freshness.label)}</span>
+          <span class="tcgSightingPill ${escapeDashboardHtml(signalClass)}">${escapeDashboardHtml(row.sightingLabel)}</span>
+          ${photoMarkup}
+        </span>
+      </span>
+      <span class="tcgStoreLocation">${escapeDashboardHtml(row.locationLine)}</span>
+      <span class="tcgStoreSnippet">${escapeDashboardHtml(row.snippet)}</span>
+      <span class="tcgStoreMeta">
+        <span>Store ${escapeDashboardHtml(row.storeId)}</span>
+        <span>${escapeDashboardHtml(updatedLabel)}</span>
+        <span>${escapeDashboardHtml(freshnessDetail)}</span>
+        <span>${row.noteCount.toLocaleString()} sightings</span>
+        <span>${row.photoCount.toLocaleString()} photos</span>
+      </span>
+    </button>
+  `;
+}
+
+function renderTcgRetailerBoards(boards) {
+  const listEl = document.getElementById("tcgRetailerBoards");
   if (!listEl) return;
 
-  if (!notes.length) {
+  if (!boards.length) {
     listEl.innerHTML = renderTcgEmptyState(
-      "No sightings logged yet",
-      "Add store chatter from a store modal when a restock, new drop, or useful store update is spotted."
+      "No retailer intel in current scope",
+      "Stores will group here by retailer, store name, chain, or market as sightings and photos are captured."
     );
     return;
   }
 
-  listEl.innerHTML = notes.slice(0, 8).map(row => {
-    const storeId = String(row.store_id || "");
-    const store = getTcgStoreById(storeId, metrics);
+  listEl.innerHTML = boards.map(board => {
+    const collapsed = tcgRetailerBoardCollapsedState.has(board.key);
+    const latestLabel = board.latestTimestampValue ? formatTcgFreshness(board.latestTimestampValue) : "No updates yet";
+    const bodyId = `tcg-retailer-board-${board.key}`;
+
     return `
-      <button class="tcgIntelItem tcgIntelAction" type="button" data-store-id="${escapeDashboardHtml(storeId)}">
-        <div class="tcgIntelItemTop">
-          <span class="tcgIntelStore">Store ${escapeDashboardHtml(storeId)}</span>
-          <span class="tcgIntelTime">${escapeDashboardHtml(formatTcgTimestamp(row.created_at))}</span>
+      <section class="tcgRetailerBoard">
+        <button class="tcgRetailerBoardHeader" type="button" data-retailer-toggle="${escapeDashboardHtml(board.key)}" aria-expanded="${collapsed ? "false" : "true"}" aria-controls="${escapeDashboardHtml(bodyId)}">
+          <span class="tcgRetailerBoardTitle">
+            <span class="tcgRetailerBoardName">${escapeDashboardHtml(board.label)}</span>
+            <span class="tcgRetailerBoardMeta">${escapeDashboardHtml(latestLabel)}</span>
+          </span>
+          <span class="tcgRetailerBoardStats">
+            <span class="tcgRetailerStat">${board.storeCount.toLocaleString()} stores</span>
+            <span class="tcgRetailerStat">${board.activeSightings.toLocaleString()} active sightings</span>
+          </span>
+          <span class="tcgRetailerToggleIcon" aria-hidden="true">${collapsed ? "+" : "-"}</span>
+        </button>
+        <div id="${escapeDashboardHtml(bodyId)}" class="tcgRetailerBoardBody${collapsed ? " hidden" : ""}">
+          <div class="tcgRetailerStoreList">
+            ${board.stores.map(renderTcgStoreIntelCard).join("")}
+          </div>
         </div>
-        <div class="tcgIntelDetail">${escapeDashboardHtml(truncateDashboardText(row.note || "Sighting logged.", 220))}</div>
-        <div class="tcgIntelMeta">${escapeDashboardHtml(getTcgStoreLocationLine(store))}</div>
-      </button>
+      </section>
     `;
   }).join("");
 }
 
-function renderTcgRecentlyUpdatedStores(metrics, latestByStore, counts) {
-  const listEl = document.getElementById("tcgRecentlyUpdatedStoresList");
-  if (!listEl) return;
-
-  const rows = metrics.filteredStores
-    .map(store => {
-      const storeId = String(store.store_id);
-      const latest = latestByStore.get(storeId);
-      return {
-        store,
-        storeId,
-        latest,
-        timestampValue: latest?.timestampValue || 0,
-        noteCount: counts.notesByStore.get(storeId) || 0,
-        photoCount: counts.photosByStore.get(storeId) || 0,
-        ...getTcgStatusMeta(storeId)
-      };
-    })
-    .filter(row => row.timestampValue > 0)
-    .sort((a, b) => b.timestampValue - a.timestampValue)
-    .slice(0, 8);
-
-  if (!rows.length) {
-    listEl.innerHTML = renderTcgEmptyState(
-      "No recent store updates",
-      "Sightings, status changes, photos, and activity events will appear here as they are captured."
-    );
-    return;
-  }
-
-  listEl.innerHTML = rows.map(row => `
-    <button class="tcgIntelItem tcgIntelAction" type="button" data-store-id="${escapeDashboardHtml(row.storeId)}">
-      <div class="tcgIntelItemTop">
-        <span class="tcgIntelStore">Store ${escapeDashboardHtml(row.storeId)}</span>
-        <span class="intelAttentionSeverity severity-${escapeDashboardHtml(row.statusCode)}">${escapeDashboardHtml(row.statusLabel)}</span>
-      </div>
-      <div class="tcgIntelDetail">${escapeDashboardHtml(row.latest?.source || "Activity")} - ${escapeDashboardHtml(formatTcgFreshness(row.timestampValue))}</div>
-      <div class="tcgIntelMeta">${row.noteCount.toLocaleString()} sightings - ${row.photoCount.toLocaleString()} photos - ${escapeDashboardHtml(getTcgStoreLocationLine(row.store))}</div>
-    </button>
-  `).join("");
-}
-
-function getTcgStoresNeedingCheck(metrics, latestByStore, counts) {
-  const recentThreshold = getRecentActivityThreshold();
-
-  return metrics.filteredStores
-    .map(store => {
-      const storeId = String(store.store_id);
-      const latest = latestByStore.get(storeId);
-      const timestampValue = latest?.timestampValue || 0;
-      return {
-        store,
-        storeId,
-        latest,
-        timestampValue,
-        noteCount: counts.notesByStore.get(storeId) || 0,
-        photoCount: counts.photosByStore.get(storeId) || 0,
-        ...getTcgStatusMeta(storeId)
-      };
-    })
-    .filter(row => !row.timestampValue || row.timestampValue < recentThreshold)
+function getTcgStoresNeedingCheck(storeRows) {
+  return storeRows
+    .filter(row => row.freshness.key === "cold" || row.freshness.key === "no-intel")
     .sort((a, b) => {
       if (!a.timestampValue && b.timestampValue) return -1;
       if (a.timestampValue && !b.timestampValue) return 1;
-      return a.timestampValue - b.timestampValue;
+      if (a.timestampValue !== b.timestampValue) return a.timestampValue - b.timestampValue;
+      return a.displayName.localeCompare(b.displayName, undefined, { sensitivity: "base" });
     });
 }
 
@@ -764,16 +1036,7 @@ function renderTcgStoresNeedingCheck(rows) {
     return;
   }
 
-  listEl.innerHTML = rows.slice(0, 8).map(row => `
-    <button class="tcgIntelItem tcgIntelAction" type="button" data-store-id="${escapeDashboardHtml(row.storeId)}">
-      <div class="tcgIntelItemTop">
-        <span class="tcgIntelStore">Store ${escapeDashboardHtml(row.storeId)}</span>
-        <span class="intelAttentionSeverity severity-high">Check</span>
-      </div>
-      <div class="tcgIntelDetail">${escapeDashboardHtml(formatTcgFreshness(row.timestampValue))}</div>
-      <div class="tcgIntelMeta">${row.noteCount.toLocaleString()} sightings - ${row.photoCount.toLocaleString()} photos - ${escapeDashboardHtml(getTcgStoreLocationLine(row.store))}</div>
-    </button>
-  `).join("");
+  listEl.innerHTML = rows.slice(0, 10).map(renderTcgStoreIntelCard).join("");
 }
 
 function getTcgPhotoSource(row) {
@@ -790,7 +1053,7 @@ function renderTcgLatestPhotos(photos, metrics) {
 
   if (!photos.length) {
     listEl.innerHTML = renderTcgEmptyState(
-      "No photos uploaded yet",
+      "No shelf photos uploaded yet",
       "Upload store photos from the store modal to build visual hunting history."
     );
     return;
@@ -799,18 +1062,19 @@ function renderTcgLatestPhotos(photos, metrics) {
   listEl.innerHTML = photos.slice(0, 8).map(row => {
     const storeId = String(row.store_id || "");
     const store = getTcgStoreById(storeId, metrics);
+    const retailer = getTcgRetailerIdentity(store);
     const src = getTcgPhotoSource(row);
     const imageMarkup = src
-      ? `<img src="${escapeDashboardHtml(src)}" alt="Store ${escapeDashboardHtml(storeId)} photo" loading="lazy" />`
+      ? `<img src="${escapeDashboardHtml(src)}" alt="Store ${escapeDashboardHtml(storeId)} shelf photo" loading="lazy" />`
       : `<div class="tcgPhotoPlaceholder">Photo unavailable</div>`;
 
     return `
       <button class="tcgPhotoItem" type="button" data-store-id="${escapeDashboardHtml(storeId)}" data-photo-url="${escapeDashboardHtml(src)}">
         ${imageMarkup}
         <span class="tcgPhotoMeta">
-          <strong>Store ${escapeDashboardHtml(storeId)}</strong>
-          <em>${escapeDashboardHtml(formatPhotoDate(row.created_at))}</em>
-          <small>${escapeDashboardHtml(getTcgStoreLocationLine(store))}</small>
+          <strong>${escapeDashboardHtml(retailer.label)} - ${escapeDashboardHtml(getTcgStoreDisplayName(store, storeId))}</strong>
+          <em>${escapeDashboardHtml(formatPhotoDate(row.created_at || row.updated_at))}</em>
+          <small>Store ${escapeDashboardHtml(storeId)} - ${escapeDashboardHtml(getTcgStoreLocationLine(store))}</small>
         </span>
       </button>
     `;
@@ -849,9 +1113,11 @@ function getTcgActivityItems(metrics) {
 function getTcgActivityDisplay(item) {
   if (item?.type === "note") {
     const storeId = String(item.store_id || "").trim();
+    const label = inferTcgSightingLabel(item.detail || item.title || "");
     return {
-      title: item.title || (storeId ? `Store ${storeId} sighting added` : "Sighting added"),
-      detail: item.detail || "Store chatter added."
+      title: item.title || (storeId ? `Store ${storeId} ${label.toLowerCase()} sighting` : `${label} sighting`),
+      detail: item.detail || "Store chatter added.",
+      label
     };
   }
 
@@ -881,15 +1147,27 @@ function renderTcgActiveChatter(items, metrics) {
     const display = getTcgActivityDisplay(item);
     const storeId = String(item.store_id || "").trim();
     const store = storeId ? getTcgStoreById(storeId, metrics) : null;
-    return `
-      <div class="tcgIntelItem">
+    const retailer = getTcgRetailerIdentity(store);
+    const storeLabel = storeId
+      ? `${retailer.label} - ${getTcgStoreDisplayName(store, storeId)}`
+      : "Project";
+    const activityBody = `
         <div class="tcgIntelItemTop">
-          <span class="tcgIntelStore">${escapeDashboardHtml(storeId ? `Store ${storeId}` : "Project")}</span>
+          <span class="tcgIntelStore">${escapeDashboardHtml(storeLabel)}</span>
           <span class="tcgIntelTime">${escapeDashboardHtml(formatTcgTimestamp(item.timestamp))}</span>
         </div>
         <div class="tcgIntelDetail">${escapeDashboardHtml(truncateDashboardText(display.title, 160))}</div>
         <div class="tcgIntelMeta">${escapeDashboardHtml(truncateDashboardText(display.detail || getTcgStoreLocationLine(store), 220))}</div>
-      </div>
+    `;
+
+    if (!storeId) {
+      return `<div class="tcgIntelItem">${activityBody}</div>`;
+    }
+
+    return `
+      <button class="tcgIntelItem tcgIntelAction" type="button" data-store-id="${escapeDashboardHtml(storeId)}">
+        ${activityBody}
+      </button>
     `;
   }).join("");
 }
@@ -899,6 +1177,20 @@ function bindTcgIntelligenceInteractions() {
   if (!root || root.dataset.bound) return;
 
   root.addEventListener("click", event => {
+    const toggleTarget = event.target?.closest?.("[data-retailer-toggle]");
+    if (toggleTarget) {
+      const retailerKey = String(toggleTarget.dataset.retailerToggle || "").trim();
+      if (retailerKey) {
+        if (tcgRetailerBoardCollapsedState.has(retailerKey)) {
+          tcgRetailerBoardCollapsedState.delete(retailerKey);
+        } else {
+          tcgRetailerBoardCollapsedState.add(retailerKey);
+        }
+        renderTcgIntelligenceDashboard();
+      }
+      return;
+    }
+
     const photoTarget = event.target?.closest?.("[data-photo-url]");
     if (photoTarget) {
       const photoUrl = String(photoTarget.dataset.photoUrl || "").trim();
@@ -929,24 +1221,24 @@ function renderTcgIntelligenceDashboard() {
   const metrics = getScopeMetrics();
   const config = getDashboardProjectConfig();
   const filteredIds = metrics.filteredIds;
-  const notes = getTcgRowsInScope(noteRowsCache, filteredIds)
-    .sort((a, b) => getTimestampValue(getTcgTimestamp(b)) - getTimestampValue(getTcgTimestamp(a)));
   const photos = getTcgRowsInScope(photoRowsCache, filteredIds)
     .sort((a, b) => getTimestampValue(getTcgTimestamp(b)) - getTimestampValue(getTcgTimestamp(a)));
   const latestByStore = getTcgLatestSignalByStore(filteredIds);
   const counts = getTcgStoreSignalCounts(filteredIds);
-  const needsCheck = getTcgStoresNeedingCheck(metrics, latestByStore, counts);
+  const storeRows = buildTcgStoreIntelRows(metrics, latestByStore, counts);
+  const retailerBoards = getTcgRetailerBoards(storeRows);
+  const needsCheck = getTcgStoresNeedingCheck(storeRows);
+  const activeSightings = storeRows.reduce((total, row) => total + row.activeSightingCount, 0);
 
-  setText("tcgIntelPurpose", config?.copy?.tcgPurpose || "Track stores, restocks, new drops, and sightings.");
+  setText("tcgIntelPurpose", config?.copy?.tcgPurpose || "Track retailer sightings, shelf photos, restocks, and store chatter.");
   setText("tcgIntelStoresTracked", metrics.totalStores.toLocaleString());
-  setText("tcgIntelSightings", notes.length.toLocaleString());
+  setText("tcgIntelSightings", activeSightings.toLocaleString());
   setText("tcgIntelPhotos", photos.length.toLocaleString());
   setText("tcgIntelNeedCheck", needsCheck.length.toLocaleString());
   setText("tcgIntelScopeLabel", getCurrentScopeLabel(metrics));
   setText("tcgIntelGeneratedAt", `Updated: ${formatLastUpdated(new Date().toISOString())}`);
 
-  renderTcgRecentSightings(notes, metrics);
-  renderTcgRecentlyUpdatedStores(metrics, latestByStore, counts);
+  renderTcgRetailerBoards(retailerBoards);
   renderTcgStoresNeedingCheck(needsCheck);
   renderTcgLatestPhotos(photos, metrics);
   renderTcgActiveChatter(getTcgActivityItems(metrics), metrics);
