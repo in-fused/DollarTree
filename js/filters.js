@@ -22,6 +22,46 @@ function ensureStatusFilterControl() {
   return statusFilter;
 }
 
+function ensureProductFilterControl() {
+  const filterGrid = document.querySelector(".filterGrid");
+  if (!filterGrid) return null;
+
+  let productFilter = document.getElementById("productFilter");
+  if (productFilter) return productFilter;
+
+  productFilter = document.createElement("select");
+  productFilter.id = "productFilter";
+  productFilter.className = "tcgProductFilter hidden";
+
+  filterGrid.appendChild(productFilter);
+  return productFilter;
+}
+
+function isTcgProductFilterEnabled() {
+  return typeof isTcgProjectConfig === "function" && isTcgProjectConfig();
+}
+
+function getTcgProductFilterOptions() {
+  if (typeof getTcgFilterableProducts === "function") {
+    return getTcgFilterableProducts();
+  }
+
+  const config = typeof getActiveProjectConfig === "function" ? getActiveProjectConfig() : {};
+  return Array.isArray(config?.tcg?.watchedProducts) ? config.tcg.watchedProducts : [];
+}
+
+function getActiveProductFilterConfig() {
+  const productKey = String(activeFilters.product || "").trim();
+  if (!productKey || !isTcgProductFilterEnabled()) return null;
+
+  return getTcgProductFilterOptions()
+    .find(product => String(product?.key || "").trim() === productKey) || null;
+}
+
+function getActiveProductFilterLabel() {
+  return getActiveProductFilterConfig()?.label || "";
+}
+
 function getStoreFilterStatusCode(store) {
   const status = statusMap[String(store?.store_id)] || {};
   return normalizeStatusCode(
@@ -46,6 +86,7 @@ function bindFilters() {
   const territoryFilter = document.getElementById("territoryFilter");
   const stateFilter = document.getElementById("stateFilter");
   const statusFilter = ensureStatusFilterControl();
+  const productFilter = ensureProductFilterControl();
   const clearBtn = document.getElementById("clearFiltersBtn");
 
   if (regionFilter && !regionFilter.dataset.bound) {
@@ -84,9 +125,18 @@ function bindFilters() {
     statusFilter.dataset.bound = "true";
   }
 
+  if (productFilter && !productFilter.dataset.bound) {
+    productFilter.addEventListener("change", () => {
+      activeFilters.product = productFilter.value;
+      persistFilterState();
+      handleFilterChange();
+    });
+    productFilter.dataset.bound = "true";
+  }
+
   if (clearBtn && !clearBtn.dataset.bound) {
     clearBtn.addEventListener("click", () => {
-      activeFilters = { region: "", territory: "", state: "", status: "" };
+      activeFilters = { region: "", territory: "", state: "", status: "", product: "" };
       persistFilterState();
       handleFilterChange();
     });
@@ -101,10 +151,11 @@ function restoreFilterState() {
       region: saved.region || "",
       territory: saved.territory || "",
       state: saved.state || "",
-      status: saved.status || ""
+      status: saved.status || "",
+      product: isTcgProductFilterEnabled() ? (saved.product || "") : ""
     };
   } catch {
-    activeFilters = { region: "", territory: "", state: "", status: "" };
+    activeFilters = { region: "", territory: "", state: "", status: "", product: "" };
   }
 }
 
@@ -179,6 +230,52 @@ function populateStatusFilterOptions() {
   statusFilter.value = activeFilters.status || "";
 }
 
+function populateProductFilterOptions() {
+  const productFilter = ensureProductFilterControl();
+  if (!productFilter) return;
+
+  const enabled = isTcgProductFilterEnabled();
+  productFilter.classList.toggle("hidden", !enabled);
+  productFilter.disabled = !enabled;
+
+  if (!enabled) {
+    productFilter.innerHTML = "";
+    productFilter.value = "";
+    activeFilters.product = "";
+    return;
+  }
+
+  const products = getTcgProductFilterOptions();
+  const validValues = products
+    .map(product => String(product?.key || "").trim())
+    .filter(Boolean);
+
+  productFilter.innerHTML = "";
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "All Products";
+  productFilter.appendChild(defaultOption);
+
+  products.forEach(product => {
+    const value = String(product?.key || "").trim();
+    const label = String(product?.label || value).trim();
+    if (!value || !label) return;
+
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    productFilter.appendChild(option);
+  });
+
+  if (activeFilters.product && validValues.includes(activeFilters.product)) {
+    productFilter.value = activeFilters.product;
+  } else {
+    activeFilters.product = "";
+    productFilter.value = "";
+  }
+}
+
 function populateFilterOptions() {
   fillFilterSelect(
     "regionFilter",
@@ -202,6 +299,7 @@ function populateFilterOptions() {
   );
 
   populateStatusFilterOptions();
+  populateProductFilterOptions();
 }
 
 function updateFilterSummary() {
@@ -213,6 +311,9 @@ function updateFilterSummary() {
   if (activeFilters.status) {
     const selectedStatusOption = STATUS_FILTER_OPTIONS.find(option => option.value === activeFilters.status);
     parts.push(`Status: ${selectedStatusOption?.label || activeFilters.status}`);
+  }
+  if (activeFilters.product && isTcgProductFilterEnabled()) {
+    parts.push(`Product: ${getActiveProductFilterLabel() || activeFilters.product}`);
   }
 
   const filteredCount = getFilteredStores().length;

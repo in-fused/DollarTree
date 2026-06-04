@@ -26,6 +26,11 @@ const DEFAULT_PROJECT_CONFIG = Object.freeze({
     projectPurpose: "",
     headerSublinePrefix: "Operational visibility",
     tcgPurpose: ""
+  }),
+  tcg: Object.freeze({
+    watchedProducts: Object.freeze([]),
+    productTerms: Object.freeze([]),
+    upcomingReleases: Object.freeze([])
   })
 });
 
@@ -54,6 +59,142 @@ const PROJECT_CONFIG_OVERRIDES = Object.freeze({
       projectPurpose: "Track retailer sightings, shelf photos, restocks, and store chatter",
       headerSublinePrefix: "TCG hunting intel",
       tcgPurpose: "Track retailer sightings, shelf photos, restocks, and store chatter"
+    }),
+    tcg: Object.freeze({
+      watchedProducts: Object.freeze([
+        Object.freeze({
+          key: "pokemon-151",
+          label: "Pokemon 151",
+          shortLabel: "151",
+          aliases: Object.freeze([
+            "Pokemon 151",
+            "Pokemon Scarlet & Violet 151",
+            "Scarlet & Violet 151",
+            "Scarlet Violet 151",
+            "SV151",
+            "151"
+          ])
+        }),
+        Object.freeze({
+          key: "prismatic-evolutions",
+          label: "Prismatic Evolutions",
+          shortLabel: "Prismatic",
+          aliases: Object.freeze([
+            "Prismatic Evolutions",
+            "Prismatic"
+          ])
+        }),
+        Object.freeze({
+          key: "surging-sparks",
+          label: "Surging Sparks",
+          shortLabel: "Surging",
+          aliases: Object.freeze([
+            "Surging Sparks",
+            "Surging"
+          ])
+        }),
+        Object.freeze({
+          key: "journey-together",
+          label: "Journey Together",
+          shortLabel: "Journey",
+          aliases: Object.freeze([
+            "Journey Together"
+          ])
+        }),
+        Object.freeze({
+          key: "one-piece",
+          label: "One Piece",
+          shortLabel: "One Piece",
+          aliases: Object.freeze([
+            "One Piece",
+            "OnePiece"
+          ])
+        }),
+        Object.freeze({
+          key: "lorcana",
+          label: "Lorcana",
+          shortLabel: "Lorcana",
+          aliases: Object.freeze([
+            "Lorcana",
+            "Disney Lorcana"
+          ])
+        })
+      ]),
+      productTerms: Object.freeze([
+        Object.freeze({
+          key: "pokemon",
+          label: "Pokemon",
+          shortLabel: "Pokemon",
+          aliases: Object.freeze([
+            "Pokemon",
+            "Pokemon TCG",
+            "Pokémon",
+            "Pokémon TCG"
+          ]),
+          badgeable: false,
+          filterable: false
+        }),
+        Object.freeze({
+          key: "etb",
+          label: "ETB",
+          shortLabel: "ETB",
+          aliases: Object.freeze([
+            "ETB",
+            "ETBs",
+            "Elite Trainer Box",
+            "Elite Trainer Boxes"
+          ]),
+          filterable: false
+        }),
+        Object.freeze({
+          key: "booster-bundle",
+          label: "Booster Bundle",
+          shortLabel: "Booster Bundle",
+          aliases: Object.freeze([
+            "Booster Bundle",
+            "Booster Bundles"
+          ]),
+          filterable: false
+        })
+      ]),
+      upcomingReleases: Object.freeze([
+        Object.freeze({
+          key: "pokemon-151-release",
+          name: "Pokemon 151",
+          productKey: "pokemon-151",
+          releaseDate: ""
+        }),
+        Object.freeze({
+          key: "prismatic-evolutions-release",
+          name: "Prismatic Evolutions",
+          productKey: "prismatic-evolutions",
+          releaseDate: ""
+        }),
+        Object.freeze({
+          key: "surging-sparks-release",
+          name: "Surging Sparks",
+          productKey: "surging-sparks",
+          releaseDate: ""
+        }),
+        Object.freeze({
+          key: "journey-together-release",
+          name: "Journey Together",
+          productKey: "journey-together",
+          releaseDate: ""
+        }),
+        Object.freeze({
+          key: "one-piece-release",
+          name: "One Piece",
+          productKey: "one-piece",
+          releaseDate: ""
+        }),
+        Object.freeze({
+          key: "lorcana-release",
+          name: "Lorcana",
+          productKey: "lorcana",
+          releaseDate: ""
+        })
+      ])
     })
   })
 });
@@ -163,18 +304,21 @@ function sanitizeProjectConfigForProject(config, projectId) {
   const sanitized = mergeProjectConfig(DEFAULT_PROJECT_CONFIG, config);
   sanitized.project_id = String(projectId || "").trim();
 
-  const explicitTcgFeedMode = String(sanitized.intelligence_mode || "") === "tcg_feed";
-
-  if (!isTcgProjectId(projectId) && !explicitTcgFeedMode) {
+  if (!isTcgProjectId(projectId)) {
     const requestedTcgMode = String(sanitized.project_type || "") === "tcg_tracking"
+      || String(sanitized.intelligence_mode || "") === "tcg_feed"
       || String(sanitized.landing_mode || "") === "tcg_hunting";
 
     if (String(sanitized.project_type || "") === "tcg_tracking") {
       sanitized.project_type = DEFAULT_PROJECT_CONFIG.project_type;
     }
+    if (String(sanitized.intelligence_mode || "") === "tcg_feed") {
+      sanitized.intelligence_mode = DEFAULT_PROJECT_CONFIG.intelligence_mode;
+    }
     if (String(sanitized.landing_mode || "") === "tcg_hunting") {
       sanitized.landing_mode = DEFAULT_PROJECT_CONFIG.landing_mode;
     }
+    sanitized.tcg = cloneProjectConfigValue(DEFAULT_PROJECT_CONFIG.tcg);
     if (requestedTcgMode) {
       sanitized.terminology = cloneProjectConfigValue(DEFAULT_PROJECT_CONFIG.terminology);
       sanitized.copy = cloneProjectConfigValue(DEFAULT_PROJECT_CONFIG.copy);
@@ -211,8 +355,7 @@ function isTcgProjectConfig(config = getActiveProjectConfig()) {
       || ""
   ).trim();
 
-  return isTcgProjectId(configuredProjectId)
-    || String(config?.intelligence_mode || "") === "tcg_feed";
+  return isTcgProjectId(configuredProjectId);
 }
 
 function setProjectTextContent(id, value) {

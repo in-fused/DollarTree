@@ -153,7 +153,9 @@ let activePointPulseStartedAt = 0;
 let activeFilters = {
   region: "",
   territory: "",
-  state: ""
+  state: "",
+  status: "",
+  product: ""
 };
 
 let photoLibraryFilters = {

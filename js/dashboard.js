@@ -579,6 +579,314 @@ function getTcgSlug(value) {
     .replace(/^-+|-+$/g, "") || "unknown";
 }
 
+function getTcgConfig() {
+  const config = getDashboardProjectConfig();
+  return config?.tcg && typeof config.tcg === "object" ? config.tcg : {};
+}
+
+function getTcgConfigArray(key) {
+  const value = getTcgConfig()?.[key];
+  return Array.isArray(value) ? value : [];
+}
+
+function uniqueTcgStringValues(values) {
+  const seen = new Set();
+  const results = [];
+
+  (Array.isArray(values) ? values : []).forEach(value => {
+    const text = compactTcgText(value);
+    const lookup = text.toLowerCase();
+    if (!text || seen.has(lookup)) return;
+    seen.add(lookup);
+    results.push(text);
+  });
+
+  return results;
+}
+
+function normalizeTcgProductConfig(product, fallbackKey = "") {
+  if (!product || typeof product !== "object") return null;
+
+  const label = compactTcgText(product.label || product.name || fallbackKey);
+  const key = compactTcgText(product.key || getTcgSlug(label || fallbackKey));
+  if (!key || !label) return null;
+
+  const aliases = uniqueTcgStringValues([
+    label,
+    product.shortLabel,
+    ...(Array.isArray(product.aliases) ? product.aliases : [])
+  ]);
+
+  return {
+    key,
+    label,
+    shortLabel: compactTcgText(product.shortLabel || label),
+    aliases: aliases.length ? aliases : [label],
+    filterable: product.filterable !== false,
+    badgeable: product.badgeable !== false
+  };
+}
+
+function getTcgWatchedProducts() {
+  return getTcgConfigArray("watchedProducts")
+    .map((product, index) => normalizeTcgProductConfig(product, `watched-product-${index}`))
+    .filter(Boolean);
+}
+
+function getTcgProductTerms() {
+  return getTcgConfigArray("productTerms")
+    .map((product, index) => normalizeTcgProductConfig(product, `product-term-${index}`))
+    .filter(Boolean);
+}
+
+function getTcgProductCatalog() {
+  const productsByKey = new Map();
+
+  [...getTcgWatchedProducts(), ...getTcgProductTerms()].forEach(product => {
+    const existing = productsByKey.get(product.key);
+    if (!existing) {
+      productsByKey.set(product.key, {
+        ...product,
+        aliases: [...product.aliases]
+      });
+      return;
+    }
+
+    existing.aliases = uniqueTcgStringValues([...existing.aliases, ...product.aliases]);
+    existing.filterable = existing.filterable || product.filterable;
+    existing.badgeable = existing.badgeable !== false || product.badgeable !== false;
+  });
+
+  return Array.from(productsByKey.values());
+}
+
+function getTcgFilterableProducts() {
+  return getTcgWatchedProducts().filter(product => product.filterable !== false);
+}
+
+function escapeTcgRegexLiteral(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildTcgAliasRegex(alias) {
+  const pattern = escapeTcgRegexLiteral(compactTcgText(alias)).replace(/\s+/g, "\\s+");
+  if (!pattern) return null;
+  return new RegExp(`(^|[^a-z0-9])${pattern}([^a-z0-9]|$)`, "i");
+}
+
+function doesTcgAliasMatchText(alias, text) {
+  const regex = buildTcgAliasRegex(alias);
+  return regex ? regex.test(String(text || "")) : false;
+}
+
+function getTcgProductMatchesFromText(value, catalog = getTcgProductCatalog()) {
+  const text = compactTcgText(value);
+  if (!text) return [];
+
+  return (Array.isArray(catalog) ? catalog : []).filter(product =>
+    product.aliases.some(alias => doesTcgAliasMatchText(alias, text))
+  );
+}
+
+function uniqueTcgProducts(products) {
+  const byKey = new Map();
+  (Array.isArray(products) ? products : []).forEach(product => {
+    if (!product?.key || byKey.has(product.key)) return;
+    byKey.set(product.key, product);
+  });
+  return Array.from(byKey.values());
+}
+
+function getTcgPhotoProductText(row) {
+  return [
+    row?.product,
+    row?.product_name,
+    row?.caption,
+    row?.description,
+    row?.note,
+    Array.isArray(row?.tags) ? row.tags.join(" ") : row?.tags
+  ].filter(Boolean).join(" ");
+}
+
+function createTcgProductStat(product) {
+  return {
+    ...product,
+    mentions: 0,
+    recentSightings: 0,
+    recentChatter: 0,
+    recentPhotoEvidence: 0,
+    lastMentionTimestamp: null,
+    lastMentionValue: 0,
+    stores: new Set()
+  };
+}
+
+function ensureTcgProductStat(statsByKey, product) {
+  if (!statsByKey.has(product.key)) {
+    statsByKey.set(product.key, createTcgProductStat(product));
+  }
+  return statsByKey.get(product.key);
+}
+
+function touchTcgStoreProduct(storeProductMatches, storeId, product, timestampValue) {
+  const normalizedStoreId = String(storeId || "").trim();
+  if (!normalizedStoreId || !product?.key) return;
+
+  if (!storeProductMatches.has(normalizedStoreId)) {
+    storeProductMatches.set(normalizedStoreId, new Map());
+  }
+
+  const productMap = storeProductMatches.get(normalizedStoreId);
+  const existing = productMap.get(product.key) || {
+    product,
+    count: 0,
+    timestampValue: 0
+  };
+
+  existing.count += 1;
+  existing.timestampValue = Math.max(existing.timestampValue || 0, timestampValue || 0);
+  productMap.set(product.key, existing);
+}
+
+function getTcgActiveProductFilterKey() {
+  const selected = String(activeFilters?.product || "").trim();
+  if (!selected || !isTcgDashboardMode()) return "";
+  return getTcgFilterableProducts().some(product => product.key === selected) ? selected : "";
+}
+
+function buildTcgProductContext(metrics) {
+  const filteredIds = metrics?.filteredIds instanceof Set ? metrics.filteredIds : new Set();
+  const catalog = getTcgProductCatalog();
+  const watchedProducts = getTcgWatchedProducts();
+  const statsByKey = new Map();
+  const storeProductMatches = new Map();
+  const recentThreshold = getRecentActivityThreshold();
+
+  catalog.forEach(product => ensureTcgProductStat(statsByKey, product));
+
+  getTcgRowsInScope(noteRowsCache, filteredIds).forEach(row => {
+    const noteText = row.note || "";
+    const matches = getTcgProductMatchesFromText(noteText, catalog);
+    if (!matches.length) return;
+
+    const storeId = String(row.store_id || "");
+    const timestamp = getTcgTimestamp(row);
+    const timestampValue = getTimestampValue(timestamp);
+    const isRecent = timestampValue >= recentThreshold;
+    const sightingLabel = inferTcgSightingLabel(noteText);
+
+    matches.forEach(product => {
+      const stat = ensureTcgProductStat(statsByKey, product);
+      stat.mentions += 1;
+      stat.stores.add(storeId);
+
+      if (timestampValue > stat.lastMentionValue) {
+        stat.lastMentionValue = timestampValue;
+        stat.lastMentionTimestamp = timestamp;
+      }
+
+      if (isRecent) {
+        stat.recentChatter += 1;
+        if (sightingLabel !== "Sold Out") {
+          stat.recentSightings += 1;
+        }
+      }
+
+      touchTcgStoreProduct(storeProductMatches, storeId, product, timestampValue);
+    });
+  });
+
+  getTcgRowsInScope(photoRowsCache, filteredIds).forEach(row => {
+    const storeId = String(row.store_id || "");
+    const timestampValue = getTimestampValue(getTcgTimestamp(row));
+    if (timestampValue < recentThreshold) return;
+
+    const storeProducts = Array.from(storeProductMatches.get(storeId)?.values() || [])
+      .map(entry => entry.product);
+    const photoProducts = getTcgProductMatchesFromText(getTcgPhotoProductText(row), catalog);
+
+    uniqueTcgProducts([...storeProducts, ...photoProducts]).forEach(product => {
+      const stat = ensureTcgProductStat(statsByKey, product);
+      stat.recentPhotoEvidence += 1;
+      stat.stores.add(storeId);
+    });
+  });
+
+  const stats = Array.from(statsByKey.values()).map(stat => ({
+    ...stat,
+    storeCount: stat.stores.size,
+    hotScore: (stat.recentSightings * 5) + (stat.recentChatter * 2) + (stat.recentPhotoEvidence * 3)
+  }));
+  const normalizedStatsByKey = new Map(stats.map(stat => [stat.key, stat]));
+  const storeProductKeyMap = new Map(
+    Array.from(storeProductMatches.entries()).map(([storeId, productMap]) => [
+      storeId,
+      new Set(Array.from(productMap.keys()))
+    ])
+  );
+  const productFilterKey = getTcgActiveProductFilterKey();
+  const productFilter = productFilterKey
+    ? getTcgFilterableProducts().find(product => product.key === productFilterKey) || null
+    : null;
+
+  return {
+    catalog,
+    watchedProducts,
+    stats,
+    statsByKey: normalizedStatsByKey,
+    storeProductMatches,
+    storeProductKeyMap,
+    productFilterKey,
+    productFilter
+  };
+}
+
+function getTcgProductBadgesForStore(storeId, productContext) {
+  const productMap = productContext?.storeProductMatches?.get?.(String(storeId || "")) || new Map();
+  return Array.from(productMap.values())
+    .filter(entry => entry?.product?.badgeable !== false)
+    .sort((a, b) => {
+      if ((a.timestampValue || 0) !== (b.timestampValue || 0)) {
+        return (b.timestampValue || 0) - (a.timestampValue || 0);
+      }
+      return (b.count || 0) - (a.count || 0);
+    })
+    .slice(0, 4)
+    .map(entry => ({
+      key: entry.product.key,
+      label: entry.product.shortLabel || entry.product.label
+    }));
+}
+
+function doesTcgStoreMatchProductFilter(storeId, productContext) {
+  const productKey = String(productContext?.productFilterKey || "").trim();
+  if (!productKey) return true;
+  return productContext?.storeProductKeyMap?.get?.(String(storeId || ""))?.has(productKey) === true;
+}
+
+function doesTcgTextMatchProductFilter(text, productContext) {
+  const productKey = String(productContext?.productFilterKey || "").trim();
+  if (!productKey) return true;
+  return getTcgProductMatchesFromText(text, productContext?.catalog || getTcgProductCatalog())
+    .some(product => product.key === productKey);
+}
+
+function doesTcgPhotoMatchProductFilter(row, productContext) {
+  const productKey = String(productContext?.productFilterKey || "").trim();
+  if (!productKey) return true;
+  return doesTcgTextMatchProductFilter(getTcgPhotoProductText(row), productContext)
+    || doesTcgStoreMatchProductFilter(row?.store_id, productContext);
+}
+
+function doesTcgActivityMatchProductFilter(item, productContext) {
+  const productKey = String(productContext?.productFilterKey || "").trim();
+  if (!productKey) return true;
+
+  const text = [item?.title, item?.detail].filter(Boolean).join(" ");
+  if (doesTcgTextMatchProductFilter(text, productContext)) return true;
+  return doesTcgStoreMatchProductFilter(item?.store_id, productContext);
+}
+
 function toTcgTitleCase(value) {
   return compactTcgText(value)
     .toLowerCase()
@@ -723,7 +1031,7 @@ function inferTcgSightingLabel(noteText) {
   const hasLowStock = lowStockPattern.test(text);
   const hasRestock = restockPattern.test(text);
   const hasInStock = inStockPattern.test(text) && !negatedPositivePattern.test(text);
-  const hasProduct = productPattern.test(text);
+  const hasProduct = productPattern.test(text) || getTcgProductMatchesFromText(noteText).length > 0;
 
   if (hasSoldOut && !hasInStock && !hasRestock && !hasLowStock) return "Sold Out";
   if (hasLowStock) return "Low Stock";
@@ -839,7 +1147,7 @@ function getTcgStoreSignalCounts(filteredIds) {
   return { notesByStore, photosByStore, latestNoteByStore, latestPhotoByStore, activeSightingsByStore };
 }
 
-function buildTcgStoreIntelRows(metrics, latestByStore, counts) {
+function buildTcgStoreIntelRows(metrics, latestByStore, counts, productContext = null) {
   return metrics.filteredStores.map(store => {
     const storeId = String(store.store_id);
     const latest = latestByStore.get(storeId) || null;
@@ -862,6 +1170,8 @@ function buildTcgStoreIntelRows(metrics, latestByStore, counts) {
     const freshness = getTcgFreshnessMeta(latestTimestampValue);
     const activeSightingCount = counts.activeSightingsByStore.get(storeId) || 0;
     const retailer = getTcgRetailerIdentity(store);
+    const productBadges = getTcgProductBadgesForStore(storeId, productContext);
+    const productMatchKeys = Array.from(productContext?.storeProductKeyMap?.get?.(storeId) || []);
     const snippet = noteText
       ? truncateDashboardText(noteText, 210)
       : latestPhoto
@@ -887,6 +1197,8 @@ function buildTcgStoreIntelRows(metrics, latestByStore, counts) {
       activeSightingCount,
       noteCount: counts.notesByStore.get(storeId) || 0,
       photoCount: counts.photosByStore.get(storeId) || 0,
+      productBadges,
+      productMatchKeys,
       snippet,
       ...getTcgStatusMeta(storeId)
     };
@@ -942,6 +1254,155 @@ function renderTcgEmptyState(title, detail) {
   `;
 }
 
+function formatTcgMentionTimestamp(timestamp) {
+  if (!timestamp) return "No mentions";
+  return formatTcgTimestamp(timestamp);
+}
+
+function renderTcgWatchedDrops(productContext) {
+  const listEl = document.getElementById("tcgWatchedDropsList");
+  if (!listEl) return;
+
+  const watchedProducts = Array.isArray(productContext?.watchedProducts) ? productContext.watchedProducts : [];
+  if (!watchedProducts.length) {
+    listEl.innerHTML = renderTcgEmptyState(
+      "No watched drops configured",
+      "Add products to the TCG watched product configuration to track mentions."
+    );
+    return;
+  }
+
+  listEl.innerHTML = `
+    <div class="tcgProductStatHeader">
+      <span>Product</span>
+      <span>Mentions</span>
+      <span>Last Mention</span>
+    </div>
+    ${watchedProducts.map(product => {
+      const stat = productContext?.statsByKey?.get?.(product.key) || createTcgProductStat(product);
+      return `
+        <div class="tcgProductStatRow">
+          <span class="tcgProductStatName">${escapeDashboardHtml(product.label)}</span>
+          <span class="tcgProductStatValue">${Number(stat.mentions || 0).toLocaleString()}</span>
+          <span class="tcgProductStatMeta">${escapeDashboardHtml(formatTcgMentionTimestamp(stat.lastMentionTimestamp))}</span>
+        </div>
+      `;
+    }).join("")}
+  `;
+}
+
+function renderTcgHotProducts(productContext) {
+  const listEl = document.getElementById("tcgHotProductsList");
+  if (!listEl) return;
+
+  const hotProducts = (Array.isArray(productContext?.stats) ? productContext.stats : [])
+    .filter(stat => Number(stat.hotScore || 0) > 0)
+    .sort((a, b) => {
+      if ((a.hotScore || 0) !== (b.hotScore || 0)) return (b.hotScore || 0) - (a.hotScore || 0);
+      if ((a.lastMentionValue || 0) !== (b.lastMentionValue || 0)) return (b.lastMentionValue || 0) - (a.lastMentionValue || 0);
+      return a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+    })
+    .slice(0, 6);
+
+  if (!hotProducts.length) {
+    listEl.innerHTML = renderTcgEmptyState(
+      "No hot products yet",
+      "Hot products populate from recent sightings, chatter, and photo evidence in the current scope."
+    );
+    return;
+  }
+
+  listEl.innerHTML = hotProducts.map(stat => `
+    <div class="tcgHotProductItem">
+      <div class="tcgHotProductTop">
+        <span class="tcgHotProductName">${escapeDashboardHtml(stat.label)}</span>
+        <span class="tcgHotProductScore">${Number(stat.hotScore || 0).toLocaleString()}</span>
+      </div>
+      <div class="tcgHotProductMeta">
+        <span>${Number(stat.recentSightings || 0).toLocaleString()} sightings</span>
+        <span>${Number(stat.recentChatter || 0).toLocaleString()} chatter</span>
+        <span>${Number(stat.recentPhotoEvidence || 0).toLocaleString()} photos</span>
+      </div>
+    </div>
+  `).join("");
+}
+
+function getTcgUpcomingReleases() {
+  return getTcgConfigArray("upcomingReleases")
+    .map((release, index) => ({
+      key: compactTcgText(release?.key || `release-${index}`),
+      name: compactTcgText(release?.name || release?.label || "TCG Release"),
+      productKey: compactTcgText(release?.productKey || ""),
+      releaseDate: compactTcgText(release?.releaseDate || release?.date || "")
+    }))
+    .filter(release => release.key && release.name)
+    .sort((a, b) => {
+      const aTime = getTimestampValue(a.releaseDate);
+      const bTime = getTimestampValue(b.releaseDate);
+      if (aTime && bTime && aTime !== bTime) return aTime - bTime;
+      if (aTime && !bTime) return -1;
+      if (!aTime && bTime) return 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    });
+}
+
+function formatTcgReleaseDate(releaseDate) {
+  const timestampValue = getTimestampValue(releaseDate);
+  if (!timestampValue) return "TBD";
+  return new Date(timestampValue).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+}
+
+function formatTcgDaysRemaining(releaseDate) {
+  const timestampValue = getTimestampValue(releaseDate);
+  if (!timestampValue) return "TBD";
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const releaseDay = new Date(timestampValue);
+  releaseDay.setHours(0, 0, 0, 0);
+
+  const days = Math.ceil((releaseDay.getTime() - today.getTime()) / 86400000);
+  if (days < 0) return "Released";
+  if (days === 0) return "Today";
+  if (days === 1) return "1 day";
+  return `${days.toLocaleString()} days`;
+}
+
+function renderTcgUpcomingReleases() {
+  const listEl = document.getElementById("tcgUpcomingReleasesList");
+  if (!listEl) return;
+
+  const releases = getTcgUpcomingReleases();
+  if (!releases.length) {
+    listEl.innerHTML = renderTcgEmptyState(
+      "No releases configured",
+      "Upcoming releases are driven only by project configuration."
+    );
+    return;
+  }
+
+  listEl.innerHTML = releases.map(release => `
+    <div class="tcgReleaseCard">
+      <div class="tcgReleaseName">${escapeDashboardHtml(release.name)}</div>
+      <div class="tcgReleaseMeta">
+        <span>
+          <small>Release Date</small>
+          <strong>${escapeDashboardHtml(formatTcgReleaseDate(release.releaseDate))}</strong>
+        </span>
+        <span>
+          <small>Days Remaining</small>
+          <strong>${escapeDashboardHtml(formatTcgDaysRemaining(release.releaseDate))}</strong>
+        </span>
+      </div>
+    </div>
+  `).join("");
+}
+
 function renderTcgStoreIntelCard(row) {
   const signalClass = `signal-${getTcgSlug(row.sightingLabel)}`;
   const updatedLabel = row.timestampValue ? formatTcgTimestamp(row.timestamp) : "No update";
@@ -949,12 +1410,16 @@ function renderTcgStoreIntelCard(row) {
   const photoMarkup = row.photoCount > 0
     ? `<span class="tcgStorePhotoFlag">Photo</span>`
     : "";
+  const productBadgeMarkup = (Array.isArray(row.productBadges) ? row.productBadges : [])
+    .map(badge => `<span class="tcgProductBadge">${escapeDashboardHtml(badge.label)}</span>`)
+    .join("");
 
   return `
     <button class="tcgStoreCard" type="button" data-store-id="${escapeDashboardHtml(row.storeId)}">
       <span class="tcgStoreCardTop">
         <span class="tcgStoreName">${escapeDashboardHtml(row.displayName)}</span>
         <span class="tcgStoreBadges">
+          ${productBadgeMarkup}
           <span class="tcgFreshnessPill freshness-${escapeDashboardHtml(row.freshness.key)}">${escapeDashboardHtml(row.freshness.label)}</span>
           <span class="tcgSightingPill ${escapeDashboardHtml(signalClass)}">${escapeDashboardHtml(row.sightingLabel)}</span>
           ${photoMarkup}
@@ -1081,7 +1546,7 @@ function renderTcgLatestPhotos(photos, metrics) {
   }).join("");
 }
 
-function getTcgActivityItems(metrics) {
+function getTcgActivityItems(metrics, productContext = null) {
   const filteredIds = metrics.filteredIds;
   const projectScopedActivityTypes = new Set([
     "project-archived",
@@ -1107,6 +1572,7 @@ function getTcgActivityItems(metrics) {
 
       return filteredIds.has(String(item.store_id || ""));
     })
+    .filter(item => doesTcgActivityMatchProductFilter(item, productContext))
     .slice(0, 10);
 }
 
@@ -1225,8 +1691,11 @@ function renderTcgIntelligenceDashboard() {
     .sort((a, b) => getTimestampValue(getTcgTimestamp(b)) - getTimestampValue(getTcgTimestamp(a)));
   const latestByStore = getTcgLatestSignalByStore(filteredIds);
   const counts = getTcgStoreSignalCounts(filteredIds);
-  const storeRows = buildTcgStoreIntelRows(metrics, latestByStore, counts);
-  const retailerBoards = getTcgRetailerBoards(storeRows);
+  const productContext = buildTcgProductContext(metrics);
+  const storeRows = buildTcgStoreIntelRows(metrics, latestByStore, counts, productContext);
+  const retailerStoreRows = storeRows.filter(row => doesTcgStoreMatchProductFilter(row.storeId, productContext));
+  const productFilteredPhotos = photos.filter(row => doesTcgPhotoMatchProductFilter(row, productContext));
+  const retailerBoards = getTcgRetailerBoards(retailerStoreRows);
   const needsCheck = getTcgStoresNeedingCheck(storeRows);
   const activeSightings = storeRows.reduce((total, row) => total + row.activeSightingCount, 0);
 
@@ -1238,10 +1707,13 @@ function renderTcgIntelligenceDashboard() {
   setText("tcgIntelScopeLabel", getCurrentScopeLabel(metrics));
   setText("tcgIntelGeneratedAt", `Updated: ${formatLastUpdated(new Date().toISOString())}`);
 
+  renderTcgWatchedDrops(productContext);
+  renderTcgHotProducts(productContext);
+  renderTcgUpcomingReleases();
   renderTcgRetailerBoards(retailerBoards);
   renderTcgStoresNeedingCheck(needsCheck);
-  renderTcgLatestPhotos(photos, metrics);
-  renderTcgActiveChatter(getTcgActivityItems(metrics), metrics);
+  renderTcgLatestPhotos(productFilteredPhotos, metrics);
+  renderTcgActiveChatter(getTcgActivityItems(metrics, productContext), metrics);
   bindTcgIntelligenceInteractions();
 }
 
@@ -1440,3 +1912,4 @@ function updateSelectedStorePanel(storeId) {
 }
 
 window.renderIntelligenceDashboard = renderIntelligenceDashboard;
+window.getTcgFilterableProducts = getTcgFilterableProducts;
