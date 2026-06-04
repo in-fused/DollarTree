@@ -142,8 +142,20 @@ body.executive-mode .sidebar {
 
 .tcgIntelligenceMode {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
+}
+
+.tcgIntelHeroPanel,
+.tcgIntelSummaryPanel,
+.tcgLatestPhotosPanel {
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.tcgIntelSummaryPanel,
+.tcgLatestPhotosPanel {
+  padding: 10px;
 }
 
 .tcgIntelHeadingGroup {
@@ -155,13 +167,18 @@ body.executive-mode .sidebar {
 .tcgIntelMetricGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
+}
+
+.tcgIntelMetricGrid .intelMetricCard {
+  min-height: 56px;
+  padding: 8px;
 }
 
 .tcgIntelGrid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -180,7 +197,7 @@ body.executive-mode .sidebar {
 
 .tcgIntelList {
   display: grid;
-  gap: 7px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -194,7 +211,6 @@ body.executive-mode .sidebar {
 .tcgPhotoItem,
 .tcgProductStatRow,
 .tcgHotProductItem,
-.tcgReleaseCard,
 .tcgIntelEmpty {
   min-width: 0;
   width: 100%;
@@ -207,7 +223,7 @@ body.executive-mode .sidebar {
 .tcgIntelItem,
 .tcgPhotoItem {
   margin: 0;
-  padding: 9px;
+  padding: 8px;
   color: inherit;
   text-align: left;
 }
@@ -273,24 +289,23 @@ body.executive-mode .sidebar {
 
 .tcgRetailerBoards {
   display: grid;
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
 }
 
 .tcgProductStatsList,
-.tcgHotProductsList,
-.tcgReleaseList {
+.tcgHotProductsList {
   display: grid;
-  gap: 7px;
+  gap: 5px;
   min-width: 0;
 }
 
 .tcgProductStatHeader,
 .tcgProductStatRow {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(68px, auto) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -304,46 +319,44 @@ body.executive-mode .sidebar {
 }
 
 .tcgProductStatRow,
-.tcgHotProductItem,
-.tcgReleaseCard {
-  padding: 9px;
+.tcgHotProductItem {
+  padding: 6px 7px;
 }
 
 .tcgProductStatName,
 .tcgProductStatValue,
 .tcgProductStatMeta,
-.tcgHotProductName,
-.tcgReleaseName {
+.tcgHotProductName {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .tcgProductStatName,
-.tcgHotProductName,
-.tcgReleaseName {
-  font-size: 12px;
+.tcgHotProductName {
+  font-size: 11px;
   line-height: 1.28;
   font-weight: 800;
 }
 
 .tcgProductStatValue {
   justify-self: end;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.2;
   font-weight: 800;
   color: rgba(255,255,255,0.92);
 }
 
 .tcgProductStatMeta {
+  grid-column: 1 / -1;
   font-size: 10px;
-  line-height: 1.3;
+  line-height: 1.2;
   color: rgba(255,255,255,0.62);
-  text-align: right;
+  text-align: left;
 }
 
 .tcgHotProductItem {
   display: grid;
-  gap: 7px;
+  gap: 4px;
 }
 
 .tcgHotProductTop {
@@ -356,12 +369,12 @@ body.executive-mode .sidebar {
 
 .tcgHotProductScore {
   flex: 0 0 auto;
-  min-width: 30px;
-  min-height: 22px;
+  min-width: 28px;
+  min-height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3px 7px;
+  padding: 2px 6px;
   border-radius: 999px;
   border: 1px solid rgba(46, 204, 113, 0.28);
   background: rgba(46, 204, 113, 0.13);
@@ -374,54 +387,15 @@ body.executive-mode .sidebar {
 .tcgHotProductMeta {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
   min-width: 0;
   color: rgba(255,255,255,0.62);
   font-size: 10px;
   line-height: 1.3;
 }
 
-.tcgHotProductMeta span,
-.tcgReleaseMeta span {
+.tcgHotProductMeta span {
   min-width: 0;
-}
-
-.tcgReleaseCard {
-  display: grid;
-  gap: 8px;
-}
-
-.tcgReleaseMeta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
-  min-width: 0;
-}
-
-.tcgReleaseMeta span {
-  display: grid;
-  gap: 2px;
-  padding: 7px;
-  border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.07);
-  background: rgba(255,255,255,0.04);
-}
-
-.tcgReleaseMeta small {
-  min-width: 0;
-  font-size: 9px;
-  line-height: 1.2;
-  color: rgba(255,255,255,0.56);
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
-}
-
-.tcgReleaseMeta strong {
-  min-width: 0;
-  font-size: 11px;
-  line-height: 1.25;
-  color: rgba(255,255,255,0.9);
-  overflow-wrap: anywhere;
 }
 
 .tcgRetailerBoard {
@@ -434,8 +408,8 @@ body.executive-mode .sidebar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
+  gap: 8px;
+  padding: 8px 9px;
   border: 0;
   background: rgba(255,255,255,0.035);
   color: inherit;
@@ -451,13 +425,13 @@ body.executive-mode .sidebar {
 
 .tcgRetailerBoardTitle {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
 }
 
 .tcgRetailerBoardName {
   min-width: 0;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.25;
   font-weight: 800;
   overflow-wrap: anywhere;
@@ -489,8 +463,8 @@ body.executive-mode .sidebar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 20px;
-  padding: 3px 7px;
+  min-height: 18px;
+  padding: 2px 6px;
   border-radius: 999px;
   font-size: 10px;
   line-height: 1.2;
@@ -501,12 +475,28 @@ body.executive-mode .sidebar {
   color: rgba(255,255,255,0.82);
 }
 
+.tcgRetailerToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.tcgRetailerToggleLabel {
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 800;
+  color: rgba(255,255,255,0.68);
+}
+
 .tcgRetailerToggleIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.12);
   color: rgba(255,255,255,0.86);
@@ -517,7 +507,7 @@ body.executive-mode .sidebar {
 }
 
 .tcgRetailerBoardBody {
-  padding: 9px;
+  padding: 7px;
   border-top: 1px solid rgba(255,255,255,0.07);
 }
 
@@ -528,13 +518,14 @@ body.executive-mode .sidebar {
 .tcgRetailerStoreList {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
 }
 
 .tcgStoreCard {
   display: grid;
-  gap: 6px;
+  gap: 4px;
+  padding: 7px;
 }
 
 .tcgStoreCardTop {
@@ -547,8 +538,8 @@ body.executive-mode .sidebar {
 
 .tcgStoreName {
   min-width: 0;
-  font-size: 12px;
-  line-height: 1.3;
+  font-size: 11px;
+  line-height: 1.25;
   font-weight: 800;
   overflow-wrap: anywhere;
 }
@@ -567,15 +558,19 @@ body.executive-mode .sidebar {
 }
 
 .tcgStoreSnippet {
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.32;
   color: rgba(255,255,255,0.9);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .tcgStoreMeta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
   font-size: 10px;
   line-height: 1.35;
@@ -661,7 +656,7 @@ body.executive-mode .sidebar {
 }
 
 .tcgIntelEmpty {
-  padding: 12px;
+  padding: 10px;
 }
 
 .tcgIntelEmptyTitle {
@@ -677,28 +672,38 @@ body.executive-mode .sidebar {
   color: rgba(255,255,255,0.66);
 }
 
+.tcgPhotoStrip,
 .tcgPhotoGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
 .tcgPhotoItem {
   display: grid;
-  grid-template-rows: minmax(96px, 120px) auto;
-  gap: 8px;
-  padding: 7px;
+  grid-template-rows: minmax(76px, 96px) auto;
+  gap: 5px;
+  padding: 5px;
   overflow: hidden;
+}
+
+.tcgPhotoStrip .tcgPhotoItem {
+  grid-template-rows: 58px auto;
 }
 
 .tcgPhotoItem img,
 .tcgPhotoPlaceholder {
   width: 100%;
   height: 100%;
-  min-height: 96px;
+  min-height: 76px;
   border-radius: 7px;
   background: rgba(255,255,255,0.06);
+}
+
+.tcgPhotoStrip .tcgPhotoItem img,
+.tcgPhotoStrip .tcgPhotoPlaceholder {
+  min-height: 58px;
 }
 
 .tcgPhotoItem img {
@@ -711,7 +716,7 @@ body.executive-mode .sidebar {
   align-items: center;
   justify-content: center;
   color: rgba(255,255,255,0.62);
-  font-size: 11px;
+  font-size: 10px;
   text-align: center;
   padding: 8px;
 }
@@ -732,13 +737,13 @@ body.executive-mode .sidebar {
 }
 
 .tcgPhotoMeta strong {
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.25;
 }
 
 .tcgPhotoMeta em,
 .tcgPhotoMeta small {
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1.25;
   color: rgba(255,255,255,0.62);
   font-style: normal;
@@ -780,6 +785,10 @@ body.workspace-intelligence-active .intelRail {
   .tcgIntelPanelThird {
     grid-column: span 4;
   }
+
+  .tcgRetailerStoreList {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -793,9 +802,13 @@ body.workspace-intelligence-active .intelRail {
   }
 
   .tcgIntelListCompact,
-  .tcgPhotoGrid,
   .tcgRetailerStoreList {
     grid-template-columns: 1fr;
+  }
+
+  .tcgPhotoStrip,
+  .tcgPhotoGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .tcgRetailerBoardHeader {
@@ -810,7 +823,13 @@ body.workspace-intelligence-active .intelRail {
 
 @media (max-width: 560px) {
   .tcgIntelMetricGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tcgIntelHeroPanel,
+  .tcgIntelSummaryPanel,
+  .tcgLatestPhotosPanel {
+    padding: 9px;
   }
 
   .tcgIntelItemTop {
@@ -828,6 +847,18 @@ body.workspace-intelligence-active .intelRail {
   }
 
   .tcgStoreBadges {
+    justify-content: flex-start;
+  }
+
+  .tcgRetailerBoardHeader {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tcgRetailerBoardStats {
+    gap: 4px;
+  }
+
+  .tcgRetailerToggle {
     justify-content: flex-start;
   }
 
@@ -852,8 +883,9 @@ body.workspace-intelligence-active .intelRail {
     justify-self: start;
   }
 
-  .tcgReleaseMeta {
-    grid-template-columns: 1fr;
+  .tcgPhotoStrip,
+  .tcgPhotoGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

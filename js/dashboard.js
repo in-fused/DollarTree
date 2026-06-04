@@ -531,6 +531,7 @@ function setIntelligenceModeVisibility(mode) {
 const TCG_FRESHNESS_HOT_DAYS = 2;
 const TCG_FRESHNESS_WARM_DAYS = RECENT_ACTIVITY_WINDOW_DAYS;
 const tcgRetailerBoardCollapsedState = new Set();
+const tcgRetailerBoardExpandedState = new Set();
 
 const TCG_RETAILER_MATCHERS = Object.freeze([
   { pattern: /\bwalmart\b/i, label: "Walmart" },
@@ -851,7 +852,7 @@ function getTcgProductBadgesForStore(storeId, productContext) {
       }
       return (b.count || 0) - (a.count || 0);
     })
-    .slice(0, 4)
+    .slice(0, 3)
     .map(entry => ({
       key: entry.product.key,
       label: entry.product.shortLabel || entry.product.label
@@ -1173,11 +1174,11 @@ function buildTcgStoreIntelRows(metrics, latestByStore, counts, productContext =
     const productBadges = getTcgProductBadgesForStore(storeId, productContext);
     const productMatchKeys = Array.from(productContext?.storeProductKeyMap?.get?.(storeId) || []);
     const snippet = noteText
-      ? truncateDashboardText(noteText, 210)
+      ? truncateDashboardText(noteText, 120)
       : latestPhoto
         ? "Shelf photo uploaded."
         : latest?.detail
-          ? truncateDashboardText(latest.detail, 210)
+          ? truncateDashboardText(latest.detail, 120)
           : "No sightings logged yet.";
 
     return {
@@ -1272,23 +1273,16 @@ function renderTcgWatchedDrops(productContext) {
     return;
   }
 
-  listEl.innerHTML = `
-    <div class="tcgProductStatHeader">
-      <span>Product</span>
-      <span>Mentions</span>
-      <span>Last Mention</span>
-    </div>
-    ${watchedProducts.map(product => {
+  listEl.innerHTML = watchedProducts.slice(0, 6).map(product => {
       const stat = productContext?.statsByKey?.get?.(product.key) || createTcgProductStat(product);
       return `
         <div class="tcgProductStatRow">
-          <span class="tcgProductStatName">${escapeDashboardHtml(product.label)}</span>
+          <span class="tcgProductStatName">${escapeDashboardHtml(product.shortLabel || product.label)}</span>
           <span class="tcgProductStatValue">${Number(stat.mentions || 0).toLocaleString()}</span>
           <span class="tcgProductStatMeta">${escapeDashboardHtml(formatTcgMentionTimestamp(stat.lastMentionTimestamp))}</span>
         </div>
       `;
-    }).join("")}
-  `;
+    }).join("");
 }
 
 function renderTcgHotProducts(productContext) {
@@ -1302,7 +1296,7 @@ function renderTcgHotProducts(productContext) {
       if ((a.lastMentionValue || 0) !== (b.lastMentionValue || 0)) return (b.lastMentionValue || 0) - (a.lastMentionValue || 0);
       return a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
     })
-    .slice(0, 6);
+    .slice(0, 5);
 
   if (!hotProducts.length) {
     listEl.innerHTML = renderTcgEmptyState(
@@ -1315,89 +1309,12 @@ function renderTcgHotProducts(productContext) {
   listEl.innerHTML = hotProducts.map(stat => `
     <div class="tcgHotProductItem">
       <div class="tcgHotProductTop">
-        <span class="tcgHotProductName">${escapeDashboardHtml(stat.label)}</span>
+        <span class="tcgHotProductName">${escapeDashboardHtml(stat.shortLabel || stat.label)}</span>
         <span class="tcgHotProductScore">${Number(stat.hotScore || 0).toLocaleString()}</span>
       </div>
       <div class="tcgHotProductMeta">
         <span>${Number(stat.recentSightings || 0).toLocaleString()} sightings</span>
-        <span>${Number(stat.recentChatter || 0).toLocaleString()} chatter</span>
         <span>${Number(stat.recentPhotoEvidence || 0).toLocaleString()} photos</span>
-      </div>
-    </div>
-  `).join("");
-}
-
-function getTcgUpcomingReleases() {
-  return getTcgConfigArray("upcomingReleases")
-    .map((release, index) => ({
-      key: compactTcgText(release?.key || `release-${index}`),
-      name: compactTcgText(release?.name || release?.label || "TCG Release"),
-      productKey: compactTcgText(release?.productKey || ""),
-      releaseDate: compactTcgText(release?.releaseDate || release?.date || "")
-    }))
-    .filter(release => release.key && release.name)
-    .sort((a, b) => {
-      const aTime = getTimestampValue(a.releaseDate);
-      const bTime = getTimestampValue(b.releaseDate);
-      if (aTime && bTime && aTime !== bTime) return aTime - bTime;
-      if (aTime && !bTime) return -1;
-      if (!aTime && bTime) return 1;
-      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-    });
-}
-
-function formatTcgReleaseDate(releaseDate) {
-  const timestampValue = getTimestampValue(releaseDate);
-  if (!timestampValue) return "TBD";
-  return new Date(timestampValue).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  });
-}
-
-function formatTcgDaysRemaining(releaseDate) {
-  const timestampValue = getTimestampValue(releaseDate);
-  if (!timestampValue) return "TBD";
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const releaseDay = new Date(timestampValue);
-  releaseDay.setHours(0, 0, 0, 0);
-
-  const days = Math.ceil((releaseDay.getTime() - today.getTime()) / 86400000);
-  if (days < 0) return "Released";
-  if (days === 0) return "Today";
-  if (days === 1) return "1 day";
-  return `${days.toLocaleString()} days`;
-}
-
-function renderTcgUpcomingReleases() {
-  const listEl = document.getElementById("tcgUpcomingReleasesList");
-  if (!listEl) return;
-
-  const releases = getTcgUpcomingReleases();
-  if (!releases.length) {
-    listEl.innerHTML = renderTcgEmptyState(
-      "No releases configured",
-      "Upcoming releases are driven only by project configuration."
-    );
-    return;
-  }
-
-  listEl.innerHTML = releases.map(release => `
-    <div class="tcgReleaseCard">
-      <div class="tcgReleaseName">${escapeDashboardHtml(release.name)}</div>
-      <div class="tcgReleaseMeta">
-        <span>
-          <small>Release Date</small>
-          <strong>${escapeDashboardHtml(formatTcgReleaseDate(release.releaseDate))}</strong>
-        </span>
-        <span>
-          <small>Days Remaining</small>
-          <strong>${escapeDashboardHtml(formatTcgDaysRemaining(release.releaseDate))}</strong>
-        </span>
       </div>
     </div>
   `).join("");
@@ -1406,7 +1323,6 @@ function renderTcgUpcomingReleases() {
 function renderTcgStoreIntelCard(row) {
   const signalClass = `signal-${getTcgSlug(row.sightingLabel)}`;
   const updatedLabel = row.timestampValue ? formatTcgTimestamp(row.timestamp) : "No update";
-  const freshnessDetail = row.timestampValue ? formatTcgFreshness(row.timestampValue) : "No activity yet";
   const photoMarkup = row.photoCount > 0
     ? `<span class="tcgStorePhotoFlag">Photo</span>`
     : "";
@@ -1425,12 +1341,9 @@ function renderTcgStoreIntelCard(row) {
           ${photoMarkup}
         </span>
       </span>
-      <span class="tcgStoreLocation">${escapeDashboardHtml(row.locationLine)}</span>
       <span class="tcgStoreSnippet">${escapeDashboardHtml(row.snippet)}</span>
       <span class="tcgStoreMeta">
-        <span>Store ${escapeDashboardHtml(row.storeId)}</span>
         <span>${escapeDashboardHtml(updatedLabel)}</span>
-        <span>${escapeDashboardHtml(freshnessDetail)}</span>
         <span>${row.noteCount.toLocaleString()} sightings</span>
         <span>${row.photoCount.toLocaleString()} photos</span>
       </span>
@@ -1450,10 +1363,13 @@ function renderTcgRetailerBoards(boards) {
     return;
   }
 
-  listEl.innerHTML = boards.map(board => {
-    const collapsed = tcgRetailerBoardCollapsedState.has(board.key);
+  listEl.innerHTML = boards.map((board, index) => {
+    const defaultCollapsed = boards.length > 3 && index > 1;
+    const collapsed = tcgRetailerBoardCollapsedState.has(board.key)
+      || (defaultCollapsed && !tcgRetailerBoardExpandedState.has(board.key));
     const latestLabel = board.latestTimestampValue ? formatTcgFreshness(board.latestTimestampValue) : "No updates yet";
     const bodyId = `tcg-retailer-board-${board.key}`;
+    const toggleLabel = collapsed ? "Show stores" : "Hide stores";
 
     return `
       <section class="tcgRetailerBoard">
@@ -1466,7 +1382,10 @@ function renderTcgRetailerBoards(boards) {
             <span class="tcgRetailerStat">${board.storeCount.toLocaleString()} stores</span>
             <span class="tcgRetailerStat">${board.activeSightings.toLocaleString()} active sightings</span>
           </span>
-          <span class="tcgRetailerToggleIcon" aria-hidden="true">${collapsed ? "+" : "-"}</span>
+          <span class="tcgRetailerToggle">
+            <span class="tcgRetailerToggleLabel">${escapeDashboardHtml(toggleLabel)}</span>
+            <span class="tcgRetailerToggleIcon" aria-hidden="true">${collapsed ? "+" : "-"}</span>
+          </span>
         </button>
         <div id="${escapeDashboardHtml(bodyId)}" class="tcgRetailerBoardBody${collapsed ? " hidden" : ""}">
           <div class="tcgRetailerStoreList">
@@ -1529,6 +1448,7 @@ function renderTcgLatestPhotos(photos, metrics) {
     const store = getTcgStoreById(storeId, metrics);
     const retailer = getTcgRetailerIdentity(store);
     const src = getTcgPhotoSource(row);
+    const uploadedLabel = formatPhotoDate(row.created_at || row.updated_at);
     const imageMarkup = src
       ? `<img src="${escapeDashboardHtml(src)}" alt="Store ${escapeDashboardHtml(storeId)} shelf photo" loading="lazy" />`
       : `<div class="tcgPhotoPlaceholder">Photo unavailable</div>`;
@@ -1537,9 +1457,9 @@ function renderTcgLatestPhotos(photos, metrics) {
       <button class="tcgPhotoItem" type="button" data-store-id="${escapeDashboardHtml(storeId)}" data-photo-url="${escapeDashboardHtml(src)}">
         ${imageMarkup}
         <span class="tcgPhotoMeta">
-          <strong>${escapeDashboardHtml(retailer.label)} - ${escapeDashboardHtml(getTcgStoreDisplayName(store, storeId))}</strong>
-          <em>${escapeDashboardHtml(formatPhotoDate(row.created_at || row.updated_at))}</em>
-          <small>Store ${escapeDashboardHtml(storeId)} - ${escapeDashboardHtml(getTcgStoreLocationLine(store))}</small>
+          <strong>${escapeDashboardHtml(retailer.label)}</strong>
+          <em>${escapeDashboardHtml(uploadedLabel)}</em>
+          <small>${escapeDashboardHtml(getTcgStoreDisplayName(store, storeId))}</small>
         </span>
       </button>
     `;
@@ -1647,10 +1567,13 @@ function bindTcgIntelligenceInteractions() {
     if (toggleTarget) {
       const retailerKey = String(toggleTarget.dataset.retailerToggle || "").trim();
       if (retailerKey) {
-        if (tcgRetailerBoardCollapsedState.has(retailerKey)) {
-          tcgRetailerBoardCollapsedState.delete(retailerKey);
-        } else {
+        const isExpanded = toggleTarget.getAttribute("aria-expanded") === "true";
+        if (isExpanded) {
+          tcgRetailerBoardExpandedState.delete(retailerKey);
           tcgRetailerBoardCollapsedState.add(retailerKey);
+        } else {
+          tcgRetailerBoardCollapsedState.delete(retailerKey);
+          tcgRetailerBoardExpandedState.add(retailerKey);
         }
         renderTcgIntelligenceDashboard();
       }
@@ -1709,7 +1632,6 @@ function renderTcgIntelligenceDashboard() {
 
   renderTcgWatchedDrops(productContext);
   renderTcgHotProducts(productContext);
-  renderTcgUpcomingReleases();
   renderTcgRetailerBoards(retailerBoards);
   renderTcgStoresNeedingCheck(needsCheck);
   renderTcgLatestPhotos(productFilteredPhotos, metrics);
