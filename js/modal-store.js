@@ -709,7 +709,12 @@ function upsertLocalStatusCache(projectId, storeId, nextStatus) {
   }
 
   if (persistedStatusStoreIds instanceof Set) {
-    persistedStatusStoreIds.add(scopedStoreId);
+    const persistedStatusKey = typeof getPersistedStatusStoreKey === "function"
+      ? getPersistedStatusStoreKey(scopedProjectId, scopedStoreId)
+      : "";
+    if (persistedStatusKey) {
+      persistedStatusStoreIds.add(persistedStatusKey);
+    }
   }
 }
 

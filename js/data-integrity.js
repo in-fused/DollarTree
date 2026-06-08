@@ -48,10 +48,17 @@ function getGeoAuditConfig(stores = storeData) {
   };
 }
 
-function hasPersistedStatusRow(storeId) {
-  if (!storeId) return false;
+function getPersistedStatusStoreKey(projectId, storeId) {
+  const scopedProjectId = String(projectId || "").trim();
+  const scopedStoreId = String(storeId || "").trim();
+  return scopedProjectId && scopedStoreId ? `${scopedProjectId}::${scopedStoreId}` : "";
+}
+
+function hasPersistedStatusRow(storeId, projectId = currentProjectId) {
+  const key = getPersistedStatusStoreKey(projectId, storeId);
+  if (!key) return false;
   return persistedStatusStoreIds instanceof Set
-    ? persistedStatusStoreIds.has(String(storeId))
+    ? persistedStatusStoreIds.has(key)
     : false;
 }
 

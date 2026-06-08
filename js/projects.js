@@ -418,7 +418,11 @@ async function hydrate(projectIdOverride = currentProjectId, hydrationToken = nu
   photoRowsCache = hydrated.photoRows;
   activityEventRowsCache = hydrated.activityEventRows;
 
-  persistedStatusStoreIds = new Set(statusRowsCache.map(row => String(row.store_id)));
+  persistedStatusStoreIds = new Set(
+    statusRowsCache
+      .map(row => getPersistedStatusStoreKey(scopedProjectId, row?.store_id))
+      .filter(Boolean)
+  );
   statusMap = {};
 
   if (hydrated.statusError) {
@@ -644,6 +648,7 @@ async function loadActiveProject() {
     allStoreData = [];
     storeData = [];
     statusRowsCache = [];
+    persistedStatusStoreIds = new Set();
     noteRowsCache = [];
     photoRowsCache = [];
     activityEventRowsCache = [];
