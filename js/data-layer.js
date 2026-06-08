@@ -2465,6 +2465,28 @@ const dataLayer = {
     );
   },
 
+  isNoMatchingUpsertConflictError(error) {
+    const haystack = [
+      error?.message,
+      error?.details,
+      error?.hint,
+      error?.code
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return Boolean(
+      haystack &&
+      (
+        haystack.includes("no unique or exclusion constraint") ||
+        haystack.includes("no unique constraint") ||
+        haystack.includes("on conflict") ||
+        haystack.includes("42p10")
+      )
+    );
+  },
+
   shouldFallbackInviteWrite(error) {
     if (!error) return false;
     if (this.isPermissionDeniedError(error)) return false;
@@ -2524,15 +2546,16 @@ const dataLayer = {
     }
   },
 
-  async writeStoreStatusScoped(payload) {
+  async writeStoreStatusScopedFallback(payload, priorError = null) {
     const scopedProjectId = String(payload?.project_id || "").trim();
-    const scopedStoreId = String(payload?.store_id || "").trim();
+    const scopedStoreId = this.normalizeStoreMaintenanceStoreId(payload?.store_id);
+    const scopedPayload = {
+      ...payload,
+      project_id: scopedProjectId,
+      store_id: scopedStoreId
+    };
 
-    if (!scopedProjectId || !scopedStoreId) {
-      return { data: null, error: new Error("Missing project_id or store_id for scoped status write.") };
-    }
-
-    const updatePayload = { ...payload };
+    const updatePayload = { ...scopedPayload };
     delete updatePayload.project_id;
     delete updatePayload.store_id;
 
@@ -2542,7 +2565,9 @@ const dataLayer = {
       .eq("project_id", scopedProjectId)
       .eq("store_id", scopedStoreId);
 
-    if (existingRowsResult.error) return existingRowsResult;
+    if (existingRowsResult.error) {
+      return priorError ? { data: null, error: existingRowsResult.error } : existingRowsResult;
+    }
 
     const existingRows = Array.isArray(existingRowsResult.data) ? existingRowsResult.data : [];
     if (existingRows.length > 1) {
@@ -2552,15 +2577,27 @@ const dataLayer = {
       };
     }
 
-    if (existingRows.length === 0) {
+    if (existingRows.length === 1) {
       return await supabaseClient
         .from("store_status")
-        .insert(payload)
+        .update(updatePayload)
+        .eq("project_id", scopedProjectId)
+        .eq("store_id", scopedStoreId)
         .select("project_id,store_id")
         .limit(1);
     }
 
-    const updateResult = await supabaseClient
+    const insertResult = await supabaseClient
+      .from("store_status")
+      .insert(scopedPayload)
+      .select("project_id,store_id")
+      .limit(1);
+
+    if (!insertResult.error) return insertResult;
+
+    if (!this.isUniqueViolation(insertResult.error)) return insertResult;
+
+    const updateAfterConflictResult = await supabaseClient
       .from("store_status")
       .update(updatePayload)
       .eq("project_id", scopedProjectId)
@@ -2568,7 +2605,54 @@ const dataLayer = {
       .select("project_id,store_id")
       .limit(1);
 
-    return updateResult;
+    if (updateAfterConflictResult.error) return updateAfterConflictResult;
+
+    const updatedRows = Array.isArray(updateAfterConflictResult.data)
+      ? updateAfterConflictResult.data
+      : (updateAfterConflictResult.data ? [updateAfterConflictResult.data] : []);
+
+    return updatedRows.length > 0
+      ? updateAfterConflictResult
+      : { data: null, error: insertResult.error };
+  },
+
+  async writeStoreStatusScoped(payload) {
+    const scopedProjectId = String(payload?.project_id || "").trim();
+    const scopedStoreId = this.normalizeStoreMaintenanceStoreId(payload?.store_id);
+
+    if (!scopedProjectId || !scopedStoreId) {
+      return { data: null, error: new Error("Missing project_id or store_id for scoped status write.") };
+    }
+
+    const scopedPayload = {
+      ...payload,
+      project_id: scopedProjectId,
+      store_id: scopedStoreId
+    };
+
+    const upsertResult = await supabaseClient
+      .from("store_status")
+      .upsert(scopedPayload, { onConflict: "project_id,store_id" })
+      .select("project_id,store_id")
+      .limit(1);
+
+    if (!upsertResult.error) return upsertResult;
+
+    if (
+      this.isMissingColumnError(upsertResult.error, "status_reason") ||
+      this.isMissingColumnError(upsertResult.error, "status_code")
+    ) {
+      return upsertResult;
+    }
+
+    if (
+      !this.isNoMatchingUpsertConflictError(upsertResult.error) &&
+      !this.isUniqueViolation(upsertResult.error)
+    ) {
+      return upsertResult;
+    }
+
+    return await this.writeStoreStatusScopedFallback(scopedPayload, upsertResult.error);
   },
 
   async updateStoreStatus(projectId, storeId, completed, closed, statusCode = null, statusReason = null) {

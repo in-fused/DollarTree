@@ -14,6 +14,7 @@
   const APPLY_BTN_ID = "importShellApplyBtn";
   const APPLY_SECTION_ID = "importShellApplySection";
   const APPLY_CONFIRM_ID = "importShellApplyConfirm";
+  const APPLY_PROGRESS_ID = "importShellApplyProgress";
   const APPLY_RESULT_ID = "importShellApplyResult";
   const APPLY_CONFIRM_BTN_ID = "importShellConfirmApplyBtn";
   const APPLY_BACK_BTN_ID = "importShellApplyBackBtn";
@@ -320,6 +321,79 @@
         gap: 4px;
       }
 
+      .importShellProgressMetrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .importShellProgressMetric {
+        min-width: 0;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 8px;
+        padding: 8px;
+        background: rgba(255,255,255,0.025);
+      }
+
+      .importShellProgressMetricKey {
+        display: block;
+        font-size: 10px;
+        line-height: 1.2;
+        color: rgba(220,228,240,0.68);
+      }
+
+      .importShellProgressMetricValue {
+        display: block;
+        margin-top: 2px;
+        font-size: 14px;
+        line-height: 1.2;
+        font-weight: 800;
+        color: #f5f7fb;
+      }
+
+      .importShellProgressFeed {
+        max-height: 210px;
+        overflow: auto;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        padding-top: 8px;
+      }
+
+      .importShellProgressFeedList {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 5px;
+      }
+
+      .importShellProgressEntry {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 8px;
+        align-items: baseline;
+        color: rgba(235,240,248,0.88);
+      }
+
+      .importShellProgressTime {
+        font-size: 10px;
+        color: rgba(220,228,240,0.56);
+        white-space: nowrap;
+      }
+
+      .importShellProgressMessage {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .importShellProgressEntry.level-warn .importShellProgressMessage {
+        color: #fff0c4;
+      }
+
+      .importShellProgressEntry.level-error .importShellProgressMessage {
+        color: #ffd7d7;
+      }
+
       .importShellActions button,
       .importShellApplyConfirmActions button,
       .importShellHeader button,
@@ -381,7 +455,8 @@
         }
 
         .importShellTargetGrid,
-        .importShellFieldGrid {
+        .importShellFieldGrid,
+        .importShellProgressMetrics {
           grid-template-columns: 1fr;
         }
 
@@ -703,6 +778,121 @@
     }
   }
 
+  function formatProgressNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toLocaleString() : "0";
+  }
+
+  function formatProgressTime(value) {
+    const timestamp = Date.parse(value);
+    if (!Number.isFinite(timestamp)) return "";
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+  }
+
+  function renderApplyProgress(snapshot, elements) {
+    const progressNode = elements.applyProgress;
+    if (!progressNode) return;
+
+    clearChildren(progressNode);
+
+    const progress = snapshot && snapshot.applyProgress ? snapshot.applyProgress : {};
+    const entries = Array.isArray(progress.entries) ? progress.entries : [];
+    const shouldShow = Boolean(snapshot.applyInProgress || entries.length);
+
+    if (!shouldShow) {
+      progressNode.style.display = "none";
+      return;
+    }
+
+    progressNode.style.display = "block";
+
+    const title = document.createElement("div");
+    title.className = "importShellSectionLabel";
+    title.textContent = "Apply Progress";
+    progressNode.appendChild(title);
+
+    const metricRows = [
+      { key: "Accepted", value: progress.acceptedCount },
+      { key: "Processed", value: progress.processedCount },
+      { key: "Inserted", value: progress.insertedCount },
+      { key: "Updated", value: progress.updatedCount },
+      { key: "Skipped", value: progress.skippedCount },
+      { key: "Errors", value: progress.errorCount }
+    ];
+
+    if (progress.batchCount && progress.batchNumber) {
+      metricRows.push({
+        key: "Batch",
+        value: `${formatProgressNumber(progress.batchNumber)} / ${formatProgressNumber(progress.batchCount)}`
+      });
+    }
+
+    const metrics = document.createElement("div");
+    metrics.className = "importShellProgressMetrics";
+    metricRows.forEach(function appendMetric(row) {
+      const metric = document.createElement("div");
+      metric.className = "importShellProgressMetric";
+
+      const key = document.createElement("span");
+      key.className = "importShellProgressMetricKey";
+      key.textContent = row.key;
+
+      const value = document.createElement("span");
+      value.className = "importShellProgressMetricValue";
+      value.textContent = typeof row.value === "string" ? row.value : formatProgressNumber(row.value);
+
+      metric.appendChild(key);
+      metric.appendChild(value);
+      metrics.appendChild(metric);
+    });
+    progressNode.appendChild(metrics);
+
+    const feed = document.createElement("div");
+    feed.className = "importShellProgressFeed";
+
+    const list = document.createElement("ul");
+    list.className = "importShellProgressFeedList";
+
+    if (!entries.length) {
+      const empty = document.createElement("li");
+      empty.className = "importShellProgressEntry";
+      const time = document.createElement("span");
+      time.className = "importShellProgressTime";
+      time.textContent = "";
+      const message = document.createElement("span");
+      message.className = "importShellProgressMessage";
+      message.textContent = "Waiting for apply progress...";
+      empty.appendChild(time);
+      empty.appendChild(message);
+      list.appendChild(empty);
+    } else {
+      entries.forEach(function appendEntry(entry) {
+        const item = document.createElement("li");
+        item.className = `importShellProgressEntry level-${String(entry.level || "info")}`;
+
+        const time = document.createElement("span");
+        time.className = "importShellProgressTime";
+        time.textContent = formatProgressTime(entry.timestamp);
+
+        const message = document.createElement("span");
+        message.className = "importShellProgressMessage";
+        message.textContent = String(entry.message || "");
+
+        item.appendChild(time);
+        item.appendChild(message);
+        list.appendChild(item);
+      });
+    }
+
+    feed.appendChild(list);
+    progressNode.appendChild(feed);
+    feed.scrollTop = feed.scrollHeight;
+  }
+
   function renderApplyUi(snapshot, elements) {
     const applyBtn = elements.applyBtn;
     const applySection = elements.applySection;
@@ -719,11 +909,12 @@
     applyBtn.title = eligibility.eligible ? "" : (eligibility.reason || "");
 
     renderApplyConfirmation(snapshot, elements);
+    renderApplyProgress(snapshot, elements);
     renderApplyResult(snapshot, elements);
 
     applySection.classList.toggle(
       "is-visible",
-      Boolean(snapshot.applyConfirmOpen || snapshot.applyResult)
+      Boolean(snapshot.applyConfirmOpen || snapshot.applyResult || snapshot.applyInProgress || (snapshot.applyProgress && snapshot.applyProgress.entries && snapshot.applyProgress.entries.length))
     );
   }
 
@@ -995,11 +1186,16 @@
     applyConfirm.id = APPLY_CONFIRM_ID;
     applyConfirm.className = "importShellCard importShellApplyBlock";
 
+    const applyProgress = document.createElement("div");
+    applyProgress.id = APPLY_PROGRESS_ID;
+    applyProgress.className = "importShellCard importShellApplyBlock";
+
     const applyResult = document.createElement("div");
     applyResult.id = APPLY_RESULT_ID;
     applyResult.className = "importShellCard importShellApplyBlock";
 
     applySection.appendChild(applyConfirm);
+    applySection.appendChild(applyProgress);
     applySection.appendChild(applyResult);
 
     const actions = document.createElement("div");
@@ -1057,6 +1253,7 @@
       applyBtn: document.getElementById(APPLY_BTN_ID),
       applySection: document.getElementById(APPLY_SECTION_ID),
       applyConfirm: document.getElementById(APPLY_CONFIRM_ID),
+      applyProgress: document.getElementById(APPLY_PROGRESS_ID),
       applyResult: document.getElementById(APPLY_RESULT_ID),
       applyConfirmBtn: document.getElementById(APPLY_CONFIRM_BTN_ID),
       applyBackBtn: document.getElementById(APPLY_BACK_BTN_ID),

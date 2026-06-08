@@ -7,6 +7,7 @@
   ];
   const PROJECT_REFRESH_TIMEOUT_MS = 20000;
   const LARGE_MERGE_ROW_THRESHOLD = 100;
+  const APPLY_PROGRESS_ENTRY_LIMIT = 500;
   const IMPORT_TARGET_MODES = Object.freeze({
     CREATE_NEW_PROJECT: "create_new_project",
     MERGE_CURRENT_PROJECT: "merge_current_project"
@@ -38,8 +39,27 @@
     applyConfirmOpen: false,
     applyInProgress: false,
     applyConfirmationText: "",
+    applyProgress: createEmptyApplyProgress(),
     applyResult: null
   };
+
+  function createEmptyApplyProgress() {
+    return {
+      acceptedCount: 0,
+      processedCount: 0,
+      insertedCount: 0,
+      updatedCount: 0,
+      skippedCount: 0,
+      errorCount: 0,
+      batchNumber: null,
+      batchCount: null,
+      currentRowNumber: null,
+      currentStoreId: "",
+      entries: [],
+      startedAt: null,
+      completedAt: null
+    };
+  }
 
   function getCurrentProjectId() {
     return typeof currentProjectId !== "undefined" ? String(currentProjectId || "").trim() : "";
@@ -273,6 +293,8 @@
   }
 
   function cloneState() {
+    const applyProgress = state.applyProgress || createEmptyApplyProgress();
+
     return {
       isOpen: state.isOpen,
       dragActive: state.dragActive,
@@ -302,6 +324,12 @@
       applyConfirmOpen: state.applyConfirmOpen,
       applyInProgress: state.applyInProgress,
       applyConfirmationText: state.applyConfirmationText,
+      applyProgress: {
+        ...applyProgress,
+        entries: Array.isArray(applyProgress.entries)
+          ? applyProgress.entries.map(entry => ({ ...entry }))
+          : []
+      },
       applyResult: state.applyResult,
       applyEligibility: getApplyEligibility(),
       applyConfirmationEligibility: getApplyConfirmationEligibility(),
@@ -441,7 +469,68 @@
     state.applyConfirmOpen = false;
     state.applyInProgress = false;
     state.applyConfirmationText = "";
+    state.applyProgress = createEmptyApplyProgress();
     state.applyResult = null;
+  }
+
+  function resetApplyProgress(acceptedCount = 0) {
+    state.applyProgress = {
+      ...createEmptyApplyProgress(),
+      acceptedCount: Number(acceptedCount) || 0,
+      startedAt: new Date().toISOString()
+    };
+  }
+
+  function appendApplyProgress(event = {}) {
+    const progress = state.applyProgress || createEmptyApplyProgress();
+    const nextProgress = event.progress && typeof event.progress === "object"
+      ? event.progress
+      : {};
+
+    [
+      "acceptedCount",
+      "processedCount",
+      "insertedCount",
+      "updatedCount",
+      "skippedCount",
+      "errorCount",
+      "batchNumber",
+      "batchCount",
+      "currentRowNumber"
+    ].forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(nextProgress, key)) {
+        if (nextProgress[key] === null || nextProgress[key] === undefined || nextProgress[key] === "") {
+          progress[key] = null;
+        } else {
+          const value = Number(nextProgress[key]);
+          progress[key] = Number.isFinite(value) ? value : null;
+        }
+      }
+    });
+
+    if (Object.prototype.hasOwnProperty.call(nextProgress, "currentStoreId")) {
+      progress.currentStoreId = String(nextProgress.currentStoreId || "");
+    }
+
+    if (event.completed === true) {
+      progress.completedAt = new Date().toISOString();
+    }
+
+    const message = String(event.message || "").trim();
+    if (message) {
+      const entries = Array.isArray(progress.entries) ? progress.entries.slice() : [];
+      entries.push({
+        id: `${Date.now()}-${entries.length}-${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: event.timestamp || new Date().toISOString(),
+        level: String(event.level || "info"),
+        message
+      });
+
+      progress.entries = entries.slice(-APPLY_PROGRESS_ENTRY_LIMIT);
+    }
+
+    state.applyProgress = progress;
+    notify();
   }
 
   function setErrorState(nextState) {
@@ -889,12 +978,25 @@
 
     state.applyInProgress = true;
     state.applyResult = null;
+    resetApplyProgress(getAcceptedRowCount());
     setStatus(
       "warn",
       target.mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
         ? "Applying import to a new project..."
         : "Applying import to the current project..."
     );
+    appendApplyProgress({
+      level: "info",
+      message: "Starting import apply",
+      progress: {
+        acceptedCount: getAcceptedRowCount(),
+        processedCount: 0,
+        insertedCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
+        errorCount: 0
+      }
+    });
     notify();
 
     let result = null;
@@ -917,7 +1019,8 @@
         canCreateProject: target.mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT && canCurrentUserCreateProject(),
         knownProjectIds: Array.from(getKnownProjectIds()),
         mergeConfirmation: state.applyConfirmationText,
-        largeMergeRowThreshold: LARGE_MERGE_ROW_THRESHOLD
+        largeMergeRowThreshold: LARGE_MERGE_ROW_THRESHOLD,
+        onProgress: appendApplyProgress
       });
 
       state.applyResult = result;
@@ -941,7 +1044,9 @@
 
       if (typeof loadActiveProject === "function" || typeof loadProjects === "function") {
         try {
+          appendApplyProgress({ level: "info", message: "Final refresh started" });
           await refreshProjectAfterApply(result, target);
+          appendApplyProgress({ level: "info", message: "Final refresh completed", completed: true });
           if (result && result.geocodeFailureCount > 0) {
             setStatus(
               "warn",
@@ -966,6 +1071,7 @@
           }
         } catch (refreshError) {
           console.error(refreshError);
+          appendApplyProgress({ level: "warn", message: "Final refresh failed", completed: true });
           if (state.applyResult && Array.isArray(state.applyResult.warnings)) {
             state.applyResult.warnings.push("Project refresh failed after apply. Reload the app to verify the latest data.");
             state.applyResult.warningCount = state.applyResult.warnings.length;
@@ -994,6 +1100,19 @@
         errors: [error && error.message ? error.message : "Import apply failed."],
         success: false
       };
+      appendApplyProgress({
+        level: "error",
+        message: error && error.message ? error.message : "Import apply failed.",
+        completed: true,
+        progress: {
+          acceptedCount: getAcceptedRowCount(),
+          processedCount: state.applyProgress?.processedCount || 0,
+          insertedCount: 0,
+          updatedCount: 0,
+          skippedCount: state.applyProgress?.skippedCount || 0,
+          errorCount: 1
+        }
+      });
       setStatus("error", error && error.message ? error.message : "Import apply failed.");
     } finally {
       state.applyInProgress = false;

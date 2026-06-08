@@ -668,6 +668,51 @@ function openStoreModal(storeId) {
   clearPhotoMessage();
 }
 
+function getStatusStoreKey(value) {
+  if (typeof dataLayer !== "undefined" && dataLayer && typeof dataLayer.normalizeStoreMaintenanceStoreId === "function") {
+    return dataLayer.normalizeStoreMaintenanceStoreId(value);
+  }
+
+  return String(value || "").trim();
+}
+
+function upsertLocalStatusCache(projectId, storeId, nextStatus) {
+  const scopedProjectId = String(projectId || "").trim();
+  const scopedStoreId = getStatusStoreKey(storeId);
+  if (!scopedProjectId || !scopedStoreId) return;
+
+  const row = {
+    project_id: scopedProjectId,
+    store_id: scopedStoreId,
+    status_code: nextStatus.status_code,
+    status_reason: nextStatus.status_reason || null,
+    completed: nextStatus.completed === true,
+    closed: nextStatus.closed === true
+  };
+
+  if (!Array.isArray(statusRowsCache)) {
+    statusRowsCache = [];
+  }
+
+  const existingIndex = statusRowsCache.findIndex(statusRow =>
+    String(statusRow?.project_id || "").trim() === scopedProjectId &&
+    getStatusStoreKey(statusRow?.store_id) === scopedStoreId
+  );
+
+  if (existingIndex >= 0) {
+    statusRowsCache[existingIndex] = {
+      ...statusRowsCache[existingIndex],
+      ...row
+    };
+  } else {
+    statusRowsCache.push(row);
+  }
+
+  if (persistedStatusStoreIds instanceof Set) {
+    persistedStatusStoreIds.add(scopedStoreId);
+  }
+}
+
 async function updateStore(storeId, completedOrStatus, closed = false, statusReason = "") {
   if (!isSignedIn() || !canEditStores()) {
     alert("Editor or admin sign-in required to update store status.");
@@ -699,7 +744,7 @@ async function updateStore(storeId, completedOrStatus, closed = false, statusRea
   }
 
   statusMap[normalizedStoreId] = nextStatus;
-  persistedStatusStoreIds.add(normalizedStoreId);
+  upsertLocalStatusCache(currentProjectId, normalizedStoreId, nextStatus);
   touchDataRefresh();
   setRescheduleReasonUI(nextStatus);
 
@@ -727,6 +772,13 @@ async function updateStore(storeId, completedOrStatus, closed = false, statusRea
   updateHeaderDashboard();
   updateScopeSummary();
   updateDataHealthPanel();
+  if (typeof refreshStoreMaintenanceHealthFromBackend === "function") {
+    try {
+      await refreshStoreMaintenanceHealthFromBackend();
+    } catch (refreshError) {
+      console.warn("Data health refresh after status update failed:", refreshError);
+    }
+  }
   updateActivityList();
   updateIntelRail();
   updateSelectedStorePanel(normalizedStoreId);

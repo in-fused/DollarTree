@@ -1018,6 +1018,14 @@
     result.errorCount = result.errors.length;
   }
 
+  function getTimeoutActionLabel(error, fallback = "Write") {
+    const message = String(error && error.message || "").toLowerCase();
+    if (message.includes("insert store")) return "Insert";
+    if (message.includes("update store")) return "Update";
+    if (message.includes("status")) return "Status write";
+    return fallback;
+  }
+
   async function applyImport(input) {
     const payload = input && typeof input === "object" ? input : {};
     const stageResult = payload.stageResult && typeof payload.stageResult === "object" ? payload.stageResult : {};
@@ -1033,6 +1041,45 @@
       ? toText(payload.newProjectName || payload.projectName)
       : toText(payload.currentProjectName || payload.projectName || projectId);
     const result = buildInitialResult(projectId, projectName, mode);
+    const onProgress = typeof payload.onProgress === "function" ? payload.onProgress : null;
+    const acceptedCount = acceptedRecords.length;
+    const batchCount = acceptedCount > CHUNK_SIZE ? Math.ceil(acceptedCount / CHUNK_SIZE) : null;
+    let processedCount = 0;
+
+    function emitProgress(message, options = {}) {
+      if (!onProgress) return;
+
+      const rowIndex = Number.isInteger(options.rowIndex) ? options.rowIndex : null;
+      const batchNumber = rowIndex !== null && batchCount
+        ? Math.floor(rowIndex / CHUNK_SIZE) + 1
+        : null;
+
+      onProgress({
+        level: options.level || "info",
+        message,
+        completed: options.completed === true,
+        progress: {
+          acceptedCount,
+          processedCount,
+          insertedCount: result.insertedCount,
+          updatedCount: result.updatedCount,
+          skippedCount: result.skippedCount,
+          errorCount: result.errorCount,
+          batchNumber,
+          batchCount,
+          currentRowNumber: rowIndex === null ? null : rowIndex + 1,
+          currentStoreId: options.storeId || ""
+        }
+      });
+    }
+
+    function markRowProcessed(rowIndex, storeId) {
+      processedCount += 1;
+      emitProgress(
+        `Processed row ${rowIndex + 1}/${acceptedCount}${storeId ? `: ${storeId}` : ""}`,
+        { rowIndex, storeId, level: "info" }
+      );
+    }
 
     if (!projectId) {
       throw new Error(mode === IMPORT_TARGET_MODES.CREATE_NEW_PROJECT
@@ -1079,15 +1126,20 @@
 
     const normalizedRecords = acceptedRecords.map(normalizeAcceptedRecord);
     const storeIds = normalizedRecords.map((record) => record.store_id).filter(Boolean);
-    const missingStoreIdCount = normalizedRecords.length - storeIds.length;
-
-    if (missingStoreIdCount > 0) {
-      result.skippedCount += missingStoreIdCount;
-      appendError(result, `${missingStoreIdCount} accepted row(s) were skipped because store_id was missing.`);
-    }
+    normalizedRecords.forEach((record, index) => {
+      if (record.store_id) return;
+      result.skippedCount += 1;
+      appendError(result, `Row ${index + 1}: store_id was missing.`);
+      emitProgress(`Skipped row ${index + 1}: store_id was missing`, {
+        rowIndex: index,
+        level: "warn"
+      });
+      markRowProcessed(index, "");
+    });
 
     if (!storeIds.length) {
       result.success = false;
+      emitProgress("Import apply completed with no writable store rows", { level: "warn", completed: true });
       return result;
     }
 
@@ -1107,8 +1159,10 @@
         throw new Error(`Apply blocked: project_id "${projectId}" already has store rows. Choose a different project_id.`);
       }
 
+      emitProgress(`Creating project ${projectName || projectId}`, { level: "info" });
       const createdProject = await createProjectMetadata(projectId, projectName);
       result.projectCreated = true;
+      emitProgress(`Created project ${projectName || projectId}`, { level: "info" });
       if (createdProject && createdProject.membershipWarning) {
         appendWarning(result, createdProject.membershipWarning);
       }
@@ -1141,8 +1195,16 @@
       coordsProvided: 0
     };
 
-    for (const record of normalizedRecords) {
+    for (let index = 0; index < normalizedRecords.length; index += 1) {
+      const record = normalizedRecords[index];
       if (!record.store_id) continue;
+
+      const storeLabel = [record.store_id, record.store_name].filter(Boolean).join(" ");
+      emitProgress(`Processing row ${index + 1}/${acceptedCount}: ${storeLabel}`, {
+        rowIndex: index,
+        storeId: record.store_id,
+        level: "info"
+      });
 
       try {
         await resolveCoordinates(record, cacheState);
@@ -1162,15 +1224,30 @@
 
           if (updateResult.action === "updated") {
             result.updatedCount += 1;
+            emitProgress(`Updated store ${record.store_id}`, {
+              rowIndex: index,
+              storeId: record.store_id,
+              level: "info"
+            });
           } else if (updateResult.action === "missing") {
             const insertResult = await insertNewStore(storePayload, postalColumn);
             if (insertResult.postalColumnDropped) {
               appendWarning(result, `Postal column was unavailable while inserting store ${record.store_id}; full_address still includes postal code when present.`);
             }
             result.insertedCount += 1;
+            emitProgress(`Inserted store ${record.store_id}`, {
+              rowIndex: index,
+              storeId: record.store_id,
+              level: "info"
+            });
           } else {
             result.skippedCount += 1;
             appendWarning(result, `Store ${record.store_id} had no safe fields to update.`);
+            emitProgress(`Skipped row ${index + 1}: store ${record.store_id} had no safe fields to update`, {
+              rowIndex: index,
+              storeId: record.store_id,
+              level: "warn"
+            });
           }
         } else {
           const insertResult = await insertNewStore(storePayload, postalColumn);
@@ -1179,21 +1256,59 @@
           }
 
           result.insertedCount += 1;
+          emitProgress(`Inserted store ${record.store_id}`, {
+            rowIndex: index,
+            storeId: record.store_id,
+            level: "info"
+          });
 
           if (canSeedStatuses && !existingStatusIds.has(record.store_id)) {
             const statusResult = await insertDefaultStatus(projectId, record.store_id);
             if (statusResult.seeded) {
               result.statusSeededCount += 1;
               existingStatusIds.add(record.store_id);
+              emitProgress(`Status row created/updated: ${record.store_id}`, {
+                rowIndex: index,
+                storeId: record.store_id,
+                level: "info"
+              });
+            } else if (statusResult.alreadyExists) {
+              existingStatusIds.add(record.store_id);
+              emitProgress(`Status row already existed: ${record.store_id}`, {
+                rowIndex: index,
+                storeId: record.store_id,
+                level: "info"
+              });
             }
           }
         }
+        markRowProcessed(index, record.store_id);
       } catch (error) {
+        if (isTimeoutError(error)) {
+          emitProgress(`${getTimeoutActionLabel(error)} timed out: ${record.store_id}`, {
+            rowIndex: index,
+            storeId: record.store_id,
+            level: "warn"
+          });
+          emitProgress("Continuing after timeout", {
+            rowIndex: index,
+            storeId: record.store_id,
+            level: "warn"
+          });
+        }
+
         result.skippedCount += 1;
         if (isGeocodeFailure(error)) {
           result.geocodeFailureCount += 1;
         }
-        appendError(result, error && error.message ? error.message : String(error));
+        const errorMessage = error && error.message ? error.message : String(error);
+        appendError(result, errorMessage);
+        emitProgress(`Skipped row ${index + 1}: ${errorMessage}`, {
+          rowIndex: index,
+          storeId: record.store_id,
+          level: "error"
+        });
+        markRowProcessed(index, record.store_id);
       }
     }
 
@@ -1205,6 +1320,7 @@
     result.warningCount = result.warnings.length;
     result.errorCount = result.errors.length;
     result.success = result.errorCount === 0 && (result.insertedCount + result.updatedCount) > 0;
+    emitProgress("Import apply writes completed", { level: result.errorCount > 0 ? "warn" : "info", completed: false });
 
     return result;
   }
