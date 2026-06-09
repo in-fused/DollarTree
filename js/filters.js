@@ -62,6 +62,62 @@ function getActiveProductFilterLabel() {
   return getActiveProductFilterConfig()?.label || "";
 }
 
+function getPhotoProductFilterText(row = {}) {
+  if (typeof getTcgPhotoProductText === "function") {
+    return getTcgPhotoProductText(row);
+  }
+
+  return [
+    row?.product,
+    row?.product_name,
+    row?.caption,
+    row?.description,
+    row?.note,
+    Array.isArray(row?.tags) ? row.tags.join(" ") : row?.tags
+  ].filter(Boolean).join(" ");
+}
+
+function doesTextMatchProductFilter(value, productKey, catalog) {
+  if (typeof getTcgProductMatchesFromText !== "function") return false;
+  return getTcgProductMatchesFromText(value, catalog)
+    .some(product => String(product?.key || "").trim() === productKey);
+}
+
+function getProductFilteredStoreIds() {
+  const activeProduct = getActiveProductFilterConfig();
+  const productKey = String(activeProduct?.key || "").trim();
+  if (!productKey) return null;
+
+  if (typeof getTcgProductMatchesFromText !== "function") return null;
+
+  const catalog = typeof getTcgProductCatalog === "function"
+    ? getTcgProductCatalog()
+    : getTcgProductFilterOptions();
+  const storeNotes = Array.isArray(noteRowsCache) ? noteRowsCache : [];
+  const storePhotos = Array.isArray(photoRowsCache) ? photoRowsCache : [];
+  const matchingStoreIds = new Set();
+
+  storeNotes.forEach(row => {
+    const storeId = String(row?.store_id || "").trim();
+    if (!storeId || !doesTextMatchProductFilter(row?.note || "", productKey, catalog)) return;
+    matchingStoreIds.add(storeId);
+  });
+
+  storePhotos.forEach(row => {
+    const storeId = String(row?.store_id || "").trim();
+    if (!storeId || !doesTextMatchProductFilter(getPhotoProductFilterText(row), productKey, catalog)) return;
+    matchingStoreIds.add(storeId);
+  });
+
+  return matchingStoreIds;
+}
+
+function matchesProductFilter(store, productFilteredStoreIds = getProductFilteredStoreIds()) {
+  if (!(productFilteredStoreIds instanceof Set)) return true;
+  const storeId = String(store?.store_id || "").trim();
+  return !!storeId && productFilteredStoreIds.has(storeId);
+}
+
 function getStoreFilterStatusCode(store) {
   const status = statusMap[String(store?.store_id)] || {};
   return normalizeStatusCode(
@@ -164,12 +220,15 @@ function persistFilterState() {
 }
 
 function getFilteredStores() {
+  const productFilteredStoreIds = getProductFilteredStoreIds();
+
   return storeData.filter(store => {
     if (!matchesRemovedVisibility(store)) return false;
     if (activeFilters.region && String(store.region || "") !== activeFilters.region) return false;
     if (activeFilters.territory && String(store.territory || "") !== activeFilters.territory) return false;
     if (activeFilters.state && String(store.state || "") !== activeFilters.state) return false;
     if (!matchesStatusFilter(store)) return false;
+    if (!matchesProductFilter(store, productFilteredStoreIds)) return false;
     return true;
   });
 }
