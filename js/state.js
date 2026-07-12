@@ -1,4 +1,7 @@
-mapboxgl.accessToken = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
+const MAPBOX_TOKEN = "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
+if (typeof mapboxgl !== "undefined") {
+  mapboxgl.accessToken = MAPBOX_TOKEN;
+}
 
 const SUPABASE_URL = "https://dapjhrbfqtsgdlasuuam.supabase.co";
 // Browser-safe Supabase anon/public publishable key only.
@@ -93,12 +96,24 @@ function buildStatusActivityTitle(storeId, statusCode) {
   return `• Store ${storeId} active`;
 }
 
-const map = new mapboxgl.Map({
-  container: "map",
-  style: "mapbox://styles/mapbox/dark-v11",
-  center: DEFAULT_LOCAL_CENTER,
-  zoom: DEFAULT_LOCAL_ZOOM
-});
+let map = null;
+let mapInitializationError = null;
+
+try {
+  if (typeof mapboxgl === "undefined" || typeof mapboxgl.Map !== "function") {
+    throw new Error("Mapbox failed to load.");
+  }
+
+  map = new mapboxgl.Map({
+    container: "map",
+    style: "mapbox://styles/mapbox/dark-v11",
+    center: DEFAULT_LOCAL_CENTER,
+    zoom: DEFAULT_LOCAL_ZOOM
+  });
+} catch (error) {
+  mapInitializationError = error instanceof Error ? error : new Error(String(error || "Map initialization failed."));
+  console.error("Map initialization failed:", mapInitializationError);
+}
 
 /* ================= APP STATE ================= */
 

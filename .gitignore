@@ -1,0 +1,15 @@
+# Local platform state and dependencies
+.vercel/
+node_modules/
+
+# Environment files may contain service-role or provider credentials.
+.env
+.env.*
+!.env.example
+
+# Local/generated artifacts
+outputs/
+stores_for_supabase_import.csv
+*.log
+.DS_Store
+Thumbs.db

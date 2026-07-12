@@ -773,7 +773,7 @@ async function sendSmsInvite(config, invite, project) {
 
   const projectName = truncateText(String(project?.name || invite.projectId).trim() || invite.projectId, 60);
   const inviteUrl = buildInviteAppUrl(config, invite);
-  const body = `${projectName}: project invite. ${inviteUrl} Sign in and add this phone number to accept your project invite.`;
+  const body = `${projectName}: project invite. ${inviteUrl} Sign in with an account verified for this phone number to accept.`;
   const form = new URLSearchParams({
     To: invite.targetPhone,
     From: config.twilioFromNumber,

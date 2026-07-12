@@ -2,6 +2,8 @@
 
 function isMissingRequiredDisplayName() {
   if (!isSignedIn()) return false;
+  if (typeof authProfileHydrationPending !== "undefined" && authProfileHydrationPending) return false;
+  if (typeof authProfileHydrationFailed !== "undefined" && authProfileHydrationFailed) return false;
   const fromProfile = String(currentProfile?.display_name || "").trim();
   return !fromProfile;
 }
@@ -103,6 +105,7 @@ async function saveAccountSettings() {
       role: currentRole,
       email: String(currentUser?.email || "").trim()
     };
+    if (typeof authProfileHydrationFailed !== "undefined") authProfileHydrationFailed = false;
 
     if (Array.isArray(data) && data[0] && typeof data[0] === "object") {
       currentProfile = {
@@ -186,6 +189,7 @@ async function saveOnboardingDisplayName() {
       role: currentRole,
       email: String(currentUser?.email || "").trim()
     };
+    if (typeof authProfileHydrationFailed !== "undefined") authProfileHydrationFailed = false;
 
     if (Array.isArray(data) && data[0] && typeof data[0] === "object") {
       currentProfile = {

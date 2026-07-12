@@ -2,12 +2,14 @@
 
 .appShell {
   height: calc(100vh - var(--header-h));
+  height: calc(100dvh - var(--header-h));
   display: flex;
   transition: height 0.22s ease;
 }
 
 body.executive-mode .appShell {
   height: calc(100vh - var(--header-h-exec));
+  height: calc(100dvh - var(--header-h-exec));
 }
 
 .sidebar {

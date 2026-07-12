@@ -80,6 +80,14 @@
     return false;
   }
 
+  function normalizeStatusInput(value) {
+    const normalized = String(value == null ? "" : value).trim().toLowerCase();
+    if (normalized === "complete" || normalized === "completed") return "completed";
+    if (normalized === "closed" || normalized === "inactive") return "closed";
+    if (normalized === "rescheduled" || normalized === "reschedule") return "rescheduled";
+    return normalized;
+  }
+
   function toIssue(severity, code, message, field, rowIndex) {
     return Object.freeze({
       severity,
@@ -304,7 +312,7 @@
     }
 
     if (!isEmptyRequiredValue(canonicalValues.status)) {
-      const normalizedStatus = String(canonicalValues.status).trim().toLowerCase();
+      const normalizedStatus = normalizeStatusInput(canonicalValues.status);
       if (!allowedStatuses.has(normalizedStatus)) {
         errors.push(
           toIssue(
@@ -315,6 +323,8 @@
             rowIndex
           )
         );
+      } else {
+        canonicalValues.status = normalizedStatus;
       }
     }
 

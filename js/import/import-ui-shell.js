@@ -1408,7 +1408,7 @@
 
     elements.openBtn.addEventListener("click", function onOpen(event) {
       event.preventDefault();
-      if (elements.openBtn.classList.contains("disabled")) return;
+      if (!canOpenImportShell(elements)) return;
       runtime.openShell();
     });
 
@@ -1566,23 +1566,42 @@
     runtime.subscribe(render);
   }
 
+  function canOpenImportShell(elements) {
+    if (typeof canManageProjectLifecycle === "function" && !canManageProjectLifecycle()) return false;
+    return !(elements.openBtn && elements.openBtn.classList.contains("disabled"));
+  }
+
   function maybeOpenFromLegacyIntent() {
     const runtime = getRuntime();
     if (!runtime) return;
+    const elements = getElements();
 
     let hasStoredIntent = false;
 
     try {
       hasStoredIntent = window.sessionStorage.getItem(OPEN_INTENT_KEY) === "true";
-      if (hasStoredIntent) {
-        window.sessionStorage.removeItem(OPEN_INTENT_KEY);
-      }
     } catch (error) {
       hasStoredIntent = false;
     }
 
     if (hasStoredIntent || window.location.hash === "#import") {
+      if (!canOpenImportShell(elements)) return;
       runtime.openShell();
+
+      const opened = runtime.getState?.()?.isOpen === true;
+      if (!opened) return;
+
+      if (hasStoredIntent) {
+        try {
+          window.sessionStorage.removeItem(OPEN_INTENT_KEY);
+        } catch (_) {
+          // The shell is already open; storage cleanup is best effort.
+        }
+      }
+
+      if (window.location.hash === "#import") {
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+      }
     }
   }
 
@@ -1602,6 +1621,7 @@
   }
 
   window.ImportUIShell = {
-    init: init
+    init: init,
+    retryOpenIntent: maybeOpenFromLegacyIntent
   };
 })();

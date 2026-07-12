@@ -4,6 +4,85 @@ let inviteDeepLinkProjectNameLookupStarted = false;
 let inviteDeepLinkAcceptedProjectId = "";
 let inviteDeepLinkSelectedAccessProjectId = "";
 const inviteDeepLinkProjectNameCache = {};
+let authStateRefreshQueue = Promise.resolve();
+let authStateSubscription = null;
+let authInitializationPromise = null;
+let authSignupsEnabled = null;
+let credentialAuthPromise = null;
+let authProfileHydrationPending = false;
+let authProfileHydrationFailed = false;
+let authProjectRefreshToken = 0;
+
+function getAuthErrorMessage(error, fallbackMessage = "Authentication failed.") {
+  const message = String(error?.message || error || "").trim();
+  const normalized = message.toLowerCase();
+
+  if (
+    error?.code === "ACTION_TIMEOUT"
+    || error?.name === "TimeoutError"
+    || normalized.includes("load failed")
+    || normalized.includes("failed to fetch")
+    || normalized.includes("fetch failed")
+    || normalized.includes("network request failed")
+    || normalized.includes("networkerror")
+    || normalized.includes("network error")
+  ) {
+    return "Unable to reach the sign-in service. Check your connection and try again. If this persists, the service may still be waking up.";
+  }
+
+  if (
+    normalized.includes("signup is disabled")
+    || normalized.includes("signups not allowed")
+    || normalized.includes("signup_disabled")
+  ) {
+    return "Account creation is currently disabled. Ask a project administrator to create or invite your account.";
+  }
+
+  return message || fallbackMessage;
+}
+
+function updateAuthSignupAvailability() {
+  const createAccountBtn = document.getElementById("createAccountBtn");
+  if (!createAccountBtn) return;
+
+  const signupsDisabled = authSignupsEnabled === false;
+  createAccountBtn.classList.toggle("hidden", signupsDisabled);
+  createAccountBtn.disabled = signupsDisabled;
+  createAccountBtn.setAttribute("aria-hidden", String(signupsDisabled));
+}
+
+function setCredentialAuthBusy(activeButtonId = "", busyLabel = "") {
+  ["signInBtn", "createAccountBtn"].forEach(buttonId => {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+    if (!button.dataset.idleLabel) button.dataset.idleLabel = button.textContent || "";
+    button.dataset.authLoading = "true";
+    button.disabled = true;
+    if (buttonId === activeButtonId && busyLabel) button.textContent = busyLabel;
+  });
+}
+
+function clearCredentialAuthBusy() {
+  ["signInBtn", "createAccountBtn"].forEach(buttonId => {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+    button.dataset.authLoading = "false";
+    button.disabled = buttonId === "createAccountBtn" && authSignupsEnabled === false;
+    button.textContent = button.dataset.idleLabel || (buttonId === "signInBtn" ? "Sign In" : "Create Account");
+  });
+}
+
+async function refreshAuthSignupAvailability() {
+  const { data, error } = await dataLayer.getAuthSettings();
+  if (error) {
+    console.warn("Auth settings check skipped:", error);
+    return;
+  }
+
+  authSignupsEnabled = data?.disable_signup !== true;
+  updateAuthSignupAvailability();
+  renderInviteDeepLinkState();
+}
 
 function normalizeInviteDeepLinkProjectId(value) {
   return String(value || "").trim();
@@ -144,8 +223,8 @@ function getCurrentInviteIdentityTargets() {
   };
 
   addEmail(currentUser?.email);
-  addEmail(currentProfile?.email);
-  addPhone(currentProfile?.phone);
+  // A profile phone is user-editable. Only Supabase Auth's verified identity
+  // can be used to match a phone-targeted invite.
   addPhone(currentUser?.phone);
 
   return { emails, phones };
@@ -239,8 +318,12 @@ function renderInviteDeepLinkState() {
 
   if (!isSignedIn()) {
     body.textContent = context.targetType === "phone"
-      ? "Sign in or create an account, then add the invited phone number in Personal Settings to accept."
-      : "Sign in or create an account with the invited email to accept.";
+      ? "Sign in with the invited account to continue. Phone invites require an administrator to verify the account before access can be granted."
+      : (
+          authSignupsEnabled === false
+            ? "Sign in with the invited email to accept. Ask a project administrator if you need an account."
+            : "Sign in or create an account with the invited email to accept."
+        );
     setInviteLandingStatus("");
     return;
   }
@@ -297,15 +380,29 @@ function renderInviteDeepLinkState() {
   );
 }
 
-async function initializeAuth() {
-  const { data, error } = await dataLayer.getSession();
+function resetSignedOutAuthState() {
+  currentProfile = null;
+  currentRole = "viewer";
+  currentProjectRole = "viewer";
+  projectMemberships = [];
+  projectMembershipByProjectId = {};
+  profileEmailByUserId = {};
+  pendingProjectInvites = [];
+  projectMembershipsLoaded = false;
+  projectMembershipsLoadError = null;
+}
 
-  if (error) {
-    console.error("Auth session error:", error);
+async function hydrateAuthSession(session = null, options = {}) {
+  const { refreshProjects = true } = options;
+  const refreshToken = ++authProjectRefreshToken;
+  if (typeof activeProjectHydrationToken !== "undefined") {
+    activeProjectHydrationToken += 1;
   }
-
-  currentSession = data?.session || null;
+  currentSession = session || null;
   currentUser = currentSession?.user || null;
+  resetSignedOutAuthState();
+  authProfileHydrationPending = !!currentUser;
+  authProfileHydrationFailed = false;
 
   if (currentUser) {
     const currentUserId = String(currentUser.id || "").trim();
@@ -313,51 +410,93 @@ async function initializeAuth() {
     if (currentUserId && currentUserEmail) {
       profileEmailByUserId[currentUserId] = currentUserEmail;
     }
-    await loadCurrentUserRole();
-    await loadCurrentUserProjectAccess();
-  } else {
-    currentProfile = null;
-    currentRole = "viewer";
-    currentProjectRole = "viewer";
-    projectMemberships = [];
-    projectMembershipByProjectId = {};
-    profileEmailByUserId = {};
-    pendingProjectInvites = [];
-    projectMembershipsLoaded = false;
-    projectMembershipsLoadError = null;
-  }
-
-  dataLayer.onAuthStateChange(async (_event, session) => {
-    currentSession = session || null;
-    currentUser = currentSession?.user || null;
-
-    if (currentUser) {
-      const currentUserId = String(currentUser.id || "").trim();
-      const currentUserEmail = String(currentUser.email || "").trim();
-      if (currentUserId && currentUserEmail) {
-        profileEmailByUserId[currentUserId] = currentUserEmail;
-      }
-      await loadCurrentUserRole();
-      await loadCurrentUserProjectAccess();
-    } else {
-      currentProfile = null;
-      currentRole = "viewer";
-      currentProjectRole = "viewer";
-      projectMemberships = [];
-      projectMembershipByProjectId = {};
-      profileEmailByUserId = {};
-      pendingProjectInvites = [];
-      projectMembershipsLoaded = false;
-      projectMembershipsLoadError = null;
-    }
-
+    // Reflect the new session immediately; role and project hydration are
+    // bounded follow-up work and must not leave the credential panel stale.
     updateAuthUI();
     updateWriteAccessUI();
-
-    if (typeof refreshProjectAccessAfterAuthChange === "function") {
-      await refreshProjectAccessAfterAuthChange();
+    try {
+      await loadCurrentUserRole();
+    } finally {
+      authProfileHydrationPending = false;
+      updateAuthUI();
+      updateWriteAccessUI();
     }
+    await loadCurrentUserProjectAccess();
+  }
+
+  updateAuthUI();
+  updateWriteAccessUI();
+
+  if (typeof window.ImportUIShell?.retryOpenIntent === "function") {
+    window.ImportUIShell.retryOpenIntent();
+  }
+
+  if (refreshProjects && typeof refreshProjectAccessAfterAuthChange === "function") {
+    Promise.resolve().then(() => {
+      if (refreshToken !== authProjectRefreshToken) return null;
+      return refreshProjectAccessAfterAuthChange({
+        isCurrent: () => refreshToken === authProjectRefreshToken
+      });
+    }).catch(error => {
+      if (refreshToken !== authProjectRefreshToken) return;
+      console.error("Project access refresh after auth change failed:", error);
+      setAuthMessage(getAuthErrorMessage(error, "Unable to refresh project data."), "error");
+    });
+  }
+}
+
+function queueAuthStateRefresh(session = null) {
+  const queuedSession = session || null;
+  authStateRefreshQueue = authStateRefreshQueue
+    .catch(error => {
+      console.error("Previous auth refresh failed:", error);
+    })
+    .then(() => new Promise(resolve => window.setTimeout(resolve, 0)))
+    .then(() => hydrateAuthSession(queuedSession))
+    .catch(error => {
+      console.error("Auth state refresh failed:", error);
+      setAuthMessage(getAuthErrorMessage(error, "Unable to refresh account access."), "error");
+    });
+
+  return authStateRefreshQueue;
+}
+
+async function runAuthInitialization() {
+  const { data, error } = await dataLayer.getSession();
+
+  if (error) {
+    console.error("Auth session error:", error);
+    setAuthMessage(getAuthErrorMessage(error, "Unable to check the saved session."), "error");
+  }
+
+  await hydrateAuthSession(data?.session || null, { refreshProjects: false });
+
+  if (!authStateSubscription) {
+    authStateSubscription = dataLayer.onAuthStateChange((event, session) => {
+      const currentUserId = String(currentUser?.id || "").trim();
+      const nextUserId = String(session?.user?.id || "").trim();
+      if (event === "INITIAL_SESSION" && currentUserId === nextUserId) return;
+
+      // Supabase warns against awaiting client calls inside this callback.
+      // Queue the refresh after the callback returns to avoid auth-lock deadlocks.
+      queueAuthStateRefresh(session || null);
+    });
+  }
+
+  refreshAuthSignupAvailability().catch(settingsError => {
+    console.warn("Auth signup availability check failed:", settingsError);
   });
+}
+
+function initializeAuth() {
+  if (!authInitializationPromise) {
+    authInitializationPromise = runAuthInitialization().catch(error => {
+      authInitializationPromise = null;
+      throw error;
+    });
+  }
+
+  return authInitializationPromise;
 }
 
 async function loadCurrentUserRole() {
@@ -373,11 +512,19 @@ async function loadCurrentUserRole() {
     console.error("Profile lookup failed:", error);
     currentProfile = null;
     currentRole = "viewer";
+    const normalizedError = String(error?.message || "").toLowerCase();
+    const profileIsMissing = error?.code === "PGRST116"
+      || (error?.status === 406 && normalizedError.includes("row"));
+    authProfileHydrationFailed = !profileIsMissing;
+    if (authProfileHydrationFailed) {
+      setAuthMessage(getAuthErrorMessage(error, "Signed in, but the profile could not be loaded. Reload to retry."), "error");
+    }
     return;
   }
 
   currentProfile = data || null;
   currentRole = normalizeRole(data?.role);
+  authProfileHydrationFailed = false;
 }
 
 async function loadCurrentUserProjectAccess() {
@@ -448,28 +595,19 @@ function bindAuthUI() {
     signOutBtn.dataset.bound = "true";
   }
 
-  applyInviteDeepLinkToAuthInputs();
-  renderInviteDeepLinkState();
-}
-
-async function refreshInviteAccessAfterCredentialAuth(session = null) {
-  if (!hasInviteDeepLinkContext()) return;
-
-  const activeSession = session || currentSession;
-  if (!activeSession?.user) return;
-
-  currentSession = activeSession;
-  currentUser = activeSession.user;
-  const currentUserId = String(currentUser.id || "").trim();
-  const currentUserEmail = String(currentUser.email || "").trim();
-  if (currentUserId && currentUserEmail) {
-    profileEmailByUserId[currentUserId] = currentUserEmail;
+  const passwordInput = document.getElementById("authPassword");
+  if (passwordInput && !passwordInput.dataset.enterBound) {
+    passwordInput.addEventListener("keydown", event => {
+      if (event.key !== "Enter" || event.isComposing) return;
+      event.preventDefault();
+      signIn();
+    });
+    passwordInput.dataset.enterBound = "true";
   }
 
-  await loadCurrentUserRole();
-  await loadCurrentUserProjectAccess();
-  updateAuthUI();
-  updateWriteAccessUI();
+  updateAuthSignupAvailability();
+  applyInviteDeepLinkToAuthInputs();
+  renderInviteDeepLinkState();
 }
 
 async function signIn() {
@@ -483,15 +621,26 @@ async function signIn() {
     return;
   }
 
-  const { data, error } = await dataLayer.signIn(email, password);
+  if (credentialAuthPromise) return;
+  setCredentialAuthBusy("signInBtn", "Signing In…");
 
-  if (error) {
-    setAuthMessage(error.message || "Sign-in failed.", "error");
-    return;
+  try {
+    credentialAuthPromise = dataLayer.signIn(email, password);
+    const { error } = await credentialAuthPromise;
+
+    if (error) {
+      setAuthMessage(getAuthErrorMessage(error, "Sign-in failed."), "error");
+      return;
+    }
+
+    setAuthMessage(hasInviteDeepLinkContext() ? "Signed in. Checking invite access..." : "Signed in successfully.", "success");
+  } catch (error) {
+    console.error("Sign-in request failed:", error);
+    setAuthMessage(getAuthErrorMessage(error, "Sign-in failed."), "error");
+  } finally {
+    credentialAuthPromise = null;
+    clearCredentialAuthBusy();
   }
-
-  setAuthMessage(hasInviteDeepLinkContext() ? "Signed in. Checking invite access..." : "Signed in successfully.", "success");
-  await refreshInviteAccessAfterCredentialAuth(data?.session || null);
 }
 
 async function createAccount() {
@@ -499,6 +648,11 @@ async function createAccount() {
   const password = document.getElementById("authPassword")?.value || "";
 
   setAuthMessage("");
+
+  if (authSignupsEnabled === false) {
+    setAuthMessage("Account creation is currently disabled. Ask a project administrator to create or invite your account.", "error");
+    return;
+  }
 
   if (!email || !password) {
     setAuthMessage("Email and password are required.", "error");
@@ -510,31 +664,47 @@ async function createAccount() {
     return;
   }
 
-  const { data, error } = await dataLayer.signUp(email, password);
+  if (credentialAuthPromise) return;
+  setCredentialAuthBusy("createAccountBtn", "Creating…");
 
-  if (error) {
-    setAuthMessage(error.message || "Account creation failed.", "error");
-    return;
+  try {
+    credentialAuthPromise = dataLayer.signUp(email, password);
+    const { data, error } = await credentialAuthPromise;
+
+    if (error) {
+      setAuthMessage(getAuthErrorMessage(error, "Account creation failed."), "error");
+      return;
+    }
+
+    if (data?.session) {
+      setAuthMessage(hasInviteDeepLinkContext() ? "Account created. Checking invite access..." : "Account created. You are signed in.", "success");
+      return;
+    }
+
+    setAuthMessage("Account created. Check your email to verify before signing in.", "success");
+  } catch (error) {
+    console.error("Account creation request failed:", error);
+    setAuthMessage(getAuthErrorMessage(error, "Account creation failed."), "error");
+  } finally {
+    credentialAuthPromise = null;
+    clearCredentialAuthBusy();
   }
-
-  if (data?.session) {
-    setAuthMessage(hasInviteDeepLinkContext() ? "Account created. Checking invite access..." : "Account created. You are signed in.", "success");
-    await refreshInviteAccessAfterCredentialAuth(data.session);
-    return;
-  }
-
-  setAuthMessage("Account created. Check your email to verify before signing in.", "success");
 }
 
 async function signOut() {
-  const { error } = await dataLayer.signOut();
+  try {
+    const { error } = await dataLayer.signOut();
 
-  if (error) {
-    setAuthMessage(error.message || "Sign-out failed.", "error");
-    return;
+    if (error) {
+      setAuthMessage(getAuthErrorMessage(error, "Sign-out failed."), "error");
+      return;
+    }
+
+    setAuthMessage("Signed out.", "success");
+  } catch (error) {
+    console.error("Sign-out request failed:", error);
+    setAuthMessage(getAuthErrorMessage(error, "Sign-out failed."), "error");
   }
-
-  setAuthMessage("Signed out.", "success");
 }
 
 function setAuthMessage(message, type = "") {
@@ -598,6 +768,7 @@ function updateWriteAccessUI() {
   const canEdit = isSignedIn() && canEditStores();
   const canNote = isSignedIn() && canAddNotes();
   const canPhoto = isSignedIn() && canUploadPhotos();
+  const photoUploadBusy = typeof activePhotoUploadPromise !== "undefined" && !!activePhotoUploadPromise;
   const canRoutes = isSignedIn() && canManageRoutes();
   const canStoreLifecycle = isSignedIn() && canManageStoreLifecycle();
   const canProjectLifecycle = isSignedIn() && canManageProjectLifecycle();
@@ -630,7 +801,7 @@ function updateWriteAccessUI() {
     "uploadPhotoBtn"
   ].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.disabled = !canPhoto;
+    if (el) el.disabled = !canPhoto || photoUploadBusy;
   });
 
   [

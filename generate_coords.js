@@ -1,56 +1,80 @@
-import fs from "fs";
+"use strict";
 
-const MAPBOX_TOKEN =
+const fs = require("node:fs");
+const path = require("node:path");
+
+const DEFAULT_MAPBOX_TOKEN =
   "pk.eyJ1IjoiaW4tZnVzZWQiLCJhIjoiY21sZ2E2ZzV4MGFmaTNjb2NydW04eXVpaCJ9.3-ZXlPJosjQ4c5bucpnWYA";
 
-const stores = JSON.parse(fs.readFileSync("stores.json", "utf8"));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+async function geocode(store, mapboxToken) {
+  const address = String(store?.full_address || "").trim();
+  if (!address) {
+    console.warn("Skipping store without a full_address", store?.store_id || "(unknown)");
+    return null;
+  }
 
-async function geocode(store) {
-  const q = encodeURIComponent(store.full_address);
+  const query = encodeURIComponent(address);
   const url =
     "https://api.mapbox.com/geocoding/v5/mapbox.places/" +
-    q +
+    query +
     ".json?access_token=" +
-    MAPBOX_TOKEN +
+    encodeURIComponent(mapboxToken) +
     "&limit=1&country=US";
 
-  const res = await fetch(url);
-  const data = await res.json();
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Mapbox request failed (${response.status}) for store ${store?.store_id || "(unknown)"}.`);
+  }
 
+  const data = await response.json();
   if (!data.features || !data.features[0]) {
-    console.warn("No result for store", store.store_id);
+    console.warn("No result for store", store?.store_id || "(unknown)");
     return null;
   }
 
   const [lng, lat] = data.features[0].center;
-
   return {
     store_id: store.store_id,
     lat,
     lng,
-    full_address: store.full_address
+    full_address: address
   };
 }
 
-async function run() {
-  const output = [];
-
-  for (const store of stores) {
-    const result = await geocode(store);
-    if (result) output.push(result);
-    await sleep(150); // polite rate limit
+async function run({ inputPath, outputPath, mapboxToken }) {
+  if (!fs.existsSync(inputPath)) {
+    throw new Error(
+      `Input file not found: ${inputPath}\nUsage: node generate_coords.js [input.json] [output.json]`
+    );
   }
 
-  fs.writeFileSync(
-    "stores_with_coords.json",
-    JSON.stringify(output, null, 2)
-  );
+  const stores = JSON.parse(fs.readFileSync(inputPath, "utf8"));
+  if (!Array.isArray(stores)) {
+    throw new TypeError(`Expected ${inputPath} to contain a JSON array.`);
+  }
 
-  console.log("Generated", output.length, "stores");
+  const output = [];
+  for (const store of stores) {
+    const result = await geocode(store, mapboxToken);
+    if (result) output.push(result);
+    await sleep(150);
+  }
+
+  fs.writeFileSync(outputPath, JSON.stringify(output, null, 2) + "\n");
+  console.log("Generated", output.length, "stores in", outputPath);
 }
 
-run();
+if (require.main === module) {
+  const inputPath = path.resolve(process.argv[2] || "stores.json");
+  const outputPath = path.resolve(process.argv[3] || "stores_with_coords.json");
+  const mapboxToken = String(process.env.MAPBOX_TOKEN || DEFAULT_MAPBOX_TOKEN).trim();
+
+  run({ inputPath, outputPath, mapboxToken }).catch((error) => {
+    console.error(error?.message || error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { geocode, run };

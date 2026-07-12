@@ -1,0 +1,38 @@
+name: Repository checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  javascript:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.js' -not -path './.git/*' -print0 |
+            while IFS= read -r -d '' file; do
+              node --check "$file"
+            done
+
+      - name: Run regression checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.test.js' -not -path './.git/*' -print0 |
+            while IFS= read -r -d '' file; do
+              echo "Running $file"
+              node "$file"
+            done

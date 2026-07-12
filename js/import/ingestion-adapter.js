@@ -59,6 +59,8 @@
     const source = record && typeof record === "object" ? record : {};
     return {
       store_id: source.store_id,
+      store_name: source.store_name,
+      customer_id: source.customer_id,
       full_address: source.full_address,
       address_line_1: source.address_line_1,
       address_line_2: source.address_line_2,
@@ -67,6 +69,9 @@
       postal_code: source.postal_code,
       region: source.region,
       territory: source.territory,
+      district: source.district,
+      division: source.division,
+      market: source.market,
       latitude: source.latitude,
       longitude: source.longitude,
       source_row_index: source.source_row_index,
@@ -98,6 +103,8 @@
 
     const runtimeStore = {
       store_id: toTrimmedString(normalized.store_id, ""),
+      store_name: toTrimmedString(normalized.store_name, ""),
+      customer_id: toTrimmedString(normalized.customer_id, ""),
       full_address: toTrimmedString(normalized.full_address, ""),
       address_line_1: toTrimmedString(normalized.address_line_1, ""),
       address_line_2: toTrimmedString(normalized.address_line_2, ""),
@@ -106,6 +113,9 @@
       postal_code: toTrimmedString(normalized.postal_code, ""),
       region: toTrimmedString(normalized.region, ""),
       territory: toTrimmedString(normalized.territory, ""),
+      district: toTrimmedString(normalized.district, ""),
+      division: toTrimmedString(normalized.division, ""),
+      market: toTrimmedString(normalized.market, ""),
       latitude: normalizeCoordinate(normalized.latitude),
       longitude: normalizeCoordinate(normalized.longitude),
       __ingestion: {

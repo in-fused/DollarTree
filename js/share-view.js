@@ -339,14 +339,35 @@
   }
 
   function getToken() {
-    const params = new URLSearchParams(window.location.search);
-    return String(params.get("t") || "").trim();
+    const url = new URL(window.location.href);
+    const hashParams = new URLSearchParams(String(url.hash || "").replace(/^#/, ""));
+    const hashToken = String(hashParams.get("t") || hashParams.get("token") || "").trim();
+    const queryToken = String(url.searchParams.get("t") || url.searchParams.get("token") || "").trim();
+    const token = hashToken || queryToken;
+
+    if (queryToken) {
+      // Migrate legacy query-string links into a reload-safe fragment. Fragments
+      // stay out of page requests and referrers while remaining available after
+      // transient API failures or a manual reload.
+      url.searchParams.delete("t");
+      url.searchParams.delete("token");
+      if (!hashToken) {
+        hashParams.set("t", queryToken);
+        url.hash = `#${hashParams.toString()}`;
+      }
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+
+    return token;
   }
 
   async function fetchSharePayload(token) {
-    const response = await fetch(`/api/share-links/resolve?t=${encodeURIComponent(token)}`, {
-      method: "GET",
-      headers: { Accept: "application/json" },
+    const response = await fetch("/api/share-links/resolve", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "X-Share-Token": token
+      },
       cache: "no-store"
     });
 
@@ -1608,7 +1629,9 @@
   }
 
   function showError(error) {
-    getEl("shareApp")?.classList.add("hidden");
+    const app = getEl("shareApp");
+    app?.classList.remove("is-loading");
+    app?.classList.add("hidden");
     const errorState = getEl("shareErrorState");
     if (errorState) errorState.classList.remove("hidden");
     setText("shareErrorTitle", error?.code === "missing_token" ? "Missing share token" : "Unable to load overview");

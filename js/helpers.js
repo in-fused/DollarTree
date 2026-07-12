@@ -328,9 +328,10 @@ function normalizeStoreRecord(store) {
   };
 }
 
-function buildPhotoPath(storeId, file) {
+function buildPhotoPath(storeId, file, projectId = currentProjectId) {
   const safeName = sanitizeFileName(file.name);
-  return `${currentProjectId}/${storeId}/${Date.now()}-${safeName}`;
+  const scopedProjectId = String(projectId || "").trim();
+  return `${scopedProjectId}/${storeId}/${Date.now()}-${safeName}`;
 }
 
 function resolveActivityActorLabel(actorUserId) {

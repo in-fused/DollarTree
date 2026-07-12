@@ -17,6 +17,8 @@ const INGESTION_REQUIRED_FIELDS = Object.freeze([
 ]);
 
 const INGESTION_OPTIONAL_FIELDS = Object.freeze([
+  "store_name",
+  "customer_id",
   "full_address",
   "address_line_1",
   "address_line_2",
@@ -25,6 +27,9 @@ const INGESTION_OPTIONAL_FIELDS = Object.freeze([
   "postal_code",
   "region",
   "territory",
+  "district",
+  "division",
+  "market",
   "status",
   "status_reason",
   "completed",
@@ -87,6 +92,22 @@ const INGESTION_FIELD_ALIASES = Object.freeze({
     "store num",
     "storenumber"
   ]),
+  store_name: Object.freeze([
+    "store_name",
+    "store name",
+    "location name",
+    "location_name",
+    "site name",
+    "site_name",
+    "store"
+  ]),
+  customer_id: Object.freeze([
+    "customer_id",
+    "customer id",
+    "customer",
+    "customer number",
+    "customer_number"
+  ]),
   full_address: Object.freeze([
     "full_address",
     "full address",
@@ -129,13 +150,30 @@ const INGESTION_FIELD_ALIASES = Object.freeze({
   ]),
   region: Object.freeze([
     "region",
-    "market",
-    "division"
+    "area",
+    "zone"
   ]),
   territory: Object.freeze([
     "territory",
+    "territory_name",
+    "territory name",
+    "territory code",
+    "territory_code"
+  ]),
+  district: Object.freeze([
     "district",
-    "area"
+    "district_name",
+    "district name"
+  ]),
+  division: Object.freeze([
+    "division",
+    "division_name",
+    "division name"
+  ]),
+  market: Object.freeze([
+    "market",
+    "market_name",
+    "market name"
   ]),
   status: Object.freeze([
     "status",

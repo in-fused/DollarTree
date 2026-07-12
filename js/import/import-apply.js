@@ -365,6 +365,31 @@
     return [addressLine1, addressLine2, city, state, postalCode].filter(Boolean).join(", ");
   }
 
+  function normalizeImportedStatus(record) {
+    const rawStatus = toText(readFirst(record, ["status", "status_code"])).toLowerCase();
+    const statusAliases = {
+      complete: "completed",
+      inactive: "closed",
+      reschedule: "rescheduled"
+    };
+    const aliasedStatus = statusAliases[rawStatus] || rawStatus;
+    const supportedStatuses = new Set(["active", "completed", "closed", "rescheduled"]);
+    let statusCode = supportedStatuses.has(aliasedStatus) ? aliasedStatus : "";
+
+    if (!statusCode) {
+      if (readFirst(record, "completed") === true) statusCode = "completed";
+      else if (readFirst(record, "closed") === true) statusCode = "closed";
+      else statusCode = "active";
+    }
+
+    return {
+      status_code: statusCode,
+      status_reason: toText(readFirst(record, "status_reason")) || null,
+      completed: statusCode === "completed",
+      closed: statusCode === "closed"
+    };
+  }
+
   function normalizeAcceptedRecord(record, index) {
     const normalized = {
       sourceRowIndex: Number.isInteger(record && record.source_row_index) ? record.source_row_index : index,
@@ -381,7 +406,8 @@
       division: toText(readFirst(record, "division")),
       market: toText(readFirst(record, "market")),
       lat: toNumberOrNull(readFirst(record, ["lat", "latitude"])),
-      lng: toNumberOrNull(readFirst(record, ["lng", "longitude"]))
+      lng: toNumberOrNull(readFirst(record, ["lng", "longitude"])),
+      ...normalizeImportedStatus(record)
     };
 
     return clearInvalidCoordinates(normalized);
@@ -926,15 +952,18 @@
     return { inserted: true, postalColumnDropped: false };
   }
 
-  async function insertDefaultStatus(projectId, storeId) {
+  async function insertDefaultStatus(projectId, storeId, importedStatus = {}) {
     const client = getSupabaseClient();
+    const statusCode = ["active", "completed", "closed", "rescheduled"].includes(importedStatus.status_code)
+      ? importedStatus.status_code
+      : "active";
     const fullPayload = {
       project_id: projectId,
       store_id: storeId,
-      completed: false,
-      closed: false,
-      status_code: "active",
-      status_reason: null
+      completed: statusCode === "completed",
+      closed: statusCode === "closed",
+      status_code: statusCode,
+      status_reason: toText(importedStatus.status_reason) || null
     };
 
     let result = await withSupabaseTimeout(
@@ -968,8 +997,8 @@
           .insert({
             project_id: projectId,
             store_id: storeId,
-            completed: false,
-            closed: false
+            completed: statusCode === "completed",
+            closed: statusCode === "closed"
           }),
         `Seed default status for store ${storeId} with minimal payload`
       );
@@ -1262,24 +1291,25 @@
             level: "info"
           });
 
-          if (canSeedStatuses && !existingStatusIds.has(record.store_id)) {
-            const statusResult = await insertDefaultStatus(projectId, record.store_id);
-            if (statusResult.seeded) {
-              result.statusSeededCount += 1;
-              existingStatusIds.add(record.store_id);
-              emitProgress(`Status row created/updated: ${record.store_id}`, {
-                rowIndex: index,
-                storeId: record.store_id,
-                level: "info"
-              });
-            } else if (statusResult.alreadyExists) {
-              existingStatusIds.add(record.store_id);
-              emitProgress(`Status row already existed: ${record.store_id}`, {
-                rowIndex: index,
-                storeId: record.store_id,
-                level: "info"
-              });
-            }
+        }
+
+        if (canSeedStatuses && !existingStatusIds.has(record.store_id)) {
+          const statusResult = await insertDefaultStatus(projectId, record.store_id, record);
+          if (statusResult.seeded) {
+            result.statusSeededCount += 1;
+            existingStatusIds.add(record.store_id);
+            emitProgress(`Status row created/updated: ${record.store_id}`, {
+              rowIndex: index,
+              storeId: record.store_id,
+              level: "info"
+            });
+          } else if (statusResult.alreadyExists) {
+            existingStatusIds.add(record.store_id);
+            emitProgress(`Status row already existed: ${record.store_id}`, {
+              rowIndex: index,
+              storeId: record.store_id,
+              level: "info"
+            });
           }
         }
         markRowProcessed(index, record.store_id);
