@@ -21,6 +21,8 @@
 
   const FALLBACK_REQUIRED_FIELDS = Object.freeze(["store_id"]);
   const FALLBACK_OPTIONAL_FIELDS = Object.freeze([
+    "store_name",
+    "customer_id",
     "full_address",
     "address_line_1",
     "address_line_2",
@@ -29,6 +31,9 @@
     "postal_code",
     "region",
     "territory",
+    "district",
+    "division",
+    "market",
     "status",
     "status_reason",
     "completed",
@@ -92,6 +97,8 @@
       description: "Best for files already aligned to canonical ingestion headers.",
       aliasesByCanonical: Object.freeze({
         store_id: Object.freeze(["store_id"]),
+        store_name: Object.freeze(["store_name"]),
+        customer_id: Object.freeze(["customer_id"]),
         full_address: Object.freeze(["full_address"]),
         address_line_1: Object.freeze(["address_line_1"]),
         address_line_2: Object.freeze(["address_line_2"]),
@@ -100,6 +107,9 @@
         postal_code: Object.freeze(["postal_code"]),
         region: Object.freeze(["region"]),
         territory: Object.freeze(["territory"]),
+        district: Object.freeze(["district"]),
+        division: Object.freeze(["division"]),
+        market: Object.freeze(["market"]),
         status: Object.freeze(["status"]),
         status_reason: Object.freeze(["status_reason"]),
         completed: Object.freeze(["completed"]),
@@ -118,12 +128,17 @@
       description: "Best for operational exports centered on store number and execution status labels.",
       aliasesByCanonical: Object.freeze({
         store_id: Object.freeze(["store number", "store_number", "store #", "store#", "store num"]),
+        store_name: Object.freeze(["store name", "location name", "site name"]),
+        customer_id: Object.freeze(["customer id", "customer number"]),
         status: Object.freeze(["store status", "status_code", "execution status"]),
         status_reason: Object.freeze(["reschedule reason", "reason"]),
         completed: Object.freeze(["complete", "done"]),
         closed: Object.freeze(["store_closed", "is_closed"]),
-        region: Object.freeze(["market", "division"]),
-        territory: Object.freeze(["district", "area"]),
+        region: Object.freeze(["area", "zone"]),
+        territory: Object.freeze(["territory name", "territory code"]),
+        district: Object.freeze(["district", "district name"]),
+        division: Object.freeze(["division", "division name"]),
+        market: Object.freeze(["market", "market name"]),
         latitude: Object.freeze(["lat", "geo_lat"]),
         longitude: Object.freeze(["lng", "geo_lng"])
       })

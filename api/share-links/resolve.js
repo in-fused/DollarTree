@@ -28,6 +28,11 @@ function json(res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
+function getHeader(req, name) {
+  const value = req?.headers?.[String(name || "").toLowerCase()];
+  return Array.isArray(value) ? String(value[0] || "") : String(value || "");
+}
+
 function getConfig() {
   const supabaseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -232,8 +237,22 @@ function isSafeHttpUrl(value) {
 
 function normalizeStoragePath(value) {
   const path = String(value || "").trim().replace(/^\/+/, "");
-  if (!path || /^https?:\/\//i.test(path) || path.includes("\0")) return "";
+  if (
+    !path
+    || /^https?:\/\//i.test(path)
+    || path.includes("\0")
+    || path.includes("\\")
+    || path.split("/").some(segment => segment === "." || segment === "..")
+  ) return "";
   return path;
+}
+
+function isStoragePathScopedToStore(value, projectId, storeId) {
+  const path = normalizeStoragePath(value);
+  const safeProjectId = String(projectId || "").trim();
+  const safeStoreId = String(storeId || "").trim();
+  if (!path || !safeProjectId || !safeStoreId) return false;
+  return path.startsWith(`${safeProjectId}/${safeStoreId}/`);
 }
 
 function normalizeSignedStorageUrl(config, value) {
@@ -688,7 +707,12 @@ async function buildEvidenceByStoreId(config, projectId, stores) {
     .filter(row => {
       const storeId = String(row?.store_id || "").trim();
       const imageUrl = String(row?.image_url || row?.resolved_image_url || row?.url || "").trim();
-      return storeId && safeStoreIds.has(storeId) && !isSafeHttpUrl(imageUrl);
+      return (
+        storeId
+        && safeStoreIds.has(storeId)
+        && !isSafeHttpUrl(imageUrl)
+        && isStoragePathScopedToStore(row?.storage_path, projectId, storeId)
+      );
     })
     .map(row => normalizeStoragePath(row?.storage_path))
     .filter(Boolean);
@@ -788,13 +812,13 @@ function publicErrorPayload(error) {
 }
 
 module.exports = async function handler(req, res) {
-  if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
+  if (req.method !== "GET" && req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST");
     return json(res, 405, {
       ok: false,
       error: {
         code: "method_not_allowed",
-        message: "Only GET is supported."
+        message: "Only GET and POST are supported."
       }
     });
   }
@@ -802,7 +826,12 @@ module.exports = async function handler(req, res) {
   try {
     const config = getConfig();
     const requestUrl = new URL(req.url || "", "https://local.invalid");
-    const token = String(requestUrl.searchParams.get("t") || "").trim();
+    const token = String(
+      getHeader(req, "x-share-token")
+      || requestUrl.searchParams.get("t")
+      || requestUrl.searchParams.get("token")
+      || ""
+    ).trim();
     if (!token || token.length < 32) {
       throw new HttpError(400, "missing_token", "A valid share token is required.");
     }
@@ -875,4 +904,9 @@ module.exports = async function handler(req, res) {
       error: publicErrorPayload(error)
     });
   }
+};
+
+module.exports._test = {
+  normalizeStoragePath,
+  isStoragePathScopedToStore
 };

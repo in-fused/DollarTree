@@ -417,7 +417,8 @@ module.exports = async function handler(req, res) {
 
     const linkRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
     const origin = getRequestOrigin(req, config);
-    const shareUrl = `${origin}/share.html?t=${encodeURIComponent(token)}`;
+    // Fragments stay out of page requests, referrers, and ordinary access logs.
+    const shareUrl = `${origin}/share.html#t=${encodeURIComponent(token)}`;
 
     return json(res, 200, {
       ok: true,

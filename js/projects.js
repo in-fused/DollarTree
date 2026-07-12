@@ -298,12 +298,14 @@ function ensureProjectLifecycleControls() {
   updateProjectLifecycleControls();
 }
 
-async function loadProjects() {
+async function loadProjects(options = {}) {
+  const isCurrent = typeof options.isCurrent === "function" ? options.isCurrent : () => true;
   ensureProjectLifecycleControls();
   bindProjectAdminUI();
   const previousProjectId = currentProjectId;
 
   const allProjects = await dataLayer.loadProjects();
+  if (!isCurrent()) return { stale: true };
   const visibleProjects = showArchivedProjects
     ? allProjects
     : allProjects.filter(project => project.is_archived !== true);
@@ -364,6 +366,7 @@ async function loadProjects() {
 
   updateProjectLifecycleControls();
   await refreshProjectAdminPanel();
+  return { stale: !isCurrent() };
 }
 
 function bindProjectSelector() {
@@ -777,8 +780,10 @@ function updateProjectSourceTag() {
   setText("projectSourceTagInline", `${sourceLabel}${archiveLabel}`);
 }
 
-async function refreshProjectAccessAfterAuthChange() {
-  await loadProjects();
+async function refreshProjectAccessAfterAuthChange(options = {}) {
+  const isCurrent = typeof options.isCurrent === "function" ? options.isCurrent : () => true;
+  const projectsResult = await loadProjects({ isCurrent });
+  if (projectsResult?.stale || !isCurrent()) return;
   await loadActiveProject();
 }
 

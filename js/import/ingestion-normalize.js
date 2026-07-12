@@ -28,6 +28,8 @@
   const FALLBACK_SCHEMA_VERSION = "11.2.0-foundation";
   const FALLBACK_REQUIRED_FIELDS = Object.freeze(["store_id"]);
   const FALLBACK_OPTIONAL_FIELDS = Object.freeze([
+    "store_name",
+    "customer_id",
     "full_address",
     "address_line_1",
     "address_line_2",
@@ -36,6 +38,9 @@
     "postal_code",
     "region",
     "territory",
+    "district",
+    "division",
+    "market",
     "status",
     "status_reason",
     "completed",
@@ -184,7 +189,12 @@
       return accepted.has(fallbackStatus) ? fallbackStatus : "active";
     }
 
-    const normalized = String(value).trim().toLowerCase();
+    const normalizedInput = String(value).trim().toLowerCase();
+    const normalized = normalizedInput === "complete"
+      ? "completed"
+      : (normalizedInput === "inactive"
+        ? "closed"
+        : (normalizedInput === "reschedule" ? "rescheduled" : normalizedInput));
     if (accepted.has(normalized)) return normalized;
     return accepted.has(fallbackStatus) ? fallbackStatus : "active";
   }
@@ -304,6 +314,8 @@
       warnings.push({ code: "MISSING_STORE_ID", message: "store_id normalized to empty string." });
     }
 
+    record.store_name = toTrimmedString(canonicalValues.store_name, "");
+    record.customer_id = toTrimmedString(canonicalValues.customer_id, "");
     record.full_address = toTrimmedString(canonicalValues.full_address, "");
     record.address_line_1 = toTrimmedString(canonicalValues.address_line_1, "");
     record.address_line_2 = toTrimmedString(canonicalValues.address_line_2, "");
@@ -312,11 +324,27 @@
     record.postal_code = toTrimmedString(canonicalValues.postal_code, "");
     record.region = toTrimmedString(canonicalValues.region, "");
     record.territory = toTrimmedString(canonicalValues.territory, "");
+    record.district = toTrimmedString(canonicalValues.district, "");
+    record.division = toTrimmedString(canonicalValues.division, "");
+    record.market = toTrimmedString(canonicalValues.market, "");
 
-    record.status = normalizeStatusValue(canonicalValues.status, defaults.status);
+    const sourceCompleted = normalizeBooleanLikeValue(canonicalValues.completed, defaults.completed);
+    const sourceClosed = normalizeBooleanLikeValue(canonicalValues.closed, defaults.closed);
+    const hasExplicitStatus = !isEmptyValue(canonicalValues.status);
+
+    if (sourceCompleted && sourceClosed) {
+      warnings.push({
+        code: "CONFLICTING_STATUS_FLAGS",
+        message: "Both completed and closed were true; completed takes precedence when no explicit status is supplied."
+      });
+    }
+
+    record.status = hasExplicitStatus
+      ? normalizeStatusValue(canonicalValues.status, defaults.status)
+      : (sourceCompleted ? "completed" : (sourceClosed ? "closed" : normalizeStatusValue(null, defaults.status)));
     record.status_reason = toTrimmedString(canonicalValues.status_reason, toTrimmedString(defaults.status_reason, ""));
-    record.completed = normalizeBooleanLikeValue(canonicalValues.completed, defaults.completed);
-    record.closed = normalizeBooleanLikeValue(canonicalValues.closed, defaults.closed);
+    record.completed = record.status === "completed";
+    record.closed = record.status === "closed";
 
     record.latitude = normalizeCoordinateValue(canonicalValues.latitude);
     record.longitude = normalizeCoordinateValue(canonicalValues.longitude);

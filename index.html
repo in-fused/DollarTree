@@ -364,8 +364,8 @@
             </div>
 
             <div id="authLoggedOut">
-              <input id="authEmail" type="email" placeholder="Email" />
-              <input id="authPassword" type="password" placeholder="Password" />
+              <input id="authEmail" type="email" placeholder="Email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" />
+              <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password" />
               <button id="signInBtn" class="btnComplete" type="button">Sign In</button>
               <button id="createAccountBtn" class="btnSecondary" type="button">Create Account</button>
             </div>
@@ -377,7 +377,7 @@
               <button id="signOutBtn" class="btnSecondary" type="button">Sign Out</button>
             </div>
 
-            <div id="authMessage" class="authMessage"></div>
+            <div id="authMessage" class="authMessage" role="status" aria-live="polite"></div>
 
             <div id="accountSettingsPanel" class="panel hidden accountSettingsPanel">
               <div class="panelHeaderRow">
@@ -1201,7 +1201,7 @@
 </div>
 
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.2/dist/umd/supabase.min.js" integrity="sha384-sgcvElP/LlNRtORGYFLO/9K/bENcpJK19HgvqslWXog6d8f/Va4TpltGiBlGntCM" crossorigin="anonymous"></script>
 <script src="js/state.js"></script>
 <script src="js/project-config.js"></script>
 <script src="js/helpers.js"></script>
@@ -1222,8 +1222,10 @@
 <script src="js/route-builder.js"></script>
 <script src="js/export-snapshot.js"></script>
 <script src="js/bootstrap.js"></script>
-<script src="js/import/ingestion-mapper.js"></script>
-<script src="js/import/ingestion-validator.js"></script>
+<script src="js/import/ingestion-schema.js"></script>
+<script src="js/import/ingestion-map.js"></script>
+<script src="js/import/ingestion-validate.js"></script>
+<script src="js/import/ingestion-normalize.js"></script>
 <script src="js/import/ingestion-stage.js"></script>
 <script src="js/import/ingestion-diagnostics.js"></script>
 <script src="js/import/import-apply.js"></script>

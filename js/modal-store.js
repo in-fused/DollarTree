@@ -653,7 +653,9 @@ function openStoreModal(storeId) {
 
   if (addNoteBtn) addNoteBtn.onclick = () => addNote(normalizedStoreId);
   if (addToRouteBtn) addToRouteBtn.onclick = () => addStoreToRoute(normalizedStoreId);
-  if (uploadPhotoBtn) uploadPhotoBtn.onclick = () => uploadPhoto(normalizedStoreId);
+  // Photo uploads are bound once in bindPhotoUI(); a second onclick handler
+  // here caused duplicate files and metadata rows from a single tap.
+  if (uploadPhotoBtn) uploadPhotoBtn.onclick = null;
   if (confirmCancel) {
     confirmCancel.onclick = async () => {
       await closeCurrentStoreModal();

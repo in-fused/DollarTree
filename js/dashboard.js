@@ -1691,15 +1691,17 @@ function renderIntelligenceDashboard() {
   }
 
   listEl.innerHTML = topStores.map(store => {
-    const severityClass = `severity-${store.severity || "low"}`;
-    const severityLabel = String(store.severity || "low").toUpperCase();
+    const severity = ["critical", "high", "medium", "low"].includes(store.severity) ? store.severity : "low";
+    const severityClass = `severity-${severity}`;
+    const severityLabel = escapeDashboardHtml(severity.toUpperCase());
     const score = Number.isFinite(store.attentionScore) ? store.attentionScore : 0;
-    const reason = buildAttentionReasonSummary(store);
+    const storeId = escapeDashboardHtml(store.storeId);
+    const reason = escapeDashboardHtml(buildAttentionReasonSummary(store));
 
     return `
       <div class="intelAttentionItem">
         <div class="intelAttentionItemTop">
-          <div class="intelAttentionStore">Store ${store.storeId}</div>
+          <div class="intelAttentionStore">Store ${storeId}</div>
           <div class="intelAttentionMeta">
             <span class="intelAttentionSeverity ${severityClass}">${severityLabel}</span>
             <span class="intelAttentionScore">${score}</span>
@@ -1730,15 +1732,17 @@ function renderIntelTopAttentionStores() {
   }
 
   listEl.innerHTML = topStores.map(store => {
-    const severityClass = `severity-${store.severity || "low"}`;
-    const severityLabel = String(store.severity || "low").toUpperCase();
+    const severity = ["critical", "high", "medium", "low"].includes(store.severity) ? store.severity : "low";
+    const severityClass = `severity-${severity}`;
+    const severityLabel = escapeDashboardHtml(severity.toUpperCase());
     const score = Number.isFinite(store.attentionScore) ? store.attentionScore : 0;
-    const reason = buildAttentionReasonSummary(store);
+    const storeId = escapeDashboardHtml(store.storeId);
+    const reason = escapeDashboardHtml(buildAttentionReasonSummary(store));
 
     return `
       <div class="intelAttentionItem">
         <div class="intelAttentionItemTop">
-          <div class="intelAttentionStore">Store ${store.storeId}</div>
+          <div class="intelAttentionStore">Store ${storeId}</div>
           <div class="intelAttentionMeta">
             <span class="intelAttentionSeverity ${severityClass}">${severityLabel}</span>
             <span class="intelAttentionScore">${score}</span>

@@ -19,7 +19,11 @@ const dataLayer = {
   _storePostalColumnCandidates: ["postal_code", "zip"],
 
   async getSession() {
-    return await supabaseClient.auth.getSession();
+    return await this.withSupabaseTimeout(
+      supabaseClient.auth.getSession(),
+      12000,
+      "Session check"
+    );
   },
 
   onAuthStateChange(callback) {
@@ -27,25 +31,65 @@ const dataLayer = {
   },
 
   async signIn(email, password) {
-    return await supabaseClient.auth.signInWithPassword({ email, password });
+    return await this.withSupabaseTimeout(
+      supabaseClient.auth.signInWithPassword({ email, password }),
+      15000,
+      "Sign-in"
+    );
   },
 
   async signUp(email, password) {
-    return await supabaseClient.auth.signUp({ email, password });
+    return await this.withSupabaseTimeout(
+      supabaseClient.auth.signUp({ email, password }),
+      15000,
+      "Account creation"
+    );
   },
 
   async signOut() {
-    return await supabaseClient.auth.signOut();
+    return await this.withSupabaseTimeout(
+      supabaseClient.auth.signOut(),
+      12000,
+      "Sign-out"
+    );
+  },
+
+  async getAuthSettings() {
+    const settingsRequest = fetch(`${SUPABASE_URL}/auth/v1/settings`, {
+      cache: "no-store",
+      headers: {
+        apikey: SUPABASE_KEY
+      }
+    }).then(async response => {
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (_) {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const error = new Error(payload?.msg || payload?.message || `Auth settings request failed (${response.status}).`);
+        error.status = response.status;
+        return { data: null, error };
+      }
+
+      return { data: payload, error: null };
+    });
+
+    return await this.withSupabaseTimeout(settingsRequest, 10000, "Auth settings check");
   },
 
   async getProfileRole(userId) {
-    const { data, error } = await supabaseClient
-      .from("profiles")
-      .select("role, email, display_name, phone")
-      .eq("user_id", userId)
-      .single();
-
-    return { data, error };
+    return await this.withSupabaseTimeout(
+      supabaseClient
+        .from("profiles")
+        .select("role, email, display_name, phone")
+        .eq("user_id", userId)
+        .single(),
+      10000,
+      "Profile lookup"
+    );
   },
 
   async upsertMyProfile({ displayName = "", phone = "" } = {}) {
@@ -58,10 +102,14 @@ const dataLayer = {
   },
 
   async loadProjectMembershipsForUser(userId) {
-    return await supabaseClient
-      .from("project_memberships")
-      .select("project_id, user_id, role, created_at")
-      .eq("user_id", userId);
+    return await this.withSupabaseTimeout(
+      supabaseClient
+        .from("project_memberships")
+        .select("project_id, user_id, role, created_at")
+        .eq("user_id", userId),
+      12000,
+      "Project access lookup"
+    );
   },
 
   normalizeProjectInviteStatus(row) {
@@ -267,7 +315,11 @@ const dataLayer = {
   },
 
   async loadPendingProjectInvitesForCurrentUser() {
-    const rpcResult = await supabaseClient.rpc("list_my_pending_project_invites");
+    const rpcResult = await this.withSupabaseTimeout(
+      supabaseClient.rpc("list_my_pending_project_invites"),
+      12000,
+      "Pending invite lookup"
+    );
 
     if (!rpcResult.error) {
       return {
@@ -277,7 +329,9 @@ const dataLayer = {
     }
 
     const fallbackEmail = String(currentUser?.email || "").trim().toLowerCase();
-    const fallbackPhone = normalizePhoneForStorage(currentProfile?.phone || "");
+    // Only a phone verified by Supabase Auth is an authorization identity.
+    // profiles.phone is user-editable and must never unlock an invite.
+    const fallbackPhone = normalizePhoneForStorage(currentUser?.phone || "");
     const fallbackRows = [];
     let fallbackError = null;
 
@@ -285,22 +339,30 @@ const dataLayer = {
       const scopedValue = String(value || "").trim();
       if (!scopedValue) return;
 
-      let result = await supabaseClient
-        .from("project_invites")
-        .select("*")
-        .eq(column, scopedValue)
-        .is("accepted_at", null)
-        .is("revoked_at", null)
-        .order("created_at", { ascending: false });
+      let result = await this.withSupabaseTimeout(
+        supabaseClient
+          .from("project_invites")
+          .select("*")
+          .eq(column, scopedValue)
+          .is("accepted_at", null)
+          .is("revoked_at", null)
+          .order("created_at", { ascending: false }),
+        10000,
+        "Invite identity lookup"
+      );
 
       if (result.error) {
         if (this.isMissingColumnError(result.error, column)) return;
         fallbackError = fallbackError || result.error;
-        result = await supabaseClient
-          .from("project_invites")
-          .select("*")
-          .eq(column, scopedValue)
-          .order("created_at", { ascending: false });
+        result = await this.withSupabaseTimeout(
+          supabaseClient
+            .from("project_invites")
+            .select("*")
+            .eq(column, scopedValue)
+            .order("created_at", { ascending: false }),
+          10000,
+          "Legacy invite identity lookup"
+        );
         if (result.error) {
           if (this.isMissingColumnError(result.error, column)) return;
           fallbackError = fallbackError || result.error;
@@ -313,10 +375,12 @@ const dataLayer = {
       }
     };
 
-    await loadRowsByTarget("target_email", fallbackEmail);
-    await loadRowsByTarget("email", fallbackEmail);
-    await loadRowsByTarget("target_phone", fallbackPhone);
-    await loadRowsByTarget("phone", fallbackPhone);
+    await Promise.all([
+      loadRowsByTarget("target_email", fallbackEmail),
+      loadRowsByTarget("email", fallbackEmail),
+      loadRowsByTarget("target_phone", fallbackPhone),
+      loadRowsByTarget("phone", fallbackPhone)
+    ]);
 
     const normalizedFallbackRows = this.normalizeProjectInviteRows(fallbackRows, { pendingOnly: true });
     return {
@@ -336,7 +400,7 @@ const dataLayer = {
       if (!v2Result.error) return v2Result;
       if (normalizedProjectId) {
         const fallbackResult = await supabaseClient.rpc("accept_project_invite", {
-          project_id: normalizedProjectId
+          target_project_id: normalizedProjectId
         });
         if (!fallbackResult.error) return fallbackResult;
         return {
@@ -355,7 +419,7 @@ const dataLayer = {
     }
 
     const result = await supabaseClient.rpc("accept_project_invite", {
-      project_id: normalizedProjectId
+      target_project_id: normalizedProjectId
     });
     if (!result.error) return result;
     return {

@@ -52,6 +52,7 @@ select:focus-visible {
 
 .shareApp {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 14px;
@@ -1334,6 +1335,7 @@ select:focus-visible {
 
 .shareErrorState {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 18px;
