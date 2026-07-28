@@ -1,0 +1,53 @@
+name: Supabase Keepalive
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/supabase-keepalive.yml
+  schedule:
+    # Three small database reads per day. GitHub cron schedules use UTC.
+    - cron: "17 1,9,17 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  query-database:
+    name: Query DollarTreeMap
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      # This is the same browser-safe URL and publishable key used by js/state.js.
+      # Never replace it with a service_role or other secret key.
+      SUPABASE_URL: https://dapjhrbfqtsgdlasuuam.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_7IQ3q8-lQbLw_bXb-zb8OQ_eQMocraT
+
+    steps:
+      - name: Perform a minimal read-only database query
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --retry 2 \
+            --retry-all-errors \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --get \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --data-urlencode "select=project_id" \
+            --data-urlencode "limit=1" \
+            "$SUPABASE_URL/rest/v1/projects" \
+            --output /dev/null
+
+          echo "DollarTreeMap responded successfully to a read-only database query."
