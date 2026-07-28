@@ -7,7 +7,7 @@ on:
     paths:
       - .github/workflows/supabase-keepalive.yml
   schedule:
-    # Three small database reads per day. GitHub cron schedules use UTC.
+    # Three small Data API requests per day. GitHub cron schedules use UTC.
     - cron: "17 1,9,17 * * *"
   workflow_dispatch:
 
@@ -19,8 +19,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  query-database:
-    name: Query DollarTreeMap
+  request-data-api:
+    name: Request DollarTreeMap Data API
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
@@ -30,7 +30,7 @@ jobs:
       SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhcGpocmJmcXRzZ2RsYXN1dWFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTkwMjUsImV4cCI6MjA4NjIzNTAyNX0.3UPkOPX233VYvDn-GSoMTPN4m861myr22kVegDcKkC8
 
     steps:
-      - name: Perform a minimal read-only database query
+      - name: Perform a minimal Data API request
         shell: bash
         run: |
           set -euo pipefail
@@ -43,12 +43,9 @@ jobs:
             --retry-all-errors \
             --connect-timeout 10 \
             --max-time 30 \
-            --get \
             --header "apikey: $SUPABASE_ANON_KEY" \
             --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            --data-urlencode "select=project_id" \
-            --data-urlencode "limit=1" \
-            "$SUPABASE_URL/rest/v1/projects" \
+            "$SUPABASE_URL/rest/v1/" \
             --output /dev/null
 
-          echo "DollarTreeMap responded successfully to a read-only database query."
+          echo "DollarTreeMap Data API responded successfully."
