@@ -24,10 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
-      # This is the same browser-safe URL and publishable key used by js/state.js.
-      # Never replace it with a service_role or other secret key.
+      # Browser-safe, low-privilege credentials only.
+      # Never replace this with a service_role or other secret key.
       SUPABASE_URL: https://dapjhrbfqtsgdlasuuam.supabase.co
-      SUPABASE_PUBLISHABLE_KEY: sb_publishable_7IQ3q8-lQbLw_bXb-zb8OQ_eQMocraT
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhcGpocmJmcXRzZ2RsYXN1dWFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTkwMjUsImV4cCI6MjA4NjIzNTAyNX0.3UPkOPX233VYvDn-GSoMTPN4m861myr22kVegDcKkC8
 
     steps:
       - name: Perform a minimal read-only database query
@@ -44,8 +44,8 @@ jobs:
             --connect-timeout 10 \
             --max-time 30 \
             --get \
-            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
-            --header "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
+            --header "apikey: $SUPABASE_ANON_KEY" \
+            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
             --data-urlencode "select=project_id" \
             --data-urlencode "limit=1" \
             "$SUPABASE_URL/rest/v1/projects" \
