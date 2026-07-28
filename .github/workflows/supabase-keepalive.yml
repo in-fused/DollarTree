@@ -7,7 +7,7 @@ on:
     paths:
       - .github/workflows/supabase-keepalive.yml
   schedule:
-    # Three small Data API requests per day. GitHub cron schedules use UTC.
+    # Three small project API requests per day. GitHub cron schedules use UTC.
     - cron: "17 1,9,17 * * *"
   workflow_dispatch:
 
@@ -19,18 +19,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  request-data-api:
-    name: Request DollarTreeMap Data API
+  request-project-api:
+    name: Request DollarTreeMap API
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
-      # Browser-safe, low-privilege credentials only.
-      # Never replace this with a service_role or other secret key.
+      # This is the same browser-safe publishable key used by js/state.js.
+      # Never replace it with a service_role or other secret key.
       SUPABASE_URL: https://dapjhrbfqtsgdlasuuam.supabase.co
-      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhcGpocmJmcXRzZ2RsYXN1dWFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTkwMjUsImV4cCI6MjA4NjIzNTAyNX0.3UPkOPX233VYvDn-GSoMTPN4m861myr22kVegDcKkC8
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_7IQ3q8-lQbLw_bXb-zb8OQ_eQMocraT
 
     steps:
-      - name: Perform a minimal Data API request
+      - name: Perform a minimal project API request
         shell: bash
         run: |
           set -euo pipefail
@@ -43,9 +43,8 @@ jobs:
             --retry-all-errors \
             --connect-timeout 10 \
             --max-time 30 \
-            --header "apikey: $SUPABASE_ANON_KEY" \
-            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            "$SUPABASE_URL/rest/v1/" \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            "$SUPABASE_URL/auth/v1/settings" \
             --output /dev/null
 
-          echo "DollarTreeMap Data API responded successfully."
+          echo "DollarTreeMap API responded successfully."
