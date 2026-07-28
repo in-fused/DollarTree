@@ -45,6 +45,7 @@ jobs:
             --max-time 30 \
             --get \
             --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
             --data-urlencode "select=project_id" \
             --data-urlencode "limit=1" \
             "$SUPABASE_URL/rest/v1/projects" \
