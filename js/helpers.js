@@ -209,15 +209,6 @@ function isToday(timestamp) {
   );
 }
 
-function formatEta(days) {
-  if (!Number.isFinite(days) || days <= 0) return "0 days";
-  if (days < 1) {
-    const hours = Math.max(1, Math.round(days * 24));
-    return `${hours}h`;
-  }
-  return `${days.toFixed(1)} days`;
-}
-
 function uniqueSortedValues(values) {
   return [...new Set(
     values
