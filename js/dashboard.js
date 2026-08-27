@@ -2,20 +2,6 @@
 
 const RECENT_ACTIVITY_WINDOW_DAYS = 14;
 
-function calculateAverageCompletedPerDay(events) {
-  const dated = events.filter(item => !!item.timestamp);
-  if (dated.length === 0) return 0;
-
-  const uniqueDays = new Set(
-    dated.map(item => {
-      const d = new Date(item.timestamp);
-      return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-    }).filter(Boolean)
-  );
-
-  return uniqueDays.size > 0 ? dated.length / uniqueDays.size : 0;
-}
-
 function formatPercent(value) {
   return `${Number.isFinite(value) ? value.toFixed(1) : '0.0'}%`;
 }
@@ -193,8 +179,6 @@ function getScopeMetrics() {
   );
 
   const completedToday = completedEvents.filter(item => isToday(item.timestamp)).length;
-  const avgPerDay = calculateAverageCompletedPerDay(completedEvents);
-  const etaDays = avgPerDay > 0 ? openWorkCount / avgPerDay : null;
   const filteredPhotoCount = photoRowsCache.filter(row => filteredIds.has(String(row.store_id))).length;
 
   const attentionNeededCount = stalledActiveCount + rescheduledNoReasonCount + rescheduledNoRecentFollowUpCount + integrityIssueCount;
@@ -211,8 +195,6 @@ function getScopeMetrics() {
     completionRate,
     actionableRate,
     completedToday,
-    avgPerDay,
-    etaDays,
     filteredPhotoCount,
     noteCoverageCount,
     photoCoverageCount,
@@ -263,8 +245,6 @@ function getProjectAnalyticsSnapshot() {
       rescheduledNoReasonCount: metrics.rescheduledNoReasonCount,
       rescheduledNoRecentFollowUpCount: metrics.rescheduledNoRecentFollowUpCount,
       completedToday: metrics.completedToday,
-      avgCompletedPerDay: Number(metrics.avgPerDay.toFixed(2)),
-      etaDays: metrics.etaDays !== null ? Number(metrics.etaDays.toFixed(2)) : null,
       attentionNeededCount: metrics.attentionNeededCount
     }
   };
@@ -303,9 +283,6 @@ function getWorkspaceProgressContext(metrics) {
   if (metrics.totalStores === 0) return "Awaiting project data";
   if (isTcgDashboardMode()) {
     return `${metrics.noteCoverageCount.toLocaleString()} stores with sightings - ${formatPercent(metrics.recentActivityCoverageRate)} recent activity - ${metrics.storesWithNoUpdates.toLocaleString()} never updated`;
-  }
-  if (metrics.avgPerDay > 0 && metrics.etaDays !== null) {
-    return `${metrics.avgPerDay.toFixed(1)}/day pace • ETA ${formatEta(metrics.etaDays)} • ${formatPercent(metrics.recentActivityCoverageRate)} recent follow-up coverage`;
   }
   return `${formatPercent(metrics.noteCoverageRate)} note coverage • ${formatPercent(metrics.photoCoverageRate)} photo coverage • ${metrics.attentionNeededCount.toLocaleString()} attention signals`;
 }
@@ -353,9 +330,7 @@ function updateHeaderDashboard() {
   setText("dashboardActiveStores", metrics.active.toLocaleString());
   setText("dashboardClosedStores", metrics.closed.toLocaleString());
   setText("dashboardStoresToday", metrics.completedToday.toLocaleString());
-  setText("dashboardAvgPerDay", metrics.avgPerDay > 0 ? metrics.avgPerDay.toFixed(1) : "—");
   setText("dashboardPhotoCount", metrics.filteredPhotoCount.toLocaleString());
-  setText("dashboardEta", metrics.etaDays !== null ? formatEta(metrics.etaDays) : "—");
   setText(
     "dashboardProgressLabel",
     isTcgMode
@@ -394,7 +369,6 @@ function updateIntelRail() {
   setText("intelVisibleStores", metrics.totalStores.toLocaleString());
   setText("intelCompletionRate", formatPercent(metrics.completionRate));
   setText("intelPhotoCount", metrics.filteredPhotoCount.toLocaleString());
-  setText("intelEtaValue", metrics.etaDays !== null ? formatEta(metrics.etaDays) : "—");
   setText("intelCompletedStores", metrics.completed.toLocaleString());
   setText("intelActiveStores", metrics.active.toLocaleString());
   setText("intelClosedStores", metrics.closed.toLocaleString());
