@@ -1789,12 +1789,6 @@ function getSnapshotAnalyticsMetrics(payload) {
     completedToday: Number.isFinite(Number(analyticsMetrics.completedToday))
       ? Number(analyticsMetrics.completedToday)
       : 0,
-    avgCompletedPerDay: Number.isFinite(Number(analyticsMetrics.avgCompletedPerDay))
-      ? Number(analyticsMetrics.avgCompletedPerDay)
-      : 0,
-    etaDays: Number.isFinite(Number(analyticsMetrics.etaDays))
-      ? Number(analyticsMetrics.etaDays)
-      : null,
     recentActivityCoverageRate: Number.isFinite(Number(analyticsMetrics.recentActivityCoverageRate))
       ? Number(analyticsMetrics.recentActivityCoverageRate)
       : metrics.activityCoverageRate
@@ -1807,8 +1801,7 @@ function buildExecutiveSummaryCards(metrics, analyticsMetrics) {
     { label: "Completed", value: metrics.completed.toLocaleString(), note: `${metrics.completionRate.toFixed(1)}% complete` },
     { label: "Active/Open", value: analyticsMetrics.openWorkCount.toLocaleString(), note: "Remaining field work" },
     { label: "Rescheduled", value: metrics.rescheduled.toLocaleString(), note: "Follow-up queue" },
-    { label: "Closed", value: metrics.closed.toLocaleString(), note: "Out of active scope" },
-    { label: "ETA", value: analyticsMetrics.etaDays !== null ? formatEta(analyticsMetrics.etaDays) : "Not available", note: analyticsMetrics.avgCompletedPerDay > 0 ? `${analyticsMetrics.avgCompletedPerDay.toFixed(1)} / day` : "Pace unavailable" }
+    { label: "Closed", value: metrics.closed.toLocaleString(), note: "Out of active scope" }
   ];
 
   return cards.map(card => `
@@ -2192,7 +2185,7 @@ function buildExecutiveSnapshotHtml(payload) {
     font-weight: 800;
     white-space: nowrap;
   }
-  .execMetricGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; }
+  .execMetricGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; }
   .execMetricValue { margin-top: 7px; font-size: 28px; font-weight: 900; line-height: 1; }
   .execMetricNote { margin-top: 7px; }
   .doneLeftGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
@@ -2487,7 +2480,7 @@ function buildExecutiveSnapshotHtml(payload) {
       font-size: 7.5pt;
     }
     .execMetricGrid {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 0.06in;
     }
     .execMetricValue {
@@ -2916,9 +2909,9 @@ function slugifyExportName(value) {
     .replace(/-{2,}/g, "-") || "export";
 }
 
-const ANALYTICS_EXPORT_SCHEMA_VERSION = "11.1k-bundled";
+const ANALYTICS_EXPORT_SCHEMA_VERSION = "11.1l-bundled";
 const ANALYTICS_CSV_HEADERS = [
-  "rowType", "projectId", "projectName", "generatedAt", "scopeLabel", "scopeDescription", "totalStores", "active", "rescheduled", "completed", "closed", "openWorkCount", "completionRate", "actionableRate", "noteCoverageRate", "photoCoverageRate", "activityCoverageRate", "recentActivityCoverageRate", "integrityIssueCount", "integrityIssueRate", "storesWithNoUpdates", "storesWithNotesNoPhotos", "storesWithPhotosNoNotes", "stalledActiveCount", "rescheduledNoReasonCount", "rescheduledNoRecentFollowUpCount", "completedToday", "avgCompletedPerDay", "etaDays", "attentionNeededCount", "snapshotNotes", "snapshotPhotos", "storesWithNotes", "storesWithPhotos", "storesWithRecentActivity", "actionableTotal", "storeId", "address", "statusCode", "statusLabel", "rescheduleReason", "noteCount", "photoCount", "hasNotes", "hasPhotos", "hasActivity", "activityLabel", "activitySummary", "activityTimestampValue"
+  "rowType", "projectId", "projectName", "generatedAt", "scopeLabel", "scopeDescription", "totalStores", "active", "rescheduled", "completed", "closed", "openWorkCount", "completionRate", "actionableRate", "noteCoverageRate", "photoCoverageRate", "activityCoverageRate", "recentActivityCoverageRate", "integrityIssueCount", "integrityIssueRate", "storesWithNoUpdates", "storesWithNotesNoPhotos", "storesWithPhotosNoNotes", "stalledActiveCount", "rescheduledNoReasonCount", "rescheduledNoRecentFollowUpCount", "completedToday", "attentionNeededCount", "snapshotNotes", "snapshotPhotos", "storesWithNotes", "storesWithPhotos", "storesWithRecentActivity", "actionableTotal", "storeId", "address", "statusCode", "statusLabel", "rescheduleReason", "noteCount", "photoCount", "hasNotes", "hasPhotos", "hasActivity", "activityLabel", "activitySummary", "activityTimestampValue"
 ];
 
 function buildAnalyticsExportPayload() {
@@ -3175,8 +3168,6 @@ function buildAnalyticsCsvRows(payload) {
     rescheduledNoReasonCount: normalizeAnalyticsExportValue(metrics.rescheduledNoReasonCount),
     rescheduledNoRecentFollowUpCount: normalizeAnalyticsExportValue(metrics.rescheduledNoRecentFollowUpCount),
     completedToday: normalizeAnalyticsExportValue(metrics.completedToday),
-    avgCompletedPerDay: normalizeAnalyticsExportValue(metrics.avgCompletedPerDay),
-    etaDays: normalizeAnalyticsExportValue(metrics.etaDays),
     attentionNeededCount: normalizeAnalyticsExportValue(metrics.attentionNeededCount),
     snapshotNotes: normalizeAnalyticsExportValue(snapshotMetrics.notes),
     snapshotPhotos: normalizeAnalyticsExportValue(snapshotMetrics.photos),
