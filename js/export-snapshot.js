@@ -2185,7 +2185,7 @@ function buildExecutiveSnapshotHtml(payload) {
     font-weight: 800;
     white-space: nowrap;
   }
-  .execMetricGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; }
+  .execMetricGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; }
   .execMetricValue { margin-top: 7px; font-size: 28px; font-weight: 900; line-height: 1; }
   .execMetricNote { margin-top: 7px; }
   .doneLeftGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
@@ -2480,7 +2480,7 @@ function buildExecutiveSnapshotHtml(payload) {
       font-size: 7.5pt;
     }
     .execMetricGrid {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 0.06in;
     }
     .execMetricValue {
